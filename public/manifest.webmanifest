@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "Animal Mall",
+  "short_name": "Animal Mall",
+  "description": "Run a cozy animal fruit shop: grow trees, harvest fruit, stock shelves and serve your neighbors.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7ddba",
+  "theme_color": "#f7ddba",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "animal-mall",
+  "order": 100,
+  "title": {
+    "zh": "动物小商店",
+    "en": "Animal Mall"
+  },
+  "description": {
+    "zh": "经营一家温馨的动物水果店：种果树、收水果、补货架、收银，慢慢把它做大。",
+    "en": "Run a cozy animal fruit shop: grow trees, harvest fruit, stock shelves and serve your neighbors."
+  },
+  "themeColor": "#f7ddba",
+  "tags": ["casual", "management", "cute"]
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Animal Mall</title>
+  <rect width="64" height="64" rx="16" fill="#f7ddba" />
+  <path
+    d="M32 23c-4-4-12-3-14 4-2 8 3 20 8 21 2 0 4-2 6-2s4 2 6 2c5-1 10-13 8-21-2-7-10-8-14-4Z"
+    fill="#f28b5b"
+  />
+  <path d="M32 23c0-5 2-8 6-10" fill="none" stroke="#8f5734" stroke-linecap="round" stroke-width="3" />
+  <path d="M35 16c4-4 9-4 12-2-2 4-7 6-12 2Z" fill="#5fbf9f" />
+  <ellipse cx="25" cy="29" rx="4" ry="6" fill="#ffffff" opacity="0.28" />
+</svg>
