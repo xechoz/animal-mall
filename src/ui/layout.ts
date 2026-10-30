@@ -23,9 +23,10 @@ export interface GameLayout {
   readonly panelHeight: number
 }
 
-const ROOM_UNITS = 640
-const TOP_GAP = 72
-const BUTTON_SIZE = 54
+const ROOM_UNITS_W = 680
+const ROOM_UNITS_H = 1200
+const TOP_GAP = 78
+const BUTTON_SIZE = 64
 
 export function computeGameLayout(
   width: number,
@@ -36,19 +37,22 @@ export function computeGameLayout(
   const safeWidth = width - insets.left - insets.right
   const top = insets.top + TOP_GAP
   const availableHeight = Math.max(240, height - top - insets.bottom - 12)
-  const roomSize = Math.max(240, Math.min(ROOM_UNITS, safeWidth - 24, availableHeight))
+  const scale = Math.max(
+    0.2,
+    Math.min((safeWidth - 24) / ROOM_UNITS_W, availableHeight / ROOM_UNITS_H),
+  )
   const room: Rect = {
-    x: insets.left + (safeWidth - roomSize) / 2,
-    y: top + (availableHeight - roomSize) / 2,
-    w: roomSize,
-    h: roomSize,
+    x: insets.left + (safeWidth - ROOM_UNITS_W * scale) / 2,
+    y: top + (availableHeight - ROOM_UNITS_H * scale) / 2,
+    w: ROOM_UNITS_W * scale,
+    h: ROOM_UNITS_H * scale,
   }
 
   const bar: Rect = {
     x: insets.left + 12,
     y: insets.top + 8,
     w: Math.max(240, safeWidth - 24),
-    h: 52,
+    h: 60,
   }
   const centerY = bar.y + bar.h / 2
   const shopX = bar.x + bar.w - BUTTON_SIZE * 1.55
@@ -60,18 +64,18 @@ export function computeGameLayout(
     portrait,
     insets,
     room,
-    worldScale: roomSize / ROOM_UNITS,
+    worldScale: scale,
     hud: {
       bar,
       coins: { x: bar.x + 58, y: centerY },
       goal: { x: insets.left + safeWidth / 2, y: centerY },
-      goalWidth: Math.min(300, Math.max(160, safeWidth * 0.34)),
+      goalWidth: Math.min(220, Math.max(120, safeWidth * 0.3)),
       shop: { x: shopX, y: centerY },
       pause: { x: pauseX, y: centerY },
       buttonSize: BUTTON_SIZE,
     },
-    panelWidth: Math.min(720, width - 28),
-    panelHeight: Math.min(650, height - 28),
+    panelWidth: Math.min(720, width - 24),
+    panelHeight: Math.min(1180, height - 20),
   }
 }
 

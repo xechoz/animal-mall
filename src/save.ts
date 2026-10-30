@@ -13,5 +13,5 @@ export function progressSave(services: GameServices = getServices()): SaveStore<
 }
 
 export function hasProgress(save: SaveData): boolean {
-  return save.trees.length > 0 || save.totalEarned > 0 || save.served > 0
+  return save.producers.length > 0 || save.totalEarned > 0 || save.served > 0
 }

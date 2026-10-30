@@ -1,21 +1,22 @@
 import { distanceSq } from './collision'
-import { PLOT_ACCESS, SHELF_ACCESS, STAFF } from './config'
+import { producerAccess, SHELF_ACCESS, STAFF, zoneOf } from './config'
 import { findPath } from './nav'
+import { addStock, binReady, collectFromProducer } from './production'
 import type {
-  FruitKind,
   GameEvent,
+  ProducerState,
   ShelfState,
   ShopState,
   StaffKind,
   StaffState,
   StepResult,
-  TreeState,
   Vec2,
+  ZoneId,
 } from './types'
 
 interface StaffContext {
-  trees: readonly TreeState[]
-  shelves: Readonly<Record<FruitKind, ShelfState>>
+  producers: readonly ProducerState[]
+  shelves: Record<ZoneId, ShelfState>
   events: GameEvent[]
 }
 
@@ -55,8 +56,8 @@ export function syncStaffMembers(
 
 export function stepStaff(state: ShopState, dtMs: number): StepResult {
   const ctx: StaffContext = {
-    trees: state.trees,
-    shelves: state.shelves,
+    producers: state.producers,
+    shelves: { ...state.shelves },
     events: [],
   }
   const members = syncStaffMembers(state.staffMembers, state.staff)
@@ -69,7 +70,7 @@ export function stepStaff(state: ShopState, dtMs: number): StepResult {
   return {
     state: {
       ...state,
-      trees: ctx.trees,
+      producers: ctx.producers,
       shelves: ctx.shelves,
       staffMembers: nextMembers,
     },
@@ -92,7 +93,7 @@ function createStaffMember(kind: StaffKind, index: number): StaffState {
     path: [],
     pathIndex: 0,
     phase: kind === 'cashier' ? 'cashier' : 'idle',
-    targetTreeId: null,
+    targetProducerId: null,
     targetShelf: null,
     carry: null,
     carryCount: 0,
@@ -122,7 +123,7 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number): StaffS
     waitMs: Math.max(0, member.waitMs - dtMs),
   }
 
-  if (next.phase === 'toTree' || next.phase === 'toShelf') {
+  if (next.phase === 'toProducer' || next.phase === 'toShelf') {
     const moved = advanceStaff(next, dtMs)
     next = moved.member
     if (moved.arrived) {
@@ -132,8 +133,7 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number): StaffS
   }
 
   if (next.phase === 'harvest') {
-    if (next.timerMs > 0) return next
-    return finishHarvest(next, ctx)
+    return { ...next, phase: 'idle', targetProducerId: null, waitMs: 240 }
   }
 
   if (next.phase === 'stock') {
@@ -144,31 +144,40 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number): StaffS
   if (next.waitMs > 0) return next
 
   if (next.carry !== null && next.carryCount > 0) {
-    const shelf = ctx.shelves[next.carry]
-    if (!shelf.active) {
+    const shelf = ctx.shelves[zoneOf(next.carry)]
+    if (!binReady(ctx.shelves, next.carry)) {
       return { ...next, carry: null, carryCount: 0, phase: 'idle', waitMs: 300 }
     }
-    if (shelf.stock < shelf.capacity) return startToShelf(next)
+    if (shelf.stock[next.carry] < shelf.capacity) return startToShelf(next)
     return { ...next, waitMs: 500 }
   }
 
-  const tree = pickTree(ctx.trees, ctx.shelves, next.pos)
-  if (tree === null) return { ...next, waitMs: 500 }
-  return startToTree(next, tree)
+  const producer = pickProducer(ctx.producers, ctx.shelves, next.pos)
+  if (producer === null) return { ...next, waitMs: 500 }
+  return startToProducer(next, producer)
 }
 
 function arrivedAtTarget(member: StaffState, ctx: StaffContext): StaffState {
-  if (member.phase === 'toTree') {
-    const tree = ctx.trees.find((candidate) => candidate.id === member.targetTreeId)
-    if (tree === undefined || !tree.mature || tree.fruit <= 0) {
-      return { ...member, phase: 'idle', targetTreeId: null, waitMs: 240 }
+  if (member.phase === 'toProducer') {
+    const producer = ctx.producers.find((candidate) => candidate.id === member.targetProducerId)
+    if (producer === undefined || producer.ready <= 0) {
+      return { ...member, phase: 'idle', targetProducerId: null, waitMs: 240 }
     }
-    return {
+    ctx.events.push({ type: 'staffHarvest', staffId: member.id, product: producer.product })
+    ctx.producers = collectFromProducer(ctx.producers, producer.id)
+    const carryCount = member.carryCount + 1
+    const next: StaffState = {
       ...member,
-      phase: 'harvest',
-      timerMs: STAFF.picker.harvestMs,
+      phase: 'idle',
+      targetProducerId: null,
+      carry: producer.product,
+      carryCount,
       moving: false,
     }
+    if (carryCount >= STAFF.picker.carry) return startToShelf(next)
+    const more = pickProducer(ctx.producers, ctx.shelves, next.pos)
+    if (more === null) return startToShelf(next)
+    return startToProducer(next, more)
   }
 
   if (member.phase === 'toShelf') {
@@ -186,53 +195,22 @@ function arrivedAtTarget(member: StaffState, ctx: StaffContext): StaffState {
   return member
 }
 
-function finishHarvest(member: StaffState, ctx: StaffContext): StaffState {
-  const tree = ctx.trees.find((candidate) => candidate.id === member.targetTreeId)
-  if (tree === undefined || !tree.mature || tree.fruit <= 0) {
-    return { ...member, phase: 'idle', targetTreeId: null, waitMs: 240 }
-  }
-
-  ctx.trees = ctx.trees.map((candidate) =>
-    candidate.id === tree.id ? { ...candidate, fruit: candidate.fruit - 1 } : candidate,
-  )
-  ctx.events.push({ type: 'staffHarvest', staffId: member.id, kind: tree.kind })
-
-  const carryCount = member.carryCount + 1
-  const next: StaffState = {
-    ...member,
-    phase: 'idle',
-    targetTreeId: null,
-    carry: tree.kind,
-    carryCount,
-    timerMs: 0,
-  }
-
-  if (carryCount >= STAFF.picker.carry) return startToShelf(next)
-
-  const more = pickTree(ctx.trees, ctx.shelves, next.pos)
-  if (more === null) return startToShelf(next)
-  return next
-}
-
 function finishStock(member: StaffState, ctx: StaffContext): StaffState {
-  const kind = member.carry
-  if (kind === null || member.carryCount <= 0) {
+  const product = member.carry
+  if (product === null || member.carryCount <= 0) {
     return { ...member, phase: 'idle', targetShelf: null, waitMs: 240 }
   }
 
-  const shelf = ctx.shelves[kind]
-  if (!shelf.active) {
+  const shelf = ctx.shelves[zoneOf(product)]
+  if (!binReady(ctx.shelves, product)) {
     return { ...member, phase: 'idle', carry: null, carryCount: 0, waitMs: 300 }
   }
-  if (shelf.stock >= shelf.capacity) {
+  if (shelf.stock[product] >= shelf.capacity) {
     return { ...member, phase: 'idle', waitMs: 500 }
   }
 
-  ctx.shelves = {
-    ...ctx.shelves,
-    [kind]: { ...shelf, stock: shelf.stock + 1, everStocked: true },
-  }
-  ctx.events.push({ type: 'staffStock', staffId: member.id, kind })
+  ctx.shelves = addStock(ctx.shelves, product, 1)
+  ctx.events.push({ type: 'staffStock', staffId: member.id, product })
 
   const carryCount = member.carryCount - 1
   if (carryCount > 0) {
@@ -255,47 +233,48 @@ function finishStock(member: StaffState, ctx: StaffContext): StaffState {
   }
 }
 
-function startToTree(member: StaffState, tree: TreeState): StaffState {
-  const goal = PLOT_ACCESS[tree.plot] ?? tree.pos
-  const path = pathTo(member.pos, goal)
+function startToProducer(member: StaffState, producer: ProducerState): StaffState {
   return {
     ...member,
-    phase: 'toTree',
-    targetTreeId: tree.id,
+    phase: 'toProducer',
+    targetProducerId: producer.id,
     targetShelf: null,
-    path,
+    path: pathTo(member.pos, producerAccess(producer.product, producer.slot)),
     pathIndex: 0,
   }
 }
 
 function startToShelf(member: StaffState): StaffState {
-  const kind = member.carry
-  if (kind === null) return { ...member, phase: 'idle', waitMs: 240 }
+  const product = member.carry
+  if (product === null) return { ...member, phase: 'idle', waitMs: 240 }
+  const zone = zoneOf(product)
   return {
     ...member,
     phase: 'toShelf',
-    targetShelf: kind,
-    targetTreeId: null,
-    path: pathTo(member.pos, SHELF_ACCESS[kind]),
+    targetShelf: zone,
+    targetProducerId: null,
+    path: pathTo(member.pos, SHELF_ACCESS[zone]),
     pathIndex: 0,
   }
 }
 
-function pickTree(
-  trees: readonly TreeState[],
-  shelves: Readonly<Record<FruitKind, ShelfState>>,
+function pickProducer(
+  producers: readonly ProducerState[],
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
   pos: Vec2,
-): TreeState | null {
-  let best: TreeState | null = null
+): ProducerState | null {
+  let best: ProducerState | null = null
   let bestDistance = Number.POSITIVE_INFINITY
-  for (const tree of trees) {
-    if (!tree.mature || tree.fruit <= 0) continue
-    const shelf = shelves[tree.kind]
-    if (!shelf.active || shelf.stock >= shelf.capacity) continue
-    const distanceToTree = distanceSq(pos, tree.pos)
-    if (distanceToTree < bestDistance) {
-      best = tree
-      bestDistance = distanceToTree
+  for (const producer of producers) {
+    if (producer.kind === 'station') continue
+    if (producer.ready <= 0) continue
+    if (!binReady(shelves, producer.product)) continue
+    const shelf = shelves[zoneOf(producer.product)]
+    if (shelf.stock[producer.product] >= shelf.capacity) continue
+    const distanceToProducer = distanceSq(pos, producer.pos)
+    if (distanceToProducer < bestDistance) {
+      best = producer
+      bestDistance = distanceToProducer
     }
   }
   return best

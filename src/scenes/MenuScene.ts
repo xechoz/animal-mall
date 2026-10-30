@@ -9,6 +9,7 @@ import {
 import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
+import { ZONE_ORDER } from '../logic/config'
 import { hasProgress, progressSave } from '../save'
 import { createAnimalTextures, playerTextureKey } from '../ui/animalArt'
 import { createFruitTextures, fruitTextureKey } from '../ui/fruitArt'
@@ -92,7 +93,7 @@ export class MenuScene extends Phaser.Scene {
         startY + 78,
         i18n.t('menu.stats', {
           coins: save.coins,
-          trees: save.trees.length,
+          zones: ZONE_ORDER.filter((zone) => save.zones[zone]).length,
           served: save.served,
         }),
         textStyle(theme, 15, theme.textMuted, true),

@@ -1,14 +1,30 @@
 import {
+  ANIMAL_PENS,
   FRUIT_ORDER,
-  FRUITS,
-  PLOTS,
+  isAnimalProductKind,
+  isFruitKind,
+  isPlantKind,
+  isProcessedKind,
+  isProductKind,
+  PLANTS,
   STAFF,
   STAFF_ORDER,
   STARTING_COINS,
+  STATION_SLOTS,
   UPGRADE_ORDER,
   UPGRADES,
+  ZONE_ORDER,
 } from './config'
-import type { FruitKind, SaveData, SaveTree, StaffKind, UpgradeKind } from './types'
+import type {
+  PlantKind,
+  ProductKind,
+  SaveData,
+  SaveProducer,
+  StaffKind,
+  UpgradeKind,
+  ZoneId,
+  ZoneUnlocks,
+} from './types'
 
 export function initialSave(): SaveData {
   return {
@@ -16,7 +32,8 @@ export function initialSave(): SaveData {
     totalEarned: 0,
     served: 0,
     pendingCoins: 0,
-    trees: [],
+    producers: [],
+    zones: zeroZones(),
     upgrades: zeroUpgrades(),
     staff: zeroStaff(),
     deposits: {},
@@ -31,8 +48,11 @@ export function zeroStaff(): Record<StaffKind, number> {
   return Object.fromEntries(STAFF_ORDER.map((kind) => [kind, 0])) as Record<StaffKind, number>
 }
 
-export function isFruitKind(value: unknown): value is FruitKind {
-  return typeof value === 'string' && (FRUIT_ORDER as readonly string[]).includes(value)
+export function zeroZones(): Record<ZoneId, boolean> {
+  return Object.fromEntries(ZONE_ORDER.map((zone) => [zone, zone === 'fruit'])) as Record<
+    ZoneId,
+    boolean
+  >
 }
 
 export function isStaffKind(value: unknown): value is StaffKind {
@@ -42,21 +62,22 @@ export function isStaffKind(value: unknown): value is StaffKind {
 export function migrateSave(data: unknown): SaveData {
   if (typeof data !== 'object' || data === null) return initialSave()
   const record = data as Record<string, unknown>
-  const usedPlots = new Set<number>()
-  const trees: SaveTree[] = []
+  const producers = parseProducers(record)
+  const served = nonNegativeNumber(record.served, 0)
 
-  if (Array.isArray(record.trees)) {
-    for (const entry of record.trees) {
-      if (typeof entry !== 'object' || entry === null) continue
-      const tree = entry as Record<string, unknown>
-      const kind = tree.kind
-      const plot = tree.plot
-      if (!isFruitKind(kind)) continue
-      if (typeof plot !== 'number' || !Number.isInteger(plot) || plot < 0 || plot > 3) continue
-      if (usedPlots.has(plot)) continue
-      usedPlots.add(plot)
-      trees.push({ kind, plot })
+  const zones = zeroZones()
+  if (typeof record.zones === 'object' && record.zones !== null) {
+    const source = record.zones as Record<string, unknown>
+    for (const zone of ZONE_ORDER) {
+      if (source[zone] === false) zones[zone] = false
+      if (source[zone] === true) zones[zone] = true
     }
+  }
+  zones.fruit = true
+  if (served > 0) zones.veg = true
+  for (const producer of producers) {
+    const zone = producerZone(producer.product)
+    if (zone !== null) zones[zone] = true
   }
 
   const upgrades = zeroUpgrades()
@@ -83,7 +104,7 @@ export function migrateSave(data: unknown): SaveData {
 
   let coins = nonNegativeNumber(record.coins, STARTING_COINS)
   const deposits: Record<string, number> = {}
-  let treeDeposit: FruitKind | null = null
+  let plantDepositSeen = false
 
   if (typeof record.deposits === 'object' && record.deposits !== null) {
     const source = record.deposits as Record<string, unknown>
@@ -93,17 +114,24 @@ export function migrateSave(data: unknown): SaveData {
 
       if (key.startsWith('tree:')) {
         const kind = key.slice(5)
-        if (!isFruitKind(kind)) {
+        if (!isPlantKind(kind) || plantDepositSeen) {
           coins += amount
           continue
         }
-        if (treeDeposit !== null) {
+        plantDepositSeen = true
+        const plantKey = `plant:${kind}`
+        deposits[plantKey] = Math.min(amount, PLANTS[kind].cost)
+        continue
+      }
+
+      if (key.startsWith('plant:')) {
+        const kind = key.slice(6)
+        if (!isPlantKind(kind) || plantDepositSeen) {
           coins += amount
           continue
         }
-        const cost = FRUITS[kind].cost
-        treeDeposit = kind
-        deposits[key] = Math.min(amount, cost)
+        plantDepositSeen = true
+        deposits[key] = Math.min(amount, PLANTS[kind].cost)
         continue
       }
 
@@ -126,31 +154,89 @@ export function migrateSave(data: unknown): SaveData {
     }
   }
 
-  // Deposits are non-refundable during play, but a partially paid commitment
-  // must never strand the player when there is no way to finish it.
-  if (trees.length === 0) {
+  // A partially paid plant commitment must never strand the player when
+  // there is no producer generating income yet.
+  if (producers.length === 0) {
     for (const amount of Object.values(deposits)) coins += amount
     for (const key of Object.keys(deposits)) delete deposits[key]
-    const cheapest = Math.min(...FRUIT_ORDER.map((kind) => FRUITS[kind].cost))
+    const cheapest = Math.min(...FRUIT_ORDER.map((kind) => PLANTS[kind].cost))
     if (coins < cheapest) coins = cheapest
-  } else if (trees.length >= PLOTS.length) {
-    for (const [key, amount] of Object.entries(deposits)) {
-      if (!key.startsWith('tree:')) continue
-      coins += amount
-      delete deposits[key]
-    }
   }
 
   return {
     coins,
     totalEarned: nonNegativeNumber(record.totalEarned, 0),
-    served: nonNegativeNumber(record.served, 0),
+    served,
     pendingCoins: nonNegativeNumber(record.pendingCoins, 0),
-    trees,
+    producers,
+    zones,
     upgrades,
     staff,
     deposits,
   }
+}
+
+function parseProducers(record: Record<string, unknown>): SaveProducer[] {
+  const producers: SaveProducer[] = []
+  const usedSlots = new Set<string>()
+  const usedAnimals = new Set<ProductKind>()
+  const usedStations = new Set<ProductKind>()
+
+  const add = (product: unknown, rawSlot: unknown): void => {
+    if (!isProductKind(product)) return
+    const slot = normalizeSlot(product, rawSlot)
+    if (slot === null) return
+    if (isPlantKind(product)) {
+      const key = `${producerZone(product) ?? 'fruit'}:${slot}`
+      if (usedSlots.has(key)) return
+      usedSlots.add(key)
+    } else if (isAnimalProductKind(product)) {
+      if (usedAnimals.has(product)) return
+      usedAnimals.add(product)
+    } else if (isProcessedKind(product)) {
+      if (usedStations.has(product)) return
+      usedStations.add(product)
+    }
+    producers.push({ product, slot })
+  }
+
+  if (Array.isArray(record.producers)) {
+    for (const entry of record.producers) {
+      if (typeof entry !== 'object' || entry === null) continue
+      const producer = entry as Record<string, unknown>
+      add(producer.product, producer.slot)
+    }
+  }
+
+  // Version 2 and earlier stored only fruit trees.
+  if (Array.isArray(record.trees)) {
+    for (const entry of record.trees) {
+      if (typeof entry !== 'object' || entry === null) continue
+      const tree = entry as Record<string, unknown>
+      add(tree.kind, tree.plot)
+    }
+  }
+
+  return producers
+}
+
+function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {
+  if (isPlantKind(product)) {
+    if (typeof rawSlot !== 'number' || !Number.isInteger(rawSlot) || rawSlot < 0 || rawSlot > 3) {
+      return null
+    }
+    return rawSlot
+  }
+  if (isAnimalProductKind(product)) return ANIMAL_PENS[product].index
+  if (isProcessedKind(product)) return STATION_SLOTS[product].index
+  return null
+}
+
+function producerZone(product: ProductKind): ZoneId | null {
+  if (isPlantKind(product)) return isFruitKind(product) ? 'fruit' : 'veg'
+  if (isAnimalProductKind(product)) return 'farm'
+  if (isProcessedKind(product)) return 'kitchen'
+  return null
 }
 
 function nonNegativeNumber(value: unknown, fallback: number): number {
@@ -158,3 +244,5 @@ function nonNegativeNumber(value: unknown, fallback: number): number {
     ? Math.floor(value)
     : fallback
 }
+
+export type { PlantKind, SaveData, ZoneUnlocks }

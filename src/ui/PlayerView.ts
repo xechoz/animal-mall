@@ -2,7 +2,7 @@ import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { PlayerState } from '../logic/types'
 import { playerTextureKey } from './animalArt'
-import { fruitTextureKey } from './fruitArt'
+import { productTextureKey } from './productArt'
 
 export class PlayerView extends Phaser.GameObjects.Container {
   private readonly bodyImage: Phaser.GameObjects.Image
@@ -25,7 +25,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
 
     for (let index = 0; index < 5; index += 1) {
       const icon = scene.add
-        .image(0, -80 - index * 15, fruitTextureKey('apple'))
+        .image(0, -80 - index * 15, productTextureKey('apple'))
         .setScale(0.46)
         .setVisible(false)
       this.carrying.push(icon)
@@ -56,7 +56,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
       this.carrying.forEach((icon, index) => {
         const visible = player.carry !== null && index < Math.min(5, player.carryCount)
         icon.setVisible(visible)
-        if (visible && player.carry !== null) icon.setTexture(fruitTextureKey(player.carry))
+        if (visible && player.carry !== null) icon.setTexture(productTextureKey(player.carry))
       })
       const overflow = player.carryCount > 5
       this.carryCount

@@ -1,7 +1,7 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
-import { COUNTER_RECT, PLOTS, REGISTER_POINT, STAFF } from './config'
-import { purchaseStaff, purchaseTree, purchaseTreeAt, removeTree, treeDepositKey } from './purchase'
+import { ANIMAL_ACCESS, COUNTER_RECT, PLOTS, REGISTER_POINT, STAFF } from './config'
+import { plantDepositKey, purchasePlant, purchaseStaff, removeProducer } from './purchase'
 import { initialSave } from './saveData'
 import { createShopState, inRegisterZone, stepShop } from './state'
 import type { GameEvent, ShopState, Vec2 } from './types'
@@ -29,7 +29,7 @@ function simulate(
 }
 
 function appleSave(coins: number) {
-  return { ...initialSave(), coins, trees: [{ kind: 'apple' as const, plot: 0 }] }
+  return { ...initialSave(), coins, producers: [{ product: 'apple' as const, slot: 0 }] }
 }
 
 describe('register proximity', () => {
@@ -45,13 +45,13 @@ describe('register proximity', () => {
 })
 
 describe('quick buy', () => {
-  it('opens the fruit chooser after standing at an empty plot', () => {
+  it('opens the plant chooser after standing at an empty plot', () => {
     let state = createShopState(initialSave())
     const plot = PLOTS[0] as Vec2
     state = withPlayer(state, { x: plot.x, y: plot.y + 40 })
     const result = simulate(state, 20)
-    expect(result.events.some((event) => event.type === 'quickBuyReady')).toBe(true)
-    expect(result.state.trees).toHaveLength(0)
+    expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(true)
+    expect(result.state.producers).toHaveLength(0)
   })
 
   it('does not open while the player keeps moving', () => {
@@ -59,12 +59,12 @@ describe('quick buy', () => {
     const plot = PLOTS[0] as Vec2
     state = withPlayer(state, { x: plot.x, y: plot.y + 40 })
     const result = simulate(state, 20, { input: { moveX: 0.2, moveY: 0 } })
-    expect(result.events.some((event) => event.type === 'quickBuyReady')).toBe(false)
+    expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(false)
   })
 
-  it('never lets the opening fund be trapped in an unaffordable fruit', () => {
+  it('never lets the opening fund be trapped in an unaffordable plant', () => {
     const state = createShopState(initialSave())
-    const pear = purchaseTreeAt(state, 'pear', 0, true)
+    const pear = purchasePlant(state, 'pear')
     expect(pear.result).toBe('insufficient')
     expect(pear.state.coins).toBe(100)
     expect(pear.state.deposits).toEqual({})
@@ -72,34 +72,41 @@ describe('quick buy', () => {
 
   it('deposits all coins toward a staff hire and applies them later', () => {
     let state = createShopState(appleSave(100))
-    const station = STAFF.cashier.station
+    const station = STAFF.picker.station
     state = withPlayer(state, { x: station.x, y: station.y + 20 })
     const result = simulate(state, 30)
     expect(result.state.coins).toBe(0)
-    expect(result.state.deposits['staff:cashier']).toBe(100)
-    expect(result.state.staff.cashier).toBe(0)
+    expect(result.state.deposits['staff:picker']).toBe(100)
+    expect(result.state.staff.picker).toBe(0)
     expect(result.events.some((event) => event.type === 'deposit')).toBe(true)
 
-    const hired = purchaseStaff({ ...result.state, coins: 220 }, 'cashier', true)
+    const hired = purchaseStaff({ ...result.state, coins: 220 }, 'picker', true)
     expect(hired.result).toBe('ok')
-    expect(hired.state.staff.cashier).toBe(1)
-    expect(hired.state.deposits['staff:cashier']).toBeUndefined()
-    expect(hired.state.coins).toBe(0)
+    expect(hired.state.staff.picker).toBe(1)
+    expect(hired.state.deposits['staff:picker']).toBeUndefined()
+    expect(hired.state.coins).toBe(60)
   })
 
-  it('uses a tree deposit in the shop and locks other fruit kinds', () => {
-    let state = createShopState(appleSave(0))
-    state = {
-      ...state,
-      deposits: { [treeDepositKey('pear')]: 100 },
-    }
-    const locked = purchaseTree({ ...state, coins: 100 }, 'apple')
-    expect(locked.result).toBe('locked')
-
-    const bought = purchaseTree({ ...state, coins: 80 }, 'pear')
+  it('uses a plant deposit in the shop', () => {
+    const state = createShopState({
+      ...appleSave(0),
+      deposits: { [plantDepositKey('pear')]: 100 },
+    })
+    const bought = purchasePlant({ ...state, coins: 80 }, 'pear')
     expect(bought.result).toBe('ok')
-    expect(bought.state.trees.some((tree) => tree.kind === 'pear')).toBe(true)
-    expect(bought.state.deposits[treeDepositKey('pear')]).toBeUndefined()
+    expect(bought.state.producers.some((producer) => producer.product === 'pear')).toBe(true)
+    expect(bought.state.deposits[plantDepositKey('pear')]).toBeUndefined()
+  })
+
+  it('quick-buys an animal when standing at its pen', () => {
+    const state = createShopState({
+      ...initialSave(),
+      coins: 1_000,
+      zones: { fruit: true, veg: true, farm: true, kitchen: false },
+    })
+    const pen = ANIMAL_ACCESS.milk
+    const result = simulate(withPlayer(state, { x: pen.x, y: pen.y - 6 }), 30)
+    expect(result.state.producers.some((producer) => producer.product === 'milk')).toBe(true)
   })
 })
 
@@ -114,7 +121,11 @@ describe('staff', () => {
       ...state,
       shelves: {
         ...state.shelves,
-        apple: { ...state.shelves.apple, stock: 4, everStocked: true },
+        fruit: {
+          ...state.shelves.fruit,
+          stock: { ...state.shelves.fruit.stock, apple: 4 },
+          everStocked: { ...state.shelves.fruit.everStocked, apple: true },
+        },
       },
       spawnMs: 0,
     } as ShopState
@@ -142,7 +153,7 @@ describe('staff', () => {
       staff: { cashier: 0, picker: 1 },
     })
     const result = simulate(state, 1_400)
-    expect(result.state.shelves.apple.stock).toBeGreaterThan(0)
+    expect(result.state.shelves.fruit.stock.apple).toBeGreaterThan(0)
     expect(result.events.some((event) => event.type === 'staffStock')).toBe(true)
   })
 
@@ -153,14 +164,14 @@ describe('staff', () => {
   })
 })
 
-describe('last tree guard', () => {
-  it('blocks removing the last tree when the refund cannot buy a new one', () => {
+describe('last producer guard', () => {
+  it('blocks removing the last producer when the refund cannot buy a new one', () => {
     const state = createShopState(appleSave(0))
-    expect(removeTree(state, 0).result).toBe('lastTree')
+    expect(removeProducer(state, state.producers[0]?.id as number).result).toBe('lastProducer')
   })
 
-  it('allows removing the last tree when the player can replant', () => {
+  it('allows removing the last producer when the player can replant', () => {
     const state = createShopState(appleSave(100))
-    expect(removeTree(state, 0).result).toBe('ok')
+    expect(removeProducer(state, state.producers[0]?.id as number).result).toBe('ok')
   })
 })

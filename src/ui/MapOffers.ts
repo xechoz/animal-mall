@@ -4,8 +4,9 @@ import { STAFF } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState } from '../logic/types'
 import { animalTextureKey } from './animalArt'
-import { coinTextureKey, fruitTextureKey } from './fruitArt'
+import { coinTextureKey } from './fruitArt'
 import { type GameLayout, worldToScreen } from './layout'
+import { productTextureKey } from './productArt'
 
 interface OfferLabel {
   readonly container: Phaser.GameObjects.Container
@@ -62,7 +63,7 @@ export class MapOffers {
     const bg = this.scene.add.graphics()
     const dwell = this.scene.add.graphics()
     const seed = this.scene.add.graphics()
-    const icon = this.scene.add.image(0, 0, fruitTextureKey('apple')).setScale(0.55)
+    const icon = this.scene.add.image(0, 0, productTextureKey('apple')).setScale(0.55)
     const coin = this.scene.add.image(0, 0, coinTextureKey()).setScale(0.42)
     const price = this.scene.add
       .text(0, 0, '', textStyle(this.theme, 13, this.theme.text, true))
@@ -91,14 +92,21 @@ export class MapOffers {
     label.bg.lineStyle(2, affordable ? this.theme.accent : this.theme.borderSoft, 0.9)
     label.bg.strokeRoundedRect(-WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT, 11)
 
-    label.icon.setVisible(offer.type === 'tree' && !offer.requiresChoice)
-    label.seed.setVisible(offer.type === 'tree' && offer.requiresChoice)
+    label.icon.setVisible(offer.type === 'plant' && !offer.requiresChoice)
+    label.seed.setVisible(offer.type === 'plant' && offer.requiresChoice)
     label.seed.clear()
-    if (offer.type === 'tree' && offer.requiresChoice) {
+    if (offer.type === 'plant' && offer.requiresChoice) {
       drawSeedPacket(label.seed, -22, 0)
     }
-    if (offer.type === 'tree' && !offer.requiresChoice) {
-      label.icon.setTexture(fruitTextureKey(offer.kind)).setPosition(-22, 0).setScale(0.46)
+    if (offer.type === 'plant' && !offer.requiresChoice) {
+      label.icon.setTexture(productTextureKey(offer.product)).setPosition(-22, 0).setScale(0.46)
+    }
+    if (offer.type === 'producer') {
+      label.icon
+        .setVisible(true)
+        .setTexture(productTextureKey(offer.product))
+        .setPosition(-22, 0)
+        .setScale(0.46)
     }
     if (offer.type === 'staff') {
       label.icon

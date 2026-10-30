@@ -2,7 +2,7 @@ import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { CustomerState } from '../logic/types'
 import { animalTextureKey } from './animalArt'
-import { fruitTextureKey } from './fruitArt'
+import { productTextureKey } from './productArt'
 
 export class CustomerView extends Phaser.GameObjects.Container {
   private readonly bodyImage: Phaser.GameObjects.Image
@@ -41,7 +41,10 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.bubbleBg = scene.add.graphics()
     this.bubble.add(this.bubbleBg)
     for (let index = 0; index < 3; index += 1) {
-      const icon = scene.add.image(0, 0, fruitTextureKey('apple')).setScale(0.44).setVisible(false)
+      const icon = scene.add
+        .image(0, 0, productTextureKey('apple'))
+        .setScale(0.44)
+        .setVisible(false)
       this.bubbleIcons.push(icon)
       this.bubble.add(icon)
     }
@@ -129,7 +132,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
       icon.setVisible(visible)
       if (visible) {
         const kind = icons[index]
-        if (kind !== undefined) icon.setTexture(fruitTextureKey(kind))
+        if (kind !== undefined) icon.setTexture(productTextureKey(kind))
         icon.setPosition(-width / 2 + 12 + index * 19, 0)
       }
     })

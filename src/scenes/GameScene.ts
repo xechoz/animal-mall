@@ -12,38 +12,49 @@ import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
-import { FRUIT_ORDER, FRUITS, PLOTS, REGISTER_POINT, SHELF_RECTS } from '../logic/config'
 import {
+  isPlantKind,
+  isProcessedKind,
+  producerCost,
+  REGISTER_POINT,
+  SHELF_RECTS,
+  ZONE_ORDER,
+} from '../logic/config'
+import {
+  type PurchaseOutcome,
   type PurchaseResult,
   plantedCount,
+  purchasePlant,
+  purchasePlantAt,
+  purchaseProducer,
   purchaseStaff,
-  purchaseTree,
-  purchaseTreeAt,
   purchaseUpgrade,
-  removeTree,
+  purchaseZone,
+  removeProducer,
 } from '../logic/purchase'
 import { createShopState, stepShop, toSave } from '../logic/state'
-import type { FruitKind, GameEvent, ShopState } from '../logic/types'
+import type { GameEvent, PlantKind, ProductKind, ShopState, ZoneId } from '../logic/types'
 import { progressSave } from '../save'
 import { createAnimalTextures } from '../ui/animalArt'
-import { CoinPileView } from '../ui/CoinPileView'
+import { COIN_PILE_POINT, CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
-import { FruitPicker } from '../ui/FruitPicker'
-import { coinTextureKey, createFruitTextures } from '../ui/fruitArt'
+import { coinTextureKey } from '../ui/fruitArt'
 import { fullscreenActive, fullscreenSupported, toggleGameFullscreen } from '../ui/fullscreen'
 import { Hud } from '../ui/Hud'
 import { Joystick } from '../ui/Joystick'
 import { computeGameLayout, type GameLayout, worldToScreen } from '../ui/layout'
 import { MapOffers } from '../ui/MapOffers'
 import { PauseOverlay } from '../ui/PauseOverlay'
+import { PlantPicker } from '../ui/PlantPicker'
 import { PlayerView } from '../ui/PlayerView'
+import { ProducerView } from '../ui/ProducerView'
+import { createProductTextures } from '../ui/productArt'
 import { ShelfView } from '../ui/ShelfView'
 import { ShopPanel } from '../ui/ShopPanel'
 import { StaffStationView } from '../ui/StaffStationView'
 import { StaffView } from '../ui/StaffView'
 import { createShopBackground } from '../ui/shopArt'
 import { Toast } from '../ui/Toast'
-import { TreeView } from '../ui/TreeView'
 import { TutorialOverlay } from '../ui/TutorialOverlay'
 
 const STEP_MS = 1000 / 60
@@ -86,15 +97,15 @@ export class GameScene extends Phaser.Scene {
   private layout!: GameLayout
   private backdrop!: Phaser.GameObjects.Graphics
   private world!: Phaser.GameObjects.Container
-  private shelfViews!: Record<FruitKind, ShelfView>
-  private treeViews: TreeView[] = []
+  private shelfViews!: Record<ZoneId, ShelfView>
+  private producerViews = new Map<number, ProducerView>()
   private playerView!: PlayerView
   private customerViews = new Map<number, CustomerView>()
   private staffViews = new Map<number, StaffView>()
   private staffStations!: Record<'cashier' | 'picker', StaffStationView>
   private coinPile!: CoinPileView
   private mapOffers?: MapOffers
-  private fruitPicker?: FruitPicker
+  private plantPicker?: PlantPicker
   private hud!: Hud
   private joystick!: Joystick
   private tutorial!: TutorialOverlay
@@ -110,6 +121,8 @@ export class GameScene extends Phaser.Scene {
   private removeHidden?: () => void
   private readonly heldMoveKeys = new Set<string>()
   private inputCleanup?: () => void
+  private readonly announcedProducts = new Set<ProductKind>()
+  private readonly hungryNotified = new Set<number>()
 
   constructor() {
     super('Game')
@@ -119,7 +132,7 @@ export class GameScene extends Phaser.Scene {
     this.services = getServices()
     startMusic(this)
     createAnimalTextures(this)
-    createFruitTextures(this)
+    createProductTextures(this)
     this.saveStore = progressSave(this.services)
     this.state = createShopState(this.saveStore.read())
     const seed = Number(this.services.params.get('seed'))
@@ -136,6 +149,7 @@ export class GameScene extends Phaser.Scene {
       ;(window as Window & { __animalMall?: unknown }).__animalMall = {
         getLayout: () => this.layout,
         getState: () => this.state,
+        getScene: () => this,
       }
     }
     this.bindKeyboard()
@@ -192,33 +206,32 @@ export class GameScene extends Phaser.Scene {
     this.world = this.add.container(this.layout.room.x, this.layout.room.y)
     this.world.setScale(this.layout.worldScale)
 
-    const background = createShopBackground(this, theme, i18n.t('game.title'))
+    const labels: Record<ZoneId, string> = {
+      fruit: i18n.t('zone.fruit'),
+      veg: i18n.t('zone.veg'),
+      farm: i18n.t('zone.farm'),
+      kitchen: i18n.t('zone.kitchen'),
+    }
+    const background = createShopBackground(this, theme, i18n.t('game.title'), labels)
     background.setDepth(0)
     this.world.add(background)
 
     this.shelfViews = Object.fromEntries(
-      FRUIT_ORDER.map((kind) => {
-        const view = new ShelfView(this, theme, kind)
-        const rect = SHELF_RECTS[kind]
+      ZONE_ORDER.map((zone) => {
+        const view = new ShelfView(this, theme, zone)
+        const rect = SHELF_RECTS[zone]
         view.setDepth(rect.y + rect.h)
         this.world.add(view)
-        return [kind, view]
+        return [zone, view]
       }),
-    ) as Record<FruitKind, ShelfView>
-
-    this.treeViews = PLOTS.map((plot) => {
-      const view = new TreeView(this, theme, plot)
-      view.setDepth(plot.y)
-      this.world.add(view)
-      return view
-    })
+    ) as Record<ZoneId, ShelfView>
 
     this.staffStations = {
       cashier: new StaffStationView(this, theme, 'cashier'),
       picker: new StaffStationView(this, theme, 'picker'),
     }
-    this.staffStations.cashier.setDepth(520)
-    this.staffStations.picker.setDepth(260)
+    this.staffStations.cashier.setDepth(1120)
+    this.staffStations.picker.setDepth(560)
     this.world.add(this.staffStations.cashier)
     this.world.add(this.staffStations.picker)
 
@@ -231,7 +244,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildHudAndInput(): void {
-    this.hud = new Hud(this, this.layout, this.services.theme, {
+    this.hud = new Hud(this, this.layout, this.services.theme, this.services.i18n, {
       onShop: () => this.openShop(),
       onPause: () => this.pauseGame(),
     })
@@ -309,8 +322,8 @@ export class GameScene extends Phaser.Scene {
     this.mapOffers?.update(this.state)
     this.coinPile.updatePile(this.state.pendingCoins)
 
-    if (this.fruitPicker !== undefined && (this.state.player.moving || this.mode !== 'playing')) {
-      this.closeFruitPicker()
+    if (this.plantPicker !== undefined && (this.state.player.moving || this.mode !== 'playing')) {
+      this.closePlantPicker()
     }
 
     const showTutorial = this.mode === 'playing'
@@ -364,15 +377,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateWorldViews(): void {
-    for (const kind of FRUIT_ORDER) {
-      this.shelfViews[kind].updateShelf(this.state.shelves[kind])
+    for (const zone of ZONE_ORDER) {
+      this.shelfViews[zone].updateShelf(this.state.shelves[zone])
     }
-    for (const plot of PLOTS) {
-      const tree = this.state.trees.find((candidate) => candidate.plot === plot.index) ?? null
-      const view = this.treeViews[plot.index]
-      view?.updateTree(tree)
-      view?.setDepth(tree?.pos.y ?? plot.y)
+
+    const alive = new Set<number>()
+    for (const producer of this.state.producers) {
+      alive.add(producer.id)
+      let view = this.producerViews.get(producer.id)
+      if (view === undefined) {
+        view = new ProducerView(this, this.services.theme, producer)
+        this.world.add(view)
+        this.producerViews.set(producer.id, view)
+      }
+      view.updateProducer(producer)
+      view.setDepth(producer.pos.y)
     }
+    for (const [id, view] of this.producerViews) {
+      if (alive.has(id)) continue
+      view.destroy()
+      this.producerViews.delete(id)
+    }
+
     this.staffStations.cashier.updateStaffLevel(this.state.staff.cashier)
     this.staffStations.picker.updateStaffLevel(this.state.staff.picker)
   }
@@ -420,11 +446,33 @@ export class GameScene extends Phaser.Scene {
           this.saveGame()
           this.sfx('boost', 0.5)
           break
-        case 'treeMature':
+        case 'producerMature':
           this.sfx('start', 0.35)
-          this.sparklePlot(event.plot)
+          this.sparkleProducer(event.producerId)
           break
-        case 'fruitReady':
+        case 'producerReady':
+          break
+        case 'producerProduce':
+          this.sfx('turn', 0.25)
+          if (isProcessedKind(event.product) && !this.announcedProducts.has(event.product)) {
+            this.announcedProducts.add(event.product)
+            this.toast.show(
+              this.services.i18n.t('toast.newProduct', {
+                name: this.productName(event.product),
+              }),
+            )
+            this.services.platform.happyTime()
+          }
+          break
+        case 'producerHungry':
+          if (!this.hungryNotified.has(event.producerId)) {
+            this.hungryNotified.add(event.producerId)
+            this.toast.show(
+              this.services.i18n.t('toast.hungry', {
+                name: this.producerName(event.product),
+              }),
+            )
+          }
           break
         case 'customerEnter':
           this.sfx('turn', 0.18)
@@ -437,18 +485,28 @@ export class GameScene extends Phaser.Scene {
         case 'customerLeave':
           if (event.sad) this.sfx('die', 0.25)
           break
-        case 'treeBought':
+        case 'producerBought':
           this.saveGame()
-          this.showPurchaseToast(event.kind)
+          this.showProducerToast(event.product)
           break
-        case 'treeRemoved':
+        case 'producerRemoved':
           this.saveGame()
           this.toast.show(
-            this.services.i18n.t('toast.treeRemoved', {
-              name: this.services.i18n.t(`fruit.${event.kind}`),
-              refund: Math.floor(FRUITS[event.kind].cost / 2),
+            this.services.i18n.t('toast.producerRemoved', {
+              name: this.productName(event.product),
+              refund: Math.floor(producerCost(event.product) * 0.5),
             }),
           )
+          break
+        case 'zoneUnlocked':
+          this.saveGame()
+          this.sfx('start', 0.4)
+          this.toast.show(
+            this.services.i18n.t('toast.zoneUnlocked', {
+              name: this.services.i18n.t(`zone.${event.zone}`),
+            }),
+          )
+          this.services.platform.happyTime()
           break
         case 'upgradeBought':
           this.saveGame()
@@ -478,8 +536,8 @@ export class GameScene extends Phaser.Scene {
             }),
           )
           break
-        case 'quickBuyReady':
-          if (this.mode === 'playing') this.openFruitPicker(event.plot)
+        case 'plantPickerReady':
+          if (this.mode === 'playing') this.openPlantPicker(event.zone, event.slot)
           break
         case 'coinsPending':
           this.sfx('click', 0.35)
@@ -505,51 +563,58 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private showPurchaseToast(kind: FruitKind): void {
-    const count = plantedCount(this.state, kind)
-    const name = this.services.i18n.t(`fruit.${kind}`)
-    if (count === 1 && kind !== 'apple') {
-      this.toast.show(this.services.i18n.t('toast.newFruit', { name }))
-      this.services.platform.happyTime()
-    } else {
-      this.toast.show(this.services.i18n.t('toast.treePlanted', { name }))
-      if (count === 1) this.services.platform.happyTime()
-    }
+  private showProducerToast(product: ProductKind): void {
+    const count = plantedCount(this.state, product)
+    const name = this.producerName(product)
+    this.toast.show(
+      this.services.i18n.t(count === 1 ? 'toast.producerBought' : 'toast.producerAdded', {
+        name,
+      }),
+    )
+    if (count === 1) this.services.platform.happyTime()
   }
 
-  private openFruitPicker(plot: number): void {
-    this.closeFruitPicker()
-    this.fruitPicker = new FruitPicker({
+  private productName(product: ProductKind): string {
+    return this.services.i18n.t(`product.${product}`)
+  }
+
+  private producerName(product: ProductKind): string {
+    return isPlantKind(product)
+      ? this.productName(product)
+      : this.services.i18n.t(`producer.${product}`)
+  }
+
+  private openPlantPicker(zone: 'fruit' | 'veg', slot: number): void {
+    this.closePlantPicker()
+    this.plantPicker = new PlantPicker({
       scene: this,
       layout: this.layout,
       theme: this.services.theme,
       state: this.state,
-      plot,
-      onSelect: (kind) => this.chooseFruit(kind, plot),
-      onClose: () => this.closeFruitPicker(),
+      zone,
+      slot,
+      onSelect: (product) => this.choosePlant(product, slot),
+      onClose: () => this.closePlantPicker(),
     })
   }
 
-  private chooseFruit(kind: FruitKind, plot: number): void {
-    const outcome = purchaseTreeAt(this.state, kind, plot, true)
+  private choosePlant(product: PlantKind, slot: number): void {
+    const outcome = purchasePlantAt(this.state, product, slot, true)
     if (outcome.result === 'ok' || outcome.result === 'deposited') {
       this.state = outcome.state
       this.handleEvents(outcome.events)
       this.saveGame()
       this.updateWorldViews()
       this.hud.update(this.state)
-      this.closeFruitPicker()
+      this.closePlantPicker()
       return
     }
-    if (outcome.result === 'locked') this.toast.show(this.services.i18n.t('toast.locked'))
-    else if (outcome.result === 'insufficient') {
-      this.toast.show(this.services.i18n.t('toast.notEnough'))
-    }
+    this.showPurchaseFailure(outcome.result)
   }
 
-  private closeFruitPicker(): void {
-    this.fruitPicker?.destroy()
-    this.fruitPicker = undefined
+  private closePlantPicker(): void {
+    this.plantPicker?.destroy()
+    this.plantPicker = undefined
   }
 
   private coinBagSfx(): void {
@@ -588,7 +653,7 @@ export class GameScene extends Phaser.Scene {
 
   private coinToPile(): void {
     const from = worldToScreen(this.layout, REGISTER_POINT)
-    const to = worldToScreen(this.layout, { x: 550, y: 508 })
+    const to = worldToScreen(this.layout, COIN_PILE_POINT)
     const coin = this.add
       .image(from.x, from.y - 10, coinTextureKey())
       .setScale(0.5)
@@ -621,10 +686,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private sparklePlot(plot: number): void {
-    const target = PLOTS[plot]
-    if (target === undefined) return
-    const point = worldToScreen(this.layout, target)
+  private sparkleProducer(id: number): void {
+    const producer = this.state.producers.find((candidate) => candidate.id === id)
+    if (producer === undefined) return
+    const point = worldToScreen(this.layout, producer.pos)
     for (let index = 0; index < 5; index += 1) {
       const dot = this.add.circle(point.x, point.y - 20, 3, 0xffd166, 0.9).setDepth(6400)
       const angle = (Math.PI * 2 * index) / 5
@@ -655,12 +720,12 @@ export class GameScene extends Phaser.Scene {
       return
     }
     this.resetMovementInput()
-    this.closeFruitPicker()
+    this.closePlantPicker()
     this.mode = 'shop'
     this.hud.setEnabled(false)
     this.joystick.setEnabled(false)
     this.tutorial.setVisible(false)
-    this.services.platform.gameplayStart()
+    this.services.platform.gameplayStop()
     this.saveGame()
     this.showShopPanel()
   }
@@ -672,58 +737,12 @@ export class GameScene extends Phaser.Scene {
       theme: this.services.theme,
       i18n: this.services.i18n,
       state: this.state,
-      onPlant: (kind) => {
-        const outcome = purchaseTree(this.state, kind)
-        if (outcome.result !== 'ok') {
-          this.showPurchaseFailure(outcome.result)
-          return this.state
-        }
-        this.state = outcome.state
-        this.handleEvents(outcome.events)
-        this.saveGame()
-        this.updateWorldViews()
-        this.hud.update(this.state)
-        return this.state
-      },
-      onUpgrade: (kind) => {
-        const outcome = purchaseUpgrade(this.state, kind)
-        if (outcome.result !== 'ok') {
-          this.showPurchaseFailure(outcome.result)
-          return this.state
-        }
-        this.state = outcome.state
-        this.handleEvents(outcome.events)
-        this.saveGame()
-        this.updateWorldViews()
-        this.hud.update(this.state)
-        return this.state
-      },
-      onStaff: (kind) => {
-        const outcome = purchaseStaff(this.state, kind, false)
-        if (outcome.result !== 'ok') {
-          this.showPurchaseFailure(outcome.result)
-          return this.state
-        }
-        this.state = outcome.state
-        this.handleEvents(outcome.events)
-        this.saveGame()
-        this.updateWorldViews()
-        this.hud.update(this.state)
-        return this.state
-      },
-      onRemove: (plot) => {
-        const outcome = removeTree(this.state, plot)
-        if (outcome.result !== 'ok') {
-          this.showPurchaseFailure(outcome.result)
-          return this.state
-        }
-        this.state = outcome.state
-        this.handleEvents(outcome.events)
-        this.saveGame()
-        this.updateWorldViews()
-        this.hud.update(this.state)
-        return this.state
-      },
+      onPurchasePlant: (product) => this.applyPurchase(purchasePlant(this.state, product)),
+      onPurchaseProducer: (product) => this.applyPurchase(purchaseProducer(this.state, product)),
+      onUnlockZone: (zone) => this.applyPurchase(purchaseZone(this.state, zone)),
+      onUpgrade: (kind) => this.applyPurchase(purchaseUpgrade(this.state, kind)),
+      onStaff: (kind) => this.applyPurchase(purchaseStaff(this.state, kind, false)),
+      onRemove: (id) => this.applyPurchase(removeProducer(this.state, id)),
       onClose: () => {
         this.shopPanel = undefined
         this.setPlaying()
@@ -731,18 +750,32 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
+  private applyPurchase(outcome: PurchaseOutcome): ShopState {
+    if (outcome.result !== 'ok') {
+      this.showPurchaseFailure(outcome.result)
+      return this.state
+    }
+    this.state = outcome.state
+    this.handleEvents(outcome.events)
+    this.saveGame()
+    this.updateWorldViews()
+    this.hud.update(this.state)
+    return this.state
+  }
+
   private showPurchaseFailure(result: PurchaseResult): void {
-    if (result === 'noPlot') this.toast.show(this.services.i18n.t('toast.noPlot'))
+    if (result === 'noSlot') this.toast.show(this.services.i18n.t('toast.noSlot'))
     else if (result === 'insufficient') this.toast.show(this.services.i18n.t('toast.notEnough'))
     else if (result === 'maxed') this.toast.show(this.services.i18n.t('toast.max'))
     else if (result === 'locked') this.toast.show(this.services.i18n.t('toast.locked'))
-    else if (result === 'lastTree') this.toast.show(this.services.i18n.t('toast.lastTree'))
+    else if (result === 'lockedZone') this.toast.show(this.services.i18n.t('toast.lockedZone'))
+    else if (result === 'lastProducer') this.toast.show(this.services.i18n.t('toast.lastProducer'))
   }
 
   private pauseGame(): void {
     if (this.mode !== 'playing' && this.mode !== 'shop') return
     this.resetMovementInput()
-    this.closeFruitPicker()
+    this.closePlantPicker()
     this.shopPanel?.destroy()
     this.shopPanel = undefined
     this.mode = 'paused'
@@ -883,7 +916,7 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay = undefined
     this.shopPanel?.destroy()
     this.shopPanel = undefined
-    this.closeFruitPicker()
+    this.closePlantPicker()
     this.mapOffers?.destroy()
     this.mapOffers = undefined
     this.tutorial?.destroy()

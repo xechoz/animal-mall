@@ -1,18 +1,20 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { FRUIT_ORDER, FRUITS, PLOTS } from '../logic/config'
-import { treeDepositKey } from '../logic/purchase'
-import type { FruitKind, ShopState } from '../logic/types'
-import { coinTextureKey, fruitTextureKey } from './fruitArt'
+import { PLANT_SLOTS, producerCost, ZONE_PRODUCTS } from '../logic/config'
+import { plantDepositKey } from '../logic/purchase'
+import type { PlantKind, ShopState } from '../logic/types'
+import { coinTextureKey } from './fruitArt'
 import { type GameLayout, worldToScreen } from './layout'
+import { productTextureKey } from './productArt'
 
-export interface FruitPickerOptions {
+export interface PlantPickerOptions {
   readonly scene: Phaser.Scene
   readonly layout: GameLayout
   readonly theme: Theme
   readonly state: ShopState
-  readonly plot: number
-  readonly onSelect: (kind: FruitKind) => void
+  readonly zone: 'fruit' | 'veg'
+  readonly slot: number
+  readonly onSelect: (product: PlantKind) => void
   readonly onClose: () => void
 }
 
@@ -22,14 +24,14 @@ const BUTTON_W = 92
 const BUTTON_H = 48
 const GAP = 8
 
-export class FruitPicker {
+export class PlantPicker {
   private readonly root: Phaser.GameObjects.Container
   private readonly blocker: Phaser.GameObjects.Rectangle
   private destroyed = false
 
-  constructor(options: FruitPickerOptions) {
-    const { scene, layout, theme, state, plot } = options
-    const point = PLOTS[plot] ?? { x: 320, y: 320 }
+  constructor(options: PlantPickerOptions) {
+    const { scene, layout, theme, state, zone, slot } = options
+    const point = PLANT_SLOTS[zone][slot] ?? { x: 320, y: 320 }
     const screen = worldToScreen(layout, point)
     const x = Math.max(WIDTH / 2 + 10, Math.min(layout.width - WIDTH / 2 - 10, screen.x))
     const bottom = Math.max(150, screen.y - 38 * layout.worldScale)
@@ -60,17 +62,23 @@ export class FruitPicker {
     g.fillTriangle(-10, HEIGHT / 2 - 1, 10, HEIGHT / 2 - 1, 0, HEIGHT / 2 + 13)
     panel.add(g)
 
-    const noTrees = state.trees.length === 0
-    FRUIT_ORDER.forEach((kind, index) => {
+    const noProducers = state.producers.length === 0
+    const products = ZONE_PRODUCTS[zone]
+    products.forEach((product, index) => {
+      if (product === 'egg' || product === 'milk' || product === 'yarn' || product === 'fish') {
+        return
+      }
+      if (product === 'cake' || product === 'sweater' || product === 'grilledFish') return
+      const plant = product
       const column = index % 2
       const row = Math.floor(index / 2)
       const bx = -WIDTH / 2 + 11 + column * (BUTTON_W + GAP) + BUTTON_W / 2
       const by = -HEIGHT / 2 + 11 + row * (BUTTON_H + GAP) + BUTTON_H / 2
-      const cost = FRUITS[kind].cost
-      const deposit = state.deposits[treeDepositKey(kind)] ?? 0
+      const cost = producerCost(plant)
+      const deposit = state.deposits[plantDepositKey(plant)] ?? 0
       const remaining = Math.max(0, cost - deposit)
-      const enabled = state.coins > 0 && (!noTrees || state.coins >= remaining)
-      panel.add(this.choiceButton(options, kind, bx, by, remaining, enabled))
+      const enabled = state.coins > 0 && (!noProducers || state.coins >= remaining)
+      panel.add(this.choiceButton(options, plant, bx, by, remaining, enabled))
     })
   }
 
@@ -81,8 +89,8 @@ export class FruitPicker {
   }
 
   private choiceButton(
-    options: FruitPickerOptions,
-    kind: FruitKind,
+    options: PlantPickerOptions,
+    product: PlantKind,
     x: number,
     y: number,
     price: number,
@@ -97,7 +105,7 @@ export class FruitPicker {
     g.strokeRoundedRect(-BUTTON_W / 2, -BUTTON_H / 2, BUTTON_W, BUTTON_H, 12)
     button.add(g)
 
-    const icon = scene.add.image(-26, 0, fruitTextureKey(kind)).setScale(0.62)
+    const icon = scene.add.image(-26, 0, productTextureKey(product)).setScale(0.62)
     if (!enabled) icon.setAlpha(0.5)
     button.add(icon)
 
@@ -117,7 +125,7 @@ export class FruitPicker {
     const zone = scene.add.zone(0, 0, BUTTON_W, BUTTON_H).setInteractive({ useHandCursor: true })
     zone.on('pointerdown', () => {
       if (!enabled) return
-      options.onSelect(kind)
+      options.onSelect(product)
     })
     button.add(zone)
     return button

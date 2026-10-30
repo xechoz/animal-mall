@@ -1,24 +1,30 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { SHELF_RECTS } from '../logic/config'
-import type { FruitKind, ShelfState } from '../logic/types'
-import { fruitTextureKey } from './fruitArt'
+import { SHELF_RECTS, ZONE_PRODUCTS } from '../logic/config'
+import type { ProductKind, ShelfState, ZoneId } from '../logic/types'
+import { productTextureKey } from './productArt'
 
 export class ShelfView extends Phaser.GameObjects.Container {
   private readonly icons: Phaser.GameObjects.Image[] = []
-  private readonly countText: Phaser.GameObjects.Text
-  private readonly kindIcon: Phaser.GameObjects.Image
+  private readonly counts: Phaser.GameObjects.Text[] = []
   private readonly lockOverlay: Phaser.GameObjects.Container
+  private readonly countText: Phaser.GameObjects.Text
+  private readonly bins: readonly ProductKind[]
   private lastKey = ''
 
-  constructor(scene: Phaser.Scene, theme: Theme, kind: FruitKind) {
-    const rect = SHELF_RECTS[kind]
+  constructor(scene: Phaser.Scene, theme: Theme, zone: ZoneId) {
+    const rect = SHELF_RECTS[zone]
     super(scene, rect.x + rect.w / 2, rect.y + rect.h / 2)
     const width = rect.w
     const height = rect.h
-    const g = scene.add.graphics()
+    const products = ZONE_PRODUCTS[zone]
+    this.bins = products
+    const gap = 5
+    const pad = 8
+    const binWidth = (width - pad * 2 - gap * (products.length - 1)) / products.length
 
+    const g = scene.add.graphics()
     g.fillStyle(0x3b2f3a, 0.16)
     g.fillRoundedRect(-width / 2, -height / 2 + 7, width, height, 8)
     g.fillStyle(gameColors.woodDark, 1)
@@ -26,33 +32,33 @@ export class ShelfView extends Phaser.GameObjects.Container {
     g.fillStyle(gameColors.wood, 1)
     g.fillRoundedRect(-width / 2 + 4, -height / 2 + 3, width - 8, height - 8, 5)
     g.fillStyle(0x7b4f33, 1)
-    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 19, width - 14, 5, 2)
-    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 38, width - 14, 5, 2)
-    g.fillStyle(gameColors.woodLight, 1)
-    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 15, width - 14, 4, 2)
-    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 34, width - 14, 4, 2)
+    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 24, width - 14, 4, 2)
     this.add(g)
 
-    for (let index = 0; index < 6; index += 1) {
-      const column = index % 3
-      const row = Math.floor(index / 3)
+    products.forEach((product, index) => {
+      const x = -width / 2 + pad + index * (binWidth + gap) + binWidth / 2
+      const bin = scene.add.graphics()
+      bin.fillStyle(0xfff7e8, 0.18)
+      bin.fillRoundedRect(x - binWidth / 2, -height / 2 + 6, binWidth, height - 12, 5)
+      this.add(bin)
+
       const icon = scene.add
-        .image(-width / 2 + 21 + column * 29, -height / 2 + 13 + row * 19, fruitTextureKey(kind))
-        .setScale(0.52)
-      icon.setVisible(false)
-      this.icons.push(icon)
+        .image(x - binWidth / 2 + 14, -height / 2 + 15, productTextureKey(product))
+        .setScale(0.42)
       this.add(icon)
-    }
+      this.icons.push(icon)
+
+      const count = scene.add
+        .text(x + binWidth / 2 - 6, -height / 2 + 15, '', textStyle(theme, 10, '#fff7e8', true))
+        .setOrigin(1, 0.5)
+      this.add(count)
+      this.counts.push(count)
+    })
 
     this.countText = scene.add
-      .text(width / 2 - 7, height / 2 - 10, '', textStyle(theme, 10, '#fff7e8', true))
+      .text(width / 2 - 7, height / 2 - 10, '', textStyle(theme, 9, '#fff7e8', true))
       .setOrigin(1, 0.5)
     this.add(this.countText)
-
-    const namePlate = scene.add.graphics()
-    namePlate.fillStyle(gameColors.cream, 0.96)
-    namePlate.fillRoundedRect(-16, height / 2 - 16, 32, 14, 7)
-    this.add(namePlate)
 
     this.lockOverlay = scene.add.container(0, 0)
     const lockBg = scene.add.graphics()
@@ -64,37 +70,37 @@ export class ShelfView extends Phaser.GameObjects.Container {
     drawLock(this.lockOverlay, scene)
     this.add(this.lockOverlay)
 
-    this.kindIcon = scene.add.image(0, height / 2 - 9, fruitTextureKey(kind)).setScale(0.5)
-    this.add(this.kindIcon)
-
     scene.add.existing(this)
   }
 
   updateShelf(shelf: ShelfState): void {
-    const key = `${shelf.active}-${shelf.stock}-${shelf.capacity}`
+    const stockKey = this.bins
+      .map((product) => `${product}:${shelf.stock[product]}:${shelf.bins[product] ? 1 : 0}`)
+      .join('|')
+    const key = `${shelf.active}-${shelf.capacity}-${stockKey}`
     if (key === this.lastKey) return
     this.lastKey = key
 
     const wasVisible = this.lockOverlay.visible
     this.lockOverlay.setVisible(!shelf.active)
     this.icons.forEach((icon, index) => {
-      icon.setVisible(shelf.active && shelf.stock > index)
+      const product = this.bins[index]
+      if (product === undefined) return
+      const unlocked = shelf.active && shelf.bins[product]
+      icon.setVisible(true).setAlpha(unlocked ? 1 : 0.35)
+      this.counts[index]?.setText(
+        unlocked && shelf.stock[product] > 0 ? String(shelf.stock[product]) : '',
+      )
     })
-    const shown = Math.min(6, shelf.stock)
-    this.countText.setText(
-      shelf.active && shelf.stock > 0
-        ? shelf.stock > shown
-          ? `×${shelf.stock}`
-          : `${shelf.stock}`
-        : '',
-    )
-    this.kindIcon.setAlpha(shelf.active ? 1 : 0.55)
+    const total = this.bins.reduce((sum, product) => sum + shelf.stock[product], 0)
+    const capacity = this.bins.length * shelf.capacity
+    this.countText.setText(shelf.active && total > 0 ? `${total}/${capacity}` : '')
     if (!shelf.active) return
 
     if (wasVisible) {
       this.scene.tweens.add({
         targets: this,
-        scale: { from: 1.08, to: 1 },
+        scale: { from: 1.06, to: 1 },
         duration: 220,
         ease: 'Back.easeOut',
       })

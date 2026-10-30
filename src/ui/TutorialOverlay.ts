@@ -1,6 +1,6 @@
 import { type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { PLOTS, REGISTER_POINT, SHELF_ACCESS } from '../logic/config'
+import { PLOTS, REGISTER_POINT, SHELF_ACCESS, zoneOf } from '../logic/config'
 import type { ShopState, TutorialStep, Vec2 } from '../logic/types'
 import { type GameLayout, worldToScreen } from './layout'
 
@@ -74,24 +74,28 @@ export class TutorialOverlay {
     this.targetInScreen = false
     switch (state.tutorial) {
       case 'buyTree': {
-        const used = new Set(state.trees.map((tree) => tree.plot))
+        const used = new Set(
+          state.producers
+            .filter((producer) => zoneOf(producer.product) === 'fruit')
+            .map((producer) => producer.slot),
+        )
         const plot = PLOTS.find((candidate) => !used.has(candidate.index)) ?? PLOTS[0]
         this.target = plot === undefined ? { x: 320, y: 320 } : { x: plot.x, y: plot.y }
         break
       }
       case 'grow': {
-        const tree = state.trees.find((candidate) => !candidate.mature)
-        this.target = tree?.pos ?? { x: PLOTS[0]?.x ?? 320, y: PLOTS[0]?.y ?? 320 }
+        const producer = state.producers.find((candidate) => !candidate.mature)
+        this.target = producer?.pos ?? { x: PLOTS[0]?.x ?? 320, y: PLOTS[0]?.y ?? 320 }
         break
       }
       case 'harvest': {
-        const tree = state.trees.find((candidate) => candidate.mature && candidate.fruit > 0)
-        this.target = tree?.pos ?? { x: PLOTS[0]?.x ?? 320, y: PLOTS[0]?.y ?? 320 }
+        const producer = state.producers.find((candidate) => candidate.ready > 0)
+        this.target = producer?.pos ?? { x: PLOTS[0]?.x ?? 320, y: PLOTS[0]?.y ?? 320 }
         break
       }
       case 'stock': {
         const kind = state.player.carry
-        this.target = kind === null ? { x: 320, y: 300 } : SHELF_ACCESS[kind]
+        this.target = kind === null ? { x: 320, y: 300 } : SHELF_ACCESS[zoneOf(kind)]
         break
       }
       case 'checkout':

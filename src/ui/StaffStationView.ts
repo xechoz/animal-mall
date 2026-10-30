@@ -3,7 +3,8 @@ import Phaser from 'phaser'
 import { STAFF } from '../logic/config'
 import type { StaffKind } from '../logic/types'
 import { animalTextureKey } from './animalArt'
-import { coinTextureKey, fruitTextureKey } from './fruitArt'
+import { coinTextureKey } from './fruitArt'
+import { productTextureKey } from './productArt'
 
 export class StaffStationView extends Phaser.GameObjects.Container {
   private readonly kind: StaffKind
@@ -40,7 +41,7 @@ export class StaffStationView extends Phaser.GameObjects.Container {
     this.add(portrait)
 
     const badge = scene.add.image(17, -8, coinTextureKey()).setScale(0.32)
-    if (kind === 'picker') badge.setTexture(fruitTextureKey('apple')).setScale(0.42)
+    if (kind === 'picker') badge.setTexture(productTextureKey('apple')).setScale(0.42)
     this.add(badge)
 
     this.level = scene.add.graphics()

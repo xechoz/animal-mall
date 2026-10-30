@@ -8,38 +8,53 @@ import {
   carryCapacity,
   DOOR_POINT,
   DOOR_SPAWN,
-  FRUIT_ORDER,
-  FRUITS,
   fertilizerMultiplier,
   INTERACT,
+  isPlantKind,
   moveSpeed,
   PLAYER_RADIUS,
   PLAYER_START,
-  PLOTS,
+  PRODUCT_ORDER,
+  PRODUCT_WEIGHT,
+  productPrice,
   QUEUE_SLOTS,
   REGISTER_RADIUS,
   SHELF_ACCESS,
   scanIntervalMs,
   shelfCapacity,
+  zoneOf,
 } from './config'
 import { findPath } from './nav'
+import {
+  addStock,
+  binReady,
+  collectFromProducer,
+  createProducer,
+  eligibleProducts,
+  emptyShelves,
+  nearestCollectable,
+  refreshShelves,
+  stepProduction,
+  stockOf,
+} from './production'
 import { stepQuickBuy } from './quickBuy'
 import { createStaffMembers, stepStaff } from './staff'
 import type {
   CustomerPhase,
   CustomerState,
-  FruitKind,
   GameEvent,
+  ProducerState,
+  ProductKind,
   SaveData,
   ShelfState,
   ShopState,
   SpeciesId,
   StepInput,
   StepResult,
-  TreeState,
   TutorialStep,
   UpgradeKind,
   Vec2,
+  ZoneId,
 } from './types'
 
 interface CustomerMove {
@@ -48,38 +63,22 @@ interface CustomerMove {
 }
 
 export function createShopState(save: SaveData): ShopState {
-  const trees = save.trees
-    .filter((tree) => PLOTS.some((plot) => plot.index === tree.plot))
-    .map((tree, index): TreeState => {
-      const plot = PLOTS[tree.plot] as (typeof PLOTS)[number]
-      return {
-        id: index + 1,
-        kind: tree.kind,
-        plot: tree.plot,
-        pos: { x: plot.x, y: plot.y },
-        growthMs: FRUITS[tree.kind].growMs,
-        mature: true,
-        fruit: 1,
-        fruitMs: 0,
-      }
-    })
-
-  const active = new Set(trees.map((tree) => tree.kind))
-  const shelves = Object.fromEntries(
-    FRUIT_ORDER.map((kind) => [
-      kind,
-      {
-        kind,
-        stock: 0,
-        capacity: shelfCapacity(save.upgrades.shelf),
-        active: active.has(kind),
-        everStocked: save.served > 0 && active.has(kind),
-      } satisfies ShelfState,
-    ]),
-  ) as Record<FruitKind, ShelfState>
+  const zones = { ...save.zones }
+  const shelves = emptyShelves(zones, shelfCapacity(save.upgrades.shelf))
+  const producers = save.producers.map((producer, index) =>
+    createProducer(producer.product, producer.slot, index + 1),
+  )
+  let nextShelves = refreshShelves(shelves, producers, zones, shelfCapacity(save.upgrades.shelf))
+  if (save.served > 0) {
+    nextShelves = markExistingStocked(nextShelves, producers)
+  }
 
   const tutorial: TutorialStep =
-    save.served > 0 ? 'done' : trees.length === 0 ? 'buyTree' : 'harvest'
+    save.served > 0
+      ? 'done'
+      : producers.some((producer) => producer.kind === 'plant')
+        ? 'harvest'
+        : 'buyTree'
 
   return {
     coins: save.coins,
@@ -96,14 +95,15 @@ export function createShopState(save: SaveData): ShopState {
       harvestMs: 0,
       stockMs: 0,
     },
-    trees,
-    shelves,
+    zones,
+    producers,
+    shelves: nextShelves,
     customers: [],
     queue: [],
     register: { customerId: null, scanMs: 0 },
     spawnMs: 1_200,
     nextCustomerId: 1,
-    nextTreeId: trees.length + 1,
+    nextProducerId: producers.length + 1,
     upgrades: save.upgrades,
     staff: save.staff,
     staffMembers: createStaffMembers(save.staff),
@@ -119,9 +119,10 @@ export function toSave(state: ShopState): SaveData {
     totalEarned: state.totalEarned,
     served: state.served,
     pendingCoins: state.pendingCoins,
-    trees: [...state.trees]
-      .sort((a, b) => a.plot - b.plot)
-      .map((tree) => ({ kind: tree.kind, plot: tree.plot })),
+    producers: [...state.producers]
+      .sort((a, b) => zoneOf(a.product).localeCompare(zoneOf(b.product)) || a.slot - b.slot)
+      .map((producer) => ({ product: producer.product, slot: producer.slot })),
+    zones: state.zones,
     upgrades: state.upgrades,
     staff: state.staff,
     deposits: state.deposits,
@@ -131,7 +132,7 @@ export function toSave(state: ShopState): SaveData {
 export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: number): StepResult {
   const dt = Math.max(0, Math.min(dtMs, 50))
   const events: GameEvent[] = []
-  const fruits = fertilizerMultiplier(state.upgrades.fertilizer)
+  const growth = fertilizerMultiplier(state.upgrades.fertilizer)
   const carryMax = carryCapacity(state.upgrades.carry)
   const speed = moveSpeed(state.upgrades.speed)
 
@@ -146,7 +147,9 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   let queue = [...state.queue]
   let queueChanged = false
   let register = { ...state.register }
-  let shelves = { ...state.shelves }
+  let shelves: Record<ZoneId, ShelfState> = { ...state.shelves }
+  let zones = state.zones
+  let producers: readonly ProducerState[] = state.producers
 
   let player = {
     ...state.player,
@@ -176,51 +179,47 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     stockMs: Math.max(0, player.stockMs - dt),
   }
 
-  const trees = state.trees.map((tree) => advanceTree(tree, dt, fruits, events))
+  const production = stepProduction(producers, shelves, dt, growth)
+  producers = production.producers
+  shelves = production.shelves
+  events.push(...production.events)
 
   if (player.harvestMs <= 0 && player.carryCount < carryMax) {
-    const tree = nearestTree(trees, player.pos, player.carry)
-    if (tree !== null) {
-      const nextTrees = trees.map((candidate) =>
-        candidate.id === tree.id ? { ...candidate, fruit: candidate.fruit - 1 } : candidate,
-      )
-      trees.splice(0, trees.length, ...nextTrees)
+    const producer = nearestCollectable(producers, player.pos, player.carry)
+    if (producer !== null) {
+      producers = collectFromProducer(producers, producer.id)
       player = {
         ...player,
-        carry: tree.kind,
+        carry: producer.product,
         carryCount: player.carryCount + 1,
         harvestMs: INTERACT.harvestMs,
       }
-      events.push({ type: 'harvest', kind: tree.kind, amount: 1 })
+      events.push({ type: 'harvest', product: producer.product, amount: 1 })
     }
   }
 
   if (player.stockMs <= 0 && player.carry !== null && player.carryCount > 0) {
-    const target = nearestShelf(shelves, player.pos, player.carry)
-    if (target !== null) {
-      const shelf = shelves[target]
-      if (shelf.stock < shelf.capacity) {
-        shelves = {
-          ...shelves,
-          [target]: {
-            ...shelf,
-            stock: shelf.stock + 1,
-            everStocked: true,
-          },
-        }
-        const nextCount = player.carryCount - 1
-        player = {
-          ...player,
-          carryCount: nextCount,
-          carry: nextCount > 0 ? player.carry : null,
-          stockMs: INTERACT.stockMs,
-        }
-        events.push({ type: 'stock', kind: target, amount: 1 })
+    const product = player.carry
+    const zone = zoneOf(product)
+    const shelf = shelves[zone]
+    if (
+      binReady(shelves, product) &&
+      shelf.stock[product] < shelf.capacity &&
+      distance(player.pos, SHELF_ACCESS[zone]) <= INTERACT.stockRadius
+    ) {
+      shelves = addStock(shelves, product, 1)
+      const nextCount = player.carryCount - 1
+      player = {
+        ...player,
+        carryCount: nextCount,
+        carry: nextCount > 0 ? product : null,
+        stockMs: INTERACT.stockMs,
       }
+      events.push({ type: 'stock', product, amount: 1 })
     }
   }
 
-  tutorial = advanceTutorial(tutorial, trees, shelves, player, served)
+  tutorial = advanceTutorial(tutorial, producers, shelves, player, served)
   if (tutorial === 'checkout') spawnMs = Math.min(spawnMs, 1_200)
 
   const radius = CUSTOMER_RADIUS
@@ -280,11 +279,17 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         customer = { ...customer, waitMs: customer.waitMs - dt }
         if (customer.waitMs <= 0) {
           const target = customer.target
-          const shelf = target === null ? null : shelves[target]
-          if (target !== null && shelf?.active === true && shelf.stock > 0) {
+          const available =
+            target !== null && binReady(shelves, target) && stockOf(shelves, target) > 0
+          if (target !== null && available) {
+            const zone = zoneOf(target)
+            const shelf = shelves[zone]
             shelves = {
               ...shelves,
-              [target]: { ...shelf, stock: shelf.stock - 1 },
+              [zone]: {
+                ...shelf,
+                stock: { ...shelf.stock, [target]: shelf.stock[target] - 1 },
+              },
             }
             customer = {
               ...customer,
@@ -294,7 +299,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
             events.push({
               type: 'customerPick',
               customerId: customer.id,
-              kind: target,
+              product: target,
             })
           } else if (target !== null) {
             customer = {
@@ -304,17 +309,17 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
             events.push({
               type: 'customerMissed',
               customerId: customer.id,
-              kind: target,
+              product: target,
             })
           }
 
           if (customer.wanted.length > 0) {
-            const next = customer.wanted[0] as FruitKind
+            const next = customer.wanted[0] as ProductKind
             customer = {
               ...customer,
               target: next,
               phase: 'toShelf',
-              path: pathTo(customer.pos, SHELF_ACCESS[next], radius),
+              path: pathTo(customer.pos, SHELF_ACCESS[zoneOf(next)], radius),
               pathIndex: 0,
             }
           } else if (customer.basket.length > 0) {
@@ -327,7 +332,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
                 target: null,
                 phase: 'toQueue',
                 queueIndex: index,
-                path: pathTo(customer.pos, QUEUE_SLOTS[index], radius),
+                path: pathTo(customer.pos, QUEUE_SLOTS[index] as Vec2, radius),
                 pathIndex: 0,
               }
             } else {
@@ -359,9 +364,9 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       let paid = customer.paid
 
       while (scanMs >= interval && basket.length > 0) {
-        const kind = basket[0] as FruitKind
+        const product = basket[0] as ProductKind
         basket = basket.slice(1)
-        const price = FRUITS[kind].price
+        const price = productPrice(product)
         paid += price
         if (hasCashier && !inRegisterZone(player.pos)) {
           pendingCoins += price
@@ -371,7 +376,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         }
         totalEarned += price
         scanMs -= interval
-        events.push({ type: 'scan', kind, amount: price })
+        events.push({ type: 'scan', product, amount: price })
       }
 
       customer = { ...customer, basket, paid }
@@ -408,16 +413,23 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     pendingCoins = 0
   }
 
+  if (!zones.veg && served > 0) {
+    zones = { ...zones, veg: true }
+    shelves = { ...shelves, veg: { ...shelves.veg, active: true } }
+    events.push({ type: 'zoneUnlocked', zone: 'veg' })
+  }
+
   tutorial =
     served > 0 && tutorial === 'checkout'
       ? 'done'
-      : tutorial === 'stock' && FRUIT_ORDER.some((kind) => shelves[kind].everStocked)
+      : tutorial === 'stock' &&
+          PRODUCT_ORDER.some((product) => shelves[zoneOf(product)].everStocked[product])
         ? 'checkout'
         : tutorial
   if (tutorial === 'checkout' && served > 0) tutorial = 'done'
 
   spawnMs -= dt
-  const eligible = FRUIT_ORDER.filter((kind) => shelves[kind].active && shelves[kind].everStocked)
+  const eligible = eligibleProducts(shelves)
   const canSpawn =
     spawnMs <= 0 &&
     customers.length < CUSTOMER_TUNING.maxCustomers &&
@@ -426,16 +438,16 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
 
   if (canSpawn) {
     if (tutorial === 'checkout' && served === 0 && customers.length === 0) {
-      const kind = eligible[0] as FruitKind
+      const product = eligible[0] as ProductKind
       customers = [
         ...customers,
-        createCustomer(nextCustomerId, rng, [kind], CUSTOMER_TUNING.tutorialPatienceMs, radius),
+        createCustomer(nextCustomerId, rng, [product], CUSTOMER_TUNING.tutorialPatienceMs, radius),
       ]
       nextCustomerId += 1
       spawnMs = 2_500
     } else if (tutorial === 'done') {
       const count = 1 + rng.int(Math.min(4, 1 + eligible.length))
-      const wanted = Array.from({ length: count }, () => rng.pick(eligible) as FruitKind)
+      const wanted = Array.from({ length: count }, () => weightedProduct(rng, eligible))
       customers = [
         ...customers,
         createCustomer(nextCustomerId, rng, wanted, CUSTOMER_TUNING.patienceMs, radius),
@@ -454,7 +466,8 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     served,
     pendingCoins,
     player,
-    trees,
+    zones,
+    producers,
     shelves,
     customers,
     queue,
@@ -488,21 +501,13 @@ export function inRegisterZone(pos: Vec2): boolean {
   return Math.hypot(pos.x - closestX, pos.y - closestY) <= REGISTER_RADIUS
 }
 
-export function refreshShelves(state: ShopState): ShopState {
-  const active = new Set(state.trees.map((tree) => tree.kind))
-  const capacity = shelfCapacity(state.upgrades.shelf)
-  const shelves = { ...state.shelves }
-  for (const kind of FRUIT_ORDER) {
-    const current = shelves[kind]
-    const exists = active.has(kind)
-    shelves[kind] = {
-      ...current,
-      capacity,
-      active: exists,
-      stock: exists ? Math.min(current.stock, capacity) : 0,
-      everStocked: exists ? current.everStocked : false,
-    }
-  }
+export function refreshStateShelves(state: ShopState): ShopState {
+  const shelves = refreshShelves(
+    { ...state.shelves },
+    state.producers,
+    state.zones,
+    shelfCapacity(state.upgrades.shelf),
+  )
   return { ...state, shelves }
 }
 
@@ -510,131 +515,111 @@ export function setTutorial(state: ShopState, step: TutorialStep): ShopState {
   return state.tutorial === step ? state : { ...state, tutorial: step }
 }
 
-export function addTreeToState(state: ShopState, tree: TreeState): ShopState {
-  const next = {
+export function addProducerToState(state: ShopState, producer: ProducerState): ShopState {
+  const producers = [...state.producers, producer]
+  const shelves = refreshShelves(
+    { ...state.shelves },
+    producers,
+    state.zones,
+    shelfCapacity(state.upgrades.shelf),
+  )
+  return {
     ...state,
-    trees: [...state.trees, tree],
-    nextTreeId: Math.max(state.nextTreeId, tree.id + 1),
+    producers,
+    shelves,
+    nextProducerId: Math.max(state.nextProducerId, producer.id + 1),
   }
-  return refreshShelves(next)
 }
 
-export function removeTreeFromState(state: ShopState, plot: number): ShopState {
-  const removed = state.trees.find((tree) => tree.plot === plot)
+export function removeProducerFromState(state: ShopState, id: number): ShopState {
+  const removed = state.producers.find((producer) => producer.id === id)
   if (removed === undefined) return state
-  const trees = state.trees.filter((tree) => tree.plot !== plot)
-  const stillHasKind = trees.some((tree) => tree.kind === removed.kind)
+  const producers = state.producers.filter((producer) => producer.id !== id)
+  const stillHasProduct = producers.some((producer) => producer.product === removed.product)
   let player = state.player
-  if (!stillHasKind && player.carry === removed.kind) {
+  if (!stillHasProduct && player.carry === removed.product) {
     player = { ...player, carry: null, carryCount: 0 }
   }
-  const next = { ...state, trees, player }
-  return refreshShelves(next)
+  const shelves = refreshShelves(
+    { ...state.shelves },
+    producers,
+    state.zones,
+    shelfCapacity(state.upgrades.shelf),
+  )
+  return { ...state, producers, shelves, player }
 }
 
-export function fruitTreePosition(plot: number): Vec2 {
-  const target = PLOTS[plot]
-  return target === undefined ? PLAYER_START : { x: target.x, y: target.y }
-}
-
-function advanceTree(
-  tree: TreeState,
-  dt: number,
-  fruitSpeed: number,
-  events: GameEvent[],
-): TreeState {
-  const config = FRUITS[tree.kind]
-  if (!tree.mature) {
-    const growthMs = tree.growthMs + dt * fruitSpeed
-    if (growthMs >= config.growMs) {
-      events.push({ type: 'treeMature', treeId: tree.id, plot: tree.plot })
-      return {
-        ...tree,
-        growthMs: config.growMs,
-        mature: true,
-        fruit: 1,
-        fruitMs: 0,
-      }
-    }
-    return { ...tree, growthMs }
-  }
-
-  if (tree.fruit >= config.maxFruit) {
-    return tree.fruitMs === 0 ? tree : { ...tree, fruitMs: 0 }
-  }
-
-  let fruit = tree.fruit
-  let fruitMs = tree.fruitMs + dt * fruitSpeed
-  while (fruitMs >= config.fruitMs && fruit < config.maxFruit) {
-    fruit += 1
-    fruitMs -= config.fruitMs
-    events.push({ type: 'fruitReady', treeId: tree.id, plot: tree.plot })
-  }
-  if (fruit >= config.maxFruit) fruitMs = 0
-  return { ...tree, fruit, fruitMs }
-}
-
-function nearestTree(
-  trees: readonly TreeState[],
-  pos: Vec2,
-  carry: FruitKind | null,
-): TreeState | null {
-  let best: TreeState | null = null
-  let bestDistance = Number.POSITIVE_INFINITY
-  for (const tree of trees) {
-    if (!tree.mature || tree.fruit <= 0) continue
-    if (carry !== null && carry !== tree.kind) continue
-    const distanceToTree = distance(pos, tree.pos)
-    if (distanceToTree <= INTERACT.harvestRadius && distanceToTree < bestDistance) {
-      best = tree
-      bestDistance = distanceToTree
+function markExistingStocked(
+  shelves: Record<ZoneId, ShelfState>,
+  producers: readonly ProducerState[],
+): Record<ZoneId, ShelfState> {
+  let next = shelves
+  for (const producer of producers) {
+    const zone = zoneOf(producer.product)
+    const shelf = next[zone]
+    next = {
+      ...next,
+      [zone]: {
+        ...shelf,
+        everStocked: { ...shelf.everStocked, [producer.product]: true },
+      },
     }
   }
-  return best
-}
-
-function nearestShelf(
-  shelves: Readonly<Record<FruitKind, ShelfState>>,
-  pos: Vec2,
-  kind: FruitKind,
-): FruitKind | null {
-  const shelf = shelves[kind]
-  if (!shelf.active || shelf.stock >= shelf.capacity) return null
-  const access = SHELF_ACCESS[kind]
-  return distance(pos, access) <= INTERACT.stockRadius ? kind : null
+  return next
 }
 
 function advanceTutorial(
   current: TutorialStep,
-  trees: readonly TreeState[],
-  shelves: Readonly<Record<FruitKind, ShelfState>>,
+  producers: readonly ProducerState[],
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
   player: ShopState['player'],
   served: number,
 ): TutorialStep {
-  if (current === 'buyTree' && trees.length > 0) return 'grow'
-  if (current === 'grow' && trees.some((tree) => tree.mature)) return 'harvest'
+  if (current === 'buyTree' && producers.some((producer) => isPlantKind(producer.product))) {
+    return 'grow'
+  }
+  if (
+    current === 'grow' &&
+    producers.some((producer) => isPlantKind(producer.product) && producer.mature)
+  ) {
+    return 'harvest'
+  }
   if (current === 'harvest' && player.carryCount > 0) return 'stock'
-  if (current === 'stock' && FRUIT_ORDER.some((kind) => shelves[kind].everStocked))
+  if (
+    current === 'stock' &&
+    PRODUCT_ORDER.some((product) => shelves[zoneOf(product)].everStocked[product])
+  ) {
     return 'checkout'
+  }
   if (current === 'checkout' && served > 0) return 'done'
   return current
+}
+
+function weightedProduct(rng: Rng, eligible: readonly ProductKind[]): ProductKind {
+  const total = eligible.reduce((sum, product) => sum + PRODUCT_WEIGHT[zoneOf(product)], 0)
+  let roll = rng.int(total)
+  for (const product of eligible) {
+    roll -= PRODUCT_WEIGHT[zoneOf(product)]
+    if (roll < 0) return product
+  }
+  return eligible[0] as ProductKind
 }
 
 function createCustomer(
   id: number,
   rng: Rng,
-  wanted: readonly FruitKind[],
+  wanted: readonly ProductKind[],
   patienceMs: number,
   radius: number,
 ): CustomerState {
   const species = rng.pick(CUSTOMER_SPECIES) as SpeciesId
-  const first = wanted[0] as FruitKind
+  const first = wanted[0] as ProductKind
   return {
     id,
     species,
     pos: DOOR_SPAWN,
     prevPos: DOOR_SPAWN,
-    path: pathTo(DOOR_SPAWN, SHELF_ACCESS[first], radius),
+    path: pathTo(DOOR_SPAWN, SHELF_ACCESS[zoneOf(first)], radius),
     pathIndex: 0,
     phase: 'toShelf',
     wanted,

@@ -1,4 +1,4 @@
-import { ROOM, STATIC_OBSTACLES, WALL } from './config'
+import { ROOM_H, ROOM_W, STATIC_OBSTACLES, WALL } from './config'
 import type { Rect, Vec2 } from './types'
 
 export function distanceSq(a: Vec2, b: Vec2): number {
@@ -20,8 +20,8 @@ export function circleIntersectsRect(x: number, y: number, radius: number, rect:
 }
 
 export function blockedAt(x: number, y: number, radius: number): boolean {
-  if (x - radius < WALL || x + radius > ROOM - WALL) return true
-  if (y - radius < WALL || y + radius > ROOM - WALL) return true
+  if (x - radius < WALL || x + radius > ROOM_W - WALL) return true
+  if (y - radius < WALL || y + radius > ROOM_H - WALL) return true
   return STATIC_OBSTACLES.some((rect) => circleIntersectsRect(x, y, radius, rect))
 }
 

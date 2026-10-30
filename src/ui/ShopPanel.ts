@@ -1,27 +1,33 @@
 import { Button, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import {
-  FRUIT_ORDER,
-  FRUITS,
+  ANIMALS,
+  isAnimalProductKind,
+  isPlantKind,
+  isProcessedKind,
+  PLANTS,
+  producerCost,
+  RECIPES,
   STAFF,
   STAFF_ORDER,
   UPGRADE_EFFECT,
   UPGRADE_ORDER,
+  ZONE_ORDER,
+  ZONE_PRODUCTS,
+  ZONES,
 } from '../logic/config'
-import {
-  activeTreeDeposit,
-  emptyPlot,
-  plantedCount,
-  staffCost,
-  staffMax,
-  treeDepositKey,
-  upgradeCost,
-  upgradeMax,
-} from '../logic/purchase'
-import type { FruitKind, ShopState, StaffKind, UpgradeKind } from '../logic/types'
+import { plantedCount, staffCost, staffMax, upgradeCost, upgradeMax } from '../logic/purchase'
+import type {
+  PlantKind,
+  ProductKind,
+  ShopState,
+  StaffKind,
+  UpgradeKind,
+  ZoneId,
+} from '../logic/types'
 import { animalTextureKey } from './animalArt'
-import { FRUIT_COLORS, fruitTextureKey } from './fruitArt'
 import type { GameLayout } from './layout'
+import { productTextureKey } from './productArt'
 import { drawToolIcon } from './toolArt'
 
 export interface ShopPanelOptions {
@@ -30,57 +36,77 @@ export interface ShopPanelOptions {
   readonly theme: Theme
   readonly i18n: I18n
   readonly state: ShopState
-  readonly onPlant: (kind: FruitKind) => ShopState
+  readonly onPurchasePlant: (product: PlantKind) => ShopState
+  readonly onPurchaseProducer: (product: ProductKind) => ShopState
+  readonly onUnlockZone: (zone: ZoneId) => ShopState
+  readonly onRemove: (id: number) => ShopState
   readonly onUpgrade: (kind: UpgradeKind) => ShopState
   readonly onStaff: (kind: StaffKind) => ShopState
-  readonly onRemove: (plot: number) => ShopState
   readonly onClose: () => void
 }
 
-type Tab = 'trees' | 'tools' | 'staff'
+type Tab = 'production' | 'tools' | 'staff'
+
+interface DynamicButton {
+  readonly button: Button
+  readonly cost: number
+  readonly deposit: number
+  readonly format: (remaining: number) => string
+  readonly locked?: boolean
+  readonly lockedLabel?: string
+  enabled: boolean
+  lastText: string
+}
 
 export class ShopPanel {
   private readonly options: ShopPanelOptions
   private readonly root: Phaser.GameObjects.Container
-  private readonly blocker: Phaser.GameObjects.Rectangle
+  private readonly chrome: Phaser.GameObjects.Container
+  private body?: Phaser.GameObjects.Container
   private state: ShopState
-  private tab: Tab = 'trees'
-  private content?: Phaser.GameObjects.Container
-  private confirm?: Phaser.GameObjects.Container
+  private tab: Tab = 'production'
+  private zone: ZoneId = 'fruit'
   private closed = false
   private structureKey = ''
+  private pendingBody = false
   private balanceText?: Phaser.GameObjects.Text
-  private readonly treeButtons = new Map<FruitKind, Button>()
-  private readonly toolButtons = new Map<UpgradeKind, Button>()
-  private readonly staffButtons = new Map<StaffKind, Button>()
+  private readonly tabButtons = new Map<Tab, Button>()
+  private readonly zoneButtons = new Map<ZoneId, Button>()
+  private readonly dynamicButtons: DynamicButton[] = []
+  private zoneChips?: Phaser.GameObjects.Container
+  private tabHighlight?: Phaser.GameObjects.Graphics
+  private zoneHighlight?: Phaser.GameObjects.Graphics
 
   constructor(options: ShopPanelOptions) {
     this.options = options
     this.state = options.state
     const { scene } = options
     this.root = scene.add.container(0, 0).setDepth(7000)
-    this.blocker = scene.add
+    this.root.setName('shop-root')
+    const blocker = scene.add
       .rectangle(0, 0, options.layout.width, options.layout.height, options.theme.overlay, 0.68)
       .setOrigin(0)
-      .setInteractive()
-    this.blocker.on('pointerdown', () => this.close())
-    this.root.add(this.blocker)
-    this.render()
+    this.root.add(blocker)
+
+    this.chrome = scene.add.container(0, 0)
+    this.chrome.setName('shop-chrome')
+    this.root.add(this.chrome)
+    this.renderChrome()
+    this.renderBody()
   }
 
   setState(state: ShopState): void {
     this.state = state
-    if (!this.closed) this.render()
+    if (!this.closed) this.update(state)
   }
 
   update(state: ShopState): void {
     if (this.closed) return
+    this.state = state
     if (this.structureKeyFor(state) !== this.structureKey) {
-      this.state = state
-      this.render()
+      this.scheduleBodyRender()
       return
     }
-    this.state = state
     this.refreshDynamic()
   }
 
@@ -96,18 +122,15 @@ export class ShopPanel {
     this.root.destroy(true)
   }
 
-  private render(): void {
-    const { scene, layout, theme } = this.options
+  private renderChrome(): void {
+    const { scene, layout, theme, i18n } = this.options
     const panelX = (layout.width - layout.panelWidth) / 2
     const panelY = (layout.height - layout.panelHeight) / 2
-    this.content?.destroy(true)
-    this.confirm?.destroy(true)
-    this.treeButtons.clear()
-    this.toolButtons.clear()
-    this.staffButtons.clear()
+    this.chrome.setPosition(panelX, panelY)
+    this.tabButtons.clear()
+    this.zoneButtons.clear()
     this.balanceText = undefined
-    this.content = scene.add.container(panelX, panelY)
-    this.root.add(this.content)
+
     const w = layout.panelWidth
     const h = layout.panelHeight
     const g = scene.add.graphics()
@@ -118,183 +141,317 @@ export class ShopPanel {
     g.lineStyle(3, theme.borderSoft, 1)
     g.strokeRoundedRect(0, 0, w, h, theme.radiusLarge)
     g.fillStyle(theme.accentWarm, 0.35)
-    g.fillRoundedRect(18, 18, w - 36, 62, 18)
-    this.content.add(g)
-
-    const blocker = scene.add.rectangle(w / 2, h / 2, w, h, 0, 0).setInteractive()
-    this.content.add(blocker)
+    g.fillRoundedRect(18, 18, w - 36, 58, 18)
+    this.chrome.add(g)
 
     const title = scene.add
-      .text(34, 42, this.options.i18n.t('shop.title'), textStyle(theme, 28, theme.text, true))
+      .text(30, 38, i18n.t('shop.title'), textStyle(theme, 26, theme.text, true))
       .setOrigin(0, 0.5)
-    this.content.add(title)
+    this.chrome.add(title)
 
-    const balance = scene.add
+    this.balanceText = scene.add
       .text(
-        w - 104,
-        42,
-        this.options.i18n.t('shop.balance', { coins: this.state.coins }),
+        w - 96,
+        38,
+        i18n.t('shop.balance', { coins: this.state.coins }),
         textStyle(theme, 18, theme.text, true),
       )
       .setOrigin(1, 0.5)
-    this.balanceText = balance
-    this.content.add(balance)
+    this.chrome.add(this.balanceText)
 
-    const close = new Button(scene, w - 40, 42, '×', theme, {
-      width: 42,
-      height: 42,
-      variant: 'soft',
-      fontSize: 26,
-      onClick: () => this.close(),
-    })
-    this.content.add(close)
+    this.chrome.add(
+      new Button(scene, w - 38, 38, '×', theme, {
+        width: 44,
+        height: 44,
+        fontSize: 26,
+        minHitSize: 64,
+        variant: 'soft',
+        onClick: () => this.close(),
+      }),
+    )
 
     this.renderTabs(w)
+    this.renderZoneChips(w)
+    this.tabHighlight = scene.add.graphics()
+    this.zoneHighlight = scene.add.graphics()
+    this.chrome.add([this.tabHighlight, this.zoneHighlight])
+    this.applyChromeSelection()
+  }
 
-    const contentTop = 108
-    const contentBottom = h - 22
-    const contentHeight = contentBottom - contentTop
-    const gap = 12
-    const cols = 2
-    const rows = this.tab === 'trees' ? 2 : this.tab === 'tools' ? 3 : 1
-    const cardW = (w - 48 - gap * (cols - 1)) / cols
-    const cardH = (contentHeight - gap * (rows - 1)) / rows
+  private renderTabs(w: number): void {
+    const { scene, theme, i18n } = this.options
+    const y = 76
+    const gap = 6
+    const tabWidth = (w - 60 - gap * 2) / 3
+    const tabs: readonly { readonly tab: Tab; readonly label: string }[] = [
+      { tab: 'production', label: i18n.t('shop.production') },
+      { tab: 'tools', label: i18n.t('shop.tools') },
+      { tab: 'staff', label: i18n.t('shop.staff') },
+    ]
+    tabs.forEach((entry, index) => {
+      const button = new Button(
+        scene,
+        30 + tabWidth / 2 + index * (tabWidth + gap),
+        y,
+        entry.label,
+        theme,
+        {
+          width: tabWidth,
+          height: 36,
+          fontSize: 15,
+          minHitSize: 64,
+          variant: 'soft',
+          onClick: () => this.setTab(entry.tab),
+        },
+      )
+      this.tabButtons.set(entry.tab, button)
+      this.chrome.add(button)
+    })
+  }
 
-    if (this.tab === 'trees') {
-      FRUIT_ORDER.forEach((kind, index) => {
-        const column = index % cols
-        const row = Math.floor(index / cols)
-        const x = 24 + column * (cardW + gap) + cardW / 2
-        const y = contentTop + row * (cardH + gap) + cardH / 2
-        this.content?.add(this.fruitCard(kind, x, y, cardW, cardH))
-      })
+  private renderZoneChips(w: number): void {
+    const { scene, theme, i18n } = this.options
+    const container = scene.add.container(0, 0)
+    this.zoneChips = container
+    this.chrome.add(container)
+    const y = 124
+    const gap = 6
+    const chipWidth = (w - 60 - gap * 3) / 4
+    ZONE_ORDER.forEach((zone, index) => {
+      const button = new Button(
+        scene,
+        30 + chipWidth / 2 + index * (chipWidth + gap),
+        y,
+        i18n.t(`zone.${zone}`),
+        theme,
+        {
+          width: chipWidth,
+          height: 34,
+          fontSize: 13,
+          minHitSize: 64,
+          variant: 'soft',
+          onClick: () => this.setZone(zone),
+        },
+      )
+      button.setName(`chip-${zone}`)
+      this.zoneButtons.set(zone, button)
+      container.add(button)
+    })
+  }
+
+  private setTab(tab: Tab): void {
+    if (this.tab === tab) return
+    this.tab = tab
+    this.applyChromeSelection()
+    this.scheduleBodyRender()
+  }
+
+  private setZone(zone: ZoneId): void {
+    if (this.zone === zone) return
+    this.zone = zone
+    this.applyChromeSelection()
+    this.scheduleBodyRender()
+  }
+
+  private applyChromeSelection(): void {
+    const { theme } = this.options
+    this.zoneChips?.setVisible(this.tab === 'production')
+    const w = this.options.layout.panelWidth
+    const gap = 6
+    const tabWidth = (w - 60 - gap * 2) / 3
+    const tabOrder: readonly Tab[] = ['production', 'tools', 'staff']
+    const tabIndex = tabOrder.indexOf(this.tab)
+    this.tabHighlight?.clear()
+    this.tabHighlight?.fillStyle(theme.accent, 1)
+    this.tabHighlight?.fillRoundedRect(
+      30 + tabIndex * (tabWidth + gap) + 12,
+      92,
+      tabWidth - 24,
+      4,
+      2,
+    )
+
+    this.zoneHighlight?.clear()
+    if (this.tab !== 'production') return
+    const chipWidth = (w - 60 - gap * 3) / 4
+    const zoneIndex = ZONE_ORDER.indexOf(this.zone)
+    this.zoneHighlight?.fillStyle(theme.accent, 1)
+    this.zoneHighlight?.fillRoundedRect(
+      30 + zoneIndex * (chipWidth + gap) + 12,
+      140,
+      chipWidth - 24,
+      4,
+      2,
+    )
+
+    for (const [tab, button] of this.tabButtons) {
+      button.setAlpha(this.tab === tab ? 1 : 0.7)
+    }
+    for (const [zone, button] of this.zoneButtons) {
+      const inactive = this.state.zones[zone] ? 0.7 : 0.4
+      button.setAlpha(this.zone === zone ? 1 : inactive)
+    }
+  }
+
+  private scheduleBodyRender(): void {
+    if (this.pendingBody) return
+    this.pendingBody = true
+    this.options.scene.time.delayedCall(120, () => {
+      this.pendingBody = false
+      if (!this.closed) this.renderBody()
+    })
+  }
+
+  private renderBody(): void {
+    const { scene, layout } = this.options
+    const panelX = (layout.width - layout.panelWidth) / 2
+    const panelY = (layout.height - layout.panelHeight) / 2
+    this.body?.destroy(true)
+    this.dynamicButtons.length = 0
+    this.body = scene.add.container(panelX, panelY)
+    this.body.setName(`shop-body-${this.tab}-${this.zone}`)
+    this.root.add(this.body)
+    const w = layout.panelWidth
+    const h = layout.panelHeight
+    const top = this.tab === 'production' ? 158 : 112
+    const bottom = h - 20
+
+    if (this.tab === 'production') {
+      if (!this.state.zones[this.zone]) {
+        this.renderLockedZone(this.body, this.zone, w, top, bottom)
+      } else if (this.zone === 'fruit' || this.zone === 'veg') {
+        this.renderPlants(this.body, this.zone, w, top, bottom)
+      } else {
+        this.renderProducers(this.body, this.zone, w, top, bottom)
+      }
     } else if (this.tab === 'tools') {
-      UPGRADE_ORDER.forEach((kind, index) => {
-        const column = index % cols
-        const row = Math.floor(index / cols)
-        const x = 24 + column * (cardW + gap) + cardW / 2
-        const y = contentTop + row * (cardH + gap) + cardH / 2
-        this.content?.add(this.toolCard(kind, x, y, cardW, cardH))
-      })
+      this.renderTools(this.body, w, top, bottom)
     } else {
-      STAFF_ORDER.forEach((kind, index) => {
-        const column = index % cols
-        const x = 24 + column * (cardW + gap) + cardW / 2
-        const y = contentTop + cardH / 2
-        this.content?.add(this.staffCard(kind, x, y, cardW, cardH))
-      })
+      this.renderStaff(this.body, w, top, bottom)
     }
 
     this.structureKey = this.structureKeyFor(this.state)
     this.refreshDynamic()
   }
 
-  private renderTabs(w: number): void {
-    const { scene, theme } = this.options
-    const y = 78
-    const gap = 6
-    const tabWidth = Math.min(144, (w - 60 - gap * 2) / 3)
-    const tabs: readonly { readonly tab: Tab; readonly label: string }[] = [
-      { tab: 'trees', label: this.options.i18n.t('shop.trees') },
-      { tab: 'tools', label: this.options.i18n.t('shop.tools') },
-      { tab: 'staff', label: this.options.i18n.t('shop.staff') },
-    ]
-    tabs.forEach((entry, index) => {
+  private renderLockedZone(
+    parent: Phaser.GameObjects.Container,
+    zone: ZoneId,
+    w: number,
+    top: number,
+    bottom: number,
+  ): void {
+    const { scene, theme, i18n } = this.options
+    const config = ZONES[zone]
+    const height = Math.min(220, bottom - top)
+    const card = scene.add.container(30 + (w - 60) / 2, top + height / 2)
+    const g = scene.add.graphics()
+    g.fillStyle(theme.surface, 1)
+    g.fillRoundedRect(-(w - 60) / 2, -height / 2, w - 60, height, 18)
+    g.lineStyle(2, theme.borderSoft, 1)
+    g.strokeRoundedRect(-(w - 60) / 2, -height / 2, w - 60, height, 18)
+    g.fillStyle(theme.accentAlt, 0.12)
+    g.fillRoundedRect(-(w - 60) / 2 + 12, -height / 2 + 12, w - 84, 42, 12)
+    card.add(g)
+    card.add(
+      scene.add
+        .text(0, -height / 2 + 34, i18n.t(`zone.${zone}`), textStyle(theme, 20, theme.text, true))
+        .setOrigin(0.5),
+    )
+    card.add(
+      scene.add
+        .text(
+          0,
+          -height / 2 + 74,
+          zone === 'veg'
+            ? i18n.t('shop.zoneHint')
+            : i18n.t('shop.zoneLocked', { zone: i18n.t(`zone.${zone}`) }),
+          textStyle(theme, 13, theme.textMuted),
+        )
+        .setOrigin(0.5),
+    )
+    if (config.includes !== null) {
+      const includes = config.includes
+      card.add(
+        scene.add
+          .text(
+            0,
+            -height / 2 + 98,
+            i18n.t('shop.includes', { name: this.productName(includes) }),
+            textStyle(theme, 13, theme.textMuted),
+          )
+          .setOrigin(0.5),
+      )
+    }
+    if (zone === 'veg') {
+      const locked = this.state.served === 0
+      const button = new Button(scene, 0, height / 2 - 34, i18n.t('shop.unlockFree'), theme, {
+        width: w - 120,
+        height: 44,
+        fontSize: 15,
+        minHitSize: 64,
+        variant: locked ? 'soft' : 'primary',
+        onClick: () => {
+          const next = this.options.onUnlockZone(zone)
+          this.setState(next)
+        },
+      })
+      button.setEnabled(!locked)
+      if (locked) button.setText(i18n.t('shop.afterFirstSale'))
+      card.add(button)
+    } else {
+      const cost = config.unlockCost
       const button = new Button(
         scene,
-        24 + tabWidth / 2 + index * (tabWidth + gap),
-        y,
-        entry.label,
+        0,
+        height / 2 - 34,
+        i18n.t('shop.unlockZone', { cost }),
         theme,
         {
-          width: tabWidth,
-          height: 34,
-          fontSize: tabWidth < 110 ? 13 : 16,
-          variant: this.tab === entry.tab ? 'primary' : 'soft',
-          onClick: () => this.switchTab(entry.tab),
+          width: w - 120,
+          height: 44,
+          fontSize: 15,
+          minHitSize: 64,
+          variant: 'primary',
+          onClick: () => {
+            const next = this.options.onUnlockZone(zone)
+            this.setState(next)
+          },
         },
       )
-      this.content?.add(button)
+      this.track(button, cost, 0, (remaining) => i18n.t('shop.unlockZone', { cost: remaining }))
+      card.add(button)
+    }
+    parent.add(card)
+  }
+
+  private renderPlants(
+    parent: Phaser.GameObjects.Container,
+    zone: 'fruit' | 'veg',
+    w: number,
+    top: number,
+    bottom: number,
+  ): void {
+    const gap = 10
+    const cardW = (w - 60 - gap) / 2
+    const cardH = (bottom - top - gap) / 2
+    ZONE_PRODUCTS[zone].forEach((product, index) => {
+      if (!isPlantKind(product)) return
+      const column = index % 2
+      const row = Math.floor(index / 2)
+      const x = 30 + column * (cardW + gap) + cardW / 2
+      const y = top + row * (cardH + gap) + cardH / 2
+      parent.add(this.plantCard(product, x, y, cardW, cardH))
     })
   }
 
-  private switchTab(tab: Tab): void {
-    if (this.tab === tab) return
-    this.tab = tab
-    this.render()
-  }
-
-  private structureKeyFor(state: ShopState): string {
-    const trees = [...state.trees]
-      .sort((a, b) => a.plot - b.plot)
-      .map((tree) => `${tree.kind}@${tree.plot}`)
-      .join(',')
-    const upgrades = UPGRADE_ORDER.map((kind) => state.upgrades[kind]).join(',')
-    const staff = STAFF_ORDER.map((kind) => state.staff[kind]).join(',')
-    const deposits = Object.entries(state.deposits)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, amount]) => `${key}:${amount}`)
-      .join(',')
-    return `${this.tab}|${trees}|${upgrades}|${staff}|${deposits}`
-  }
-
-  private refreshDynamic(): void {
-    const { i18n } = this.options
-    this.balanceText?.setText(i18n.t('shop.balance', { coins: this.state.coins }))
-
-    const activeDeposit = activeTreeDeposit(this.state)
-    for (const [kind, button] of this.treeButtons) {
-      const cost = FRUITS[kind].cost
-      const deposit = this.state.deposits[treeDepositKey(kind)] ?? 0
-      const remaining = Math.max(0, cost - deposit)
-      const locked = activeDeposit !== null && activeDeposit.kind !== kind
-      const hasPlot = emptyPlot(this.state) !== null
-      button.setEnabled(hasPlot && !locked && this.state.coins >= remaining)
-      if (!hasPlot) button.setText(i18n.t('shop.needPlot'))
-      else if (locked) button.setText(i18n.t('shop.depositLocked'))
-      else if (this.state.coins < remaining) {
-        button.setText(i18n.t('shop.notEnough', { cost: remaining - this.state.coins }))
-      } else {
-        button.setText(i18n.t('shop.plant', { cost: remaining }))
-      }
-    }
-
-    for (const [kind, button] of this.toolButtons) {
-      const level = this.state.upgrades[kind]
-      const cost = upgradeCost(kind, level)
-      if (cost === null) {
-        button.setText(i18n.t('shop.max'))
-        button.setEnabled(false)
-        continue
-      }
-      button.setText(
-        this.state.coins < cost
-          ? i18n.t('shop.notEnough', { cost: cost - this.state.coins })
-          : i18n.t('shop.upgrade', { cost }),
-      )
-      button.setEnabled(this.state.coins >= cost)
-    }
-
-    for (const [kind, button] of this.staffButtons) {
-      const level = this.state.staff[kind]
-      const cost = staffCost(kind, level)
-      if (cost === null) {
-        button.setText(i18n.t('shop.max'))
-        button.setEnabled(false)
-        continue
-      }
-      const deposit = this.state.deposits[`staff:${kind}`] ?? 0
-      const remaining = Math.max(0, cost - deposit)
-      button.setText(
-        this.state.coins < remaining
-          ? i18n.t('shop.notEnough', { cost: remaining - this.state.coins })
-          : i18n.t('shop.hire', { cost: remaining }),
-      )
-      button.setEnabled(this.state.coins >= remaining)
-    }
-  }
-
-  private fruitCard(kind: FruitKind, x: number, y: number, width: number, height: number) {
+  private plantCard(
+    product: PlantKind,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = this.options
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
@@ -302,112 +459,114 @@ export class ShopPanel {
     g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
     g.lineStyle(2, theme.borderSoft, 1)
     g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
-    g.fillStyle(FRUIT_COLORS[kind], 0.16)
-    g.fillRoundedRect(-width / 2 + 8, -height / 2 + 8, width - 16, 34, 10)
     card.add(g)
 
-    const icon = scene.add
-      .image(-width / 2 + 48, -height / 2 + 58, fruitTextureKey(kind))
-      .setScale(1.15)
-    card.add(icon)
-
-    const name = scene.add
-      .text(
-        -width / 2 + 82,
-        -height / 2 + 36,
-        i18n.t(`fruit.${kind}`),
-        textStyle(theme, 19, theme.text, true),
-      )
-      .setOrigin(0, 0.5)
-    card.add(name)
-
-    const planted = plantedCount(this.state, kind)
-    const countLabel = scene.add
-      .text(
-        width / 2 - 18,
-        -height / 2 + 36,
-        planted > 0 ? i18n.t('shop.planted', { count: planted }) : '',
-        textStyle(theme, 12, theme.textMuted, true),
-      )
-      .setOrigin(1, 0.5)
-    card.add(countLabel)
-
-    const config = FRUITS[kind]
-    const stats = scene.add
-      .text(
-        -width / 2 + 20,
-        -height / 2 + 80,
-        i18n.t('shop.stats', {
-          price: config.price,
-          grow: Math.round(config.growMs / 1000),
-          fruit: Math.round(config.fruitMs / 1000),
-        }),
-        textStyle(theme, 13, theme.textMuted),
-      )
-      .setOrigin(0, 0)
-    card.add(stats)
-
-    const cost = config.cost
-    const deposit = this.state.deposits[treeDepositKey(kind)] ?? 0
-    if (deposit > 0) {
-      const paid = scene.add
+    card.add(
+      scene.add.image(-width / 2 + 34, -height / 2 + 36, productTextureKey(product)).setScale(0.72),
+    )
+    card.add(
+      scene.add
         .text(
-          -width / 2 + 20,
-          -height / 2 + 104,
-          i18n.t('shop.depositLine', { paid: deposit, remaining: Math.max(0, cost - deposit) }),
+          -width / 2 + 64,
+          -height / 2 + 26,
+          this.productName(product),
+          textStyle(theme, 17, theme.text, true),
+        )
+        .setOrigin(0, 0.5),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 64,
+          -height / 2 + 50,
+          i18n.t('shop.planted', { count: plantedCount(this.state, product) }),
           textStyle(theme, 12, theme.textMuted, true),
         )
-        .setOrigin(0, 0)
-      card.add(paid)
-    }
+        .setOrigin(0, 0.5),
+    )
 
-    const hasPlot = emptyPlot(this.state) !== null
-    const canPlant = this.state.coins >= Math.max(0, cost - deposit) && hasPlot
-    const plantLabel = !hasPlot
-      ? i18n.t('shop.needPlot')
-      : this.state.coins < Math.max(0, cost - deposit)
-        ? i18n.t('shop.notEnough', { cost: Math.max(0, cost - deposit) - this.state.coins })
-        : i18n.t('shop.plant', { cost: Math.max(0, cost - deposit) })
-    const plant = new Button(scene, 0, height / 2 - 42, plantLabel, theme, {
+    const config = PLANTS[product]
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 20,
+          -height / 2 + 78,
+          i18n.t('shop.stats.plant', {
+            price: config.price,
+            grow: Math.round(config.growMs / 1000),
+          }),
+          textStyle(theme, 12, theme.textMuted),
+        )
+        .setOrigin(0, 0.5),
+    )
+
+    const cost = config.cost
+    const buy = new Button(scene, 0, height / 2 - 34, i18n.t('shop.plant', { cost }), theme, {
       width: width - 36,
-      height: 40,
-      fontSize: 15,
+      height: 42,
+      fontSize: 14,
+      minHitSize: 64,
       variant: 'primary',
       onClick: () => {
-        const next = this.options.onPlant(kind)
+        const next = this.options.onPurchasePlant(product)
         this.setState(next)
       },
     })
-    plant.setEnabled(canPlant)
-    this.treeButtons.set(kind, plant)
-    card.add(plant)
+    this.track(buy, cost, 0, (remaining) => i18n.t('shop.plant', { cost: remaining }))
+    card.add(buy)
 
-    if (planted > 0) {
-      const first = this.state.trees.find((tree) => tree.kind === kind)
-      if (first !== undefined) {
-        const refund = Math.floor(cost / 2)
-        const remove = new Button(
+    const planted = this.state.producers.find((producer) => producer.product === product)
+    if (planted !== undefined) {
+      const refund = Math.floor(cost * 0.5)
+      card.add(
+        new Button(
           scene,
-          0,
-          height / 2 - 84,
-          i18n.t('shop.remove', { refund }),
+          width / 2 - 48,
+          -height / 2 + 34,
+          i18n.t('shop.removeShort', { refund }),
           theme,
           {
-            width: width - 36,
-            height: 28,
-            fontSize: 13,
+            width: 78,
+            height: 30,
+            fontSize: 11,
+            minHitSize: 56,
             variant: 'soft',
-            onClick: () => this.confirmRemove(first.plot, refund),
+            onClick: () => {
+              const next = this.options.onRemove(planted.id)
+              this.setState(next)
+            },
           },
-        )
-        card.add(remove)
-      }
+        ),
+      )
     }
 
     return card
   }
 
-  private toolCard(kind: UpgradeKind, x: number, y: number, width: number, height: number) {
+  private renderProducers(
+    parent: Phaser.GameObjects.Container,
+    zone: ZoneId,
+    w: number,
+    top: number,
+    bottom: number,
+  ): void {
+    const products = ZONE_PRODUCTS[zone]
+    const gap = 10
+    const cardW = w - 60
+    const cardH = (bottom - top - gap * (products.length - 1)) / products.length
+    products.forEach((product, index) => {
+      const y = top + index * (cardH + gap) + cardH / 2
+      parent.add(this.producerCard(product, 30 + cardW / 2, y, cardW, cardH))
+    })
+  }
+
+  private producerCard(
+    product: ProductKind,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = this.options
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
@@ -415,69 +574,186 @@ export class ShopPanel {
     g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
     g.lineStyle(2, theme.borderSoft, 1)
     g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
-    g.fillStyle(theme.accentAlt, 0.13)
-    g.fillRoundedRect(-width / 2 + 8, -height / 2 + 8, width - 16, 30, 10)
+    card.add(g)
+
+    card.add(
+      scene.add.image(-width / 2 + 34, -height / 2 + 34, productTextureKey(product)).setScale(0.68),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 62,
+          -height / 2 + 24,
+          this.producerName(product),
+          textStyle(theme, 17, theme.text, true),
+        )
+        .setOrigin(0, 0.5),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 62,
+          -height / 2 + 48,
+          this.producerStats(product),
+          textStyle(theme, 12, theme.textMuted),
+        )
+        .setOrigin(0, 0.5),
+    )
+    card.add(
+      scene.add
+        .text(-width / 2 + 20, -height / 2 + 74, this.producerDetail(product), {
+          ...textStyle(theme, 12, theme.textMuted),
+          wordWrap: { width: width - 40 },
+        })
+        .setOrigin(0, 0.5),
+    )
+
+    const owned = this.state.producers.some((producer) => producer.product === product)
+    if (owned) {
+      card.add(
+        scene.add
+          .text(
+            width / 2 - 20,
+            -height / 2 + 26,
+            i18n.t('shop.owned'),
+            textStyle(theme, 13, theme.text, true),
+          )
+          .setOrigin(1, 0.5),
+      )
+    } else {
+      const cost = producerCost(product)
+      const buy = new Button(scene, 0, height / 2 - 30, i18n.t('shop.buy', { cost }), theme, {
+        width: width - 40,
+        height: 40,
+        fontSize: 14,
+        minHitSize: 64,
+        variant: 'primary',
+        onClick: () => {
+          const next = this.options.onPurchaseProducer(product)
+          this.setState(next)
+        },
+      })
+      this.track(buy, cost, 0, (remaining) => i18n.t('shop.buy', { cost: remaining }))
+      card.add(buy)
+    }
+
+    return card
+  }
+
+  private renderTools(
+    parent: Phaser.GameObjects.Container,
+    w: number,
+    top: number,
+    bottom: number,
+  ): void {
+    const gap = 10
+    const cardW = (w - 60 - gap) / 2
+    const cardH = (bottom - top - gap * 2) / 3
+    UPGRADE_ORDER.forEach((kind, index) => {
+      const column = index % 2
+      const row = Math.floor(index / 2)
+      const x = 30 + column * (cardW + gap) + cardW / 2
+      const y = top + row * (cardH + gap) + cardH / 2
+      parent.add(this.toolCard(kind, x, y, cardW, cardH))
+    })
+  }
+
+  private toolCard(
+    kind: UpgradeKind,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Phaser.GameObjects.Container {
+    const { scene, theme, i18n } = this.options
+    const card = scene.add.container(x, y)
+    const g = scene.add.graphics()
+    g.fillStyle(theme.surface, 1)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
+    g.lineStyle(2, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
     card.add(g)
 
     const icon = scene.add.graphics()
-    drawToolIcon(icon, kind, -width / 2 + 38, -height / 2 + 42, 26)
+    drawToolIcon(icon, kind, -width / 2 + 38, -height / 2 + 40, 24)
     card.add(icon)
-
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 64,
+          -height / 2 + 26,
+          i18n.t(`tool.${kind}`),
+          textStyle(theme, 16, theme.text, true),
+        )
+        .setOrigin(0, 0.5),
+    )
     const level = this.state.upgrades[kind]
     const max = upgradeMax(kind)
-    const name = scene.add
-      .text(
-        -width / 2 + 66,
-        -height / 2 + 28,
-        i18n.t(`tool.${kind}`),
-        textStyle(theme, 17, theme.text, true),
-      )
-      .setOrigin(0, 0.5)
-    card.add(name)
-    const levelText = scene.add
-      .text(
-        width / 2 - 18,
-        -height / 2 + 28,
-        i18n.t('shop.level', { level, max }),
-        textStyle(theme, 12, theme.textMuted, true),
-      )
-      .setOrigin(1, 0.5)
-    card.add(levelText)
-
-    const effect = UPGRADE_EFFECT[kind]
-    const desc = scene.add
-      .text(
-        -width / 2 + 20,
-        -height / 2 + 64,
-        i18n.t(`tool.${kind}.desc`, { value: effect }),
-        textStyle(theme, 12, theme.textMuted),
-      )
-      .setOrigin(0, 0.5)
-    card.add(desc)
+    card.add(
+      scene.add
+        .text(
+          width / 2 - 18,
+          -height / 2 + 26,
+          i18n.t('shop.level', { level, max }),
+          textStyle(theme, 12, theme.textMuted, true),
+        )
+        .setOrigin(1, 0.5),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 18,
+          -height / 2 + 58,
+          i18n.t(`tool.${kind}.desc`, { value: UPGRADE_EFFECT[kind] }),
+          { ...textStyle(theme, 12, theme.textMuted), wordWrap: { width: width - 36 } },
+        )
+        .setOrigin(0, 0),
+    )
 
     const cost = upgradeCost(kind, level)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.upgrade', { cost })
-    const buy = new Button(scene, 0, height / 2 - 34, label, theme, {
+    const buy = new Button(scene, 0, height / 2 - 30, label, theme, {
       width: width - 36,
       height: 38,
-      fontSize: 15,
+      fontSize: 14,
+      minHitSize: 64,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {
         const next = this.options.onUpgrade(kind)
         this.setState(next)
       },
     })
-    buy.setEnabled(cost !== null && this.state.coins >= cost)
-    if (cost !== null && this.state.coins < cost) {
-      buy.setText(i18n.t('shop.notEnough', { cost: cost - this.state.coins }))
+    if (cost === null) {
+      buy.setEnabled(false)
+    } else {
+      this.track(buy, cost, 0, (remaining) => i18n.t('shop.upgrade', { cost: remaining }))
     }
-    this.toolButtons.set(kind, buy)
     card.add(buy)
-
     return card
   }
 
-  private staffCard(kind: StaffKind, x: number, y: number, width: number, height: number) {
+  private renderStaff(
+    parent: Phaser.GameObjects.Container,
+    w: number,
+    top: number,
+    bottom: number,
+  ): void {
+    const gap = 10
+    const cardW = (w - 60 - gap) / 2
+    const cardH = bottom - top
+    STAFF_ORDER.forEach((kind, index) => {
+      const x = 30 + index * (cardW + gap) + cardW / 2
+      parent.add(this.staffCard(kind, x, top + cardH / 2, cardW, cardH))
+    })
+  }
+
+  private staffCard(
+    kind: StaffKind,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = this.options
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
@@ -485,142 +761,190 @@ export class ShopPanel {
     g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
     g.lineStyle(2, theme.borderSoft, 1)
     g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
-    g.fillStyle(theme.accentAlt, 0.13)
-    g.fillRoundedRect(-width / 2 + 8, -height / 2 + 8, width - 16, 30, 10)
     card.add(g)
 
-    const icon = scene.add
-      .image(-width / 2 + 46, -height / 2 + 64, animalTextureKey(STAFF[kind].species))
-      .setScale(0.72)
-    card.add(icon)
-
+    card.add(
+      scene.add
+        .image(-width / 2 + 48, -height / 2 + 58, animalTextureKey(STAFF[kind].species))
+        .setScale(0.66),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 84,
+          -height / 2 + 34,
+          i18n.t(`staff.${kind}`),
+          textStyle(theme, 18, theme.text, true),
+        )
+        .setOrigin(0, 0.5),
+    )
     const level = this.state.staff[kind]
     const max = staffMax(kind)
-    const name = scene.add
-      .text(
-        -width / 2 + 82,
-        -height / 2 + 34,
-        i18n.t(`staff.${kind}`),
-        textStyle(theme, 19, theme.text, true),
-      )
-      .setOrigin(0, 0.5)
-    card.add(name)
-
-    const levelText = scene.add
-      .text(
-        width / 2 - 18,
-        -height / 2 + 34,
-        i18n.t('shop.level', { level, max }),
-        textStyle(theme, 12, theme.textMuted, true),
-      )
-      .setOrigin(1, 0.5)
-    card.add(levelText)
-
-    const desc = scene.add
-      .text(-width / 2 + 20, -height / 2 + 104, i18n.t(`staff.${kind}.desc`), {
-        ...textStyle(theme, 13, theme.textMuted),
-        wordWrap: { width: width - 40 },
-      })
-      .setOrigin(0, 0)
-    card.add(desc)
+    card.add(
+      scene.add
+        .text(
+          width / 2 - 18,
+          -height / 2 + 34,
+          i18n.t('shop.level', { level, max }),
+          textStyle(theme, 12, theme.textMuted, true),
+        )
+        .setOrigin(1, 0.5),
+    )
+    card.add(
+      scene.add
+        .text(-width / 2 + 20, -height / 2 + 104, i18n.t(`staff.${kind}.desc`), {
+          ...textStyle(theme, 13, theme.textMuted),
+          wordWrap: { width: width - 40 },
+        })
+        .setOrigin(0, 0),
+    )
 
     const cost = staffCost(kind, level)
     const deposit = this.state.deposits[`staff:${kind}`] ?? 0
     if (deposit > 0 && cost !== null) {
-      const paid = scene.add
-        .text(
-          -width / 2 + 20,
-          -height / 2 + 136,
-          i18n.t('shop.depositLine', { paid: deposit, remaining: Math.max(0, cost - deposit) }),
-          textStyle(theme, 12, theme.textMuted, true),
-        )
-        .setOrigin(0, 0)
-      card.add(paid)
+      card.add(
+        scene.add
+          .text(
+            -width / 2 + 20,
+            -height / 2 + 164,
+            i18n.t('shop.depositLine', { paid: deposit, remaining: Math.max(0, cost - deposit) }),
+            textStyle(theme, 12, theme.textMuted, true),
+          )
+          .setOrigin(0, 0),
+      )
     }
     const remaining = cost === null ? 0 : Math.max(0, cost - deposit)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.hire', { cost: remaining })
-    const buy = new Button(scene, 0, height / 2 - 42, label, theme, {
+    const buy = new Button(scene, 0, height / 2 - 36, label, theme, {
       width: width - 36,
-      height: 40,
-      fontSize: 15,
+      height: 42,
+      fontSize: 14,
+      minHitSize: 64,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {
         const next = this.options.onStaff(kind)
         this.setState(next)
       },
     })
-    buy.setEnabled(cost !== null && this.state.coins >= remaining)
-    if (cost !== null && this.state.coins < remaining) {
-      buy.setText(i18n.t('shop.notEnough', { cost: remaining - this.state.coins }))
+    if (cost === null) {
+      buy.setEnabled(false)
+    } else {
+      this.track(buy, cost, deposit, (value) => i18n.t('shop.hire', { cost: value }))
     }
-    this.staffButtons.set(kind, buy)
     card.add(buy)
-
     return card
   }
 
-  private confirmRemove(plot: number, refund: number): void {
-    if (this.confirm !== undefined) return
-    const { scene, theme, i18n } = this.options
-    const width = this.options.layout.panelWidth
-    const height = this.options.layout.panelHeight
-    const overlay = scene.add.container(width / 2, height / 2)
-    const dim = scene.add.rectangle(0, 0, width, height, theme.overlay, 0.55).setInteractive()
-    overlay.add(dim)
-    const cardW = Math.min(420, width - 60)
-    const cardH = 224
-    const g = scene.add.graphics()
-    g.fillStyle(theme.panel, 1)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 22)
-    g.lineStyle(2, theme.borderSoft, 1)
-    g.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 22)
-    overlay.add(g)
-    overlay.add(
-      scene.add
-        .text(
-          0,
-          -cardH / 2 + 40,
-          i18n.t('shop.removeTitle'),
-          textStyle(theme, 22, theme.text, true),
-        )
-        .setOrigin(0.5),
-    )
-    overlay.add(
-      scene.add
-        .text(0, -20, i18n.t('shop.removeBody', { refund }), {
-          ...textStyle(theme, 14, theme.textMuted),
-          align: 'center',
-          wordWrap: { width: cardW - 60 },
-        })
-        .setOrigin(0.5),
-    )
-    overlay.add(
-      new Button(scene, 0, cardH / 2 - 74, i18n.t('shop.removeConfirm'), theme, {
-        width: cardW - 70,
-        height: 44,
-        fontSize: 16,
-        variant: 'danger',
-        onClick: () => {
-          const next = this.options.onRemove(plot)
-          this.confirm?.destroy(true)
-          this.confirm = undefined
-          this.setState(next)
-        },
-      }),
-    )
-    overlay.add(
-      new Button(scene, 0, cardH / 2 - 26, i18n.t('shop.cancel'), theme, {
-        width: cardW - 70,
-        height: 36,
-        fontSize: 14,
-        variant: 'soft',
-        onClick: () => {
-          this.confirm?.destroy(true)
-          this.confirm = undefined
-        },
-      }),
-    )
-    this.content?.add(overlay)
-    this.confirm = overlay
+  private track(
+    button: Button,
+    cost: number,
+    deposit: number,
+    format: (remaining: number) => string,
+    locked = false,
+    lockedLabel?: string,
+  ): void {
+    this.dynamicButtons.push({
+      button,
+      cost,
+      deposit,
+      format,
+      locked,
+      lockedLabel,
+      enabled: true,
+      lastText: '',
+    })
+  }
+
+  private refreshDynamic(): void {
+    if (this.balanceText !== undefined) {
+      this.balanceText.setText(this.options.i18n.t('shop.balance', { coins: this.state.coins }))
+    }
+    for (const entry of this.dynamicButtons) {
+      if (entry.locked) {
+        if (entry.lastText !== (entry.lockedLabel ?? '')) {
+          entry.lastText = entry.lockedLabel ?? ''
+          entry.button.setText(entry.lastText)
+        }
+        if (entry.enabled) {
+          entry.enabled = false
+          entry.button.setEnabled(false)
+        }
+        continue
+      }
+      const remaining = Math.max(0, entry.cost - entry.deposit)
+      const affordable = this.state.coins >= remaining
+      if (entry.enabled !== affordable) {
+        entry.enabled = affordable
+        entry.button.setEnabled(affordable)
+      }
+      const text = affordable
+        ? entry.format(remaining)
+        : this.options.i18n.t('shop.notEnough', { cost: remaining - this.state.coins })
+      if (text !== entry.lastText) {
+        entry.lastText = text
+        entry.button.setText(text)
+      }
+    }
+  }
+
+  private structureKeyFor(state: ShopState): string {
+    const zones = ZONE_ORDER.map((zone) => (state.zones[zone] ? 1 : 0)).join('')
+    const producers = [...state.producers]
+      .map((producer) => `${producer.product}@${producer.slot}`)
+      .sort()
+      .join(',')
+    const upgrades = UPGRADE_ORDER.map((kind) => state.upgrades[kind]).join('')
+    const staff = STAFF_ORDER.map((kind) => state.staff[kind]).join('')
+    return [zones, producers, upgrades, staff, state.served > 0 ? 1 : 0].join('|')
+  }
+
+  private productName(product: ProductKind): string {
+    return this.options.i18n.t(`product.${product}`)
+  }
+
+  private producerName(product: ProductKind): string {
+    if (isPlantKind(product)) return this.options.i18n.t(`product.${product}`)
+    return this.options.i18n.t(`producer.${product}`)
+  }
+
+  private producerStats(product: ProductKind): string {
+    const { i18n } = this.options
+    if (isPlantKind(product)) {
+      return i18n.t('shop.stats.plant', {
+        price: PLANTS[product].price,
+        grow: Math.round(PLANTS[product].growMs / 1000),
+      })
+    }
+    if (isAnimalProductKind(product)) {
+      const config = ANIMALS[product]
+      return i18n.t('shop.stats.animal', {
+        price: config.price,
+        cycle: Math.round(config.cycleMs / 1000),
+        cap: config.capacity,
+      })
+    }
+    if (isProcessedKind(product)) {
+      const config = RECIPES[product]
+      return i18n.t('shop.stats.recipe', {
+        price: config.price,
+        craft: Math.round(config.craftMs / 1000),
+      })
+    }
+    return ''
+  }
+
+  private producerDetail(product: ProductKind): string {
+    const { i18n } = this.options
+    if (isAnimalProductKind(product)) {
+      const diet = ANIMALS[product].diet.map((item) => this.productName(item)).join(', ')
+      return i18n.t('shop.diet', { items: diet })
+    }
+    if (isProcessedKind(product)) {
+      const inputs = RECIPES[product].inputs
+        .map((input) => `${input.count}× ${this.productName(input.product)}`)
+        .join(', ')
+      return i18n.t('shop.recipe', { items: inputs })
+    }
+    return ''
   }
 }

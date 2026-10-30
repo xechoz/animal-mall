@@ -1,25 +1,54 @@
-import { FRUIT_ORDER, FRUITS, PLOTS, STAFF, shelfCapacity, UPGRADE_ORDER, UPGRADES } from './config'
-import { addTreeToState, removeTreeFromState, setTutorial } from './state'
-import type { FruitKind, GameEvent, ShopState, StaffKind, TreeState, UpgradeKind } from './types'
+import {
+  ANIMAL_PENS,
+  FRUIT_ORDER,
+  isAnimalProductKind,
+  isPlantKind,
+  isProcessedKind,
+  PLANT_ORDER,
+  PLANT_SLOTS,
+  PLANTS,
+  producerCost,
+  STAFF,
+  STATION_SLOTS,
+  shelfCapacity,
+  UPGRADE_ORDER,
+  UPGRADES,
+  ZONES,
+  zoneOf,
+} from './config'
+import { createProducer } from './production'
+import {
+  addProducerToState,
+  refreshStateShelves,
+  removeProducerFromState,
+  setTutorial,
+} from './state'
+import type {
+  GameEvent,
+  PlantKind,
+  ProducerState,
+  ProductKind,
+  ShopState,
+  StaffKind,
+  UpgradeKind,
+  ZoneId,
+} from './types'
 
 export type PurchaseResult =
   | 'ok'
   | 'insufficient'
-  | 'noPlot'
+  | 'noSlot'
   | 'maxed'
   | 'missing'
   | 'deposited'
   | 'locked'
-  | 'lastTree'
+  | 'lockedZone'
+  | 'lastProducer'
 
 export interface PurchaseOutcome {
   readonly state: ShopState
   readonly result: PurchaseResult
   readonly events: readonly GameEvent[]
-}
-
-export function treeCost(kind: FruitKind): number {
-  return FRUITS[kind].cost
 }
 
 export function upgradeCost(kind: UpgradeKind, level: number): number | null {
@@ -38,96 +67,106 @@ export function staffMax(kind: StaffKind): number {
   return STAFF[kind].costs.length
 }
 
-export function treeDepositKey(kind: FruitKind): string {
-  return `tree:${kind}`
+export function plantDepositKey(kind: PlantKind): string {
+  return `plant:${kind}`
 }
 
 export function staffDepositKey(kind: StaffKind): string {
   return `staff:${kind}`
 }
 
-export function activeTreeDeposit(
+export function activePlantDeposit(
   state: ShopState,
-): { readonly kind: FruitKind; readonly amount: number } | null {
-  for (const kind of FRUIT_ORDER) {
-    const amount = state.deposits[treeDepositKey(kind)] ?? 0
+): { readonly kind: PlantKind; readonly amount: number } | null {
+  for (const kind of PLANT_ORDER) {
+    const amount = state.deposits[plantDepositKey(kind)] ?? 0
     if (amount > 0) return { kind, amount }
   }
   return null
 }
 
-export function emptyPlot(state: ShopState): number | null {
-  const used = new Set(state.trees.map((tree) => tree.plot))
-  const plot = PLOTS.find((candidate) => !used.has(candidate.index))
-  return plot === undefined ? null : plot.index
+export function emptyPlantSlot(state: ShopState, zone: 'fruit' | 'veg'): number | null {
+  const used = new Set(
+    state.producers
+      .filter((producer) => isPlantKind(producer.product) && zoneOf(producer.product) === zone)
+      .map((producer) => producer.slot),
+  )
+  const point = PLANT_SLOTS[zone].find((plot) => !used.has(plot.index))
+  return point === undefined ? null : point.index
 }
 
-export function plantedCount(state: ShopState, kind: FruitKind): number {
-  return state.trees.filter((tree) => tree.kind === kind).length
+export function plantedCount(state: ShopState, product: ProductKind): number {
+  return state.producers.filter((producer) => producer.product === product).length
 }
 
-export function purchaseTree(state: ShopState, kind: FruitKind): PurchaseOutcome {
-  const plot = emptyPlot(state)
-  if (plot === null) return { state, result: 'noPlot', events: [] }
-  return purchaseTreeAt(state, kind, plot, false)
+export function purchasePlant(state: ShopState, product: PlantKind): PurchaseOutcome {
+  const zone = zoneOf(product)
+  if (zone !== 'fruit' && zone !== 'veg') return { state, result: 'missing', events: [] }
+  const slot = emptyPlantSlot(state, zone)
+  if (slot === null) return { state, result: 'noSlot', events: [] }
+  return purchasePlantAt(state, product, slot, false)
 }
 
-export function purchaseTreeAt(
+export function purchasePlantAt(
   state: ShopState,
-  kind: FruitKind,
-  plot: number,
+  product: PlantKind,
+  slot: number,
   allowDeposit: boolean,
 ): PurchaseOutcome {
-  const point = PLOTS[plot]
-  if (point === undefined) return { state, result: 'noPlot', events: [] }
-  if (state.trees.some((tree) => tree.plot === plot)) {
+  const zone = zoneOf(product)
+  if (zone !== 'fruit' && zone !== 'veg') return { state, result: 'missing', events: [] }
+  if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
+  const point = PLANT_SLOTS[zone][slot]
+  if (point === undefined) return { state, result: 'noSlot', events: [] }
+  if (
+    state.producers.some(
+      (producer) =>
+        isPlantKind(producer.product) &&
+        zoneOf(producer.product) === zone &&
+        producer.slot === slot,
+    )
+  ) {
     return { state, result: 'missing', events: [] }
   }
 
-  const active = activeTreeDeposit(state)
-  if (active !== null && active.kind !== kind) {
+  const active = activePlantDeposit(state)
+  if (active !== null && active.kind !== product) {
     return { state, result: 'locked', events: [] }
   }
 
-  const cost = treeCost(kind)
-  const deposit = active?.kind === kind ? active.amount : 0
+  const cost = PLANTS[product].cost
+  const deposit = active?.kind === product ? active.amount : 0
   const remaining = Math.max(0, cost - deposit)
 
   if (state.coins >= remaining) {
-    const tree: TreeState = {
-      id: state.nextTreeId,
-      kind,
-      plot,
-      pos: { x: point.x, y: point.y },
-      growthMs: 0,
-      mature: false,
-      fruit: 0,
-      fruitMs: 0,
-    }
-    const key = treeDepositKey(kind)
+    const producer = createProducer(product, slot, state.nextProducerId, true)
+    const key = plantDepositKey(product)
     const deposits = { ...state.deposits }
     delete deposits[key]
-    let next: ShopState = {
-      ...addTreeToState(state, tree),
-      coins: state.coins - remaining,
-      deposits,
-    }
+    let next = addProducerToState(
+      {
+        ...state,
+        coins: state.coins - remaining,
+        deposits,
+      },
+      producer,
+    )
     next = setTutorial(next, state.tutorial === 'buyTree' ? 'grow' : state.tutorial)
     return {
       state: next,
       result: 'ok',
-      events: [{ type: 'treeBought', kind, plot }],
+      events: [{ type: 'producerBought', product, slot }],
     }
   }
 
   // A deposit is only safe when the player can still earn coins. With no
-  // planted trees there is no income, so never strand the opening fund.
-  if (!allowDeposit || state.trees.length === 0 || state.coins <= 0) {
+  // producers there is no income, so never strand the opening fund.
+  if (!allowDeposit || state.producers.length === 0 || state.coins <= 0) {
     return { state, result: 'insufficient', events: [] }
   }
 
   const amount = state.coins
-  const key = treeDepositKey(kind)
+  const key = plantDepositKey(product)
   const deposits = {
     ...state.deposits,
     [key]: deposit + amount,
@@ -138,13 +177,56 @@ export function purchaseTreeAt(
     events: [
       {
         type: 'deposit',
-        target: 'tree',
-        kind,
+        target: 'plant',
+        product,
         amount,
         remaining: Math.max(0, cost - deposits[key]),
       },
     ],
   }
+}
+
+export function purchaseProducer(state: ShopState, product: ProductKind): PurchaseOutcome {
+  const zone = zoneOf(product)
+  if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
+  if (isPlantKind(product)) return purchasePlant(state, product)
+  if (isAnimalProductKind(product) || isProcessedKind(product)) {
+    if (state.producers.some((producer) => producer.product === product)) {
+      return { state, result: 'maxed', events: [] }
+    }
+    const cost = producerCost(product)
+    if (state.coins < cost) return { state, result: 'insufficient', events: [] }
+    const producer = createProducer(product, fixedSlot(product), state.nextProducerId, true)
+    const next = addProducerToState({ ...state, coins: state.coins - cost }, producer)
+    return {
+      state: next,
+      result: 'ok',
+      events: [{ type: 'producerBought', product, slot: producer.slot }],
+    }
+  }
+  return { state, result: 'missing', events: [] }
+}
+
+export function purchaseZone(state: ShopState, zone: ZoneId): PurchaseOutcome {
+  if (state.zones[zone]) return { state, result: 'maxed', events: [] }
+  if (zone === 'veg' && state.served === 0) return { state, result: 'locked', events: [] }
+  const config = ZONES[zone]
+  if (state.coins < config.unlockCost) return { state, result: 'insufficient', events: [] }
+
+  const events: GameEvent[] = [{ type: 'zoneUnlocked', zone }]
+  let next: ShopState = {
+    ...state,
+    coins: state.coins - config.unlockCost,
+    zones: { ...state.zones, [zone]: true },
+  }
+
+  const includes = config.includes
+  if (includes !== null && !state.producers.some((producer) => producer.product === includes)) {
+    const producer = createProducer(includes, fixedSlot(includes), next.nextProducerId, true)
+    next = addProducerToState(next, producer)
+  }
+
+  return { state: refreshStateShelves(next), result: 'ok', events }
 }
 
 export function purchaseUpgrade(state: ShopState, kind: UpgradeKind): PurchaseOutcome {
@@ -159,11 +241,17 @@ export function purchaseUpgrade(state: ShopState, kind: UpgradeKind): PurchaseOu
   }
   const capacity = shelfCapacity(upgrades.shelf)
   const shelves = { ...state.shelves }
-  for (const fruit of Object.keys(shelves) as FruitKind[]) {
-    shelves[fruit] = {
-      ...shelves[fruit],
+  for (const zone of Object.keys(shelves) as ZoneId[]) {
+    const stock = Object.fromEntries(
+      Object.entries(shelves[zone].stock).map(([product, amount]) => [
+        product,
+        Math.min(amount, capacity),
+      ]),
+    ) as Record<ProductKind, number>
+    shelves[zone] = {
+      ...shelves[zone],
       capacity,
-      stock: Math.min(shelves[fruit].stock, capacity),
+      stock,
     }
   }
 
@@ -198,7 +286,7 @@ export function purchaseStaff(
     }
   }
 
-  if (!allowDeposit || state.trees.length === 0 || state.coins <= 0) {
+  if (!allowDeposit || state.producers.length === 0 || state.coins <= 0) {
     return { state, result: 'insufficient', events: [] }
   }
 
@@ -219,22 +307,22 @@ export function purchaseStaff(
   }
 }
 
-export function removeTree(state: ShopState, plot: number): PurchaseOutcome {
-  const tree = state.trees.find((candidate) => candidate.plot === plot)
-  if (tree === undefined) return { state, result: 'missing', events: [] }
-  const refund = Math.floor(FRUITS[tree.kind].cost * 0.5)
-  const cheapest = Math.min(...FRUIT_ORDER.map((kind) => FRUITS[kind].cost))
-  if (state.trees.length === 1 && state.coins + refund < cheapest) {
-    return { state, result: 'lastTree', events: [] }
+export function removeProducer(state: ShopState, id: number): PurchaseOutcome {
+  const producer = state.producers.find((candidate) => candidate.id === id)
+  if (producer === undefined) return { state, result: 'missing', events: [] }
+  const refund = Math.floor(producerCost(producer.product) * 0.5)
+  const cheapest = Math.min(...FRUIT_ORDER.map((kind) => PLANTS[kind].cost))
+  if (state.producers.length === 1 && state.coins + refund < cheapest) {
+    return { state, result: 'lastProducer', events: [] }
   }
   const next = {
-    ...removeTreeFromState(state, plot),
+    ...removeProducerFromState(state, id),
     coins: state.coins + refund,
   }
   return {
     state: next,
     result: 'ok',
-    events: [{ type: 'treeRemoved', kind: tree.kind, plot }],
+    events: [{ type: 'producerRemoved', product: producer.product, slot: producer.slot }],
   }
 }
 
@@ -242,3 +330,12 @@ export function nextUpgradeKind(state: ShopState): UpgradeKind | null {
   const kind = UPGRADE_ORDER.find((candidate) => state.upgrades[candidate] < upgradeMax(candidate))
   return kind ?? null
 }
+
+function fixedSlot(product: ProductKind): number {
+  if (isPlantKind(product)) return 0
+  if (isAnimalProductKind(product)) return ANIMAL_PENS[product].index
+  if (isProcessedKind(product)) return STATION_SLOTS[product].index
+  return 0
+}
+
+export type { ProducerState }

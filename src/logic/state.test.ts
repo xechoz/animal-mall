@@ -1,10 +1,10 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
 import { INTERACT, PLOTS, REGISTER_POINT, SHELF_ACCESS } from './config'
-import { purchaseTree, purchaseUpgrade } from './purchase'
+import { purchasePlant, purchaseUpgrade } from './purchase'
 import { initialSave } from './saveData'
 import { createShopState, inRegisterZone, stepShop, toSave } from './state'
-import type { GameEvent, ShopState, Vec2 } from './types'
+import type { GameEvent, SaveData, ShopState, Vec2 } from './types'
 
 function withPlayer(state: ShopState, pos: Vec2): ShopState {
   return { ...state, player: { ...state.player, pos, prevPos: pos } }
@@ -32,41 +32,41 @@ function simulate(
   return { state: current, events }
 }
 
-function appleSave(overrides: Partial<ReturnType<typeof initialSave>> = {}) {
+function appleSave(overrides: Partial<SaveData> = {}): SaveData {
   return {
     ...initialSave(),
-    trees: [{ kind: 'apple' as const, plot: 0 }],
+    producers: [{ product: 'apple', slot: 0 }],
     ...overrides,
   }
 }
 
 describe('shop simulation', () => {
-  it('grows a newly bought tree and unlocks the harvest tutorial', () => {
+  it('grows a newly bought plant and unlocks the harvest tutorial', () => {
     let state = createShopState(initialSave())
-    state = purchaseTree(state, 'apple').state
-    expect(state.trees[0]?.mature).toBe(false)
+    state = purchasePlant(state, 'apple').state
+    expect(state.producers[0]?.mature).toBe(false)
     const result = simulate(state, 200)
-    expect(result.state.trees[0]?.mature).toBe(true)
+    expect(result.state.producers[0]?.mature).toBe(true)
     expect(result.state.tutorial).toBe('harvest')
   })
 
   it('harvests, stocks and serves the first customer end to end', () => {
     let state = createShopState(appleSave({ coins: 0 }))
     expect(state.tutorial).toBe('harvest')
-    expect(state.trees[0]?.fruit).toBe(1)
+    expect(state.producers[0]?.ready).toBe(1)
 
-    state = withPlayer(state, state.trees[0]?.pos ?? PLOTS[0] ?? { x: 112, y: 306 })
+    state = withPlayer(state, state.producers[0]?.pos ?? PLOTS[0] ?? { x: 115, y: 255 })
     let result = simulate(state, 1)
     state = result.state
     expect(state.player.carry).toBe('apple')
     expect(state.player.carryCount).toBe(1)
     expect(state.tutorial).toBe('stock')
 
-    state = withPlayer(state, SHELF_ACCESS.apple)
+    state = withPlayer(state, SHELF_ACCESS.fruit)
     result = simulate(state, 2)
     state = result.state
-    expect(state.shelves.apple.stock).toBe(1)
-    expect(state.shelves.apple.everStocked).toBe(true)
+    expect(state.shelves.fruit.stock.apple).toBe(1)
+    expect(state.shelves.fruit.everStocked.apple).toBe(true)
     expect(state.tutorial).toBe('checkout')
 
     result = simulate(state, 900)
@@ -79,6 +79,7 @@ describe('shop simulation', () => {
     state = result.state
     expect(state.served).toBe(1)
     expect(state.coins).toBe(4)
+    expect(state.zones.veg).toBe(true)
     expect(state.tutorial).toBe('done')
     expect(result.events.some((event) => event.type === 'sale')).toBe(true)
   })
@@ -92,7 +93,7 @@ describe('shop simulation', () => {
 
   it('lets an empty shelf lose the sale without ending anything', () => {
     const state = createShopState(appleSave({ coins: 50, served: 3 }))
-    expect(state.shelves.apple.everStocked).toBe(true)
+    expect(state.shelves.fruit.everStocked.apple).toBe(true)
     const result = simulate(state, 900)
     expect(result.state.coins).toBe(50)
     expect(result.state.served).toBe(3)
@@ -100,29 +101,29 @@ describe('shop simulation', () => {
   })
 
   it('moves at any angle without snapping to an axis', () => {
-    const state = withPlayer(createShopState(initialSave()), { x: 320, y: 420 })
+    const state = withPlayer(createShopState(initialSave()), { x: 320, y: 560 })
     const result = simulate(state, 1, { input: { moveX: 0.7, moveY: 0.7 } })
     const dx = result.state.player.pos.x - 320
-    const dy = result.state.player.pos.y - 420
+    const dy = result.state.player.pos.y - 560
     expect(dx).toBeGreaterThan(0)
     expect(dy).toBeGreaterThan(0)
     expect(Math.abs(dx - dy)).toBeLessThan(0.01)
   })
 
   it('does not let diagonal input move faster than straight input', () => {
-    const straight = simulate(withPlayer(createShopState(initialSave()), { x: 320, y: 420 }), 1, {
+    const straight = simulate(withPlayer(createShopState(initialSave()), { x: 320, y: 560 }), 1, {
       input: { moveX: 1, moveY: 0 },
     })
-    const diagonal = simulate(withPlayer(createShopState(initialSave()), { x: 320, y: 420 }), 1, {
+    const diagonal = simulate(withPlayer(createShopState(initialSave()), { x: 320, y: 560 }), 1, {
       input: { moveX: 1, moveY: 1 },
     })
     const straightDistance = Math.hypot(
       straight.state.player.pos.x - 320,
-      straight.state.player.pos.y - 420,
+      straight.state.player.pos.y - 560,
     )
     const diagonalDistance = Math.hypot(
       diagonal.state.player.pos.x - 320,
-      diagonal.state.player.pos.y - 420,
+      diagonal.state.player.pos.y - 560,
     )
     expect(Math.abs(straightDistance - diagonalDistance)).toBeLessThan(0.01)
   })
@@ -130,7 +131,7 @@ describe('shop simulation', () => {
   it('stops harvesting at carry capacity and respects fertilizer speed', () => {
     let state = createShopState(appleSave({ coins: 1_000, served: 3 }))
     state = purchaseUpgrade(state, 'fertilizer').state
-    state = withPlayer(state, state.trees[0]?.pos ?? PLOTS[0] ?? { x: 112, y: 306 })
+    state = withPlayer(state, state.producers[0]?.pos ?? PLOTS[0] ?? { x: 115, y: 255 })
     state = simulate(state, 1).state
     expect(state.player.carryCount).toBe(1)
     expect(INTERACT.harvestMs).toBeGreaterThan(0)
@@ -143,15 +144,15 @@ describe('shop simulation', () => {
     expect(JSON.stringify(a.state)).toBe(JSON.stringify(b.state))
   })
 
-  it('persists trees, coins and upgrades through a save projection', () => {
+  it('persists producers, coins and upgrades through a save projection', () => {
     let state = createShopState(appleSave({ coins: 500, served: 2 }))
     state = purchaseUpgrade(state, 'carry').state
     const reloaded = createShopState(toSave(state))
     expect(reloaded.coins).toBe(state.coins)
     expect(reloaded.upgrades.carry).toBe(1)
-    expect(reloaded.trees).toHaveLength(1)
-    expect(reloaded.trees[0]?.mature).toBe(true)
-    expect(reloaded.trees[0]?.fruit).toBe(1)
+    expect(reloaded.producers).toHaveLength(1)
+    expect(reloaded.producers[0]?.mature).toBe(true)
+    expect(reloaded.producers[0]?.ready).toBe(1)
     expect(reloaded.tutorial).toBe('done')
   })
 })

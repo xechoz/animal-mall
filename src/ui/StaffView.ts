@@ -2,7 +2,7 @@ import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { StaffState } from '../logic/types'
 import { animalTextureKey } from './animalArt'
-import { fruitTextureKey } from './fruitArt'
+import { productTextureKey } from './productArt'
 
 const APRON = {
   cashier: 0x5fbf9f,
@@ -34,7 +34,7 @@ export class StaffView extends Phaser.GameObjects.Container {
 
     for (let index = 0; index < 4; index += 1) {
       const icon = scene.add
-        .image(0, -74 - index * 14, fruitTextureKey('apple'))
+        .image(0, -74 - index * 14, productTextureKey('apple'))
         .setScale(0.42)
         .setVisible(false)
       this.carrying.push(icon)
@@ -71,7 +71,7 @@ export class StaffView extends Phaser.GameObjects.Container {
       this.carrying.forEach((icon, index) => {
         const visible = member.carry !== null && index < Math.min(4, member.carryCount)
         icon.setVisible(visible)
-        if (visible && member.carry !== null) icon.setTexture(fruitTextureKey(member.carry))
+        if (visible && member.carry !== null) icon.setTexture(productTextureKey(member.carry))
       })
       const overflow = member.carryCount > 4
       this.carryCount

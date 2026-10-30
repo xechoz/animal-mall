@@ -1,9 +1,11 @@
-import { mixColor, type Theme, textStyle } from '@mg/core'
+import { type I18n, mixColor, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { ZONE_PRODUCTS } from '../logic/config'
 import { type Goal, goalCost, nextGoal } from '../logic/goals'
-import type { ShopState } from '../logic/types'
-import { coinTextureKey, fruitTextureKey } from './fruitArt'
+import type { ProductKind, ShopState } from '../logic/types'
+import { coinTextureKey } from './fruitArt'
 import type { GameLayout } from './layout'
+import { productTextureKey } from './productArt'
 import { RoundButton } from './RoundButton'
 import { drawToolIcon } from './toolArt'
 
@@ -14,6 +16,7 @@ export interface HudCallbacks {
 
 export class Hud {
   private readonly theme: Theme
+  private readonly i18n: I18n
   private readonly bar: Phaser.GameObjects.Graphics
   private readonly coinIcon: Phaser.GameObjects.Image
   private readonly coinsText: Phaser.GameObjects.Text
@@ -29,8 +32,15 @@ export class Hud {
   private lastCoins = -1
   private lastGoal = ''
 
-  constructor(scene: Phaser.Scene, layout: GameLayout, theme: Theme, callbacks: HudCallbacks) {
+  constructor(
+    scene: Phaser.Scene,
+    layout: GameLayout,
+    theme: Theme,
+    i18n: I18n,
+    callbacks: HudCallbacks,
+  ) {
     this.theme = theme
+    this.i18n = i18n
     this.layout = layout
 
     this.bar = scene.add.graphics().setDepth(6000)
@@ -39,7 +49,7 @@ export class Hud {
       .text(0, 0, '', textStyle(theme, 22, theme.text, true))
       .setOrigin(0, 0.5)
       .setDepth(6002)
-    this.goalIcon = scene.add.image(0, 0, fruitTextureKey('apple')).setDepth(6002)
+    this.goalIcon = scene.add.image(0, 0, productTextureKey('apple')).setDepth(6002)
     this.goalTool = scene.add.graphics().setDepth(6002)
     this.goalCoin = scene.add.image(0, 0, coinTextureKey()).setDepth(6002).setScale(0.6)
     this.goalCost = scene.add
@@ -56,6 +66,7 @@ export class Hud {
       icon: 'bag',
       theme,
       variant: 'primary',
+      size: layout.hud.buttonSize,
       onClick: callbacks.onShop,
     })
     this.shopButton.setDepth(6100)
@@ -63,6 +74,7 @@ export class Hud {
       icon: 'pause',
       theme,
       variant: 'soft',
+      size: layout.hud.buttonSize,
       onClick: callbacks.onPause,
     })
     this.pauseButton.setDepth(6100)
@@ -105,11 +117,18 @@ export class Hud {
 
     const goal = nextGoal(state)
     const cost = goalCost(state, goal)
-    const goalKey = goal === null ? 'done' : `${goal.type}:${goal.kind}`
+    const goalKey =
+      goal === null
+        ? 'done'
+        : goal.type === 'zone'
+          ? `zone:${goal.zone}`
+          : goal.type === 'producer'
+            ? `producer:${goal.product}`
+            : `upgrade:${goal.kind}`
     const key = `${goalKey}-${cost}-${state.coins}`
     if (key !== this.lastGoal) {
       this.lastGoal = key
-      this.drawGoal(goal, cost)
+      this.drawGoal(goal, cost, state)
       this.goalCost.setColor(
         goal !== null && state.coins >= cost ? this.theme.text : this.theme.textMuted,
       )
@@ -124,17 +143,27 @@ export class Hud {
     }
   }
 
-  private drawGoal(goal: Goal, cost: number): void {
+  private drawGoal(goal: Goal, cost: number, state: ShopState): void {
     const x = this.layout.hud.goal.x
     const y = this.layout.hud.goal.y - 7
     this.goalTool.clear()
-    this.goalIcon.setVisible(goal?.type === 'tree')
+    this.goalIcon.setVisible(goal !== null && goal.type !== 'upgrade')
     this.goalTool.setVisible(goal?.type === 'upgrade')
-    this.goalCoin.setVisible(goal !== null)
+    this.goalCoin.setVisible(goal !== null && cost > 0)
     this.goalCost.setVisible(goal !== null)
-    this.goalCost.setText(goal === null ? '' : String(cost))
-    if (goal?.type === 'tree') {
-      this.goalIcon.setTexture(fruitTextureKey(goal.kind))
+    const label =
+      goal === null
+        ? ''
+        : goal.type === 'zone' && cost === 0
+          ? goal.zone === 'veg' && state.served === 0
+            ? this.i18n.t('goal.afterSale')
+            : this.i18n.t('goal.free')
+          : String(cost)
+    this.goalCost.setText(label)
+    if (goal?.type === 'producer') {
+      this.goalIcon.setTexture(productTextureKey(goal.product))
+    } else if (goal?.type === 'zone') {
+      this.goalIcon.setTexture(productTextureKey(ZONE_PRODUCTS[goal.zone][0] as ProductKind))
     } else if (goal?.type === 'upgrade') {
       drawToolIcon(this.goalTool, goal.kind, x - 46, y, 20)
     }

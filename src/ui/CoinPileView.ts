@@ -3,7 +3,7 @@ import Phaser from 'phaser'
 import { COUNTER_RECT } from '../logic/config'
 import { coinTextureKey } from './fruitArt'
 
-const PILE_POINT = { x: 550, y: 508 }
+export const COIN_PILE_POINT = { x: 545, y: 1062 }
 const COIN_CAP = 14
 
 export class CoinPileView extends Phaser.GameObjects.Container {
@@ -14,7 +14,7 @@ export class CoinPileView extends Phaser.GameObjects.Container {
   private lastAmount = -1
 
   constructor(scene: Phaser.Scene, theme: Theme) {
-    super(scene, PILE_POINT.x, PILE_POINT.y)
+    super(scene, COIN_PILE_POINT.x, COIN_PILE_POINT.y)
     this.theme = theme
     this.setDepth(COUNTER_RECT.y + COUNTER_RECT.h - 2)
 

@@ -1,4 +1,12 @@
 export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry'
+export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin'
+export type AnimalProductKind = 'egg' | 'milk' | 'yarn' | 'fish'
+export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish'
+export type PlantKind = FruitKind | VegKind
+export type ProductKind = PlantKind | AnimalProductKind | ProcessedKind
+
+export type ZoneId = 'fruit' | 'veg' | 'farm' | 'kitchen'
+export type ProducerKind = 'plant' | 'animal' | 'station'
 
 export type UpgradeKind = 'carry' | 'shelf' | 'speed' | 'scan' | 'fertilizer'
 
@@ -28,39 +36,44 @@ export interface Plot {
   readonly y: number
 }
 
-export interface SaveTree {
-  readonly kind: FruitKind
-  readonly plot: number
+export interface SaveProducer {
+  readonly product: ProductKind
+  readonly slot: number
 }
+
+export type ZoneUnlocks = Readonly<Record<ZoneId, boolean>>
 
 export interface SaveData {
   readonly coins: number
   readonly totalEarned: number
   readonly served: number
   readonly pendingCoins: number
-  readonly trees: readonly SaveTree[]
+  readonly producers: readonly SaveProducer[]
+  readonly zones: ZoneUnlocks
   readonly upgrades: Readonly<Record<UpgradeKind, number>>
   readonly staff: Readonly<Record<StaffKind, number>>
   readonly deposits: Readonly<Record<string, number>>
 }
 
-export interface TreeState {
+export interface ProducerState {
   readonly id: number
-  readonly kind: FruitKind
-  readonly plot: number
+  readonly kind: ProducerKind
+  readonly product: ProductKind
+  readonly slot: number
   readonly pos: Vec2
-  readonly growthMs: number
+  readonly progressMs: number
+  readonly ready: number
   readonly mature: boolean
-  readonly fruit: number
-  readonly fruitMs: number
+  readonly hungry: boolean
 }
 
 export interface ShelfState {
-  readonly kind: FruitKind
-  readonly stock: number
+  readonly zone: ZoneId
   readonly capacity: number
   readonly active: boolean
-  readonly everStocked: boolean
+  readonly bins: Readonly<Record<ProductKind, boolean>>
+  readonly stock: Readonly<Record<ProductKind, number>>
+  readonly everStocked: Readonly<Record<ProductKind, boolean>>
 }
 
 export interface PlayerState {
@@ -68,7 +81,7 @@ export interface PlayerState {
   readonly prevPos: Vec2
   readonly facing: -1 | 1
   readonly moving: boolean
-  readonly carry: FruitKind | null
+  readonly carry: ProductKind | null
   readonly carryCount: number
   readonly harvestMs: number
   readonly stockMs: number
@@ -82,9 +95,9 @@ export interface CustomerState {
   readonly path: readonly Vec2[]
   readonly pathIndex: number
   readonly phase: CustomerPhase
-  readonly wanted: readonly FruitKind[]
-  readonly basket: readonly FruitKind[]
-  readonly target: FruitKind | null
+  readonly wanted: readonly ProductKind[]
+  readonly basket: readonly ProductKind[]
+  readonly target: ProductKind | null
   readonly patienceMs: number
   readonly maxPatienceMs: number
   readonly waitMs: number
@@ -99,7 +112,7 @@ export interface RegisterState {
   readonly scanMs: number
 }
 
-export type StaffPhase = 'cashier' | 'idle' | 'toTree' | 'harvest' | 'toShelf' | 'stock'
+export type StaffPhase = 'cashier' | 'idle' | 'toProducer' | 'harvest' | 'toShelf' | 'stock'
 
 export interface StaffState {
   readonly id: number
@@ -112,9 +125,9 @@ export interface StaffState {
   readonly path: readonly Vec2[]
   readonly pathIndex: number
   readonly phase: StaffPhase
-  readonly targetTreeId: number | null
-  readonly targetShelf: FruitKind | null
-  readonly carry: FruitKind | null
+  readonly targetProducerId: number | null
+  readonly targetShelf: ZoneId | null
+  readonly carry: ProductKind | null
   readonly carryCount: number
   readonly timerMs: number
   readonly waitMs: number
@@ -132,14 +145,15 @@ export interface ShopState {
   readonly served: number
   readonly pendingCoins: number
   readonly player: PlayerState
-  readonly trees: readonly TreeState[]
-  readonly shelves: Readonly<Record<FruitKind, ShelfState>>
+  readonly zones: ZoneUnlocks
+  readonly producers: readonly ProducerState[]
+  readonly shelves: Readonly<Record<ZoneId, ShelfState>>
   readonly customers: readonly CustomerState[]
   readonly queue: readonly number[]
   readonly register: RegisterState
   readonly spawnMs: number
   readonly nextCustomerId: number
-  readonly nextTreeId: number
+  readonly nextProducerId: number
   readonly upgrades: Readonly<Record<UpgradeKind, number>>
   readonly staff: Readonly<Record<StaffKind, number>>
   readonly staffMembers: readonly StaffState[]
@@ -149,44 +163,66 @@ export interface ShopState {
 }
 
 export type GameEvent =
-  | { readonly type: 'harvest'; readonly kind: FruitKind; readonly amount: number }
-  | { readonly type: 'stock'; readonly kind: FruitKind; readonly amount: number }
-  | { readonly type: 'scan'; readonly kind: FruitKind; readonly amount: number }
+  | { readonly type: 'harvest'; readonly product: ProductKind; readonly amount: number }
+  | { readonly type: 'stock'; readonly product: ProductKind; readonly amount: number }
+  | { readonly type: 'scan'; readonly product: ProductKind; readonly amount: number }
   | {
       readonly type: 'customerPick'
       readonly customerId: number
-      readonly kind: FruitKind
+      readonly product: ProductKind
     }
   | {
       readonly type: 'customerMissed'
       readonly customerId: number
-      readonly kind: FruitKind
+      readonly product: ProductKind
     }
   | { readonly type: 'sale'; readonly amount: number; readonly customerId: number }
-  | { readonly type: 'treeMature'; readonly treeId: number; readonly plot: number }
-  | { readonly type: 'fruitReady'; readonly treeId: number; readonly plot: number }
+  | { readonly type: 'producerMature'; readonly producerId: number; readonly product: ProductKind }
+  | { readonly type: 'producerReady'; readonly producerId: number; readonly product: ProductKind }
+  | { readonly type: 'producerProduce'; readonly producerId: number; readonly product: ProductKind }
+  | { readonly type: 'producerHungry'; readonly producerId: number; readonly product: ProductKind }
   | {
       readonly type: 'customerEnter'
       readonly customerId: number
       readonly species: SpeciesId
     }
   | { readonly type: 'customerLeave'; readonly customerId: number; readonly sad: boolean }
-  | { readonly type: 'treeBought'; readonly kind: FruitKind; readonly plot: number }
-  | { readonly type: 'treeRemoved'; readonly kind: FruitKind; readonly plot: number }
+  | {
+      readonly type: 'producerBought'
+      readonly product: ProductKind
+      readonly slot: number
+    }
+  | {
+      readonly type: 'producerRemoved'
+      readonly product: ProductKind
+      readonly slot: number
+    }
+  | { readonly type: 'zoneUnlocked'; readonly zone: ZoneId }
   | { readonly type: 'upgradeBought'; readonly kind: UpgradeKind; readonly level: number }
   | { readonly type: 'staffBought'; readonly kind: StaffKind; readonly level: number }
   | {
       readonly type: 'deposit'
-      readonly target: 'tree' | 'staff'
-      readonly kind: FruitKind | StaffKind
+      readonly target: 'plant'
+      readonly product: PlantKind
       readonly amount: number
       readonly remaining: number
     }
-  | { readonly type: 'quickBuyReady'; readonly plot: number }
+  | {
+      readonly type: 'deposit'
+      readonly target: 'staff'
+      readonly kind: StaffKind
+      readonly amount: number
+      readonly remaining: number
+    }
+  | {
+      readonly type: 'plantPickerReady'
+      readonly zone: 'fruit' | 'veg'
+      readonly slot: number
+    }
   | { readonly type: 'coinsPending'; readonly amount: number }
   | { readonly type: 'coinsCollected'; readonly amount: number }
-  | { readonly type: 'staffHarvest'; readonly staffId: number; readonly kind: FruitKind }
-  | { readonly type: 'staffStock'; readonly staffId: number; readonly kind: FruitKind }
+  | { readonly type: 'staffHarvest'; readonly staffId: number; readonly product: ProductKind }
+  | { readonly type: 'staffStock'; readonly staffId: number; readonly product: ProductKind }
   | { readonly type: 'tutorial'; readonly step: TutorialStep }
 
 export interface StepInput {

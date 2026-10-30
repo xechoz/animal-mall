@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Expand the shop into four zones: fruit, vegetables, farm and kitchen, with
+  fifteen products and a portrait 680×1200 single-screen layout.
+- Add vegetables, farm animals and ponds. Animals eat fruit or vegetables from
+  the shelves and keep one unit for customers; the pond produces fish.
+- Add processing stations: the oven turns eggs and milk into cake, the loom
+  turns yarn into sweaters and the grill turns fish into grilled fish. Station
+  output is collected by the player.
+- Add zone unlocks, producer purchases, feed and recipe details, and a
+  production-first shop panel with zone tabs.
+- Add customer demand for farm and kitchen goods, weighted by zone, and
+  generalize picker staff to harvest every producer.
+- Add a free vegetable zone after the first sale, farm and kitchen unlock
+  costs, and a longer goal chain.
+- Bump the save to version 3 with zones and producers; version 2 fruit trees,
+  upgrades, staff and deposits migrate automatically.
+- Add navigation, production-chain, feeding-reserve, recipe and save migration
+  tests.
 - Add a looping CC0 background track that follows the sound setting and the
   host mute, and keeps playing across the menu and gameplay.
 - Replace the fixed register tile with a counter-wide service area.

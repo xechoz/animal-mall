@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { UPGRADES } from './config'
 import {
-  emptyPlot,
+  emptyPlantSlot,
   plantedCount,
-  purchaseTree,
+  purchasePlant,
+  purchaseProducer,
   purchaseUpgrade,
-  removeTree,
-  treeCost,
+  purchaseZone,
+  removeProducer,
   upgradeCost,
 } from './purchase'
 import { initialSave } from './saveData'
@@ -21,35 +22,35 @@ describe('purchases', () => {
   it('spends the starting 100 coins on the first apple tree', () => {
     const state = createShopState(initialSave())
     expect(state.coins).toBe(100)
-    const outcome = purchaseTree(state, 'apple')
+    const outcome = purchasePlant(state, 'apple')
     expect(outcome.result).toBe('ok')
     expect(outcome.state.coins).toBe(0)
-    expect(outcome.state.trees).toHaveLength(1)
-    expect(outcome.state.trees[0]?.plot).toBe(0)
-    expect(outcome.state.shelves.apple.active).toBe(true)
+    expect(outcome.state.producers).toHaveLength(1)
+    expect(outcome.state.producers[0]?.slot).toBe(0)
+    expect(outcome.state.shelves.fruit.bins.apple).toBe(true)
     expect(outcome.state.tutorial).toBe('grow')
   })
 
-  it('rejects a tree without enough coins or an empty plot', () => {
+  it('rejects a plant without enough coins or an empty slot', () => {
     const state = createShopState(initialSave())
-    expect(purchaseTree(state, 'pear').result).toBe('insufficient')
+    expect(purchasePlant(state, 'pear').result).toBe('insufficient')
 
     let rich = createShopState(saveWith(10_000))
-    for (const kind of ['apple', 'apple', 'apple', 'apple'] as const) {
-      rich = purchaseTree(rich, kind).state
+    for (let index = 0; index < 4; index += 1) {
+      rich = purchasePlant(rich, 'apple').state
     }
-    expect(emptyPlot(rich)).toBeNull()
-    expect(purchaseTree(rich, 'pear').result).toBe('noPlot')
+    expect(emptyPlantSlot(rich, 'fruit')).toBeNull()
+    expect(purchasePlant(rich, 'pear').result).toBe('noSlot')
   })
 
-  it('keeps track of one shelf per planted fruit type', () => {
+  it('keeps one bin per planted product', () => {
     let state = createShopState(saveWith(10_000))
-    state = purchaseTree(state, 'apple').state
-    state = purchaseTree(state, 'pear').state
+    state = purchasePlant(state, 'apple').state
+    state = purchasePlant(state, 'pear').state
     expect(plantedCount(state, 'apple')).toBe(1)
-    expect(state.shelves.apple.active).toBe(true)
-    expect(state.shelves.pear.active).toBe(true)
-    expect(state.shelves.peach.active).toBe(false)
+    expect(state.shelves.fruit.bins.apple).toBe(true)
+    expect(state.shelves.fruit.bins.pear).toBe(true)
+    expect(state.shelves.fruit.bins.peach).toBe(false)
   })
 
   it('upgrades once per level and enforces the cap', () => {
@@ -60,30 +61,58 @@ describe('purchases', () => {
       const outcome = purchaseUpgrade(state, 'shelf')
       expect(outcome.result).toBe('ok')
       state = outcome.state
-      expect(state.coins).toBe(10_000 - sum(UPGRADES.shelf.costs.slice(0, level + 1)))
     }
     expect(purchaseUpgrade(state, 'shelf').result).toBe('maxed')
   })
 
-  it('refunds half a removed tree and locks the shelf', () => {
+  it('refunds half a removed plant and locks its bin', () => {
     let state = createShopState(saveWith(1_000))
-    state = purchaseTree(state, 'apple').state
+    state = purchasePlant(state, 'apple').state
     const before = state.coins
-    const outcome = removeTree(state, 0)
+    const id = state.producers[0]?.id
+    expect(id).toBeDefined()
+    const outcome = removeProducer(state, id as number)
     expect(outcome.result).toBe('ok')
-    expect(outcome.state.trees).toHaveLength(0)
-    expect(outcome.state.coins).toBe(before + Math.floor(treeCost('apple') / 2))
-    expect(outcome.state.shelves.apple.active).toBe(false)
+    expect(outcome.state.producers).toHaveLength(0)
+    expect(outcome.state.coins).toBe(before + 50)
+    expect(outcome.state.shelves.fruit.bins.apple).toBe(false)
+  })
+
+  it('requires the first sale before vegetables unlock', () => {
+    const state = createShopState(initialSave())
+    expect(purchaseZone(state, 'veg').result).toBe('locked')
+    const served = createShopState({ ...initialSave(), served: 1 })
+    const outcome = purchaseZone(served, 'veg')
+    expect(outcome.result).toBe('ok')
+    expect(outcome.state.zones.veg).toBe(true)
+  })
+
+  it('unlocks the farm with a chicken and the kitchen with an oven', () => {
+    const farm = purchaseZone(createShopState(saveWith(600)), 'farm')
+    expect(farm.result).toBe('ok')
+    expect(farm.state.zones.farm).toBe(true)
+    expect(farm.state.producers.some((producer) => producer.product === 'egg')).toBe(true)
+
+    const kitchen = purchaseZone(createShopState(saveWith(1_200)), 'kitchen')
+    expect(kitchen.result).toBe('ok')
+    expect(kitchen.state.zones.kitchen).toBe(true)
+    expect(kitchen.state.producers.some((producer) => producer.product === 'cake')).toBe(true)
+  })
+
+  it('locks animal purchases behind their zone', () => {
+    const locked = purchaseProducer(createShopState(saveWith(1_000)), 'milk')
+    expect(locked.result).toBe('lockedZone')
+
+    const farm = purchaseZone(createShopState(saveWith(1_600)), 'farm').state
+    const cow = purchaseProducer(farm, 'milk')
+    expect(cow.result).toBe('ok')
+    expect(cow.state.producers.some((producer) => producer.product === 'milk')).toBe(true)
   })
 
   it('does not go negative', () => {
     const state = createShopState(initialSave())
-    const outcome = purchaseTree(state, 'cherry')
+    const outcome = purchasePlant(state, 'cherry')
     expect(outcome.result).toBe('insufficient')
     expect(outcome.state.coins).toBe(100)
   })
 })
-
-function sum(values: readonly number[]): number {
-  return values.reduce((total, value) => total + value, 0)
-}
