@@ -1,0 +1,15 @@
+Joyful Jungle — MintoDog.
+
+Source: https://opengameart.org/content/joyful-jungle
+License: CC0 1.0 Universal (public domain dedication)
+         https://creativecommons.org/publicdomain/zero/1.0/
+Original: joyful_jungle_bpm140.ogg, 140 BPM, 85.714 s (200 beats / 50 bars),
+loopable. sha256 cb51965c9f2ee728cf30d6dce3d9b43e88921ed93f8e82782d94f695a02ae21c
+Downloaded 2026-10-31.
+
+CC0 requires no attribution; the composer is credited voluntarily.
+
+Edits: decoded from the original OGG, -4 dB gain (measured -15.3 LUFS,
+-4.7 dBTP), 3 ms fades at both boundaries to avoid clicks at the loop seam,
+encoded to MP3 96 kbps stereo 44.1 kHz. The full 50-bar track is the loop;
+nothing was trimmed.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a looping CC0 background track that follows the sound setting and the
+  host mute, and keeps playing across the menu and gameplay.
 - Replace the fixed register tile with a counter-wide service area.
 - Add icon-only in-world price signs and a fruit chooser for empty plots.
 - Add dwell-based quick buying with non-refundable deposits, deposit locking and

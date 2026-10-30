@@ -10,6 +10,7 @@ import {
 } from '@mg/core'
 import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
+import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
 import { FRUIT_ORDER, FRUITS, PLOTS, REGISTER_POINT, SHELF_RECTS } from '../logic/config'
 import {
@@ -116,6 +117,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.services = getServices()
+    startMusic(this)
     createAnimalTextures(this)
     createFruitTextures(this)
     this.saveStore = progressSave(this.services)
@@ -770,6 +772,7 @@ export class GameScene extends Phaser.Scene {
       onToggleSound: () => {
         const enabled = !this.services.settings.value.sound
         this.services.setSound(enabled)
+        syncMusic()
         this.sfx('click')
         return enabled
       },

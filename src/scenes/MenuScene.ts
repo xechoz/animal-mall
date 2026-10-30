@@ -7,6 +7,7 @@ import {
   textStyle,
 } from '@mg/core'
 import Phaser from 'phaser'
+import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
 import { hasProgress, progressSave } from '../save'
 import { createAnimalTextures, playerTextureKey } from '../ui/animalArt'
@@ -39,6 +40,7 @@ export class MenuScene extends Phaser.Scene {
     this.settingsModal = undefined
     this.languageModal = undefined
     this.services = getServices()
+    startMusic(this)
     createAnimalTextures(this)
     createFruitTextures(this)
     this.services.platform.gameplayStop()
@@ -152,6 +154,7 @@ export class MenuScene extends Phaser.Scene {
       onToggleSound: () => {
         const enabled = !this.services.settings.value.sound
         this.services.setSound(enabled)
+        syncMusic()
         this.services.audio.play('click')
         return enabled
       },

@@ -40,7 +40,8 @@ The game starts with 100 coins and an in-world guide for the first apple tree.
   so an old save cannot lock the player out of planting.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
-- All art and audio are procedural or generated in code; the runtime makes no
+- All art is drawn procedurally with Phaser Graphics; the soundtrack is a CC0
+  loop (see `src/assets/audio/joyful-jungle.LICENSE.txt`). The runtime makes no
   external requests.
 
 ## Development
