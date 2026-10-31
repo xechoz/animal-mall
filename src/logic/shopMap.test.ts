@@ -8,6 +8,7 @@ import {
   PORTRAIT_MAP,
   producerPosition,
   shopMapFor,
+  ZONE_ORDER,
 } from './config'
 import { initialSave } from './saveData'
 import { createShopState, remapShopState, stepShop } from './state'
@@ -57,6 +58,20 @@ for (const map of MAPS) {
       for (const rect of [map.facilities.trashRect, map.facilities.vendingRect]) {
         expect(insideMap(map, rect.x, rect.y)).toBe(true)
         expect(insideMap(map, rect.x + rect.w, rect.y + rect.h)).toBe(true)
+      }
+    })
+
+    it('keeps every zone footprint inside the room and around its shelf', () => {
+      for (const zone of ZONE_ORDER) {
+        const area = map.zoneAreas[zone]
+        expect(insideMap(map, area.x, area.y)).toBe(true)
+        expect(insideMap(map, area.x + area.w, area.y + area.h)).toBe(true)
+
+        const shelf = map.shelves[zone]
+        expect(area.x).toBeLessThanOrEqual(shelf.x)
+        expect(area.x + area.w).toBeGreaterThanOrEqual(shelf.x + shelf.w)
+        expect(area.y).toBeLessThanOrEqual(shelf.y)
+        expect(area.y + area.h).toBeGreaterThanOrEqual(shelf.y + shelf.h)
       }
     })
 

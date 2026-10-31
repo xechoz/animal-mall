@@ -44,17 +44,19 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       price.setVisible(false)
       if (this.map.id !== 'landscape' || state.zones[zone]) continue
 
-      const shelf = this.map.shelves[zone]
-      const centerX = shelf.x + shelf.w / 2
+      const area = this.map.zoneAreas[zone]
+      const centerX = area.x + area.w / 2
+      const lockY = area.y + 148
+      const priceY = area.y + 198
       this.graphics.fillStyle(0x2f2433, 0.28)
-      this.graphics.fillRoundedRect(shelf.x, 88, shelf.w, 300, 18)
-      drawLock(this.graphics, centerX, 236)
+      this.graphics.fillRoundedRect(area.x, area.y, area.w, area.h, 18)
+      drawLock(this.graphics, centerX, lockY)
 
       const cost = ZONES[zone].unlockCost
       if (cost <= 0) continue
-      price.setText(String(cost)).setPosition(centerX, 286).setVisible(true)
+      price.setText(String(cost)).setPosition(centerX, priceY).setVisible(true)
       this.graphics.fillStyle(0xffd166, 1)
-      this.graphics.fillCircle(centerX - price.width / 2 - 13, 286, 6)
+      this.graphics.fillCircle(centerX - price.width / 2 - 13, priceY, 6)
     }
   }
 }

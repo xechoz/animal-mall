@@ -74,14 +74,11 @@ function createPortraitShopBackground(
   // counter; farm and kitchen use the back wall until they unlock.
   for (const zone of ZONE_ORDER) {
     const backRow = zone === 'farm' || zone === 'kitchen'
-    const top = backRow ? 90 : 590
-    const bottom = backRow ? 510 : 995
-    const left = zone === 'fruit' || zone === 'farm' ? 44 : 384
-    const right = zone === 'fruit' || zone === 'farm' ? 296 : 636
+    const area = map.zoneAreas[zone]
     g.fillStyle(ZONE_TINTS[zone], 0.1)
-    g.fillRoundedRect(left, top, right - left, bottom - top, 18)
+    g.fillRoundedRect(area.x, area.y, area.w, area.h, 18)
     g.lineStyle(2, ZONE_TINTS[zone], 0.22)
-    g.strokeRoundedRect(left, top, right - left, bottom - top, 18)
+    g.strokeRoundedRect(area.x, area.y, area.w, area.h, 18)
     const labelX = zone === 'fruit' || zone === 'farm' ? 70 : 440
     const labelY = backRow ? 72 : 584
     container.add(
@@ -215,13 +212,13 @@ function createLandscapeShopBackground(
   // Four zone strips, each with a readable header pill below its shelf.
   for (const zone of ZONE_ORDER) {
     const shelf = map.shelves[zone]
+    const area = map.zoneAreas[zone]
     const left = shelf.x
-    const top = 88
     const tint = ZONE_TINTS[zone]
     g.fillStyle(tint, 0.1)
-    g.fillRoundedRect(left, top, shelf.w, 300, 18)
+    g.fillRoundedRect(area.x, area.y, area.w, area.h, 18)
     g.lineStyle(2, tint, 0.22)
-    g.strokeRoundedRect(left, top, shelf.w, 300, 18)
+    g.strokeRoundedRect(area.x, area.y, area.w, area.h, 18)
 
     const headerScale = Math.min(textScale, 1.3)
     const pillCenterY = 157

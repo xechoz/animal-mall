@@ -81,6 +81,11 @@ export interface ShopMap {
   readonly register: Vec2
   readonly queueSlots: readonly Vec2[]
   readonly shelves: Readonly<Record<ZoneId, Rect>>
+  /**
+   * Walkable footprint of each zone. It drives both the visible floor tint and
+   * zone-level quick buying, so the trigger area always matches the floor.
+   */
+  readonly zoneAreas: Readonly<Record<ZoneId, Rect>>
   readonly shelfAccess: Readonly<Record<ZoneId, Vec2>>
   readonly plots: readonly Plot[]
   readonly cropPlots: readonly Plot[]

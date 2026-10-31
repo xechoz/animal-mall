@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Unlock the farm and kitchen by standing still anywhere inside or next to
+  their locked zone for half a second once you can afford it, without opening
+  the shop. The zone footprint drives the floor tint and the trigger, and the
+  shop keeps its unlock buttons as an alternative.
 - Re-arrange the background music from the 85.7 s source loop into a 3:05 loop:
   the recorded 50 bars are resequenced as A–B–C–D–A–B with a low-passed quiet
   section and a two-semitone bridge, still looping seamlessly at 140 BPM. The

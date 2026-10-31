@@ -124,6 +124,64 @@ describe('quick buy', () => {
     const result = simulate(withPlayer(state, { x: pen.x, y: pen.y - 6 }), 30)
     expect(result.state.producers.some((producer) => producer.product === 'milk')).toBe(true)
   })
+
+  it('unlocks the farm after standing at its shelf for half a second', () => {
+    const state = createShopState({ ...initialSave(), coins: 600 }, PORTRAIT_MAP)
+    const access = PORTRAIT_MAP.shelfAccess.farm
+
+    const early = simulate(withPlayer(state, access), 10)
+    expect(early.state.zones.farm).toBe(false)
+
+    const result = simulate(withPlayer(state, access), 11)
+    expect(result.state.zones.farm).toBe(true)
+    expect(result.state.coins).toBe(0)
+    expect(
+      result.events.some((event) => event.type === 'zoneUnlocked' && event.zone === 'farm'),
+    ).toBe(true)
+    expect(result.state.producers.some((producer) => producer.product === 'egg')).toBe(true)
+  })
+
+  it('unlocks from anywhere inside the zone, not only its shelf access point', () => {
+    const state = createShopState({ ...initialSave(), coins: 600 }, PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, { x: 170, y: 440 }), 11)
+    expect(result.state.zones.farm).toBe(true)
+    expect(result.state.coins).toBe(0)
+  })
+
+  it('unlocks from just outside the zone footprint', () => {
+    const state = createShopState({ ...initialSave(), coins: 600 }, PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, { x: 170, y: 540 }), 11)
+    expect(result.state.zones.farm).toBe(true)
+  })
+
+  it('does not unlock from far outside the zone footprint', () => {
+    const state = createShopState({ ...initialSave(), coins: 600 }, PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, { x: 170, y: 620 }), 30)
+    expect(result.state.zones.farm).toBe(false)
+  })
+
+  it('unlocks the kitchen after standing at its shelf', () => {
+    const state = createShopState({ ...initialSave(), coins: 1_200 }, PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.kitchen), 11)
+    expect(result.state.zones.kitchen).toBe(true)
+    expect(result.state.coins).toBe(0)
+    expect(result.state.producers.some((producer) => producer.product === 'cake')).toBe(true)
+  })
+
+  it('does not unlock a zone while the player keeps moving', () => {
+    const state = createShopState({ ...initialSave(), coins: 600 }, PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.farm), 20, {
+      input: { moveX: 0.2, moveY: 0 },
+    })
+    expect(result.state.zones.farm).toBe(false)
+  })
+
+  it('does not offer a zone unlock before the player can afford it', () => {
+    const state = createShopState({ ...initialSave(), coins: 599 }, PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.farm), 30)
+    expect(result.state.zones.farm).toBe(false)
+    expect(result.events.some((event) => event.type === 'zoneUnlocked')).toBe(false)
+  })
 })
 
 describe('staff', () => {

@@ -12,7 +12,7 @@ interface OfferLabel {
   readonly container: Phaser.GameObjects.Container
   readonly bg: Phaser.GameObjects.Graphics
   readonly dwell: Phaser.GameObjects.Graphics
-  readonly seed: Phaser.GameObjects.Graphics
+  readonly badge: Phaser.GameObjects.Graphics
   readonly icon: Phaser.GameObjects.Image
   readonly coin: Phaser.GameObjects.Image
   readonly price: Phaser.GameObjects.Text
@@ -65,21 +65,22 @@ export class MapOffers {
     const container = this.scene.add.container(0, 0).setDepth(5200)
     const bg = this.scene.add.graphics()
     const dwell = this.scene.add.graphics()
-    const seed = this.scene.add.graphics()
+    const badge = this.scene.add.graphics()
     const icon = this.scene.add.image(0, 0, productTextureKey('apple')).setScale(0.55 * ui)
     const coin = this.scene.add.image(0, 0, coinTextureKey()).setScale(0.42 * ui)
     const price = this.scene.add
       .text(0, 0, '', textStyle(this.theme, 13 * ui, this.theme.text, true))
       .setOrigin(0, 0.5)
     const paid = this.scene.add.graphics()
-    container.add([bg, paid, dwell, seed, icon, coin, price])
-    return { container, bg, dwell, seed, icon, coin, price, paid }
+    container.add([bg, paid, dwell, badge, icon, coin, price])
+    return { container, bg, dwell, badge, icon, coin, price, paid }
   }
 
   private apply(label: OfferLabel, offer: PurchaseOffer, state: ShopState): void {
     const point = worldToScreen(this.layout, offer.pos)
     const ui = Math.min(this.layout.ui, 1.2)
-    const width = WIDTH * ui
+    // Four-digit zone prices need a little more room than product offers.
+    const width = (offer.type === 'zone' ? WIDTH + 14 : WIDTH) * ui
     const height = HEIGHT * ui
     const lift = (this.layout.portrait ? 58 : 24) * this.layout.worldScale * ui
     const content = this.layout.content
@@ -103,10 +104,15 @@ export class MapOffers {
     label.bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
 
     label.icon.setVisible(offer.type === 'plant' && !offer.requiresChoice)
-    label.seed.setVisible(offer.type === 'plant' && offer.requiresChoice)
-    label.seed.clear()
+    label.badge.setVisible(
+      (offer.type === 'plant' && offer.requiresChoice) || offer.type === 'zone',
+    )
+    label.badge.clear()
     if (offer.type === 'plant' && offer.requiresChoice) {
-      drawSeedPacket(label.seed, -22 * ui, 0, ui)
+      drawSeedPacket(label.badge, -22 * ui, 0, ui)
+    }
+    if (offer.type === 'zone') {
+      drawLockBadge(label.badge, -22 * ui, 0, ui)
     }
     if (offer.type === 'plant' && !offer.requiresChoice) {
       label.icon
@@ -164,4 +170,19 @@ function drawSeedPacket(g: Phaser.GameObjects.Graphics, x: number, y: number, ui
   g.fillEllipse(x, y - 2 * ui, 6 * ui, 8 * ui)
   g.fillStyle(0x5aa96f, 1)
   g.fillEllipse(x + 3 * ui, y - 10 * ui, 8 * ui, 4 * ui)
+}
+
+function drawLockBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, ui: number): void {
+  const s = 0.55 * ui
+  g.fillStyle(0x2f2433, 0.16)
+  g.fillRoundedRect(x - 17 * s, y - 12 * s, 34 * s, 30 * s, 6 * s)
+  g.fillStyle(0xffd166, 1)
+  g.fillRoundedRect(x - 16 * s, y - 10 * s, 32 * s, 26 * s, 6 * s)
+  g.lineStyle(5 * s, 0xffd166, 1)
+  g.beginPath()
+  g.arc(x, y - 10 * s, 12 * s, Math.PI, Math.PI * 2)
+  g.strokePath()
+  g.fillStyle(0x2f2433, 1)
+  g.fillCircle(x, y + 2 * s, 4 * s)
+  g.fillRect(x - 2 * s, y + 2 * s, 4 * s, 8 * s)
 }

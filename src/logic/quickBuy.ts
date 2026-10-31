@@ -8,6 +8,7 @@ import {
   STAFF_ORDER,
   ZONE_ORDER,
   ZONE_PRODUCTS,
+  ZONES,
   zoneOf,
 } from './config'
 import {
@@ -16,6 +17,7 @@ import {
   purchasePlantAt,
   purchaseProducer,
   purchaseStaff,
+  purchaseZone,
   staffCost,
   staffDepositKey,
 } from './purchase'
@@ -23,10 +25,12 @@ import type {
   GameEvent,
   PlantKind,
   ProductKind,
+  Rect,
   ShopState,
   StaffKind,
   StepResult,
   Vec2,
+  ZoneId,
 } from './types'
 
 export interface PlantOffer {
@@ -66,7 +70,18 @@ export interface StaffOffer {
   readonly pos: Vec2
 }
 
-export type PurchaseOffer = PlantOffer | ProducerOffer | StaffOffer
+export interface ZoneOffer {
+  readonly type: 'zone'
+  readonly id: string
+  readonly key: string
+  readonly zone: ZoneId
+  readonly cost: number
+  readonly deposit: number
+  readonly remaining: number
+  readonly pos: Vec2
+}
+
+export type PurchaseOffer = PlantOffer | ProducerOffer | StaffOffer | ZoneOffer
 
 const cheapestPlant: Readonly<Record<'fruit' | 'veg', number>> = {
   fruit: Math.min(
@@ -175,6 +190,28 @@ export function staffOfferFor(state: ShopState, kind: StaffKind): StaffOffer | n
   }
 }
 
+/**
+ * Zone unlocks are area based: standing anywhere in the zone footprint (or a
+ * short way outside it) counts, never a single access point. The visible zone
+ * tint, the locked overlay and this offer all read `map.zoneAreas`, so the
+ * trigger area cannot drift away from what the player sees.
+ */
+export function zoneOfferFor(state: ShopState, zone: ZoneId): ZoneOffer | null {
+  if (state.zones[zone]) return null
+  const cost = ZONES[zone].unlockCost
+  if (cost <= 0 || state.coins < cost) return null
+  return {
+    type: 'zone',
+    id: `zone-${zone}`,
+    key: `zone:${zone}`,
+    zone,
+    cost,
+    deposit: 0,
+    remaining: cost,
+    pos: state.map.shelfAccess[zone],
+  }
+}
+
 export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
   const offers: PurchaseOffer[] = []
   for (const zone of ZONE_ORDER) {
@@ -190,6 +227,8 @@ export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
       const offer = producerOfferFor(state, product)
       if (offer !== null) offers.push(offer)
     }
+    const unlock = zoneOfferFor(state, zone)
+    if (unlock !== null) offers.push(unlock)
   }
   for (const kind of STAFF_ORDER) {
     if (kind === 'cashier') continue
@@ -204,18 +243,34 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
   let bestDistance = Number.POSITIVE_INFINITY
 
   for (const offer of mapOffers(state)) {
-    const radius = offer.type === 'staff' ? QUICK_BUY.stationRadius : QUICK_BUY.radius
-    const distanceToOffer = distance(pos, offer.pos)
-    if (distanceToOffer <= radius && distanceToOffer < bestDistance) {
+    const gap =
+      offer.type === 'zone'
+        ? distanceToRect(pos, state.map.zoneAreas[offer.zone])
+        : distance(pos, offer.pos)
+    const radius =
+      offer.type === 'staff'
+        ? QUICK_BUY.stationRadius
+        : offer.type === 'zone'
+          ? QUICK_BUY.zoneMargin
+          : QUICK_BUY.radius
+    if (gap <= radius && gap < bestDistance) {
       best = offer
-      bestDistance = distanceToOffer
+      bestDistance = gap
     }
   }
 
   return best
 }
 
+/** Zero inside the rectangle; otherwise the distance to its nearest edge. */
+function distanceToRect(pos: Vec2, rect: Rect): number {
+  const dx = Math.max(rect.x - pos.x, 0, pos.x - (rect.x + rect.w))
+  const dy = Math.max(rect.y - pos.y, 0, pos.y - (rect.y + rect.h))
+  return Math.hypot(dx, dy)
+}
+
 export function quickBuyThreshold(offer: PurchaseOffer): number {
+  if (offer.type === 'zone') return QUICK_BUY.zoneMs
   return offer.type === 'plant' && offer.requiresChoice ? QUICK_BUY.openMs : QUICK_BUY.buyMs
 }
 
@@ -273,7 +328,9 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
       ? purchasePlantAt(state, offer.product, offer.slot, true)
       : offer.type === 'producer'
         ? purchaseProducer(state, offer.product)
-        : purchaseStaff(state, offer.kind, true)
+        : offer.type === 'zone'
+          ? purchaseZone(state, offer.zone)
+          : purchaseStaff(state, offer.kind, true)
 
   return {
     state: {

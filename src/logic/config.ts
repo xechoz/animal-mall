@@ -324,8 +324,11 @@ export const DRINK_RADIUS = 48
 export const QUICK_BUY = {
   openMs: 520,
   buyMs: 1_000,
+  zoneMs: 500,
   radius: 62,
   stationRadius: 42,
+  /** How far outside a zone footprint still counts as standing at it. */
+  zoneMargin: 36,
 } as const
 
 export function carryCapacity(level: number): number {

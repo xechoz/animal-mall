@@ -25,6 +25,9 @@ that sale.
   for its products.
 - Harvest, stocking and checkout happen automatically when you are close enough.
   The counter has a wide service area.
+- The locked farm and kitchen zones can be bought in place: stand still anywhere
+  inside one, or just next to it, for half a second once you can afford it. The
+  shop still lists both zones as an alternative.
 - Walk to an empty plot and stop to open the plant chooser. Fruit trees and
   vegetable crops grow on their own; harvested goods go to the matching shelf.
 - Every animal has a trough in front of its pen. Carry fruit or vegetables to
@@ -56,7 +59,8 @@ that sale.
 The game starts with 100 coins and an in-world guide for the first apple tree.
 Fruits are apple, pear, peach, cherry, strawberry and grape; vegetables are
 carrot, tomato, corn, pumpkin, potato and eggplant. Vegetables unlock
-automatically after the first sale; the farm and kitchen are bought in the shop.
+automatically after the first sale; stand anywhere inside the locked farm or
+kitchen zone for half a second to buy it, or unlock it in the shop.
 
 ## Save and language
 

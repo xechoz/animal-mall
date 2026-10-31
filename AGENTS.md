@@ -49,6 +49,22 @@ submodule. Do not copy platform source into this repo.
 - Save keys are `mg:<gameId>:<name>`.
 - Do not commit `node_modules/`, `dist/`, `release/` or secrets.
 
+## Gameplay interaction rules
+
+- In-world buying is proximity based. A player who stands still inside the
+  configured range fills a dwell ring, and the purchase fires when it completes;
+  walking resets the ring.
+- Zone unlocks never use a single access point. The farm and kitchen unlock when
+  the player stands anywhere inside `map.zoneAreas[zone]` or within
+  `QUICK_BUY.zoneMargin` of that rectangle. `zoneAreas` is the single source of
+  truth for the floor tint, the locked overlay and the trigger area.
+- Zone unlocks take 0.5 s (`QUICK_BUY.zoneMs`); other quick buys use the
+  thresholds in `src/logic/config.ts`.
+- The shop panel keeps its unlock buttons as a redundant path. Do not make an
+  in-world unlock depend on opening the shop.
+- `veg` stays free after the first sale and is not part of the paid zone quick
+  buy.
+
 ## Commands
 
 ```bash

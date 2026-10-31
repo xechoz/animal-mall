@@ -29,6 +29,7 @@ interface ShopMapInput {
   readonly register: Vec2
   readonly queueSlots: readonly Vec2[]
   readonly shelves: Readonly<Record<ZoneId, Rect>>
+  readonly zoneAreas: Readonly<Record<ZoneId, Rect>>
   readonly shelfAccess: Readonly<Record<ZoneId, Vec2>>
   readonly plots: readonly Plot[]
   readonly cropPlots: readonly Plot[]
@@ -120,6 +121,12 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     farm: { x: 60, y: 92, w: 220, h: 50 },
     kitchen: { x: 400, y: 92, w: 220, h: 50 },
   },
+  zoneAreas: {
+    fruit: { x: 44, y: 590, w: 252, h: 405 },
+    veg: { x: 384, y: 590, w: 252, h: 405 },
+    farm: { x: 44, y: 90, w: 252, h: 420 },
+    kitchen: { x: 384, y: 90, w: 252, h: 420 },
+  },
   shelfAccess: {
     fruit: { x: 170, y: 670 },
     veg: { x: 510, y: 670 },
@@ -189,6 +196,12 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
     veg: { x: 340, y: 92, w: 220, h: 50 },
     farm: { x: 640, y: 92, w: 220, h: 50 },
     kitchen: { x: 940, y: 92, w: 220, h: 50 },
+  },
+  zoneAreas: {
+    fruit: { x: 40, y: 88, w: 220, h: 300 },
+    veg: { x: 340, y: 88, w: 220, h: 300 },
+    farm: { x: 640, y: 88, w: 220, h: 300 },
+    kitchen: { x: 940, y: 88, w: 220, h: 300 },
   },
   shelfAccess: {
     fruit: { x: 150, y: 170 },
