@@ -78,8 +78,18 @@ export function drawTrashBin(g: Phaser.GameObjects.Graphics, rect: Rect): void {
   g.fillStyle(0x3b2f3a, 0.5)
   g.fillRoundedRect(cx - 6, y + 1, 12, 4, 2)
 
+  // Foot pedal and recycling mark.
+  g.fillStyle(0x4f6b64, 1)
+  g.fillRoundedRect(cx - 8, y + h - 4, 16, 5, 2.5)
+  g.lineStyle(2, 0xffffff, 0.55)
+  g.beginPath()
+  g.arc(cx - 4, y + h / 2, 5, -1.2, 2.2)
+  g.strokePath()
+  g.beginPath()
+  g.arc(cx + 4, y + h / 2, 5, 1.2, 4.8)
+  g.strokePath()
   g.fillStyle(gameColors.theme.panel, 0.9)
-  g.fillCircle(x + w - 8, y + h - 7, 3)
+  g.fillCircle(x + w - 8, y + h - 9, 3)
 }
 
 export function drawVendingMachine(g: Phaser.GameObjects.Graphics, rect: Rect): void {
@@ -106,8 +116,15 @@ export function drawVendingMachine(g: Phaser.GameObjects.Graphics, rect: Rect): 
   g.fillRoundedRect(x + 7, y + 28, w - 14, h - 57, 5)
   g.fillStyle(gameColors.sky, 0.9)
   g.fillRoundedRect(x + 9, y + 30, w - 18, h - 61, 4)
-  g.fillStyle(0xffffff, 0.22)
-  g.fillRect(x + 12, y + 33, w - 24, 4)
+  g.fillStyle(0xffffff, 0.3)
+  g.fillRoundedRect(x + 11, y + 32, w - 22, 4, 2)
+  g.fillStyle(0xffffff, 0.14)
+  g.beginPath()
+  g.moveTo(x + 9, y + 30)
+  g.lineTo(x + w * 0.55, y + 30)
+  g.lineTo(x + 9, y + h - 30)
+  g.closePath()
+  g.fillPath()
 
   // Shelves of cans.
   const shelfTop = y + 38

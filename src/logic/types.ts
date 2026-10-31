@@ -240,8 +240,10 @@ export interface QuickBuyState {
 
 export interface FishingState {
   readonly pondId: number | null
-  readonly phase: 'idle' | 'waiting'
+  /** idle casts, waiting holds the line, rest is the gap before re-casting. */
+  readonly phase: 'idle' | 'waiting' | 'rest'
   readonly timerMs: number
+  /** False while the basket is full; space frees it again. */
   readonly armed: boolean
 }
 

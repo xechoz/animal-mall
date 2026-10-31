@@ -6,7 +6,7 @@ import {
   onAppHidden,
   onLayoutChange,
   readViewport,
-  type SfxName,
+  type SoundName,
   type Viewport,
 } from '@mg/core'
 import { createRng, type Rng, randomSeed } from '@mg/core/rng'
@@ -19,7 +19,9 @@ import { distance } from '../logic/collision'
 import {
   DRINK_RADIUS,
   DRINKS,
+  FISHING,
   INTERACT,
+  INTERACTION,
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
@@ -45,6 +47,7 @@ import {
   replacePlantAt,
   slotPlantDeposit,
 } from '../logic/purchase'
+import { nearestOffer } from '../logic/quickBuy'
 import { urgeStaff } from '../logic/staff'
 import { createShopState, remapShopState, stepShop, stockReach, toSave } from '../logic/state'
 import type {
@@ -89,7 +92,6 @@ import { ZoneOverlay } from '../ui/ZoneOverlay'
 const STEP_MS = 1000 / 60
 const SAVE_EVERY_MS = 5_000
 /** Hold this long on a planted bed to open the crop swap chooser. */
-const BED_HOLD_MS = 420
 
 const MOVE_KEY_CODES: ReadonlySet<string> = new Set([
   'ArrowLeft',
@@ -147,8 +149,12 @@ export class GameScene extends Phaser.Scene {
     readonly zone: 'fruit' | 'veg'
     readonly slot: number
     readonly timer: Phaser.Time.TimerEvent
+    readonly startX: number
+    readonly startY: number
+    readonly startedAt: number
     fired: boolean
   }
+  private bedPressRing?: Phaser.GameObjects.Graphics
   private plantPicker?: PlantPicker
   private drinkPicker?: DrinkPicker
   private devPanel?: DevPanel
@@ -161,6 +167,9 @@ export class GameScene extends Phaser.Scene {
   private pauseOverlay?: PauseOverlay
   private shopPanel?: ShopPanel
   private countdownText?: Phaser.GameObjects.Text
+  private hintTapBed = false
+  private hintSwap = false
+  private hintFish = false
   private countdownMs = 0
   private countdownShown = 0
   private accumulator = 0
@@ -262,6 +271,7 @@ export class GameScene extends Phaser.Scene {
     const { theme, i18n } = this.services
     this.bedHits = []
     this.bedPress = undefined
+    this.destroyBedPressRing()
     this.world = this.add.container(this.layout.room.x, this.layout.room.y)
     this.world.setScale(this.layout.worldScale)
 
@@ -328,6 +338,11 @@ export class GameScene extends Phaser.Scene {
     this.world.add(this.coinPile)
     this.fishingView = new FishingView(this, theme)
     this.world.add(this.fishingView)
+    this.time.delayedCall(1_400, () => {
+      if (this.mode !== 'playing' || this.hintTapBed || this.state.tutorial !== 'buyTree') return
+      this.hintTapBed = true
+      this.toast.show(this.services.i18n.t('toast.tapBed'))
+    })
 
     this.playerView = new PlayerView(this, theme)
     this.world.add(this.playerView)
@@ -344,10 +359,14 @@ export class GameScene extends Phaser.Scene {
     for (const zone of ['fruit', 'veg'] as const) {
       for (const plot of this.layout.map.plantSlots[zone]) {
         const hit = this.add
-          .zone(plot.x, plot.y, PLOT_SIZE.w, PLOT_SIZE.h + 12)
+          .zone(plot.x, plot.y, PLOT_SIZE.w, PLOT_SIZE.h + INTERACTION.plotHitPadding)
           .setInteractive({ useHandCursor: true })
-        hit.on('pointerdown', () => this.beginBedPress(zone, plot.index))
-        hit.on('pointerup', () => this.endBedPress(zone, plot.index))
+        hit.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
+          this.beginBedPress(zone, plot.index, pointer),
+        )
+        hit.on('pointerup', (pointer: Phaser.Input.Pointer) =>
+          this.endBedPress(zone, plot.index, pointer),
+        )
         hit.on('pointerout', () => this.cancelBedPress(zone, plot.index))
         this.bedHits.push(hit)
         this.world.add(hit)
@@ -355,22 +374,34 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private beginBedPress(zone: 'fruit' | 'veg', slot: number): void {
+  private beginBedPress(zone: 'fruit' | 'veg', slot: number, pointer: Phaser.Input.Pointer): void {
     this.cancelBedPress(zone, slot)
-    const timer = this.time.delayedCall(BED_HOLD_MS, () => {
+    const startedAt = this.time.now
+    const timer = this.time.delayedCall(INTERACTION.holdMs, () => {
       if (this.bedPress?.timer !== timer) return
       this.bedPress.fired = true
       this.tryOpenBed(zone, slot)
     })
-    this.bedPress = { zone, slot, timer, fired: false }
+    this.bedPress = {
+      zone,
+      slot,
+      timer,
+      startX: pointer.x,
+      startY: pointer.y,
+      startedAt,
+      fired: false,
+    }
+    this.bedPressRing ??= this.add.graphics().setDepth(6500)
   }
 
-  private endBedPress(zone: 'fruit' | 'veg', slot: number): void {
+  private endBedPress(zone: 'fruit' | 'veg', slot: number, pointer: Phaser.Input.Pointer): void {
     const press = this.bedPress
     this.bedPress = undefined
+    this.destroyBedPressRing()
     if (press === undefined || press.zone !== zone || press.slot !== slot) return
     press.timer.remove()
     if (press.fired) return
+    if (Math.hypot(pointer.x - press.startX, pointer.y - press.startY) > INTERACTION.tapSlop) return
     // A short tap only plants. Replacing a crop needs the hold (or the dwell),
     // so a stray tap while harvesting never opens a paid chooser.
     if (this.bedProducer(zone, slot) !== undefined) return
@@ -381,6 +412,31 @@ export class GameScene extends Phaser.Scene {
     if (this.bedPress?.zone !== zone || this.bedPress.slot !== slot) return
     this.bedPress.timer.remove()
     this.bedPress = undefined
+    this.destroyBedPressRing()
+  }
+
+  private destroyBedPressRing(): void {
+    this.bedPressRing?.destroy()
+    this.bedPressRing = undefined
+  }
+
+  private drawBedPressRing(time: number): void {
+    const press = this.bedPress
+    const ring = this.bedPressRing
+    if (press === undefined || ring === undefined) return
+    const plot = this.layout.map.plantSlots[press.zone][press.slot]
+    if (plot === undefined) return
+    const point = worldToScreen(this.layout, plot)
+    const ui = Math.min(this.layout.ui, 1.2)
+    const radius = (PLOT_SIZE.w / 2 + 4) * this.layout.worldScale * ui
+    const ratio = Math.min(1, (time - press.startedAt) / INTERACTION.holdMs)
+    ring.clear()
+    ring.lineStyle(4 * ui, this.services.theme.ink, 0.18)
+    ring.strokeCircle(point.x, point.y - 4 * ui, radius)
+    ring.lineStyle(4 * ui, this.services.theme.accentAlt, 0.95)
+    ring.beginPath()
+    ring.arc(point.x, point.y - 4 * ui, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio)
+    ring.strokePath()
   }
 
   private bedProducer(zone: 'fruit' | 'veg', slot: number): ProducerState | undefined {
@@ -500,6 +556,8 @@ export class GameScene extends Phaser.Scene {
     this.world.sort('depth')
     this.hud.update(this.state)
     this.mapOffers?.update(this.state)
+    this.drawBedPressRing(time)
+    this.showContextHints()
     this.coinPile.updatePile(this.state.pendingCoins)
     this.buffBar.update(this.state.buffs)
     this.drinkPicker?.update(this.state)
@@ -817,12 +875,10 @@ export class GameScene extends Phaser.Scene {
           this.sfx('eat', 0.18)
           break
         case 'fishCast':
-          this.sfx('turn', 0.3)
-          this.sfx('click', 0.18)
+          this.sfx('fishCast', 0.7)
           break
         case 'fishCaught':
-          this.sfx('eat', 0.28)
-          this.services.audio.play('boost', { gain: 0.2, pitch: 0.8 })
+          this.sfx('fishSplash', 0.85)
           this.fishCatchBurst(event.pondId)
           break
         case 'fishFull':
@@ -1172,8 +1228,23 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private sfx(name: SfxName, gain = 1): void {
+  private sfx(name: SoundName, gain = 1): void {
     this.services.audio.play(name, { gain })
+  }
+
+  private showContextHints(): void {
+    if (this.mode !== 'playing') return
+    if (!this.hintSwap && nearestOffer(this.state, this.state.player.pos)?.type === 'swap') {
+      this.hintSwap = true
+      this.toast.show(this.services.i18n.t('toast.swapHint'))
+    }
+    if (this.hintFish) return
+    const pond = this.state.producers.find((producer) => producer.product === 'fish')
+    if (pond === undefined) return
+    const access = this.state.map.animalAccess.fish
+    if (distance(this.state.player.pos, access) > FISHING.margin + 80) return
+    this.hintFish = true
+    this.toast.show(this.services.i18n.t('toast.fishHint'))
   }
 
   private saveGame(): void {

@@ -42,22 +42,48 @@ export class ShelfView extends Phaser.GameObjects.Container {
     this.add(this.reachGlow)
 
     const g = scene.add.graphics()
-    g.fillStyle(0x3b2f3a, 0.16)
-    g.fillRoundedRect(-width / 2, -height / 2 + 7, width, height, 8)
+    // Market-stall shelf: dark frame, curved top rail, wood grain and feet.
+    g.fillStyle(0x3b2f3a, 0.18)
+    g.fillRoundedRect(-width / 2, -height / 2 + 7, width, height, 9)
     g.fillStyle(gameColors.woodDark, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 8)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 9)
     g.fillStyle(gameColors.wood, 1)
-    g.fillRoundedRect(-width / 2 + 4, -height / 2 + 3, width - 8, height - 8, 5)
-    g.fillStyle(0x7b4f33, 1)
-    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 24, width - 14, 4, 2)
+    g.fillRoundedRect(-width / 2 + 4, -height / 2 + 3, width - 8, height - 9, 6)
+    g.fillStyle(0xb07a4a, 1)
+    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 4, width - 14, 7, 4)
+    g.fillStyle(0xfff3dd, 0.22)
+    g.fillRoundedRect(-width / 2 + 10, -height / 2 + 5, width - 20, 2, 1)
+    g.lineStyle(1, 0x7b4f33, 0.22)
+    for (let index = 0; index < 3; index += 1) {
+      const grainY = -height / 2 + 16 + index * 8
+      g.lineBetween(-width / 2 + 12, grainY, width / 2 - 12, grainY)
+    }
+    // Small corner brackets make it read as a built shelf, not a floating box.
+    g.fillStyle(gameColors.woodDark, 1)
+    g.fillRoundedRect(-width / 2 + 7, height / 2 - 3, 12, 6, 2)
+    g.fillRoundedRect(width / 2 - 19, height / 2 - 3, 12, 6, 2)
     this.add(g)
 
     for (let index = 0; index < this.slotCount; index += 1) {
       const product = this.bins[index]
       const x = -width / 2 + pad + index * (binWidth + gap) + binWidth / 2
       const bin = scene.add.graphics()
-      bin.fillStyle(0xfff7e8, 0.18)
-      bin.fillRoundedRect(x - binWidth / 2, -height / 2 + 6, binWidth, height - 12, 5)
+      // Wicker produce basket instead of a flat white slot.
+      bin.fillStyle(0x3b2f3a, 0.12)
+      bin.fillRoundedRect(x - binWidth / 2, -height / 2 + 8, binWidth, height - 12, 5)
+      bin.fillStyle(0xe4cfa9, 0.55)
+      bin.fillRoundedRect(x - binWidth / 2, -height / 2 + 6, binWidth, height - 13, 5)
+      bin.fillStyle(0xf0dcb8, 0.6)
+      bin.fillRoundedRect(x - binWidth / 2 + 2, -height / 2 + 7, binWidth - 4, 6, 3)
+      bin.lineStyle(1, 0x8f6b45, 0.3)
+      for (let row = 1; row < 3; row += 1) {
+        bin.lineBetween(
+          x - binWidth / 2 + 3,
+          -height / 2 + 8 + row * 6,
+          x + binWidth / 2 - 3,
+          -height / 2 + 8 + row * 6,
+        )
+      }
       this.add(bin)
 
       const icon = scene.add

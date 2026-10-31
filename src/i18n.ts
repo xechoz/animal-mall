@@ -139,6 +139,8 @@ const en = {
   'toast.kitchenHint':
     'Kitchen: stations pull from the farm shelf; collect the finished goods and stock the kitchen shelf.',
   'toast.fishHint': 'Pond: stand in front for 0.5s to cast; catch the fish half a second later.',
+  'toast.tapBed': 'Tap an empty plot, or stand still for 0.5s, to choose a crop.',
+  'toast.swapHint': 'Hold a planted plot, or stand on it for 0.5s, to swap crops.',
   'toast.newProduct': 'New product: {name}',
   'toast.hungry': '{name} is hungry — put fruit or vegetables in the trough',
   'toast.treePlanted': '{name} planted',
@@ -314,6 +316,8 @@ const zh: Dictionary = {
   'toast.farmHint': '养殖区：把水果或蔬菜放进动物食槽，动物会先吃最便宜的一项。',
   'toast.kitchenHint': '加工区：加工站会从养殖货架取原料；收走成品并补到加工货架。',
   'toast.fishHint': '鱼塘：站在旁边 0.5 秒抛竿，再过 0.5 秒就能钓到鱼。',
+  'toast.tapBed': '点击空地块，或原地停留 0.5 秒，即可选择作物。',
+  'toast.swapHint': '长按已种地块，或在上面停留 0.5 秒，即可更换作物。',
   'toast.newProduct': '新产品：{name}',
   'toast.hungry': '{name}饿了——把水果或蔬菜放进食槽',
   'toast.treePlanted': '{name}种下了',

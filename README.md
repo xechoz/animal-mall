@@ -30,7 +30,7 @@ that sale.
   shop still lists both zones as an alternative.
 - Every empty plot shows a coin price sticker, so bare soil never looks dead.
   Tap the plot (or its sticker) to open the plant chooser immediately, or just
-  stop next to it for half a second. Fruit uses a 2×3 field and vegetables a 3×2
+  stop next to it for half a second. Fruit uses a 2×3 field and vegetables a 3×4
   field; both grids are configuration in `src/logic/shopMap.ts`, so the counts
   can be tuned without touching save or UI code. Fruit trees and vegetable crops
   grow on their own; harvested goods go to the matching shelf.
@@ -46,10 +46,12 @@ that sale.
   trough, one whole item per production cycle. An empty trough shows a feed
   icon with fruit/vegetable choices, and the trough highlights when you carry
   something it accepts. Trough contents are not saved and reset on reload.
-- The pond is not an animal pen. Stand in front of it without moving for half a
-  second to cast; half a second later the line bites and one fish goes into your
-  basket. Walking away or a full basket cancels the attempt. Pickers do not fish
-  and the pond has no trough.
+- The pond is not an animal pen. Stand anywhere around it without moving for
+  half a second to cast; half a second later the line bites and one fish goes
+  into your basket. Keep standing and the loop repeats automatically (cast,
+  catch, short pause, cast again). Moving, leaving the pond or filling the
+  basket stops it; freeing basket space resumes it without walking away. Pickers
+  do not fish and the pond has no trough.
 - Kitchen stations pull eggs, milk, yarn or fish from the farm shelf and leave
   one of each for customers. Finished cakes, sweaters and grilled fish wait on
   the station tray; walk up to collect them and stock the kitchen shelf.
@@ -78,6 +80,10 @@ that sale.
   after 500 ms (open a bed, unlock a zone, fish, open the drink menu, nudge
   staff, discard goods); paid purchases keep the longer one-second dwell so a
   passing tap cannot spend coins. Walking always cancels the ring.
+- Beds and offer labels are tappable as well. A short tap plants, a
+  `INTERACTION.holdMs` long press swaps crops, and dragging farther than
+  `INTERACTION.tapSlop` cancels both. Empty-bed price stickers and labels get
+  extra touch padding from `INTERACTION`.
 - Unhappy customers show it: a missing product, a long queue or a slow checkout
   turns the patience bar red, adds angry brows and cheeks, a comic anger vein on
   the temple and flickering flames over the head with rising embers. The thought
@@ -100,16 +106,16 @@ kitchen zone for half a second to buy it, or unlock it in the shop.
   reload.
 - Version 2 and 3 saves migrate automatically: old trees become producers,
   vegetables unlock if the save has served customers, stranded deposits are
-  returned to coins, and the new fifth/sixth planting slots start empty.
+  returned to coins, and the expanded planting slots start empty.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
-- All art is drawn procedurally with Phaser Graphics; the soundtrack and the
-  drink gulp are CC0 recordings (see `src/assets/audio/*.LICENSE.txt`). The
-  runtime makes no external requests.
+- All art is drawn procedurally with Phaser Graphics; the soundtrack, drink
+  gulp, fish cast and fish splash are CC0 audio assets (see
+  `src/assets/audio/*.LICENSE.txt`). The runtime makes no external requests.
 
 ## Development
 
-The platform is a git submodule pinned at `v4.1.0`:
+The platform is a git submodule pinned at `v4.3.0`:
 
 ```bash
 git clone --recurse-submodules <this-repo>

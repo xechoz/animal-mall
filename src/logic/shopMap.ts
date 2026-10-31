@@ -31,7 +31,7 @@ export interface PlantField {
 
 export const PLANT_FIELDS: Readonly<Record<'fruit' | 'veg', PlantField>> = {
   fruit: { cols: 2, rows: 3 },
-  veg: { cols: 3, rows: 2 },
+  veg: { cols: 3, rows: 4 },
 }
 
 export function plantSlotCount(zone: 'fruit' | 'veg'): number {
@@ -185,7 +185,7 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     kitchen: { x: 510, y: 170 },
   },
   fruitField: { ...PLANT_FIELDS.fruit, x: 115, y: 735, gapX: 110, gapY: 100 },
-  vegField: { ...PLANT_FIELDS.veg, x: 430, y: 785, gapX: 80, gapY: 110 },
+  vegField: { ...PLANT_FIELDS.veg, x: 430, y: 758, gapX: 80, gapY: 68 },
   animalPens: {
     egg: { index: 0, x: 110, y: 255 },
     milk: { index: 1, x: 220, y: 255 },
@@ -254,7 +254,7 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
     kitchen: { x: 1050, y: 170 },
   },
   fruitField: { ...PLANT_FIELDS.fruit, x: 85, y: 195, gapX: 130, gapY: 65 },
-  vegField: { ...PLANT_FIELDS.veg, x: 380, y: 225, gapX: 70, gapY: 90 },
+  vegField: { ...PLANT_FIELDS.veg, x: 380, y: 198, gapX: 70, gapY: 55 },
   animalPens: {
     egg: { index: 0, x: 685, y: 200 },
     milk: { index: 1, x: 815, y: 200 },

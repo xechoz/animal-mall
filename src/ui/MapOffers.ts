@@ -1,7 +1,7 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { distance } from '../logic/collision'
-import { STAFF } from '../logic/config'
+import { INTERACTION, STAFF } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState } from '../logic/types'
 import { animalTextureKey } from './animalArt'
@@ -20,6 +20,8 @@ interface OfferLabel {
   readonly paid: Phaser.GameObjects.Graphics
   readonly hit: Phaser.GameObjects.Zone
   action?: () => void
+  downX?: number
+  downY?: number
 }
 
 const WIDTH = 70
@@ -94,7 +96,24 @@ export class MapOffers {
     const hit = this.scene.add.zone(0, 0, WIDTH, HEIGHT).setInteractive({ useHandCursor: true })
     const label: OfferLabel = { container, bg, dwell, badge, icon, coin, price, paid, hit }
     // The label is the most obvious thing to tap, so it mirrors the bed tap.
-    hit.on('pointerup', () => label.action?.())
+    // A drag across the screen must not open a paid chooser.
+    hit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      label.downX = pointer.x
+      label.downY = pointer.y
+    })
+    hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      const startX = label.downX
+      const startY = label.downY
+      label.downX = undefined
+      label.downY = undefined
+      if (startX === undefined || startY === undefined) return
+      if (Math.hypot(pointer.x - startX, pointer.y - startY) > INTERACTION.tapSlop) return
+      label.action?.()
+    })
+    hit.on('pointerout', () => {
+      label.downX = undefined
+      label.downY = undefined
+    })
     container.add([bg, paid, dwell, badge, icon, coin, price, hit])
     return label
   }
@@ -108,8 +127,8 @@ export class MapOffers {
     // zone header. Selecting one expands it into the normal label.
     const compact = offer.type === 'plant' && offer.requiresChoice && !near
     // Four-digit zone prices need a little more room than product offers.
-    const width = (offer.type === 'zone' ? WIDTH + 14 : compact ? 52 : WIDTH) * ui
-    const height = (compact ? 22 : HEIGHT) * ui
+    const width = (offer.type === 'zone' ? WIDTH + 14 : compact ? 44 : WIDTH) * ui
+    const height = (compact ? 20 : HEIGHT) * ui
     // Crop labels sit above the canopy, not inside it. Animal and station
     // labels stay lower so they do not collide with the top HUD.
     const lift =
@@ -134,7 +153,10 @@ export class MapOffers {
       Math.min(content.y + content.h - height / 2 - 8 * ui, point.y - lift - 16 * ui),
     )
     label.container.setPosition(x, y)
-    label.hit.setSize(width, height)
+    label.hit.setSize(
+      width + INTERACTION.labelHitPadding * 2 * ui,
+      height + INTERACTION.labelHitPadding * 2 * ui,
+    )
     label.action =
       offer.type === 'swap' || (offer.type === 'plant' && offer.requiresChoice)
         ? () => this.onBedTap(offer.zone, offer.slot)
@@ -202,11 +224,11 @@ export class MapOffers {
     label.coin.setVisible(showPrice)
     label.price.setVisible(showPrice)
     if (compact) {
-      label.coin.setPosition(-15 * ui, 0).setScale(0.36 * ui)
-      label.price.setPosition(-2 * ui, 0)
+      label.coin.setPosition(-13 * ui, 0).setScale(0.32 * ui)
+      label.price.setPosition(-2 * ui, 0).setFontSize(11 * ui)
     } else {
       label.coin.setPosition(-3 * ui, 0).setScale(0.42 * ui)
-      label.price.setPosition(7 * ui, 0)
+      label.price.setPosition(7 * ui, 0).setFontSize(13 * ui)
     }
     label.price.setText(offer.type === 'swap' ? '' : String(offer.remaining))
     label.price.setColor(affordable ? this.theme.text : this.theme.textMuted)

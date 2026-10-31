@@ -2,10 +2,29 @@
 
 ## Unreleased
 
-- Turn the fish pond into a fishing spot: stand in front without moving for
-  half a second to cast, then half a second to catch. Fish no longer eat trough
-  feed, pickers skip them, and the pond draws a rod, line, bobber and ripples
-  with cast/catch sounds.
+- Upgrade the platform submodule to v4.3.0, whose `AudioManager` accepts
+  game-specific sound keys instead of only the eight built-in `SfxName` values.
+  Animal Mall registers two dedicated fishing sounds: `fishCast` and
+  `fishSplash`, both generated locally as CC0 WAV files.
+- Give animals, shelves and facilities a second art pass: shaded customer/staff
+  sprites with curved tails and species details, pen animals with feathers,
+  wool and cow markings, market-stall shelves with wicker baskets, and more
+  detailed counters, hire signs, vending machines, bins and stations.
+- Add one-shot tutorial hints for tapping/dwelling on a bed, long-press crop
+  swapping and the fishing loop, and centralise tap/long-press thresholds,
+  touch padding and drag cancellation in `INTERACTION`.
+- Expand the vegetable field to 3×4 (12 beds) and keep fruit at 2×3; empty-bed
+  price chips shrink to fit the denser grid, and save validation follows
+  `plantSlotCount` without a version bump.
+- Redraw the orchard and vegetable art: organic lobed canopies with asymmetric
+  silhouettes, tapered trunks with roots and bark marks, species-specific
+  foliage palettes, and extra flowers, runners, tendrils and leaf highlights.
+- Turn the fish pond into an active fishing spot: stand still anywhere near its
+  rectangle (not one access point) and the 0.5s cast / 0.5s catch loop repeats
+  automatically until you move, leave the pond or fill the basket. A full basket
+  pauses and resumes once there is room, a range ring plus progress arc shows
+  the state, and the pond draws a rod, line, bobber and ripples with cast/catch
+  sounds. Fish no longer eat trough feed and pickers skip them.
 - Show a coin price sticker on every empty crop bed so it is obvious the bed is
   plantable, and let a tap on the bed or its sticker open the plant chooser.
 - Open the crop swap chooser after a 500 ms dwell once the bed is empty, or by
@@ -13,15 +32,14 @@
   and empty hands, which automatic harvesting made hard to reach.
 - Draw flickering anger flames, rising embers and a comic anger vein above an
   upset customer instead of a plain `!` bubble.
-- Replace the fixed four-plot fields with configurable grids: fruit uses a 2×3
-  field and vegetables a 3×2 field. Save version 4 keeps old slots valid and
-  leaves the new slots empty.
+- Replace the fixed four-plot fields with configurable grids. Save version 4
+  keeps old slots valid and leaves the new slots empty.
 - Make crop beds area triggers instead of centre-point triggers, so standing
   between two rows still finds a bed. Empty beds are distance-gated so six
   labels no longer cover the shop.
-- Allow swapping a planted crop by standing on its bed with empty hands for one
-  second; the old crop refunds half and the new one costs full price. The shop's
-  remove button remains as a fallback.
+- Allow swapping a planted crop by standing on its bed for half a second once
+  nothing is ready to harvest; the old crop refunds half and the new one costs
+  full price. The shop's remove button remains as a fallback.
 - Bind partial plant payments to the bed that received them, so the remaining
   beds stop showing another bed's deposit ring.
 - Let the player walk through animal pens and kitchen stations while customers

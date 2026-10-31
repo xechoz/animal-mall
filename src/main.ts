@@ -6,6 +6,8 @@ import { MenuScene } from './scenes/MenuScene'
 
 const music = new URL('./assets/audio/joyful-jungle.mp3', import.meta.url).href
 const drinkGulp = new URL('./assets/audio/drink-gulp.mp3', import.meta.url).href
+const fishCast = new URL('./assets/audio/fish-cast.wav', import.meta.url).href
+const fishSplash = new URL('./assets/audio/fish-splash.wav', import.meta.url).href
 
 createGame({
   id: 'animal-mall',
@@ -17,8 +19,8 @@ createGame({
   assets: {
     audio: [{ key: 'music', urls: music }],
   },
-  // The platform has no dedicated drink effect, and this game never uses the
-  // `slow` slot, so the bundled gulp sample takes over that effect.
-  audioSamples: { slow: drinkGulp },
+  // Built-in slots can be overridden and games may register their own sound
+  // names; the two fishing effects are sample-only keys.
+  audioSamples: { slow: drinkGulp, fishCast, fishSplash },
   scenes: [MenuScene, GameScene],
 })

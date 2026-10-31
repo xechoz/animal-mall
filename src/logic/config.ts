@@ -322,9 +322,23 @@ export const TRASH_RADIUS = 58
 export const DRINK_RADIUS = 48
 
 export const FISHING = {
-  radius: 64,
+  /** How far outside the pond rectangle still counts as standing at it. */
+  margin: 42,
   castMs: 500,
   catchMs: 500,
+  /** Short pause between catches so the rod visibly re-casts. */
+  repeatMs: 350,
+} as const
+
+export const INTERACTION = {
+  /** Pointer travel above this cancels a tap and a long press. */
+  tapSlop: 12,
+  /** Long-press threshold for opening a planted bed's swap chooser. */
+  holdMs: 420,
+  /** Extra touch area around a plot, in world units. */
+  plotHitPadding: 12,
+  /** Extra touch area around an offer label, in UI units. */
+  labelHitPadding: 8,
 } as const
 
 export const QUICK_BUY = {

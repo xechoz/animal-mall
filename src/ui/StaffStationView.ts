@@ -33,6 +33,13 @@ export class StaffStationView extends Phaser.GameObjects.Container {
     board.fillRoundedRect(-30, -40, 60, 42, 10)
     board.fillStyle(0xf0c99b, 1)
     board.fillRoundedRect(-30, -43, 60, 42, 10)
+    // Scalloped awning edge, like a tiny market sign.
+    board.fillStyle(0xf0c99b, 1)
+    for (let index = 0; index < 5; index += 1) {
+      board.fillCircle(-22 + index * 11, -42, 5)
+    }
+    board.fillStyle(0xfff3dd, 0.35)
+    board.fillRoundedRect(-24, -38, 48, 3, 1.5)
     board.lineStyle(2, 0x8f5734, 0.8)
     board.strokeRoundedRect(-30, -43, 60, 42, 10)
     this.add(board)

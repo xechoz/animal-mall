@@ -123,6 +123,13 @@ function drawAnimal(
   g.fillEllipse(48, 68, 45, 35)
   g.fillStyle(style.body, 1)
   g.fillEllipse(47, 66, 42, 32)
+  // Soft top-left highlight and a darker underside give the flat ellipse volume.
+  g.fillStyle(0xffffff, 0.16)
+  g.fillEllipse(38, 56, 17, 10)
+  g.fillStyle(style.bodyDark, 0.3)
+  g.fillEllipse(53, 79, 30, 11)
+  g.fillStyle(style.face, 0.35)
+  g.fillEllipse(48, 73, 21, 12)
 
   g.fillStyle(style.face, 0.92)
   g.fillEllipse(48, 74, 24, 15)
@@ -147,6 +154,32 @@ function drawAnimal(
   g.fillCircle(48, headY, 23)
   g.fillStyle(style.body, 1)
   g.fillCircle(47, headY - 1, 21)
+  g.fillStyle(0xffffff, 0.2)
+  g.fillEllipse(39, headY - 12, 11, 7)
+  g.fillStyle(style.bodyDark, 0.18)
+  g.fillEllipse(57, headY + 9, 18, 10)
+
+  if (species === 'cat') {
+    g.lineStyle(1.2, style.bodyDark, 0.8)
+    for (const side of [-1, 1]) {
+      for (let index = -1; index <= 1; index += 1) {
+        g.lineBetween(48 + side * 14, 47 + index * 2, 48 + side * 27, 45 + index * 4)
+      }
+    }
+  }
+
+  if (species === 'frog') {
+    g.fillStyle(0x3f7a4d, 0.45)
+    g.fillEllipse(33, 74, 7, 4)
+    g.fillEllipse(61, 78, 6, 3)
+    g.fillEllipse(48, 83, 5, 3)
+  }
+
+  if (species === 'rabbit') {
+    g.fillStyle(0xffffff, 1)
+    g.fillRoundedRect(45, 54, 3, 5, 1)
+    g.fillRoundedRect(49, 54, 3, 5, 1)
+  }
 
   if (species === 'panda') {
     g.fillStyle(INK, 1)
@@ -165,17 +198,35 @@ function drawAnimal(
   g.fillEllipse(48, 50, 22, 14)
   g.fillStyle(style.nose, 1)
   g.fillEllipse(48, 48, 5, 4)
+  g.fillStyle(0xffffff, 0.35)
+  g.fillEllipse(47, 47, 2, 1.4)
   g.lineStyle(2, style.nose, 0.8)
   g.beginPath()
   g.arc(48, 50, 4, 0.15, Math.PI - 0.15)
   g.strokePath()
 
+  if (species === 'pig') {
+    g.fillStyle(0xc95b70, 0.8)
+    g.fillCircle(46, 48, 1)
+    g.fillCircle(50, 48, 1)
+  }
+
   drawEye(g, 40, 39)
   drawEye(g, 56, 39)
+  g.lineStyle(1.4, style.bodyDark, 0.8)
+  g.beginPath()
+  g.arc(40, 34, 5, 3.45, 5.75)
+  g.strokePath()
+  g.beginPath()
+  g.arc(56, 34, 5, 3.45, 5.75)
+  g.strokePath()
 
   g.fillStyle(0xf07f8d, 0.55)
   g.fillEllipse(31, 51, 7, 4)
   g.fillEllipse(65, 51, 7, 4)
+  g.fillStyle(0xffffff, 0.5)
+  g.fillCircle(32, 49, 1)
+  g.fillCircle(64, 49, 1)
 
   if (player) {
     g.fillStyle(0x5fbf9f, 1)
@@ -283,28 +334,60 @@ function drawEars(
 
 function drawTail(g: Phaser.GameObjects.Graphics, species: SpeciesId, style: AnimalStyle): void {
   switch (species) {
-    case 'fox':
-      g.fillStyle(style.bodyDark, 1)
-      g.fillEllipse(78, 68, 20, 10)
+    case 'fox': {
+      curveTail(g, { x: 68, y: 70 }, { x: 84, y: 76 }, { x: 88, y: 58 }, 8, style.bodyDark)
       g.fillStyle(style.face, 1)
-      g.fillEllipse(84, 66, 9, 7)
+      g.fillEllipse(88, 57, 10, 8)
+      g.fillStyle(0xffffff, 0.55)
+      g.fillEllipse(87, 55, 5, 3)
       break
+    }
     case 'cat':
     case 'dog':
-      g.fillStyle(style.bodyDark, 1)
-      g.fillEllipse(78, 66, 16, 8)
+      curveTail(g, { x: 68, y: 72 }, { x: 82, y: 70 }, { x: 84, y: 60 }, 6, style.bodyDark)
+      g.fillStyle(style.body, 1)
+      g.fillCircle(84, 60, 3.4)
       break
     case 'pig':
-      g.fillStyle(style.bodyDark, 1)
-      g.fillCircle(78, 64, 5)
+      g.lineStyle(3.5, style.bodyDark, 1)
+      g.beginPath()
+      g.arc(76, 65, 5, -0.4, 4.2)
+      g.strokePath()
       break
     case 'rabbit':
       g.fillStyle(style.face, 1)
       g.fillCircle(78, 72, 6)
+      g.fillStyle(0xffffff, 0.55)
+      g.fillCircle(77, 70, 2.4)
       break
     default:
       g.fillStyle(style.bodyDark, 1)
       g.fillCircle(77, 72, 5)
+      g.fillStyle(0xffffff, 0.25)
+      g.fillCircle(76, 70, 1.8)
+  }
+}
+
+function curveTail(
+  g: Phaser.GameObjects.Graphics,
+  from: { x: number; y: number },
+  control: { x: number; y: number },
+  to: { x: number; y: number },
+  width: number,
+  color: number,
+): void {
+  const steps = 10
+  let previous = from
+  for (let index = 1; index <= steps; index += 1) {
+    const t = index / steps
+    const inverse = 1 - t
+    const point = {
+      x: inverse * inverse * from.x + 2 * inverse * t * control.x + t * t * to.x,
+      y: inverse * inverse * from.y + 2 * inverse * t * control.y + t * t * to.y,
+    }
+    g.lineStyle(width, color, 1)
+    g.lineBetween(previous.x, previous.y, point.x, point.y)
+    previous = point
   }
 }
 
@@ -314,6 +397,9 @@ function drawFeet(g: Phaser.GameObjects.Graphics, style: AnimalStyle): void {
     g.fillRoundedRect(x - 2, 80, 15, 10, 5)
     g.fillStyle(style.bodyDark, 1)
     g.fillRoundedRect(x, 81, 11, 8, 4)
+    g.lineStyle(1, INK, 0.35)
+    g.lineBetween(x + 4, 83, x + 4, 88)
+    g.lineBetween(x + 7, 83, x + 7, 88)
   }
 }
 

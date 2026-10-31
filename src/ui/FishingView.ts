@@ -1,11 +1,17 @@
 import { mixColor, type Theme } from '@mg/core'
 import Phaser from 'phaser'
+import { distanceToRect } from '../logic/collision'
 import { FISHING } from '../logic/config'
+import { pondRect } from '../logic/fishing'
 import type { ProducerState, ShopState } from '../logic/types'
 
+const RING_RADIUS = 46
+const RING_WIDTH = 3
+
 /**
- * Draws the fishing rod, line, bobber and ripples in world space. The logic
- * owns the timers; this view only reads them.
+ * Draws the fishing rod, line, bobber and ripples in world space, plus the
+ * cast/catch progress ring. The logic owns the timers; this view only reads
+ * them.
  */
 export class FishingView extends Phaser.GameObjects.Container {
   private readonly art: Phaser.GameObjects.Graphics
@@ -22,14 +28,21 @@ export class FishingView extends Phaser.GameObjects.Container {
 
   updateFishing(state: ShopState, time: number): void {
     const pond = state.producers.find((producer) => producer.product === 'fish')
-    const fishing = state.fishing
     this.art.clear()
-    if (pond === undefined || fishing.pondId !== pond.id) return
-    if (fishing.phase === 'idle' && fishing.timerMs <= 0) return
+    if (pond === undefined) return
+
+    const inRange = distanceToRect(state.player.pos, pondRect(pond)) <= FISHING.margin
+    if (inRange) this.drawRing(pond)
+
+    const fishing = state.fishing
+    if (fishing.pondId !== pond.id) return
+    if (fishing.phase === 'rest') return
 
     const hand = this.handPoint(state, pond)
     if (fishing.phase === 'idle') {
       this.drawRod(hand, pond.pos, 0.35)
+      this.drawProgress(pond, Math.min(1, fishing.timerMs / FISHING.castMs))
+      if (fishing.timerMs <= 0 && inRange) this.drawBobberHint(pond, time)
       return
     }
 
@@ -42,6 +55,7 @@ export class FishingView extends Phaser.GameObjects.Container {
     this.drawRod(hand, bobber, 1)
     this.drawRipples(bobber, time, ratio)
     this.drawBobber(bobber, bite)
+    this.drawProgress(pond, ratio)
   }
 
   private handPoint(state: ShopState, pond: ProducerState) {
@@ -51,6 +65,35 @@ export class FishingView extends Phaser.GameObjects.Container {
       x: player.pos.x + facing * 16,
       y: player.pos.y - 34,
     }
+  }
+
+  /** Faint ring while the player is close enough to fish. */
+  private drawRing(pond: ProducerState): void {
+    this.art.lineStyle(RING_WIDTH, 0x3b2f3a, 0.12)
+    this.art.strokeCircle(pond.pos.x, pond.pos.y, RING_RADIUS)
+  }
+
+  private drawProgress(pond: ProducerState, ratio: number): void {
+    // Orange reads better against the light blue pond than the mint accent.
+    this.art.lineStyle(RING_WIDTH, this.theme.accent, 1)
+    this.art.beginPath()
+    this.art.arc(
+      pond.pos.x,
+      pond.pos.y,
+      RING_RADIUS,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * Math.min(1, Math.max(0, ratio)),
+    )
+    this.art.strokePath()
+  }
+
+  /** Small floating bobber hint before the line goes out. */
+  private drawBobberHint(pond: ProducerState, time: number): void {
+    const bob = Math.sin(time * 0.006) * 2
+    this.art.fillStyle(0xffffff, 0.35)
+    this.art.fillCircle(pond.pos.x, pond.pos.y - 22 + bob, 3)
+    this.art.fillStyle(this.theme.accentAlt, 0.75)
+    this.art.fillRoundedRect(pond.pos.x - 2, pond.pos.y - 16 + bob, 4, 7, 2)
   }
 
   private drawRod(

@@ -1,7 +1,7 @@
 # Animal Mall — Agent Instructions
 
 This repository contains exactly one game. Shared infrastructure lives in the
-`platform/` git submodule (`xechoz/mg-platform`), pinned to `v4.1.0`.
+`platform/` git submodule (`xechoz/mg-platform`), pinned to `v4.3.0`.
 
 ## Read first
 
@@ -76,8 +76,12 @@ submodule. Do not copy platform source into this repo.
   entries in `src/logic/shopMap.ts`. Fruit and vegetables may use different
   `cols × rows`; save validation reads `plantSlotCount`, so never hard-code a
   slot limit elsewhere.
-- The pond is not an animal pen. Fish are caught by standing in front of
-  `map.animalAccess.fish`; they never eat trough feed and pickers must skip them.
+- The pond is not an animal pen. Fishing triggers when the player stands still
+  within `FISHING.margin` of the pond rectangle (`pondRect` in
+  `src/logic/fishing.ts`), not at a single access point. After a catch the loop
+  re-arms itself and keeps fishing while the player stays; only movement,
+  leaving the rectangle or a full basket stops it. Fish never eat trough feed
+  and pickers must skip them.
 - Standing still is the shared interaction verb. Free/contextual actions use
   500 ms; paid purchases keep the longer one-second dwell to prevent accidental
   spending. Every dwell must cancel on movement and show a visible ring.
@@ -93,6 +97,12 @@ submodule. Do not copy platform source into this repo.
 - Plant deposits are per bed (`plant:<kind>:<slot>`). Never use one global
   deposit key for every slot; legacy `plant:<kind>` keys are read only on the
   first empty bed.
+- Tap/long-press thresholds live in `INTERACTION` (`src/logic/config.ts`):
+  `tapSlop`, `holdMs`, `plotHitPadding`, `labelHitPadding`. Drags beyond
+  `tapSlop` must cancel a tap or long press. Do not hard-code these in scenes.
+- Game-specific audio keys are registered through `audioSamples` and are not
+  limited to the platform `SfxName` union; use `SoundName` for helper
+  signatures. Fishing currently uses `fishCast` and `fishSplash`.
 
 ## Commands
 

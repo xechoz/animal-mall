@@ -418,9 +418,25 @@ function drawCounter(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   g.fillRoundedRect(rect.x + 4, rect.y + 3, rect.w - 8, rect.h - 10, 10)
   g.fillStyle(gameColors.woodLight, 1)
   g.fillRoundedRect(rect.x + 8, rect.y + 6, rect.w - 16, 12, 6)
+  g.fillStyle(0xfff3dd, 0.28)
+  g.fillRoundedRect(rect.x + 12, rect.y + 8, rect.w - 24, 3, 1.5)
+  g.fillStyle(0x8f5734, 0.28)
+  g.fillRoundedRect(rect.x + 10, rect.y + 24, rect.w - 20, rect.h - 32, 6)
   g.lineStyle(2, 0x7b4f33, 0.6)
   g.lineBetween(rect.x + 14, rect.y + 30, rect.x + rect.w - 14, rect.y + 30)
   g.lineBetween(rect.x + 14, rect.y + 42, rect.x + rect.w - 14, rect.y + 42)
+  g.lineStyle(1.4, 0x7b4f33, 0.22)
+  for (let index = 0; index < 3; index += 1) {
+    g.beginPath()
+    g.arc(
+      rect.x + rect.w / 2,
+      rect.y + 34 + index * 9,
+      rect.w * 0.3,
+      Math.PI * 1.15,
+      Math.PI * 1.85,
+    )
+    g.strokePath()
+  }
 
   // Register.
   g.fillStyle(0x3b2f3a, 0.2)
@@ -429,6 +445,8 @@ function drawCounter(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   g.fillRoundedRect(register.x - 26, register.y - 18, 50, 30, 8)
   g.fillStyle(0x9be7d0, 1)
   g.fillRoundedRect(register.x - 17, register.y - 13, 32, 15, 4)
+  g.fillStyle(0xffffff, 0.35)
+  g.fillRoundedRect(register.x - 14, register.y - 11, 12, 3, 1.5)
   g.fillStyle(0x3b2f3a, 0.45)
   for (let row = 0; row < 2; row += 1) {
     for (let column = 0; column < 4; column += 1) {
