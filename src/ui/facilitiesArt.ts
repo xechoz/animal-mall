@@ -13,16 +13,26 @@ export const DRINK_CUP_COLORS: Readonly<Record<DrinkKind, CupColors>> = {
   lemonTea: { body: 0xfff0a8, liquid: 0xffd166 },
 }
 
+export interface CupDrawOptions {
+  readonly straw?: boolean
+  readonly shadow?: boolean
+  readonly outline?: boolean
+}
+
 export function drawCup(
   g: Phaser.GameObjects.Graphics,
   x: number,
   y: number,
   scale = 1,
   colors: CupColors = { body: 0xfff7e8, liquid: gameColors.coral },
+  options: CupDrawOptions = {},
 ): void {
   const s = scale
-  g.fillStyle(gameColors.theme.shadow, 0.12)
-  g.fillEllipse(x, y + 13 * s, 24 * s, 6 * s)
+  const { straw = true, shadow = true, outline = false } = options
+  if (shadow) {
+    g.fillStyle(gameColors.theme.shadow, 0.12)
+    g.fillEllipse(x, y + 13 * s, 24 * s, 6 * s)
+  }
   g.fillStyle(colors.body, 1)
   g.fillRoundedRect(x - 9 * s, y - 12 * s, 18 * s, 22 * s, 5 * s)
   g.fillStyle(colors.liquid, 1)
@@ -31,8 +41,14 @@ export function drawCup(
   g.fillRoundedRect(x - 6 * s, y - 10 * s, 4 * s, 10 * s, 2 * s)
   g.fillStyle(0x3b2f3a, 0.22)
   g.fillRoundedRect(x - 10.5 * s, y - 14 * s, 21 * s, 4 * s, 2 * s)
-  g.lineStyle(2 * s, 0x3b2f3a, 0.55)
-  g.lineBetween(x + 3 * s, y - 13 * s, x + 8 * s, y - 23 * s)
+  if (outline) {
+    g.lineStyle(1.5 * s, 0x3b2f3a, 0.55)
+    g.strokeRoundedRect(x - 9 * s, y - 12 * s, 18 * s, 22 * s, 5 * s)
+  }
+  if (straw) {
+    g.lineStyle(2 * s, 0x3b2f3a, 0.55)
+    g.lineBetween(x + 3 * s, y - 13 * s, x + 8 * s, y - 23 * s)
+  }
 }
 
 export function drawTrashBin(g: Phaser.GameObjects.Graphics, rect: Rect): void {

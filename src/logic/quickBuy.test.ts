@@ -2,6 +2,7 @@ import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
 import { PORTRAIT_MAP } from './config'
 import { plantDepositKey, purchasePlant, purchaseStaff, removeProducer } from './purchase'
+import { mapOffers } from './quickBuy'
 import { initialSave } from './saveData'
 import { createShopState, inRegisterZone, stepShop } from './state'
 import type { GameEvent, ShopState, Vec2 } from './types'
@@ -95,6 +96,35 @@ describe('quick buy', () => {
     expect(hired.state.staff.picker).toBe(1)
     expect(hired.state.deposits['staff:picker']).toBeUndefined()
     expect(hired.state.coins).toBe(60)
+  })
+
+  it('hires the cashier from near the counter sign', () => {
+    const station = PORTRAIT_MAP.staffStations.cashier.station
+    const state = createShopState(appleSave(400), PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, { x: station.x - 70, y: station.y }), 30)
+    expect(result.state.staff.cashier).toBe(1)
+    expect(result.state.coins).toBe(80)
+    expect(
+      result.events.some((event) => event.type === 'staffBought' && event.kind === 'cashier'),
+    ).toBe(true)
+  })
+
+  it('deposits coins toward the cashier from near the counter sign', () => {
+    const station = PORTRAIT_MAP.staffStations.cashier.station
+    const state = createShopState(appleSave(100), PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, { x: station.x - 70, y: station.y }), 30)
+    expect(result.state.staff.cashier).toBe(0)
+    expect(result.state.deposits['staff:cashier']).toBe(100)
+  })
+
+  it('stops offering the cashier sign once the cashier is hired', () => {
+    const state = createShopState(
+      { ...appleSave(0), staff: { cashier: 1, picker: 0 } },
+      PORTRAIT_MAP,
+    )
+    expect(
+      mapOffers(state).some((offer) => offer.type === 'staff' && offer.kind === 'cashier'),
+    ).toBe(false)
   })
 
   it('uses a plant deposit in the shop', () => {

@@ -11,6 +11,7 @@ import {
 } from '@mg/core'
 import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
+import { playDrinkSfx } from '../audio/drinkSfx'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
 import { distance } from '../logic/collision'
@@ -55,7 +56,6 @@ import { DevPanel } from '../ui/DevPanel'
 import { DrinkPicker } from '../ui/DrinkPicker'
 import { FacilityOverlay } from '../ui/FacilityOverlay'
 import { FacilityView } from '../ui/FacilityView'
-import { DRINK_CUP_COLORS, drawCup } from '../ui/facilitiesArt'
 import { coinTextureKey } from '../ui/fruitArt'
 import { fullscreenActive, fullscreenSupported, toggleGameFullscreen } from '../ui/fullscreen'
 import { Hud } from '../ui/Hud'
@@ -685,7 +685,9 @@ export class GameScene extends Phaser.Scene {
           else this.pendingDrink = true
           break
         case 'drinkBought':
-          this.sfx('eat', 0.5)
+          playDrinkSfx(this.services, event.drink)
+          this.playerView.playDrink(event.drink)
+          this.vendingView.playUse()
           this.toast.show(
             this.services.i18n.t('toast.drinkBought', {
               name: this.services.i18n.t(`drink.${event.drink}`),
@@ -841,7 +843,6 @@ export class GameScene extends Phaser.Scene {
     this.state = outcome.state
     this.handleEvents(outcome.events)
     this.saveGame()
-    this.drinkBurst(drink)
     this.hud.update(this.state)
   }
 
@@ -851,20 +852,6 @@ export class GameScene extends Phaser.Scene {
     const result = urgeStaff(this.state, target.id)
     this.state = result.state
     this.handleEvents(result.events)
-  }
-
-  private drinkBurst(drink: DrinkKind): void {
-    const point = worldToScreen(this.layout, this.state.player.pos)
-    const cup = this.add.graphics().setDepth(6400)
-    drawCup(cup, point.x + 24, point.y - 52, 0.9, DRINK_CUP_COLORS[drink])
-    this.tweens.add({
-      targets: cup,
-      y: -42,
-      alpha: 0,
-      duration: 700,
-      ease: 'Cubic.easeOut',
-      onComplete: () => cup.destroy(),
-    })
   }
 
   private coinBagSfx(): void {

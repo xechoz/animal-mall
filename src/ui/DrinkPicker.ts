@@ -184,6 +184,15 @@ export class DrinkPicker {
     const zone = scene.add.zone(0, 0, rowW, ROW_H * ui).setInteractive({ useHandCursor: true })
     zone.on('pointerdown', () => {
       if (this.state.coins < drinkPrice(kind)) return
+      scene.tweens.killTweensOf(container)
+      scene.tweens.add({
+        targets: container,
+        scaleX: 0.98,
+        scaleY: 0.98,
+        duration: 70,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+      })
       this.options.onBuy(kind)
     })
     container.add(zone)

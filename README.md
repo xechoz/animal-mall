@@ -39,7 +39,8 @@ that sale.
 - Kitchen stations pull eggs, milk, yarn or fish from the farm shelf and leave
   one of each for customers. Finished cakes, sweaters and grilled fish wait on
   the station tray; walk up to collect them and stock the kitchen shelf.
-- Staff signs use the same quick-buy flow. A cashier serves customers
+- Staff signs use the same quick-buy flow and disappear once their station is
+  fully staffed. A cashier serves customers
   automatically; pickers harvest fruit, vegetables and animal products, but not
   station output. Cashier income waits as a coin pile on the counter.
 - Staff take breaks at the free drink machine in the bottom-left corner. After
@@ -49,7 +50,9 @@ that sale.
 - Stand in front of the drink machine for half a second to open the paid drink
   menu: apple soda (+15% move speed), milk tea (+3 carry capacity) or lemon tea
   (+25% scanning speed), each for 45 seconds. Drinks are free for staff; player
-  drinks cost coins and refresh their timer when bought again.
+  drinks cost coins and refresh their timer when bought again. Buying one makes
+  the bear raise a cup and gulp three times, with a fizz bubble burst for the
+  apple soda.
 - The trash bin is in the bottom-right corner. Stand near it with goods in hand
   for half a second and the whole carried stack is discarded automatically.
 - The shop stays live while open. Removing a plant refunds half its cost; the
@@ -74,9 +77,9 @@ kitchen zone for half a second to buy it, or unlock it in the shop.
   returned to coins.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
-- All art is drawn procedurally with Phaser Graphics; the soundtrack is a CC0
-  loop (see `src/assets/audio/joyful-jungle.LICENSE.txt`). The runtime makes no
-  external requests.
+- All art is drawn procedurally with Phaser Graphics; the soundtrack and the
+  drink gulp are CC0 recordings (see `src/assets/audio/*.LICENSE.txt`). The
+  runtime makes no external requests.
 
 ## Development
 

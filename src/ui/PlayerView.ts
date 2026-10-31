@@ -1,16 +1,51 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { carriedKinds, carryOf, carryTotal } from '../logic/carry'
-import type { PlayerState, ProductKind } from '../logic/types'
+import type { DrinkKind, PlayerState, ProductKind } from '../logic/types'
 import { playerTextureKey } from './animalArt'
+import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
+
+const BODY_SCALE = 0.82
+const CUP_SCALE = 0.95
+const DRINK_MS = 900
+const RAISE_MS = 120
+const LOWER_MS = 650
+/** Gulp beats baked into drink-gulp.mp3, in milliseconds from the purchase. */
+const GULP_TIMES_MS: readonly number[] = [100, 280, 460]
+const GULP_WINDOW_MS = 180
+
+interface DrinkState {
+  readonly start: number
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value))
+}
+
+function smoothstep(value: number): number {
+  return value * value * (3 - 2 * value)
+}
+
+function gulpPulse(elapsed: number): number {
+  let pulse = 0
+  for (const gulp of GULP_TIMES_MS) {
+    const local = elapsed - gulp
+    if (local < 0 || local > GULP_WINDOW_MS) continue
+    pulse = Math.max(pulse, Math.sin((local / GULP_WINDOW_MS) * Math.PI))
+  }
+  return pulse
+}
 
 export class PlayerView extends Phaser.GameObjects.Container {
   private readonly bodyImage: Phaser.GameObjects.Image
+  private readonly cup: Phaser.GameObjects.Graphics
   private readonly carrying: Phaser.GameObjects.Image[] = []
   private readonly carryCount: Phaser.GameObjects.Text
   private readonly theme: Theme
   private carryKey = ''
+  private facing: -1 | 1 = 1
+  private drink: DrinkState | null = null
 
   constructor(scene: Phaser.Scene, theme: Theme) {
     super(scene, 0, 0)
@@ -23,6 +58,9 @@ export class PlayerView extends Phaser.GameObjects.Container {
 
     this.bodyImage = scene.add.image(0, 0, playerTextureKey()).setOrigin(0.5, 0.9).setScale(0.82)
     this.add(this.bodyImage)
+
+    this.cup = scene.add.graphics().setVisible(false)
+    this.add(this.cup)
 
     for (let index = 0; index < 5; index += 1) {
       const icon = scene.add
@@ -44,12 +82,60 @@ export class PlayerView extends Phaser.GameObjects.Container {
     scene.add.existing(this)
   }
 
+  /** Plays the three-gulp drinking pose once; the cup follows the body. */
+  playDrink(kind: DrinkKind): void {
+    this.drink = { start: this.scene.time.now }
+    this.cup.clear()
+    drawCup(this.cup, 0, 0, CUP_SCALE, DRINK_CUP_COLORS[kind], {
+      straw: false,
+      shadow: false,
+      outline: true,
+    })
+    this.cup.setVisible(true).setAlpha(0)
+    if (kind === 'appleSoda') {
+      for (let index = 0; index < 4; index += 1) {
+        this.scene.time.delayedCall(120 + index * 110, () => this.spawnFizz(index))
+      }
+    }
+  }
+
   updatePlayer(player: PlayerState, alpha: number, time: number): void {
     const x = player.prevPos.x + (player.pos.x - player.prevPos.x) * alpha
     const y = player.prevPos.y + (player.pos.y - player.prevPos.y) * alpha
     const bob = player.moving ? Math.abs(Math.sin(time * 0.012)) * 3 : Math.sin(time * 0.003) * 1
     this.setPosition(x, y - bob)
-    this.bodyImage.setScale(player.facing * 0.82, 0.82)
+    this.facing = player.facing
+
+    let bodyScaleX = BODY_SCALE
+    let bodyScaleY = BODY_SCALE
+    let bodyRotation = 0
+    const drink = this.drink
+    if (drink !== null) {
+      const elapsed = time - drink.start
+      if (elapsed >= DRINK_MS) {
+        this.drink = null
+        this.cup.setVisible(false)
+      } else {
+        const raise = smoothstep(clamp01(elapsed / RAISE_MS))
+        const lower = smoothstep(clamp01((elapsed - LOWER_MS) / (DRINK_MS - LOWER_MS)))
+        const pulse = gulpPulse(elapsed)
+        bodyScaleX = BODY_SCALE * (1 + 0.035 * pulse)
+        bodyScaleY = BODY_SCALE * (1 - 0.05 * pulse)
+        bodyRotation = -player.facing * 0.04 * raise * (1 - lower)
+        this.cup.setPosition(
+          player.facing * (8 + 2 * raise),
+          -22 - 5 * raise + 4 * lower - 2 * pulse,
+        )
+        this.cup.setScale(
+          player.facing * CUP_SCALE * (0.8 + 0.2 * raise),
+          CUP_SCALE * (0.8 + 0.2 * raise),
+        )
+        this.cup.setRotation(-player.facing * (0.2 + 0.9 * raise) * (1 - 0.1 * pulse))
+        this.cup.setAlpha(raise * (1 - lower))
+      }
+    }
+    this.bodyImage.setScale(player.facing * bodyScaleX, bodyScaleY)
+    this.bodyImage.setRotation(bodyRotation)
 
     const kinds = carriedKinds(player.carry)
     const key = kinds.map((product) => `${product}:${carryOf(player.carry, product)}`).join('|')
@@ -72,5 +158,24 @@ export class PlayerView extends Phaser.GameObjects.Container {
       this.carryCount.setText(overflow ? `×${total}` : '').setVisible(overflow)
     }
     this.carryCount.setColor(this.theme.text)
+  }
+
+  private spawnFizz(index: number): void {
+    const side = index % 2 === 0 ? -1 : 1
+    const cupX = this.facing * 10
+    const bubble = this.scene.add
+      .circle(cupX, -36, index === 0 ? 2.4 : 1.7, 0xffffff, 0.8)
+      .setAlpha(0.9)
+    this.add(bubble)
+    this.scene.tweens.add({
+      targets: bubble,
+      x: cupX + side * (6 + index * 1.5),
+      y: -54 - index * 4,
+      alpha: 0,
+      scale: 1.5,
+      duration: 380 + index * 40,
+      ease: 'Quad.easeOut',
+      onComplete: () => bubble.destroy(),
+    })
   }
 }

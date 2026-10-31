@@ -53,16 +53,10 @@ export class StaffStationView extends Phaser.GameObjects.Container {
   updateStaffLevel(level: number): void {
     if (level === this.lastLevel) return
     this.lastLevel = level
+    const maxed = level >= STAFF[this.kind].costs.length
+    this.setVisible(!maxed)
     this.level.clear()
     if (level <= 0) return
-    if (level >= STAFF[this.kind].costs.length) {
-      this.level.fillStyle(0x5fbf9f, 1)
-      this.level.fillCircle(24, -48, 8)
-      this.level.lineStyle(3, 0xffffff, 1)
-      this.level.lineBetween(19, -48, 23, -44)
-      this.level.lineBetween(23, -44, 30, -53)
-      return
-    }
     for (let index = 0; index < level; index += 1) {
       this.level.fillStyle(0xffd166, 1)
       this.level.fillCircle(-8 + index * 10, -50, 4)

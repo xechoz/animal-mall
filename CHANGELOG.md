@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Play a three-gulp CC0 drinking sound and a cup-to-mouth animation when buying
+  a drink, with a small fizz burst for the apple soda. The drink machine also
+  reacts to the purchase.
 - Unlock the farm and kitchen by standing still anywhere inside or next to
   their locked zone for half a second once you can afford it, without opening
   the shop. The zone footprint drives the floor tint and the trigger, and the
@@ -20,6 +23,10 @@
   farm and kitchen zones to the back wall, so the opening harvest loop is short.
   Shelves and their access points move with the zones; the landscape plan is
   unchanged.
+- Fix the cashier hire sign so it uses the same quick-buy flow as the picker:
+  standing near the counter now deposits coins toward the cashier or hires them.
+  Staff signs disappear once their station is fully hired, and staff portraits
+  now show on their price tags.
 
 ## 0.1.0
 

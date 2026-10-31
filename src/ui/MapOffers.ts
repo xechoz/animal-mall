@@ -129,6 +129,7 @@ export class MapOffers {
     }
     if (offer.type === 'staff') {
       label.icon
+        .setVisible(true)
         .setTexture(animalTextureKey(STAFF[offer.kind].species))
         .setPosition(-22 * ui, 1 * ui)
         .setScale(0.21 * ui)

@@ -231,7 +231,6 @@ export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
     if (unlock !== null) offers.push(unlock)
   }
   for (const kind of STAFF_ORDER) {
-    if (kind === 'cashier') continue
     const offer = staffOfferFor(state, kind)
     if (offer !== null) offers.push(offer)
   }
