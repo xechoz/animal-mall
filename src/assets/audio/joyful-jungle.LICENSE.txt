@@ -9,7 +9,24 @@ Downloaded 2026-10-31.
 
 CC0 requires no attribution; the composer is credited voluntarily.
 
-Edits: decoded from the original OGG, -4 dB gain (measured -15.3 LUFS,
--4.7 dBTP), 3 ms fades at both boundaries to avoid clicks at the loop seam,
-encoded to MP3 96 kbps stereo 44.1 kHz. The full 50-bar track is the loop;
-nothing was trimmed.
+Edits (2026-10-31, second pass): the 85.7 s loop was too short for a session, so
+the 50 bars were re-arranged into a 3:05 loop at the same 140 BPM. Every cut is
+on a bar line (75,600 samples at 44.1 kHz), so no phrase is split.
+
+  A    bars 1-16   as recorded
+  B    bars 17-32  as recorded
+  C    bars 33-48  low-passed at 1.6 kHz, -3 dB (quiet, close-miked section)
+  D    bars 17-32  shifted up 2 semitones with rubberband, same tempo (bridge)
+  A    bars 1-16   as recorded
+  B    bars 17-32  as recorded
+  End  bars 39-50  as recorded, so the file loops back into bar 1
+
+Section joins are consecutive in the original (and therefore sample-continuous)
+except at C→D, D→A and B→End, where a 6 ms fade on each side removes the step.
+The recording ends where the original loop point is, so looping stays seamless.
+
+Processing: decoded from the previously bundled 96 kbps MP3 (the original OGG was
+not available offline), two-pass loudnorm to -15 LUFS integrated / -1.5 dBTP,
+encoded to MP3 64 kbps CBR stereo 44.1 kHz. 185.143 s, 1,481,828 bytes.
+
+The derivative stays CC0; the arrangement, filtering and pitch shift are ours.

@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Re-arrange the background music from the 85.7 s source loop into a 3:05 loop:
+  the recorded 50 bars are resequenced as A–B–C–D–A–B with a low-passed quiet
+  section and a two-semitone bridge, still looping seamlessly at 140 BPM. The
+  track is re-encoded at 64 kbps stereo, which keeps the bundle under the 2 MB
+  first-load budget now allowed by the platform.
+- Draw every fruit tree and vegetable with its own silhouette and produce:
+  round apple trees, upright pear trees, wide peach canopies, forked cherries, a
+  low strawberry bush, a grape trellis, carrot fronds, tomato vines, corn ears,
+  ground pumpkins, potato tubers and hanging eggplants. Ripe crops now show the
+  items themselves instead of a count badge above the plant.
+- Move the portrait shop's fruit and vegetable zones next to the counter and the
+  farm and kitchen zones to the back wall, so the opening harvest loop is short.
+  Shelves and their access points move with the zones; the landscape plan is
+  unchanged.
+
 ## 0.1.0
 
 - Let the player carry several kinds of goods in one basket. Harvesting empties
