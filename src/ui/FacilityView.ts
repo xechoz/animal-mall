@@ -9,7 +9,14 @@ export class FacilityView extends Phaser.GameObjects.Container {
   private readonly sceneRef: Phaser.Scene
   private readonly baseScale = 1
 
-  constructor(scene: Phaser.Scene, theme: Theme, kind: FacilityKind, map: ShopMap, label: string) {
+  constructor(
+    scene: Phaser.Scene,
+    theme: Theme,
+    kind: FacilityKind,
+    map: ShopMap,
+    label: string,
+    textScale: number,
+  ) {
     const rect = kind === 'trash' ? map.facilities.trashRect : map.facilities.vendingRect
     super(scene, rect.x + rect.w / 2, rect.y + rect.h / 2)
     this.sceneRef = scene
@@ -25,7 +32,12 @@ export class FacilityView extends Phaser.GameObjects.Container {
     if (kind === 'vending') {
       this.add(
         scene.add
-          .text(0, local.y + 13, label, textStyle(theme, 11, '#fff7e8', true))
+          .text(
+            0,
+            local.y + 13,
+            label,
+            textStyle(theme, 11 * Math.min(textScale, 1.25), '#fff7e8', true),
+          )
           .setOrigin(0.5),
       )
     }

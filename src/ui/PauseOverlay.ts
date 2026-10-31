@@ -27,6 +27,7 @@ export class PauseOverlay {
   constructor(options: PauseOptions) {
     this.options = options
     const { scene, layout, theme, i18n } = options
+    const ui = layout.ui
     this.root = scene.add.container(0, 0).setDepth(7100)
 
     const backdrop = scene.add
@@ -35,46 +36,51 @@ export class PauseOverlay {
       .setInteractive()
     this.root.add(backdrop)
 
-    const cardW = Math.min(420, layout.width - 40)
-    const cardH = Math.min(500, layout.height - 40)
+    const cardW = Math.min(420 * ui, layout.width - 40 * ui)
+    const cardH = Math.min(500 * ui, layout.height - 40 * ui)
     const card = scene.add.container(layout.width / 2, layout.height / 2)
     this.root.add(card)
     const g = scene.add.graphics()
     g.fillStyle(theme.shadow, 0.22)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2 + 10, cardW, cardH, 28)
+    g.fillRoundedRect(-cardW / 2, -cardH / 2 + 10 * ui, cardW, cardH, 28 * ui)
     g.fillStyle(theme.panel, 1)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 28)
-    g.lineStyle(3, theme.borderSoft, 1)
-    g.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 28)
+    g.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 28 * ui)
+    g.lineStyle(3 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 28 * ui)
     card.add(g)
 
     card.add(
       scene.add
-        .text(0, -cardH / 2 + 52, i18n.t('pause.title'), textStyle(theme, 30, theme.text, true))
+        .text(
+          0,
+          -cardH / 2 + 52 * ui,
+          i18n.t('pause.title'),
+          textStyle(theme, 30 * ui, theme.text, true),
+        )
         .setOrigin(0.5),
     )
 
-    const buttonWidth = cardW - 80
-    const startY = -cardH / 2 + 116
-    const gap = 58
+    const buttonWidth = cardW - 80 * ui
+    const startY = -cardH / 2 + 116 * ui
+    const gap = 58 * ui
     const resume = new Button(scene, 0, startY, i18n.t('pause.resume'), theme, {
       width: buttonWidth,
-      height: 48,
-      fontSize: 19,
+      height: 52 * ui,
+      fontSize: 19 * ui,
       variant: 'primary',
       onClick: options.onResume,
     })
     const shop = new Button(scene, 0, startY + gap, i18n.t('pause.shop'), theme, {
       width: buttonWidth,
-      height: 44,
-      fontSize: 17,
+      height: 48 * ui,
+      fontSize: 17 * ui,
       variant: 'soft',
       onClick: options.onShop,
     })
     this.soundButton = new Button(scene, 0, startY + gap * 2, this.soundLabel(), theme, {
       width: buttonWidth,
-      height: 44,
-      fontSize: 16,
+      height: 48 * ui,
+      fontSize: 16 * ui,
       variant: 'soft',
       onClick: () => {
         const enabled = options.onToggleSound()
@@ -89,8 +95,8 @@ export class PauseOverlay {
       theme,
       {
         width: buttonWidth,
-        height: 44,
-        fontSize: 16,
+        height: 48 * ui,
+        fontSize: 16 * ui,
         variant: 'soft',
         onClick: () => options.onToggleFullscreen(),
       },
@@ -98,8 +104,8 @@ export class PauseOverlay {
     this.fullscreenButton.setEnabled(options.fullscreenAvailable)
     const menu = new Button(scene, 0, startY + gap * 4, i18n.t('pause.menu'), theme, {
       width: buttonWidth,
-      height: 40,
-      fontSize: 15,
+      height: 44 * ui,
+      fontSize: 15 * ui,
       variant: 'ghost',
       onClick: options.onMenu,
     })

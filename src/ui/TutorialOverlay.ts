@@ -27,9 +27,9 @@ export class TutorialOverlay {
     this.pill = scene.add.graphics().setDepth(6200)
     this.text = scene.add
       .text(0, 0, '', {
-        ...textStyle(theme, 15, theme.text, true),
+        ...textStyle(theme, 15 * layout.ui, theme.text, true),
         align: 'center',
-        wordWrap: { width: Math.min(460, layout.content.w - 80) },
+        wordWrap: { width: Math.min(460 * layout.ui, layout.content.w - 80 * layout.ui) },
       })
       .setOrigin(0.5)
       .setDepth(6201)
@@ -115,20 +115,34 @@ export class TutorialOverlay {
 
   private layoutPill(): void {
     const content = this.layout.content
-    const textWidth = Math.min(460, content.w - 80)
-    const pillWidth = Math.max(120, Math.min(500, this.text.width + 56))
-    const pillHeight = 42
+    const ui = this.layout.ui
+    const textWidth = Math.min(460 * ui, content.w - 80 * ui)
+    this.text.setWordWrapWidth(textWidth, true)
+    const pillWidth = Math.max(120 * ui, Math.min(500 * ui, this.text.width + 56 * ui))
+    const pillHeight = Math.max(42 * ui, this.text.height + 20 * ui)
     const x = content.x + content.w / 2
-    const y = this.layout.height - this.layout.insets.bottom - 28
+    const y = this.layout.height - this.layout.insets.bottom - 30 * ui
     this.pill.clear()
     this.pill.fillStyle(0x3b2f3a, 0.16)
-    this.pill.fillRoundedRect(x - pillWidth / 2, y - pillHeight / 2 + 4, pillWidth, pillHeight, 18)
+    this.pill.fillRoundedRect(
+      x - pillWidth / 2,
+      y - pillHeight / 2 + 4 * ui,
+      pillWidth,
+      pillHeight,
+      18 * ui,
+    )
     this.pill.fillStyle(this.theme.panel, 0.96)
-    this.pill.fillRoundedRect(x - pillWidth / 2, y - pillHeight / 2, pillWidth, pillHeight, 18)
-    this.pill.lineStyle(2, this.theme.accent, 0.7)
-    this.pill.strokeRoundedRect(x - pillWidth / 2, y - pillHeight / 2, pillWidth, pillHeight, 18)
+    this.pill.fillRoundedRect(x - pillWidth / 2, y - pillHeight / 2, pillWidth, pillHeight, 18 * ui)
+    this.pill.lineStyle(2 * ui, this.theme.accent, 0.7)
+    this.pill.strokeRoundedRect(
+      x - pillWidth / 2,
+      y - pillHeight / 2,
+      pillWidth,
+      pillHeight,
+      18 * ui,
+    )
     this.pill.fillStyle(this.theme.accent, 0.7)
-    this.pill.fillCircle(x - pillWidth / 2 + 16, y, 4)
+    this.pill.fillCircle(x - pillWidth / 2 + 16 * ui, y, 4 * ui)
     this.text.setPosition(x, y)
     this.text.setWordWrapWidth(textWidth, true)
   }
@@ -142,14 +156,15 @@ export class TutorialOverlay {
       y = screen.y
     }
     const pulse = 1 + Math.sin(time * 0.005) * 0.12
+    const ui = this.layout.ui
     this.ring.clear()
-    this.ring.lineStyle(4, this.theme.accent, 0.9)
-    this.ring.strokeCircle(x, y, 28 * pulse)
-    this.ring.lineStyle(2, this.theme.panel, 0.8)
-    this.ring.strokeCircle(x, y, 34 * pulse)
+    this.ring.lineStyle(4 * ui, this.theme.accent, 0.9)
+    this.ring.strokeCircle(x, y, 28 * ui * pulse)
+    this.ring.lineStyle(2 * ui, this.theme.panel, 0.8)
+    this.ring.strokeCircle(x, y, 34 * ui * pulse)
     this.targetDot.clear()
     this.targetDot.fillStyle(this.theme.accent, 0.18)
-    this.targetDot.fillCircle(x, y, 28 * pulse)
+    this.targetDot.fillCircle(x, y, 28 * ui * pulse)
   }
 
   private hide(): void {

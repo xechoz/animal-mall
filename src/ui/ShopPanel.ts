@@ -33,6 +33,10 @@ import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
 import { drawToolIcon } from './toolArt'
 
+/** Cards stop growing past this height so portrait panels stay balanced. */
+const MAX_CARD_HEIGHT = 205
+const MAX_STAFF_CARD_HEIGHT = 260
+
 export interface ShopPanelOptions {
   readonly scene: Phaser.Scene
   readonly layout: GameLayout
@@ -79,6 +83,13 @@ export class ShopPanel {
   private zoneChips?: Phaser.GameObjects.Container
   private tabHighlight?: Phaser.GameObjects.Graphics
   private zoneHighlight?: Phaser.GameObjects.Graphics
+  /** Vertical rhythm shared by the chrome and the body, rebuilt per render. */
+  private tabY = 76
+  private tabHeight = 40
+  private chipY = 124
+  private chipHeight = 38
+  private bodyTop = 158
+  private toolsTop = 112
 
   constructor(options: ShopPanelOptions) {
     this.options = options
@@ -134,44 +145,54 @@ export class ShopPanel {
     this.zoneButtons.clear()
     this.balanceText = undefined
 
+    const ui = layout.ui
     const w = layout.panelWidth
     const h = layout.panelHeight
     const g = scene.add.graphics()
     g.fillStyle(theme.shadow, 0.2)
-    g.fillRoundedRect(0, 8, w, h, theme.radiusLarge)
+    g.fillRoundedRect(0, 8 * ui, w, h, theme.radiusLarge)
     g.fillStyle(theme.panel, 1)
     g.fillRoundedRect(0, 0, w, h, theme.radiusLarge)
-    g.lineStyle(3, theme.borderSoft, 1)
+    g.lineStyle(3 * ui, theme.borderSoft, 1)
     g.strokeRoundedRect(0, 0, w, h, theme.radiusLarge)
     g.fillStyle(theme.accentWarm, 0.35)
-    g.fillRoundedRect(18, 18, w - 36, 58, 18)
+    g.fillRoundedRect(18 * ui, 18, w - 36 * ui, Math.max(58, 26 * ui + 20), 18 * ui)
     this.chrome.add(g)
 
     const title = scene.add
-      .text(30, 38, i18n.t('shop.title'), textStyle(theme, 26, theme.text, true))
+      .text(30 * ui, 38, i18n.t('shop.title'), textStyle(theme, 26 * ui, theme.text, true))
       .setOrigin(0, 0.5)
     this.chrome.add(title)
 
     this.balanceText = scene.add
       .text(
-        w - 96,
+        w - 96 * ui,
         38,
         i18n.t('shop.balance', { coins: this.state.coins }),
-        textStyle(theme, 18, theme.text, true),
+        textStyle(theme, 18 * ui, theme.text, true),
       )
       .setOrigin(1, 0.5)
     this.chrome.add(this.balanceText)
 
     this.chrome.add(
-      new Button(scene, w - 38, 38, '×', theme, {
-        width: 44,
-        height: 44,
-        fontSize: 26,
-        minHitSize: 64,
+      new Button(scene, w - 38 * ui, 38, '×', theme, {
+        width: 48 * ui,
+        height: 48 * ui,
+        fontSize: 26 * ui,
+        minHitSize: 64 * ui,
         variant: 'soft',
         onClick: () => this.close(),
       }),
     )
+
+    // Chrome keeps a compact, fixed vertical rhythm: scaled fonts still fit, and
+    // short landscape panels stay tall enough for the cards below.
+    this.tabHeight = 40 * ui
+    this.chipHeight = 38 * ui
+    this.tabY = 58 + this.tabHeight / 2
+    this.chipY = this.tabY + this.tabHeight / 2 + 10 + this.chipHeight / 2
+    this.bodyTop = this.chipY + this.chipHeight / 2 + 12
+    this.toolsTop = this.tabY + this.tabHeight / 2 + 14
 
     this.renderTabs(w)
     this.renderZoneChips(w)
@@ -183,9 +204,10 @@ export class ShopPanel {
 
   private renderTabs(w: number): void {
     const { scene, theme, i18n } = this.options
-    const y = 76
-    const gap = 6
-    const tabWidth = (w - 60 - gap * 2) / 3
+    const ui = this.options.layout.ui
+    const y = this.tabY
+    const gap = 6 * ui
+    const tabWidth = (w - 60 * ui - gap * 2) / 3
     const tabs: readonly { readonly tab: Tab; readonly label: string }[] = [
       { tab: 'production', label: i18n.t('shop.production') },
       { tab: 'tools', label: i18n.t('shop.tools') },
@@ -194,15 +216,15 @@ export class ShopPanel {
     tabs.forEach((entry, index) => {
       const button = new Button(
         scene,
-        30 + tabWidth / 2 + index * (tabWidth + gap),
+        30 * ui + tabWidth / 2 + index * (tabWidth + gap),
         y,
         entry.label,
         theme,
         {
           width: tabWidth,
-          height: 36,
-          fontSize: 15,
-          minHitSize: 64,
+          height: this.tabHeight,
+          fontSize: 15 * ui,
+          minHitSize: 64 * ui,
           variant: 'soft',
           onClick: () => this.setTab(entry.tab),
         },
@@ -217,21 +239,22 @@ export class ShopPanel {
     const container = scene.add.container(0, 0)
     this.zoneChips = container
     this.chrome.add(container)
-    const y = 124
-    const gap = 6
-    const chipWidth = (w - 60 - gap * 3) / 4
+    const ui = this.options.layout.ui
+    const y = this.chipY
+    const gap = 6 * ui
+    const chipWidth = (w - 60 * ui - gap * 3) / 4
     ZONE_ORDER.forEach((zone, index) => {
       const button = new Button(
         scene,
-        30 + chipWidth / 2 + index * (chipWidth + gap),
+        30 * ui + chipWidth / 2 + index * (chipWidth + gap),
         y,
         i18n.t(`zone.${zone}`),
         theme,
         {
           width: chipWidth,
-          height: 34,
-          fontSize: 13,
-          minHitSize: 64,
+          height: this.chipHeight,
+          fontSize: 13 * ui,
+          minHitSize: 64 * ui,
           variant: 'soft',
           onClick: () => this.setZone(zone),
         },
@@ -260,31 +283,32 @@ export class ShopPanel {
     const { theme } = this.options
     this.zoneChips?.setVisible(this.tab === 'production')
     const w = this.options.layout.panelWidth
-    const gap = 6
-    const tabWidth = (w - 60 - gap * 2) / 3
+    const ui = this.options.layout.ui
+    const gap = 6 * ui
+    const tabWidth = (w - 60 * ui - gap * 2) / 3
     const tabOrder: readonly Tab[] = ['production', 'tools', 'staff']
     const tabIndex = tabOrder.indexOf(this.tab)
     this.tabHighlight?.clear()
     this.tabHighlight?.fillStyle(theme.accent, 1)
     this.tabHighlight?.fillRoundedRect(
-      30 + tabIndex * (tabWidth + gap) + 12,
-      92,
-      tabWidth - 24,
-      4,
-      2,
+      30 * ui + tabIndex * (tabWidth + gap) + 12 * ui,
+      this.tabY + this.tabHeight / 2 - 4 * ui,
+      tabWidth - 24 * ui,
+      4 * ui,
+      2 * ui,
     )
 
     this.zoneHighlight?.clear()
     if (this.tab !== 'production') return
-    const chipWidth = (w - 60 - gap * 3) / 4
+    const chipWidth = (w - 60 * ui - gap * 3) / 4
     const zoneIndex = ZONE_ORDER.indexOf(this.zone)
     this.zoneHighlight?.fillStyle(theme.accent, 1)
     this.zoneHighlight?.fillRoundedRect(
-      30 + zoneIndex * (chipWidth + gap) + 12,
-      140,
-      chipWidth - 24,
-      4,
-      2,
+      30 * ui + zoneIndex * (chipWidth + gap) + 12 * ui,
+      this.chipY + this.chipHeight / 2 - 4 * ui,
+      chipWidth - 24 * ui,
+      4 * ui,
+      2 * ui,
     )
 
     for (const [tab, button] of this.tabButtons) {
@@ -316,8 +340,9 @@ export class ShopPanel {
     this.root.add(this.body)
     const w = layout.panelWidth
     const h = layout.panelHeight
-    const top = this.tab === 'production' ? 158 : 112
-    const bottom = h - 20
+    const ui = layout.ui
+    const top = this.tab === 'production' ? this.bodyTop : this.toolsTop
+    const bottom = h - 20 * ui
 
     if (this.tab === 'production') {
       if (!this.state.zones[this.zone]) {
@@ -345,31 +370,43 @@ export class ShopPanel {
     bottom: number,
   ): void {
     const { scene, theme, i18n } = this.options
+    const ui = this.options.layout.ui
     const config = ZONES[zone]
-    const height = Math.min(220, bottom - top)
-    const card = scene.add.container(30 + (w - 60) / 2, top + height / 2)
+    const height = Math.min(220 * ui, bottom - top)
+    const card = scene.add.container(30 * ui + (w - 60 * ui) / 2, top + height / 2)
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, 1)
-    g.fillRoundedRect(-(w - 60) / 2, -height / 2, w - 60, height, 18)
-    g.lineStyle(2, theme.borderSoft, 1)
-    g.strokeRoundedRect(-(w - 60) / 2, -height / 2, w - 60, height, 18)
+    g.fillRoundedRect(-(w - 60 * ui) / 2, -height / 2, w - 60 * ui, height, 18 * ui)
+    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-(w - 60 * ui) / 2, -height / 2, w - 60 * ui, height, 18 * ui)
     g.fillStyle(theme.accentAlt, 0.12)
-    g.fillRoundedRect(-(w - 60) / 2 + 12, -height / 2 + 12, w - 84, 42, 12)
+    g.fillRoundedRect(
+      -(w - 60 * ui) / 2 + 12 * ui,
+      -height / 2 + 12 * ui,
+      w - 84 * ui,
+      46 * ui,
+      12 * ui,
+    )
     card.add(g)
     card.add(
       scene.add
-        .text(0, -height / 2 + 34, i18n.t(`zone.${zone}`), textStyle(theme, 20, theme.text, true))
+        .text(
+          0,
+          -height / 2 + 36 * ui,
+          i18n.t(`zone.${zone}`),
+          textStyle(theme, 20 * ui, theme.text, true),
+        )
         .setOrigin(0.5),
     )
     card.add(
       scene.add
         .text(
           0,
-          -height / 2 + 74,
+          -height / 2 + 80 * ui,
           zone === 'veg'
             ? i18n.t('shop.zoneHint')
             : i18n.t('shop.zoneLocked', { zone: i18n.t(`zone.${zone}`) }),
-          textStyle(theme, 13, theme.textMuted),
+          textStyle(theme, 13 * ui, theme.textMuted),
         )
         .setOrigin(0.5),
     )
@@ -379,19 +416,19 @@ export class ShopPanel {
         scene.add
           .text(
             0,
-            -height / 2 + 98,
+            -height / 2 + 104 * ui,
             i18n.t('shop.includes', { name: this.productName(includes) }),
-            textStyle(theme, 13, theme.textMuted),
+            textStyle(theme, 13 * ui, theme.textMuted),
           )
           .setOrigin(0.5),
       )
     }
     if (zone === 'veg') {
       const locked = this.state.served === 0
-      const button = new Button(scene, 0, height / 2 - 34, i18n.t('shop.unlockFree'), theme, {
-        width: w - 120,
-        height: 44,
-        fontSize: 15,
+      const button = new Button(scene, 0, height / 2 - 36 * ui, i18n.t('shop.unlockFree'), theme, {
+        width: w - 120 * ui,
+        height: 48 * ui,
+        fontSize: 15 * ui,
         minHitSize: 64,
         variant: locked ? 'soft' : 'primary',
         onClick: () => {
@@ -407,13 +444,13 @@ export class ShopPanel {
       const button = new Button(
         scene,
         0,
-        height / 2 - 34,
+        height / 2 - 36 * ui,
         i18n.t('shop.unlockZone', { cost }),
         theme,
         {
-          width: w - 120,
-          height: 44,
-          fontSize: 15,
+          width: w - 120 * ui,
+          height: 48 * ui,
+          fontSize: 15 * ui,
           minHitSize: 64,
           variant: 'primary',
           onClick: () => {
@@ -435,17 +472,19 @@ export class ShopPanel {
     top: number,
     bottom: number,
   ): void {
-    const gap = 10
+    const ui = this.options.layout.ui
+    const gap = 10 * ui
     const products = PLANT_SHOP_ORDER.filter((product) => zoneOf(product) === zone)
-    const columns = 2
+    const columns = w > 1000 ? 3 : 2
     const rows = Math.ceil(products.length / columns)
-    const cardW = (w - 60 - gap * (columns - 1)) / columns
-    const cardH = (bottom - top - gap * (rows - 1)) / rows
+    const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
+    const cardH = Math.min((bottom - top - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
+    const gridTop = top + (bottom - top - (rows * cardH + gap * (rows - 1))) / 2
     products.forEach((product, index) => {
       const column = index % columns
       const row = Math.floor(index / columns)
-      const x = 30 + column * (cardW + gap) + cardW / 2
-      const y = top + row * (cardH + gap) + cardH / 2
+      const x = 30 * ui + column * (cardW + gap) + cardW / 2
+      const y = gridTop + row * (cardH + gap) + cardH / 2
       parent.add(this.plantCard(product, x, y, cardW, cardH))
     })
   }
@@ -461,31 +500,34 @@ export class ShopPanel {
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
-    g.lineStyle(2, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
+    const ui = this.options.layout.ui
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
     card.add(g)
 
     card.add(
-      scene.add.image(-width / 2 + 34, -height / 2 + 36, productTextureKey(product)).setScale(0.72),
+      scene.add
+        .image(-width / 2 + 34 * ui, -height / 2 + 38 * ui, productTextureKey(product))
+        .setScale(0.72 * ui),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 64,
-          -height / 2 + 26,
+          -width / 2 + 64 * ui,
+          -height / 2 + 28 * ui,
           this.productName(product),
-          textStyle(theme, 17, theme.text, true),
+          textStyle(theme, 17 * ui, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 64,
-          -height / 2 + 50,
+          -width / 2 + 64 * ui,
+          -height / 2 + 54 * ui,
           i18n.t('shop.planted', { count: plantedCount(this.state, product) }),
-          textStyle(theme, 12, theme.textMuted, true),
+          textStyle(theme, 12 * ui, theme.textMuted, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -494,22 +536,22 @@ export class ShopPanel {
     card.add(
       scene.add
         .text(
-          -width / 2 + 20,
-          -height / 2 + 78,
+          -width / 2 + 20 * ui,
+          -height / 2 + 72 * ui,
           i18n.t('shop.stats.plant', {
             price: config.price,
             grow: Math.round(config.growMs / 1000),
           }),
-          textStyle(theme, 12, theme.textMuted),
+          textStyle(theme, 12 * ui, theme.textMuted),
         )
         .setOrigin(0, 0.5),
     )
 
     const cost = config.cost
-    const buy = new Button(scene, 0, height / 2 - 34, i18n.t('shop.plant', { cost }), theme, {
-      width: width - 36,
-      height: 42,
-      fontSize: 14,
+    const buy = new Button(scene, 0, height / 2 - 34 * ui, i18n.t('shop.plant', { cost }), theme, {
+      width: width - 36 * ui,
+      height: 46 * ui,
+      fontSize: 14 * ui,
       minHitSize: 64,
       variant: 'primary',
       onClick: () => {
@@ -523,18 +565,20 @@ export class ShopPanel {
     const planted = this.state.producers.find((producer) => producer.product === product)
     if (planted !== undefined) {
       const refund = Math.floor(cost * 0.5)
+      // Narrow cards have no room beside the name, so the refund sits below the stats.
+      const narrowRemove = width < 380
       card.add(
         new Button(
           scene,
-          width / 2 - 48,
-          -height / 2 + 34,
+          narrowRemove ? -width / 2 + 63 * ui : width / 2 - 48 * ui,
+          narrowRemove ? -height / 2 + 104 * ui : -height / 2 + 34 * ui,
           i18n.t('shop.removeShort', { refund }),
           theme,
           {
-            width: 78,
-            height: 30,
-            fontSize: 11,
-            minHitSize: 56,
+            width: 86 * ui,
+            height: 36 * ui,
+            fontSize: 11 * ui,
+            minHitSize: 56 * ui,
             variant: 'soft',
             onClick: () => {
               const next = this.options.onRemove(planted.id)
@@ -555,13 +599,26 @@ export class ShopPanel {
     top: number,
     bottom: number,
   ): void {
+    const ui = this.options.layout.ui
     const products = ZONE_PRODUCTS[zone]
-    const gap = 10
-    const cardW = w - 60
-    const cardH = (bottom - top - gap * (products.length - 1)) / products.length
+    const gap = 10 * ui
+    const columns = w > 1000 ? 3 : 1
+    const rows = Math.ceil(products.length / columns)
+    const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
+    const cardH = Math.min((bottom - top - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
+    const gridTop = top + (bottom - top - (rows * cardH + gap * (rows - 1))) / 2
     products.forEach((product, index) => {
-      const y = top + index * (cardH + gap) + cardH / 2
-      parent.add(this.producerCard(product, 30 + cardW / 2, y, cardW, cardH))
+      const column = index % columns
+      const row = Math.floor(index / columns)
+      parent.add(
+        this.producerCard(
+          product,
+          30 * ui + column * (cardW + gap) + cardW / 2,
+          gridTop + row * (cardH + gap) + cardH / 2,
+          cardW,
+          cardH,
+        ),
+      )
     })
   }
 
@@ -576,39 +633,42 @@ export class ShopPanel {
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
-    g.lineStyle(2, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
+    const ui = this.options.layout.ui
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
     card.add(g)
 
     card.add(
-      scene.add.image(-width / 2 + 34, -height / 2 + 34, productTextureKey(product)).setScale(0.68),
+      scene.add
+        .image(-width / 2 + 34 * ui, -height / 2 + 36 * ui, productTextureKey(product))
+        .setScale(0.68 * ui),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 62,
-          -height / 2 + 24,
+          -width / 2 + 62 * ui,
+          -height / 2 + 26 * ui,
           this.producerName(product),
-          textStyle(theme, 17, theme.text, true),
+          textStyle(theme, 17 * ui, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 62,
-          -height / 2 + 48,
+          -width / 2 + 62 * ui,
+          -height / 2 + 52 * ui,
           this.producerStats(product),
-          textStyle(theme, 12, theme.textMuted),
+          textStyle(theme, 12 * ui, theme.textMuted),
         )
         .setOrigin(0, 0.5),
     )
     card.add(
       scene.add
-        .text(-width / 2 + 20, -height / 2 + 64, this.producerDetail(product), {
-          ...textStyle(theme, 12, theme.textMuted),
-          wordWrap: { width: width - 40 },
+        .text(-width / 2 + 20 * ui, -height / 2 + 70 * ui, this.producerDetail(product), {
+          ...textStyle(theme, 12 * ui, theme.textMuted),
+          wordWrap: { width: width - 40 * ui },
         })
         .setOrigin(0, 0.5),
     )
@@ -618,19 +678,19 @@ export class ShopPanel {
       card.add(
         scene.add
           .text(
-            width / 2 - 20,
-            -height / 2 + 26,
+            width / 2 - 20 * ui,
+            -height / 2 + 26 * ui,
             i18n.t('shop.owned'),
-            textStyle(theme, 13, theme.text, true),
+            textStyle(theme, 13 * ui, theme.text, true),
           )
           .setOrigin(1, 0.5),
       )
     } else {
       const cost = producerCost(product)
-      const buy = new Button(scene, 0, height / 2 - 30, i18n.t('shop.buy', { cost }), theme, {
-        width: width - 40,
-        height: 40,
-        fontSize: 14,
+      const buy = new Button(scene, 0, height / 2 - 32 * ui, i18n.t('shop.buy', { cost }), theme, {
+        width: width - 40 * ui,
+        height: 46 * ui,
+        fontSize: 14 * ui,
         minHitSize: 64,
         variant: 'primary',
         onClick: () => {
@@ -651,14 +711,18 @@ export class ShopPanel {
     top: number,
     bottom: number,
   ): void {
-    const gap = 10
-    const cardW = (w - 60 - gap) / 2
-    const cardH = (bottom - top - gap * 2) / 3
+    const ui = this.options.layout.ui
+    const gap = 10 * ui
+    const columns = w > 1000 ? 3 : 2
+    const rows = Math.ceil(UPGRADE_ORDER.length / columns)
+    const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
+    const cardH = Math.min((bottom - top - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
+    const gridTop = top + (bottom - top - (rows * cardH + gap * (rows - 1))) / 2
     UPGRADE_ORDER.forEach((kind, index) => {
-      const column = index % 2
-      const row = Math.floor(index / 2)
-      const x = 30 + column * (cardW + gap) + cardW / 2
-      const y = top + row * (cardH + gap) + cardH / 2
+      const column = index % columns
+      const row = Math.floor(index / columns)
+      const x = 30 * ui + column * (cardW + gap) + cardW / 2
+      const y = gridTop + row * (cardH + gap) + cardH / 2
       parent.add(this.toolCard(kind, x, y, cardW, cardH))
     })
   }
@@ -674,53 +738,55 @@ export class ShopPanel {
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
-    g.lineStyle(2, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
+    const ui = this.options.layout.ui
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
     card.add(g)
 
     const icon = scene.add.graphics()
-    drawToolIcon(icon, kind, -width / 2 + 38, -height / 2 + 40, 24)
+    drawToolIcon(icon, kind, -width / 2 + 38 * ui, -height / 2 + 42 * ui, 24 * ui)
     card.add(icon)
     card.add(
       scene.add
         .text(
-          -width / 2 + 64,
-          -height / 2 + 26,
+          -width / 2 + 64 * ui,
+          -height / 2 + 26 * ui,
           i18n.t(`tool.${kind}`),
-          textStyle(theme, 16, theme.text, true),
+          textStyle(theme, 16 * ui, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
     const level = this.state.upgrades[kind]
     const max = upgradeMax(kind)
+    const narrow = width < 380
     card.add(
       scene.add
         .text(
-          width / 2 - 18,
-          -height / 2 + 26,
+          narrow ? -width / 2 + 64 * ui : width / 2 - 18 * ui,
+          narrow ? -height / 2 + 50 * ui : -height / 2 + 26 * ui,
           i18n.t('shop.level', { level, max }),
-          textStyle(theme, 12, theme.textMuted, true),
+          textStyle(theme, 12 * ui, theme.textMuted, true),
         )
-        .setOrigin(1, 0.5),
+        .setOrigin(narrow ? 0 : 1, 0.5),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 18,
-          -height / 2 + 58,
+          -width / 2 + 18 * ui,
+          -height / 2 + 62 * ui,
           i18n.t(`tool.${kind}.desc`, { value: UPGRADE_EFFECT[kind] }),
-          { ...textStyle(theme, 12, theme.textMuted), wordWrap: { width: width - 36 } },
+          { ...textStyle(theme, 12 * ui, theme.textMuted), wordWrap: { width: width - 36 * ui } },
         )
         .setOrigin(0, 0),
     )
 
     const cost = upgradeCost(kind, level)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.upgrade', { cost })
-    const buy = new Button(scene, 0, height / 2 - 30, label, theme, {
-      width: width - 36,
-      height: 38,
-      fontSize: 14,
+    const buy = new Button(scene, 0, height / 2 - 32 * ui, label, theme, {
+      width: width - 36 * ui,
+      height: 44 * ui,
+      fontSize: 14 * ui,
       minHitSize: 64,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {
@@ -743,12 +809,13 @@ export class ShopPanel {
     top: number,
     bottom: number,
   ): void {
-    const gap = 10
-    const cardW = (w - 60 - gap) / 2
-    const cardH = bottom - top
+    const ui = this.options.layout.ui
+    const gap = 10 * ui
+    const cardW = (w - 60 * ui - gap) / 2
+    const cardH = Math.min(bottom - top, MAX_STAFF_CARD_HEIGHT * ui)
     STAFF_ORDER.forEach((kind, index) => {
-      const x = 30 + index * (cardW + gap) + cardW / 2
-      parent.add(this.staffCard(kind, x, top + cardH / 2, cardW, cardH))
+      const x = 30 * ui + index * (cardW + gap) + cardW / 2
+      parent.add(this.staffCard(kind, x, top + (bottom - top) / 2, cardW, cardH))
     })
   }
 
@@ -763,43 +830,45 @@ export class ShopPanel {
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16)
-    g.lineStyle(2, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16)
+    const ui = this.options.layout.ui
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
     card.add(g)
 
     card.add(
       scene.add
-        .image(-width / 2 + 48, -height / 2 + 58, animalTextureKey(STAFF[kind].species))
-        .setScale(0.66),
+        .image(-width / 2 + 48 * ui, -height / 2 + 58 * ui, animalTextureKey(STAFF[kind].species))
+        .setScale(0.66 * ui),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 84,
-          -height / 2 + 34,
+          -width / 2 + 84 * ui,
+          -height / 2 + 34 * ui,
           i18n.t(`staff.${kind}`),
-          textStyle(theme, 18, theme.text, true),
+          textStyle(theme, 18 * ui, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
     const level = this.state.staff[kind]
     const max = staffMax(kind)
+    const narrow = width < 380
     card.add(
       scene.add
         .text(
-          width / 2 - 18,
-          -height / 2 + 34,
+          narrow ? -width / 2 + 84 * ui : width / 2 - 18 * ui,
+          narrow ? -height / 2 + 60 * ui : -height / 2 + 34 * ui,
           i18n.t('shop.level', { level, max }),
-          textStyle(theme, 12, theme.textMuted, true),
+          textStyle(theme, 12 * ui, theme.textMuted, true),
         )
-        .setOrigin(1, 0.5),
+        .setOrigin(narrow ? 0 : 1, 0.5),
     )
     card.add(
       scene.add
-        .text(-width / 2 + 20, -height / 2 + 104, i18n.t(`staff.${kind}.desc`), {
-          ...textStyle(theme, 13, theme.textMuted),
-          wordWrap: { width: width - 40 },
+        .text(-width / 2 + 20 * ui, -height / 2 + 108 * ui, i18n.t(`staff.${kind}.desc`), {
+          ...textStyle(theme, 13 * ui, theme.textMuted),
+          wordWrap: { width: width - 40 * ui },
         })
         .setOrigin(0, 0),
     )
@@ -810,20 +879,20 @@ export class ShopPanel {
       card.add(
         scene.add
           .text(
-            -width / 2 + 20,
-            -height / 2 + 164,
+            -width / 2 + 20 * ui,
+            -height / 2 + 172 * ui,
             i18n.t('shop.depositLine', { paid: deposit, remaining: Math.max(0, cost - deposit) }),
-            textStyle(theme, 12, theme.textMuted, true),
+            textStyle(theme, 12 * ui, theme.textMuted, true),
           )
           .setOrigin(0, 0),
       )
     }
     const remaining = cost === null ? 0 : Math.max(0, cost - deposit)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.hire', { cost: remaining })
-    const buy = new Button(scene, 0, height / 2 - 36, label, theme, {
-      width: width - 36,
-      height: 42,
-      fontSize: 14,
+    const buy = new Button(scene, 0, height / 2 - 36 * ui, label, theme, {
+      width: width - 36 * ui,
+      height: 46 * ui,
+      fontSize: 14 * ui,
       minHitSize: 64,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {

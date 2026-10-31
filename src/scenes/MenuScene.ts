@@ -24,6 +24,7 @@ import { LanguageModal } from '../ui/LanguageModal'
 import { computeGameLayout } from '../ui/layout'
 import { RoundButton } from '../ui/RoundButton'
 import { SettingsModal } from '../ui/SettingsModal'
+import { readCssShortSide } from '../ui/scale'
 
 export class MenuScene extends Phaser.Scene {
   private services!: GameServices
@@ -55,17 +56,21 @@ export class MenuScene extends Phaser.Scene {
     const i18n = this.services.i18n
     const save = progressSave(this.services).read()
     const portrait = height >= width
+    const layout = computeGameLayout(width, height, insets, {
+      cssShortSide: readCssShortSide(this),
+    })
+    const ui = layout.ui
 
     this.drawBackdrop(width, height)
     this.drawShopfront(width, height, portrait)
 
-    const titleY = insets.top + (portrait ? 130 : 82)
+    const titleY = insets.top + (portrait ? 130 : 82) * ui
     this.add
       .text(
         width / 2,
         titleY,
         i18n.t('game.title'),
-        displayTextStyle(theme, 48, theme.text, true, 4, 4),
+        displayTextStyle(theme, 48 * ui, theme.text, true, 4 * ui, 4 * ui),
       )
       .setOrigin(0.5)
       .setDepth(20)
@@ -78,9 +83,9 @@ export class MenuScene extends Phaser.Scene {
       hasProgress(save) ? i18n.t('menu.continue') : i18n.t('menu.start'),
       theme,
       {
-        width: Math.min(330, width - 80),
-        height: 62,
-        fontSize: 24,
+        width: Math.min(330 * ui, width - 80 * ui),
+        height: 62 * ui,
+        fontSize: 24 * ui,
         variant: 'primary',
         onClick: () => this.startGame(),
       },
@@ -90,13 +95,13 @@ export class MenuScene extends Phaser.Scene {
     this.add
       .text(
         width / 2,
-        startY + 78,
+        startY + 78 * ui,
         i18n.t('menu.stats', {
           coins: save.coins,
           zones: ZONE_ORDER.filter((zone) => save.zones[zone]).length,
           served: save.served,
         }),
-        textStyle(theme, 15, theme.textMuted, true),
+        textStyle(theme, 16 * ui, theme.textMuted, true),
       )
       .setOrigin(0.5)
       .setDepth(20)
@@ -106,27 +111,39 @@ export class MenuScene extends Phaser.Scene {
       this.add
         .text(
           width / 2,
-          height - insets.bottom - 24,
+          height - insets.bottom - 24 * ui,
           i18n.t(hint),
-          textStyle(theme, 12, theme.textMuted),
+          textStyle(theme, 13 * ui, theme.textMuted),
         )
         .setOrigin(0.5)
         .setDepth(20)
     }
 
-    const settingsButton = new RoundButton(this, width - insets.right - 42, insets.top + 42, {
-      icon: 'soundOn',
-      theme,
-      variant: 'soft',
-      onClick: () => this.openSettings(),
-    })
+    const settingsButton = new RoundButton(
+      this,
+      width - insets.right - 42 * ui,
+      insets.top + 42 * ui,
+      {
+        icon: 'soundOn',
+        theme,
+        variant: 'soft',
+        size: 54 * ui,
+        onClick: () => this.openSettings(),
+      },
+    )
     settingsButton.setDepth(40)
-    const languageButton = new RoundButton(this, width - insets.right - 104, insets.top + 42, {
-      icon: 'globe',
-      theme,
-      variant: 'soft',
-      onClick: () => this.openLanguage(),
-    })
+    const languageButton = new RoundButton(
+      this,
+      width - insets.right - 104 * ui,
+      insets.top + 42 * ui,
+      {
+        icon: 'globe',
+        theme,
+        variant: 'soft',
+        size: 54 * ui,
+        onClick: () => this.openLanguage(),
+      },
+    )
     languageButton.setDepth(40)
 
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
@@ -143,7 +160,9 @@ export class MenuScene extends Phaser.Scene {
   private openSettings(): void {
     if (this.settingsModal !== undefined || this.languageModal !== undefined) return
     const viewport = readViewport(this)
-    const layout = computeGameLayout(viewport.width, viewport.height, viewport.insets)
+    const layout = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
+      cssShortSide: readCssShortSide(this),
+    })
     this.settingsModal = new SettingsModal({
       scene: this,
       layout,
@@ -174,7 +193,9 @@ export class MenuScene extends Phaser.Scene {
   private openLanguage(): void {
     if (this.languageModal !== undefined || this.settingsModal !== undefined) return
     const viewport = readViewport(this)
-    const layout = computeGameLayout(viewport.width, viewport.height, viewport.insets)
+    const layout = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
+      cssShortSide: readCssShortSide(this),
+    })
     this.languageModal = new LanguageModal({
       scene: this,
       layout,

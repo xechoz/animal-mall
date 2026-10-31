@@ -18,7 +18,12 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private bubbleKey = ''
   private basketKey = ''
 
-  constructor(scene: Phaser.Scene, theme: Theme, species: CustomerState['species']) {
+  constructor(
+    scene: Phaser.Scene,
+    theme: Theme,
+    species: CustomerState['species'],
+    textScale: number,
+  ) {
     super(scene, 0, 0)
     this.theme = theme
 
@@ -67,7 +72,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     basketArt.fillRect(-10, 0, 20, 2)
     this.basket.add(basketArt)
     this.basketText = scene.add
-      .text(0, -1, '', textStyle(theme, 10, '#fff7e8', true))
+      .text(0, -1, '', textStyle(theme, 10 * textScale, '#fff7e8', true))
       .setOrigin(0.5)
     this.basket.add(this.basketText)
     this.basket.setVisible(false)

@@ -18,7 +18,9 @@ that sale.
   WASD / arrow keys also work and take priority while held.
 - The shop adapts to both orientations: a tall plan in portrait and four zones
   in a row in landscape. On phones and tablets the landscape HUD becomes a left
-  vertical rail; desktop keeps the top bar. Rotating pauses and remaps the run
+  vertical rail; desktop keeps the top bar. Phones also scale the interface up
+  (`src/ui/scale.ts`) so HUD text, buttons and in-world labels stay readable;
+  tablets and desktops keep 1:1 design units. Rotating pauses and remaps the run
   without losing coins, plants, upgrades or deposits. Each zone has one shelf
   for its products.
 - Harvest, stocking and checkout happen automatically when you are close enough.

@@ -25,10 +25,11 @@ export function createShopBackground(
   title: string,
   labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
+  textScale: number,
 ): Phaser.GameObjects.Container {
   return map.id === 'landscape'
-    ? createLandscapeShopBackground(scene, theme, title, labels, map)
-    : createPortraitShopBackground(scene, theme, title, labels, map)
+    ? createLandscapeShopBackground(scene, theme, title, labels, map, textScale)
+    : createPortraitShopBackground(scene, theme, title, labels, map, textScale)
 }
 
 function createPortraitShopBackground(
@@ -37,6 +38,7 @@ function createPortraitShopBackground(
   title: string,
   labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
+  textScale: number,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
   const g = scene.add.graphics()
@@ -82,7 +84,7 @@ function createPortraitShopBackground(
     const labelY = zone === 'fruit' || zone === 'veg' ? 72 : 584
     container.add(
       scene.add
-        .text(labelX, labelY, labels[zone], textStyle(theme, 12, theme.textMuted, true))
+        .text(labelX, labelY, labels[zone], textStyle(theme, 12 * textScale, theme.textMuted, true))
         .setOrigin(0, 0.5),
     )
   }
@@ -177,6 +179,7 @@ function createLandscapeShopBackground(
   title: string,
   labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
+  textScale: number,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
   const g = scene.add.graphics()
@@ -218,16 +221,40 @@ function createLandscapeShopBackground(
     g.lineStyle(2, tint, 0.22)
     g.strokeRoundedRect(left, top, shelf.w, 300, 18)
 
+    const headerScale = Math.min(textScale, 1.3)
+    const pillCenterY = 157
+    const pillHeight = 30 * headerScale
     const label = scene.add
-      .text(left + shelf.w / 2, 158, labels[zone], textStyle(theme, 18, theme.text, true))
+      .text(
+        left + shelf.w / 2,
+        pillCenterY,
+        labels[zone],
+        textStyle(theme, 18 * headerScale, theme.text, true),
+      )
       .setOrigin(0.5)
-    const pillWidth = Math.max(72, label.width + 34)
+    const pillWidth = Math.max(72 * headerScale, label.width + 34 * headerScale)
     g.fillStyle(tint, 0.2)
-    g.fillRoundedRect(left + shelf.w / 2 - pillWidth / 2, 142, pillWidth, 30, 15)
+    g.fillRoundedRect(
+      left + shelf.w / 2 - pillWidth / 2,
+      pillCenterY - pillHeight / 2,
+      pillWidth,
+      pillHeight,
+      15 * headerScale,
+    )
     g.lineStyle(2, tint, 0.55)
-    g.strokeRoundedRect(left + shelf.w / 2 - pillWidth / 2, 142, pillWidth, 30, 15)
+    g.strokeRoundedRect(
+      left + shelf.w / 2 - pillWidth / 2,
+      pillCenterY - pillHeight / 2,
+      pillWidth,
+      pillHeight,
+      15 * headerScale,
+    )
     g.fillStyle(tint, 1)
-    g.fillCircle(left + shelf.w / 2 - pillWidth / 2 + 14, 157, 4.5)
+    g.fillCircle(
+      left + shelf.w / 2 - pillWidth / 2 + 14 * headerScale,
+      pillCenterY,
+      4.5 * headerScale,
+    )
     container.add(label)
   }
 

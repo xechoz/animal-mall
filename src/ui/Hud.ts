@@ -51,21 +51,30 @@ export class Hud {
     this.layout = layout
 
     this.bar = scene.add.graphics().setDepth(6000)
-    this.coinIcon = scene.add.image(0, 0, coinTextureKey()).setDepth(6002).setScale(0.78)
+    this.coinIcon = scene.add
+      .image(0, 0, coinTextureKey())
+      .setDepth(6002)
+      .setScale(0.78 * layout.ui)
     this.coinsText = scene.add
-      .text(0, 0, '', textStyle(theme, 22, theme.text, true))
+      .text(0, 0, '', textStyle(theme, 22 * layout.ui, theme.text, true))
       .setOrigin(0, 0.5)
       .setDepth(6002)
     this.goalIcon = scene.add.image(0, 0, productTextureKey('apple')).setDepth(6002)
     this.goalTool = scene.add.graphics().setDepth(6002)
-    this.goalCoin = scene.add.image(0, 0, coinTextureKey()).setDepth(6002).setScale(0.6)
+    this.goalCoin = scene.add
+      .image(0, 0, coinTextureKey())
+      .setDepth(6002)
+      .setScale(0.6 * layout.ui)
     this.goalCost = scene.add
-      .text(0, 0, '', textStyle(theme, 16, theme.text, true))
+      .text(0, 0, '', textStyle(theme, 16 * layout.ui, theme.text, true))
       .setOrigin(0, 0.5)
       .setDepth(6002)
-    this.goalBg = scene.add.rectangle(0, 0, 10, 6, theme.ink, 0.13).setOrigin(0, 0.5).setDepth(6002)
+    this.goalBg = scene.add
+      .rectangle(0, 0, 10, 6 * layout.ui, theme.ink, 0.13)
+      .setOrigin(0, 0.5)
+      .setDepth(6002)
     this.goalFill = scene.add
-      .rectangle(0, 0, 0, 6, theme.accent, 1)
+      .rectangle(0, 0, 0, 6 * layout.ui, theme.accent, 1)
       .setOrigin(0, 0.5)
       .setDepth(6003)
 
@@ -87,9 +96,9 @@ export class Hud {
     this.pauseButton.setDepth(6100)
     if (callbacks.onDev !== undefined) {
       this.devButton = new Button(scene, 0, 0, 'DEV', theme, {
-        width: 64,
-        height: 36,
-        fontSize: 13,
+        width: 64 * layout.ui,
+        height: 36 * layout.ui,
+        fontSize: 13 * layout.ui,
         variant: 'ghost',
         onClick: callbacks.onDev,
       })
@@ -104,60 +113,79 @@ export class Hud {
     this.layout = layout
     const hud = layout.hud
     const bar = hud.bar
+    const ui = layout.ui
     this.vertical = hud.vertical
     this.bar.clear()
 
     if (hud.vertical) {
       this.bar.fillStyle(this.theme.shadow, 0.16)
-      this.bar.fillRoundedRect(bar.x, bar.y + 7, bar.w, bar.h, 22)
+      this.bar.fillRoundedRect(bar.x, bar.y + 7 * ui, bar.w, bar.h, 22 * ui)
       this.bar.fillStyle(this.theme.panel, 0.94)
-      this.bar.fillRoundedRect(bar.x, bar.y, bar.w, bar.h, 22)
-      this.bar.lineStyle(2, this.theme.borderSoft, 0.8)
-      this.bar.strokeRoundedRect(bar.x, bar.y, bar.w, bar.h, 22)
+      this.bar.fillRoundedRect(bar.x, bar.y, bar.w, bar.h, 22 * ui)
+      this.bar.lineStyle(2 * ui, this.theme.borderSoft, 0.8)
+      this.bar.strokeRoundedRect(bar.x, bar.y, bar.w, bar.h, 22 * ui)
       this.bar.fillStyle(this.theme.accentWarm, 0.4)
-      this.bar.fillRoundedRect(bar.x + 8, bar.y + 8, bar.w - 16, 84, 16)
+      this.bar.fillRoundedRect(bar.x + 8 * ui, bar.y + 8 * ui, bar.w - 16 * ui, 84 * ui, 16 * ui)
       this.bar.fillStyle(this.theme.ink, 0.08)
-      this.bar.fillRoundedRect(bar.x + 16, bar.y + 160, bar.w - 32, 2, 1)
+      this.bar.fillRoundedRect(bar.x + 16 * ui, bar.y + 160 * ui, bar.w - 32 * ui, 2 * ui, ui)
       this.bar.fillStyle(this.theme.ink, 0.08)
-      this.bar.fillRoundedRect(bar.x + 16, hud.shop.y - 56, bar.w - 32, 2, 1)
+      this.bar.fillRoundedRect(bar.x + 16 * ui, hud.shop.y - 56 * ui, bar.w - 32 * ui, 2 * ui, ui)
       this.bar.fillStyle(this.theme.accentWarm, 0.55)
-      this.bar.fillRoundedRect(bar.x + bar.w / 2 - 14, bar.y + bar.h - 14, 28, 4, 2)
+      this.bar.fillRoundedRect(
+        bar.x + bar.w / 2 - 14 * ui,
+        bar.y + bar.h - 14 * ui,
+        28 * ui,
+        4 * ui,
+        2 * ui,
+      )
     } else {
       this.bar.fillStyle(this.theme.shadow, 0.16)
-      this.bar.fillRoundedRect(bar.x, bar.y + 7, bar.w, bar.h, 18)
+      this.bar.fillRoundedRect(bar.x, bar.y + 7 * ui, bar.w, bar.h, 18 * ui)
       this.bar.fillStyle(this.theme.panel, 0.94)
-      this.bar.fillRoundedRect(bar.x, bar.y, bar.w, bar.h, 18)
-      this.bar.lineStyle(2, this.theme.borderSoft, 0.8)
-      this.bar.strokeRoundedRect(bar.x, bar.y, bar.w, bar.h, 18)
+      this.bar.fillRoundedRect(bar.x, bar.y, bar.w, bar.h, 18 * ui)
+      this.bar.lineStyle(2 * ui, this.theme.borderSoft, 0.8)
+      this.bar.strokeRoundedRect(bar.x, bar.y, bar.w, bar.h, 18 * ui)
       this.bar.fillStyle(this.theme.accentWarm, 0.45)
-      this.bar.fillRoundedRect(bar.x + 8, bar.y + 6, 92, bar.h - 12, 13)
+      this.bar.fillRoundedRect(bar.x + 8 * ui, bar.y + 6 * ui, 92 * ui, bar.h - 12 * ui, 13 * ui)
     }
 
     if (hud.vertical) {
-      this.coinBaseScale = 0.7
+      this.coinBaseScale = 0.7 * ui
       this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
-      this.coinsText.setOrigin(0.5, 0.5).setPosition(hud.coins.x, hud.coins.y + 27)
-      this.goalIcon.setPosition(hud.goal.x - 30, hud.goal.y - 6).setScale(0.45)
-      this.goalCoin.setPosition(hud.goal.x - 8, hud.goal.y - 6)
-      this.goalCost.setOrigin(0, 0.5).setPosition(hud.goal.x + 2, hud.goal.y - 6)
-      this.goalBg.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 16)
-      this.goalFill.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 16)
+      this.coinsText
+        .setOrigin(0.5, 0.5)
+        .setPosition(hud.coins.x, hud.coins.y + 27 * ui)
+        .setFontSize(22 * ui)
+      this.goalIcon.setPosition(hud.goal.x - 30 * ui, hud.goal.y - 6 * ui).setScale(0.45 * ui)
+      this.goalCoin.setPosition(hud.goal.x - 8 * ui, hud.goal.y - 6 * ui).setScale(0.6 * ui)
+      this.goalCost
+        .setOrigin(0, 0.5)
+        .setPosition(hud.goal.x + 2 * ui, hud.goal.y - 6 * ui)
+        .setFontSize(16 * ui)
+      this.goalBg.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 16 * ui)
+      this.goalFill.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 16 * ui)
     } else {
-      this.coinBaseScale = 0.78
-      this.coinIcon.setPosition(hud.coins.x - 24, hud.coins.y).setScale(this.coinBaseScale)
-      this.coinsText.setOrigin(0, 0.5).setPosition(hud.coins.x - 4, hud.coins.y)
-      this.goalIcon.setPosition(hud.goal.x - 46, hud.goal.y - 7).setScale(0.45)
-      this.goalCoin.setPosition(hud.goal.x - 10, hud.goal.y - 7)
-      this.goalCost.setOrigin(0, 0.5).setPosition(hud.goal.x + 4, hud.goal.y - 7)
-      this.goalBg.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 13)
-      this.goalFill.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 13)
+      this.coinBaseScale = 0.78 * ui
+      this.coinIcon.setPosition(hud.coins.x - 24 * ui, hud.coins.y).setScale(this.coinBaseScale)
+      this.coinsText
+        .setOrigin(0, 0.5)
+        .setPosition(hud.coins.x - 4 * ui, hud.coins.y)
+        .setFontSize(22 * ui)
+      this.goalIcon.setPosition(hud.goal.x - 46 * ui, hud.goal.y - 7 * ui).setScale(0.45 * ui)
+      this.goalCoin.setPosition(hud.goal.x - 10 * ui, hud.goal.y - 7 * ui).setScale(0.6 * ui)
+      this.goalCost
+        .setOrigin(0, 0.5)
+        .setPosition(hud.goal.x + 4 * ui, hud.goal.y - 7 * ui)
+        .setFontSize(16 * ui)
+      this.goalBg.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 13 * ui)
+      this.goalFill.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 13 * ui)
     }
-    this.goalBg.setDisplaySize(hud.goalWidth, 6)
+    this.goalBg.setDisplaySize(hud.goalWidth, 6 * ui)
     this.shopButton.setPosition(hud.shop.x, hud.shop.y)
     this.pauseButton.setPosition(hud.pause.x, hud.pause.y)
     this.devButton?.setPosition(
-      hud.vertical ? bar.x + bar.w / 2 : hud.shop.x - 78,
-      hud.vertical ? bar.y + bar.h - 44 : hud.shop.y,
+      hud.vertical ? bar.x + bar.w / 2 : hud.shop.x - 78 * ui,
+      hud.vertical ? bar.y + bar.h - 44 * ui : hud.shop.y,
     )
     this.zoneStatus.relayout(layout)
     this.lastCoins = -1
@@ -172,9 +200,9 @@ export class Hud {
       this.coinsText.setText(text)
       if (this.vertical) {
         const size = Math.max(12, Math.min(22, Math.floor(72 / (0.62 * text.length))))
-        this.coinsText.setFontSize(size)
+        this.coinsText.setFontSize(size * this.layout.ui)
       } else {
-        this.coinsText.setFontSize(22)
+        this.coinsText.setFontSize(22 * this.layout.ui)
       }
     }
 
@@ -196,7 +224,7 @@ export class Hud {
         goal !== null && state.coins >= cost ? this.theme.text : this.theme.textMuted,
       )
       const ratio = goal === null ? 1 : Math.min(1, state.coins / Math.max(1, cost))
-      this.goalFill.setDisplaySize(this.layout.hud.goalWidth * ratio, 6)
+      this.goalFill.setDisplaySize(this.layout.hud.goalWidth * ratio, 6 * this.layout.ui)
       this.goalFill.setFillStyle(
         ratio >= 1
           ? this.theme.accentAlt
@@ -208,8 +236,9 @@ export class Hud {
 
   private drawGoal(goal: Goal, cost: number, state: ShopState): void {
     const hud = this.layout.hud
+    const ui = this.layout.ui
     const x = hud.goal.x
-    const y = hud.goal.y - (hud.vertical ? 6 : 7)
+    const y = hud.goal.y - (hud.vertical ? 6 : 7) * ui
     const textual = hud.vertical && goal !== null && goal.type === 'zone' && cost === 0
     this.goalTool.clear()
     this.goalIcon.setVisible(goal !== null && goal.type !== 'upgrade' && !textual)
@@ -230,20 +259,20 @@ export class Hud {
         this.goalCost
           .setOrigin(0.5, 0.5)
           .setPosition(x, y)
-          .setFontSize(11)
-          .setWordWrapWidth(hud.goalWidth + 12, true)
+          .setFontSize(13 * ui)
+          .setWordWrapWidth(hud.goalWidth + 12 * ui, true)
       } else {
         this.goalCost
           .setOrigin(0, 0.5)
-          .setPosition(x + 2, y)
-          .setFontSize(16)
+          .setPosition(x + 2 * ui, y)
+          .setFontSize(16 * ui)
           .setWordWrapWidth(1000, true)
       }
     } else {
       this.goalCost
         .setOrigin(0, 0.5)
-        .setPosition(x + 4, y)
-        .setFontSize(16)
+        .setPosition(x + 4 * ui, y)
+        .setFontSize(16 * ui)
         .setWordWrapWidth(1000, true)
     }
     if (goal?.type === 'producer') {
@@ -254,9 +283,9 @@ export class Hud {
       drawToolIcon(
         this.goalTool,
         goal.kind,
-        hud.vertical ? x - 30 : x - 46,
+        hud.vertical ? x - 30 * ui : x - 46 * ui,
         y,
-        hud.vertical ? 18 : 20,
+        (hud.vertical ? 18 : 20) * ui,
       )
     }
   }

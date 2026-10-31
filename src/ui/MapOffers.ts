@@ -20,7 +20,7 @@ interface OfferLabel {
 }
 
 const WIDTH = 70
-const HEIGHT = 28
+const HEIGHT = 30
 
 export class MapOffers {
   private readonly scene: Phaser.Scene
@@ -59,14 +59,17 @@ export class MapOffers {
   }
 
   private createLabel(): OfferLabel {
+    // Offers sit on top of world objects, so they scale far less than HUD chrome:
+    // otherwise neighbouring chips overlap the shelves they belong to.
+    const ui = Math.min(this.layout.ui, 1.2)
     const container = this.scene.add.container(0, 0).setDepth(5200)
     const bg = this.scene.add.graphics()
     const dwell = this.scene.add.graphics()
     const seed = this.scene.add.graphics()
-    const icon = this.scene.add.image(0, 0, productTextureKey('apple')).setScale(0.55)
-    const coin = this.scene.add.image(0, 0, coinTextureKey()).setScale(0.42)
+    const icon = this.scene.add.image(0, 0, productTextureKey('apple')).setScale(0.55 * ui)
+    const coin = this.scene.add.image(0, 0, coinTextureKey()).setScale(0.42 * ui)
     const price = this.scene.add
-      .text(0, 0, '', textStyle(this.theme, 13, this.theme.text, true))
+      .text(0, 0, '', textStyle(this.theme, 13 * ui, this.theme.text, true))
       .setOrigin(0, 0.5)
     const paid = this.scene.add.graphics()
     container.add([bg, paid, dwell, seed, icon, coin, price])
@@ -75,87 +78,90 @@ export class MapOffers {
 
   private apply(label: OfferLabel, offer: PurchaseOffer, state: ShopState): void {
     const point = worldToScreen(this.layout, offer.pos)
-    const lift = this.layout.portrait ? 58 : 24
+    const ui = Math.min(this.layout.ui, 1.2)
+    const width = WIDTH * ui
+    const height = HEIGHT * ui
+    const lift = (this.layout.portrait ? 58 : 24) * this.layout.worldScale * ui
     const content = this.layout.content
     const x = Math.max(
-      content.x + WIDTH / 2 + 8,
-      Math.min(content.x + content.w - WIDTH / 2 - 8, point.x),
+      content.x + width / 2 + 8 * ui,
+      Math.min(content.x + content.w - width / 2 - 8 * ui, point.x),
     )
     const y = Math.max(
-      content.y + HEIGHT / 2 + 8,
-      Math.min(
-        content.y + content.h - HEIGHT / 2 - 8,
-        point.y - lift * this.layout.worldScale - 16,
-      ),
+      content.y + height / 2 + 8 * ui,
+      Math.min(content.y + content.h - height / 2 - 8 * ui, point.y - lift - 16 * ui),
     )
     label.container.setPosition(x, y)
 
     const affordable = state.coins >= offer.remaining
     label.bg.clear()
     label.bg.fillStyle(this.theme.shadow, 0.16)
-    label.bg.fillRoundedRect(-WIDTH / 2, -HEIGHT / 2 + 3, WIDTH, HEIGHT, 11)
+    label.bg.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, 11 * ui)
     label.bg.fillStyle(this.theme.panel, 0.96)
-    label.bg.fillRoundedRect(-WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT, 11)
-    label.bg.lineStyle(2, affordable ? this.theme.accent : this.theme.borderSoft, 0.9)
-    label.bg.strokeRoundedRect(-WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT, 11)
+    label.bg.fillRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+    label.bg.lineStyle(2 * ui, affordable ? this.theme.accent : this.theme.borderSoft, 0.9)
+    label.bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
 
     label.icon.setVisible(offer.type === 'plant' && !offer.requiresChoice)
     label.seed.setVisible(offer.type === 'plant' && offer.requiresChoice)
     label.seed.clear()
     if (offer.type === 'plant' && offer.requiresChoice) {
-      drawSeedPacket(label.seed, -22, 0)
+      drawSeedPacket(label.seed, -22 * ui, 0, ui)
     }
     if (offer.type === 'plant' && !offer.requiresChoice) {
-      label.icon.setTexture(productTextureKey(offer.product)).setPosition(-22, 0).setScale(0.46)
+      label.icon
+        .setTexture(productTextureKey(offer.product))
+        .setPosition(-22 * ui, 0)
+        .setScale(0.46 * ui)
     }
     if (offer.type === 'producer') {
       label.icon
         .setVisible(true)
         .setTexture(productTextureKey(offer.product))
-        .setPosition(-22, 0)
-        .setScale(0.46)
+        .setPosition(-22 * ui, 0)
+        .setScale(0.46 * ui)
     }
     if (offer.type === 'staff') {
       label.icon
         .setTexture(animalTextureKey(STAFF[offer.kind].species))
-        .setPosition(-22, 1)
-        .setScale(0.21)
+        .setPosition(-22 * ui, 1 * ui)
+        .setScale(0.21 * ui)
     }
 
-    label.coin.setPosition(-3, 0)
-    label.price.setPosition(7, 0).setText(String(offer.remaining))
+    label.coin.setPosition(-3 * ui, 0)
+    label.price.setPosition(7 * ui, 0).setText(String(offer.remaining))
     label.price.setColor(affordable ? this.theme.text : this.theme.textMuted)
 
     label.paid.clear()
     if (offer.deposit > 0) {
       const ratio = Math.min(1, offer.deposit / Math.max(1, offer.cost))
       label.paid.fillStyle(this.theme.ink, 0.12)
-      label.paid.fillRoundedRect(-26, 9, 52, 5, 2.5)
+      label.paid.fillRoundedRect(-26 * ui, 10 * ui, 52 * ui, 5 * ui, 2.5 * ui)
       label.paid.fillStyle(this.theme.accentAlt, 1)
-      label.paid.fillRoundedRect(-26, 9, 52 * ratio, 5, 2.5)
+      label.paid.fillRoundedRect(-26 * ui, 10 * ui, 52 * ui * ratio, 5 * ui, 2.5 * ui)
     }
 
     label.dwell.clear()
     if (state.quickBuy.targetKey === offer.id && state.quickBuy.dwellMs > 0) {
       const threshold = quickBuyThreshold(offer)
       const ratio = Math.min(1, state.quickBuy.dwellMs / threshold)
-      label.dwell.lineStyle(4, this.theme.ink, 0.14)
-      label.dwell.strokeCircle(-22, 0, 15)
-      label.dwell.lineStyle(4, this.theme.accentAlt, 1)
+      label.dwell.lineStyle(4 * ui, this.theme.ink, 0.14)
+      label.dwell.strokeCircle(-22 * ui, 0, 15 * ui)
+      label.dwell.lineStyle(4 * ui, this.theme.accentAlt, 1)
       label.dwell.beginPath()
-      label.dwell.arc(-22, 0, 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio)
+      label.dwell.arc(-22 * ui, 0, 15 * ui, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio)
       label.dwell.strokePath()
     }
   }
 }
 
-function drawSeedPacket(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+function drawSeedPacket(g: Phaser.GameObjects.Graphics, x: number, y: number, ui: number): void {
   g.fillStyle(0x8f5734, 1)
-  g.fillRoundedRect(x - 10, y - 12, 20, 24, 4)
+  g.fillRoundedRect(x - 10 * ui, y - 12 * ui, 20 * ui, 24 * ui, 4 * ui)
   g.fillStyle(0xf0c99b, 1)
-  g.fillRoundedRect(x - 7, y - 9, 14, 18, 3)
+  g.fillRoundedRect(x - 7 * ui, y - 9 * ui, 14 * ui, 18 * ui, 3 * ui)
   g.fillStyle(0x6f4b2e, 1)
-  g.fillEllipse(x, y - 2, 6, 8)
+  g.fillEllipse(x, y - 2 * ui, 6 * ui, 8 * ui)
   g.fillStyle(0x5aa96f, 1)
-  g.fillEllipse(x + 3, y - 10, 8, 4)
+  g.fillEllipse(x + 3 * ui, y - 10 * ui, 8 * ui, 4 * ui)
 }

@@ -6,8 +6,8 @@ import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import type { GameLayout } from './layout'
 
 const CHIP_WIDTH = 100
-const CHIP_HEIGHT = 24
-const CHIP_GAP = 28
+const CHIP_HEIGHT = 26
+const CHIP_GAP = 32
 
 const BUFF_LABEL: Readonly<Record<DrinkKind, string>> = {
   appleSoda: 'buff.speed',
@@ -39,9 +39,9 @@ export class BuffBar {
         const container = scene.add.container(0, 0).setDepth(6004).setVisible(false)
         const bg = scene.add.graphics()
         const cup = scene.add.graphics()
-        drawCup(cup, -38, 0, 0.5, DRINK_CUP_COLORS[kind])
+        drawCup(cup, -38 * layout.ui, 0, 0.5 * layout.ui, DRINK_CUP_COLORS[kind])
         const label = scene.add
-          .text(-24, 0, '', textStyle(theme, 12, theme.text, true))
+          .text(-24 * layout.ui, 0, '', textStyle(theme, 12 * layout.ui, theme.text, true))
           .setOrigin(0, 0.5)
         container.add([bg, cup, label])
         return [kind, { container, bg, cup, label, lastText: '' }]
@@ -87,25 +87,32 @@ export class BuffBar {
 
   private layoutChips(): void {
     const bar = this.layout.hud.bar
-    const x = this.layout.hud.vertical ? bar.x + bar.w / 2 : bar.x + 8 + CHIP_WIDTH / 2
-    const baseY = this.layout.hud.vertical ? this.layout.hud.goal.y + 40 : bar.y + bar.h + 12
+    const ui = this.layout.ui
+    const x = this.layout.hud.vertical ? bar.x + bar.w / 2 : bar.x + 8 * ui + (CHIP_WIDTH * ui) / 2
+    const baseY = this.layout.hud.vertical
+      ? this.layout.hud.goal.y + 46 * ui
+      : bar.y + bar.h + 14 * ui
+    for (const chip of Object.values(this.chips)) chip.label.setFontSize(12 * ui)
 
     for (const [index, kind] of this.active.entries()) {
       const chip = this.chips[kind]
-      chip.container.setPosition(x, baseY + index * CHIP_GAP)
+      chip.container.setPosition(x, baseY + index * CHIP_GAP * ui)
       this.drawChip(chip)
     }
   }
 
   private drawChip(chip: Chip): void {
-    const halfWidth = CHIP_WIDTH / 2
-    const halfHeight = CHIP_HEIGHT / 2
+    const ui = this.layout.ui
+    const width = CHIP_WIDTH * ui
+    const height = CHIP_HEIGHT * ui
+    const halfWidth = width / 2
+    const halfHeight = height / 2
     chip.bg.clear()
     chip.bg.fillStyle(this.theme.shadow, 0.12)
-    chip.bg.fillRoundedRect(-halfWidth, -halfHeight + 2, CHIP_WIDTH, CHIP_HEIGHT, 10)
+    chip.bg.fillRoundedRect(-halfWidth, -halfHeight + 2 * ui, width, height, 10 * ui)
     chip.bg.fillStyle(this.theme.panel, 0.95)
-    chip.bg.fillRoundedRect(-halfWidth, -halfHeight, CHIP_WIDTH, CHIP_HEIGHT, 10)
-    chip.bg.lineStyle(1, this.theme.accentAlt, 0.75)
-    chip.bg.strokeRoundedRect(-halfWidth, -halfHeight, CHIP_WIDTH, CHIP_HEIGHT, 10)
+    chip.bg.fillRoundedRect(-halfWidth, -halfHeight, width, height, 10 * ui)
+    chip.bg.lineStyle(1 * ui, this.theme.accentAlt, 0.75)
+    chip.bg.strokeRoundedRect(-halfWidth, -halfHeight, width, height, 10 * ui)
   }
 }

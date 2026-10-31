@@ -20,7 +20,7 @@ export class StaffView extends Phaser.GameObjects.Container {
   private carryKey = ''
   private lastPhase: StaffState['phase'] | '' = ''
 
-  constructor(scene: Phaser.Scene, theme: Theme, member: StaffState) {
+  constructor(scene: Phaser.Scene, theme: Theme, member: StaffState, textScale: number) {
     super(scene, member.pos.x, member.pos.y)
     const shadow = scene.add.graphics()
     shadow.fillStyle(0x3b2f3a, 0.18)
@@ -46,7 +46,7 @@ export class StaffView extends Phaser.GameObjects.Container {
     }
 
     this.carryCount = scene.add
-      .text(18, -112, '', textStyle(theme, 12, theme.text, true))
+      .text(18, -112, '', textStyle(theme, 12 * textScale, theme.text, true))
       .setOrigin(0, 0.5)
       .setBackgroundColor('#fff7e8')
       .setPadding(3, 0, 3, 0)
@@ -57,7 +57,7 @@ export class StaffView extends Phaser.GameObjects.Container {
     this.add(this.mood)
 
     this.sleep = scene.add
-      .text(18, -96, 'Zzz', textStyle(theme, 14, theme.text, true))
+      .text(18, -96, 'Zzz', textStyle(theme, 14 * textScale, theme.text, true))
       .setOrigin(0.5)
       .setBackgroundColor('#fff7e8')
       .setPadding(5, 1, 5, 1)

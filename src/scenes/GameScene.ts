@@ -71,6 +71,7 @@ import { ShelfView } from '../ui/ShelfView'
 import { ShopPanel } from '../ui/ShopPanel'
 import { StaffStationView } from '../ui/StaffStationView'
 import { StaffView } from '../ui/StaffView'
+import { readCssShortSide } from '../ui/scale'
 import { createShopBackground } from '../ui/shopArt'
 import { Toast } from '../ui/Toast'
 import { TutorialOverlay } from '../ui/TutorialOverlay'
@@ -164,6 +165,7 @@ export class GameScene extends Phaser.Scene {
     const viewport = readViewport(this)
     this.layout = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
       mobile: isMobileDevice(),
+      cssShortSide: readCssShortSide(this),
     })
     this.state = createShopState(this.saveStore.read(), this.layout.map)
     const seed = Number(this.services.params.get('seed'))
@@ -247,6 +249,7 @@ export class GameScene extends Phaser.Scene {
       i18n.t('game.title'),
       labels,
       this.layout.map,
+      this.layout.worldText,
     )
     background.setDepth(0)
     this.world.add(background)
@@ -255,20 +258,28 @@ export class GameScene extends Phaser.Scene {
     this.zoneOverlay.setDepth(50)
     this.world.add(this.zoneOverlay)
 
-    this.trashView = new FacilityView(this, theme, 'trash', this.layout.map, '')
+    this.trashView = new FacilityView(
+      this,
+      theme,
+      'trash',
+      this.layout.map,
+      '',
+      this.layout.worldText,
+    )
     this.vendingView = new FacilityView(
       this,
       theme,
       'vending',
       this.layout.map,
       i18n.t('facility.drinks'),
+      this.layout.worldText,
     )
     this.world.add(this.trashView)
     this.world.add(this.vendingView)
 
     this.shelfViews = Object.fromEntries(
       ZONE_ORDER.map((zone) => {
-        const view = new ShelfView(this, theme, zone, this.layout.map)
+        const view = new ShelfView(this, theme, zone, this.layout.map, this.layout.worldText)
         const rect = this.layout.map.shelves[zone]
         view.setDepth(rect.y + rect.h)
         this.world.add(view)
@@ -431,7 +442,7 @@ export class GameScene extends Phaser.Scene {
       alive.add(customer.id)
       let view = this.customerViews.get(customer.id)
       if (view === undefined) {
-        view = new CustomerView(this, this.services.theme, customer.species)
+        view = new CustomerView(this, this.services.theme, customer.species, this.layout.worldText)
         this.world.add(view)
         this.customerViews.set(customer.id, view)
       }
@@ -451,7 +462,7 @@ export class GameScene extends Phaser.Scene {
       alive.add(member.id)
       let view = this.staffViews.get(member.id)
       if (view === undefined) {
-        view = new StaffView(this, this.services.theme, member)
+        view = new StaffView(this, this.services.theme, member, this.layout.worldText)
         this.world.add(view)
         this.staffViews.set(member.id, view)
       }
@@ -476,7 +487,7 @@ export class GameScene extends Phaser.Scene {
       alive.add(producer.id)
       let view = this.producerViews.get(producer.id)
       if (view === undefined) {
-        view = new ProducerView(this, this.services.theme, producer)
+        view = new ProducerView(this, this.services.theme, producer, this.layout.worldText)
         this.world.add(view)
         // The soil bed is a separate ground layer so actors stand on top of it
         // while the crop art still draws over them.
@@ -1112,6 +1123,7 @@ export class GameScene extends Phaser.Scene {
   private handleLayout(viewport: Viewport): void {
     const next = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
       mobile: isMobileDevice(),
+      cssShortSide: readCssShortSide(this),
     })
     if (
       next.width === this.layout.width &&

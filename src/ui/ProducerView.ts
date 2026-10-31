@@ -30,7 +30,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
   private readonly feedIcon: Phaser.GameObjects.Image
   private lastKey = ''
 
-  constructor(scene: Phaser.Scene, theme: Theme, producer: ProducerState) {
+  constructor(scene: Phaser.Scene, theme: Theme, producer: ProducerState, textScale: number) {
     super(scene, producer.pos.x, producer.pos.y)
     this.ground = scene.add.graphics().setPosition(producer.pos.x, producer.pos.y)
     if (producer.kind === 'plant') drawPlantBed(this.ground, producer)
@@ -39,7 +39,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.add([this.art, this.ring])
 
     this.badge = scene.add
-      .text(0, -62, '', textStyle(theme, 14, theme.text, true))
+      .text(0, -62, '', textStyle(theme, 14 * textScale, theme.text, true))
       .setOrigin(0.5)
       .setBackgroundColor('#fff7e8')
       .setPadding(6, 1, 6, 1)
@@ -47,7 +47,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.add(this.badge)
 
     this.status = scene.add
-      .text(0, 38, '', textStyle(theme, 11, theme.text, true))
+      .text(0, 38, '', textStyle(theme, 11 * textScale, theme.text, true))
       .setOrigin(0.5)
       .setVisible(false)
     this.add(this.status)

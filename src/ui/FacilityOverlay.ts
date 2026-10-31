@@ -31,10 +31,11 @@ export class FacilityOverlay {
     this.theme = theme
     this.i18n = i18n
     this.ring = scene.add.graphics().setDepth(3999)
+    const ui = layout.ui
     this.button = new Button(scene, 0, 0, '', theme, {
-      width: 174,
-      height: 46,
-      fontSize: 16,
+      width: 174 * ui,
+      height: 52 * ui,
+      fontSize: 16 * ui,
       variant: 'primary',
       onClick: callbacks.onNudge,
     })
@@ -70,9 +71,10 @@ export class FacilityOverlay {
         }),
       )
     }
+    const ui = this.layout.ui
     this.button.setPosition(
-      this.layout.width - this.layout.insets.right - 98,
-      this.layout.height - this.layout.insets.bottom - 86,
+      this.layout.width - this.layout.insets.right - 98 * ui,
+      this.layout.height - this.layout.insets.bottom - 86 * ui,
     )
   }
 
@@ -102,21 +104,23 @@ export class FacilityOverlay {
     if (resting !== null) {
       const point = worldToScreen(this.layout, resting.pos)
       const pulse = 1 + Math.sin(this.scene.time.now * 0.006) * 0.12
-      const radius = 24 * this.layout.worldScale * pulse
-      this.ring.lineStyle(3, this.theme.accentAlt, 0.9)
-      this.ring.strokeCircle(point.x, point.y - 18, radius)
-      this.ring.lineStyle(2, this.theme.panel, 0.7)
-      this.ring.strokeCircle(point.x, point.y - 18, radius + 5)
+      const ui = this.layout.ui
+      const radius = 24 * this.layout.worldScale * pulse * ui
+      this.ring.lineStyle(3 * ui, this.theme.accentAlt, 0.9)
+      this.ring.strokeCircle(point.x, point.y - 18 * ui, radius)
+      this.ring.lineStyle(2 * ui, this.theme.panel, 0.7)
+      this.ring.strokeCircle(point.x, point.y - 18 * ui, radius + 5 * ui)
     }
   }
 
   private drawProgress(point: Vec2, ratio: number, color: number): void {
     const screen = worldToScreen(this.layout, point)
-    const radius = Math.max(14, 26 * this.layout.worldScale)
+    const ui = this.layout.ui
+    const radius = Math.max(14 * ui, 26 * this.layout.worldScale * ui)
     const progress = Math.max(0, Math.min(1, ratio))
-    this.ring.lineStyle(4, this.theme.ink, 0.18)
+    this.ring.lineStyle(4 * ui, this.theme.ink, 0.18)
     this.ring.strokeCircle(screen.x, screen.y, radius)
-    this.ring.lineStyle(4, color, 1)
+    this.ring.lineStyle(4 * ui, color, 1)
     this.ring.beginPath()
     this.ring.arc(screen.x, screen.y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress)
     this.ring.strokePath()

@@ -15,7 +15,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private bins: (ProductKind | null)[]
   private lastKey = ''
 
-  constructor(scene: Phaser.Scene, theme: Theme, zone: ZoneId, map: ShopMap) {
+  constructor(scene: Phaser.Scene, theme: Theme, zone: ZoneId, map: ShopMap, textScale: number) {
     const rect = map.shelves[zone]
     super(scene, rect.x + rect.w / 2, rect.y + rect.h / 2)
     const width = rect.w
@@ -62,14 +62,19 @@ export class ShelfView extends Phaser.GameObjects.Container {
       this.icons.push(icon)
 
       const count = scene.add
-        .text(x + binWidth / 2 - 6, -height / 2 + 15, '', textStyle(theme, 10, '#fff7e8', true))
+        .text(
+          x + binWidth / 2 - 6,
+          -height / 2 + 15,
+          '',
+          textStyle(theme, 10 * textScale, '#fff7e8', true),
+        )
         .setOrigin(1, 0.5)
       this.add(count)
       this.counts.push(count)
     }
 
     this.countText = scene.add
-      .text(width / 2 - 7, height / 2 - 10, '', textStyle(theme, 9, '#fff7e8', true))
+      .text(width / 2 - 7, height / 2 - 10, '', textStyle(theme, 9 * textScale, '#fff7e8', true))
       .setOrigin(1, 0.5)
     this.add(this.countText)
 

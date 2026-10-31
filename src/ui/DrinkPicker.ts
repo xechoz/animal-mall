@@ -48,6 +48,9 @@ export class DrinkPicker {
     this.options = options
     this.state = options.state
     const { scene, layout, theme, i18n } = options
+    const ui = layout.ui
+    const panelW = PANEL_W * ui
+    const panelH = PANEL_H * ui
     const centerX = layout.room.x + layout.room.w / 2
     const centerY = layout.room.y + layout.room.h / 2
 
@@ -64,28 +67,38 @@ export class DrinkPicker {
 
     const panelBg = scene.add.graphics()
     panelBg.fillStyle(theme.shadow, 0.22)
-    panelBg.fillRoundedRect(-PANEL_W / 2, -PANEL_H / 2 + 6, PANEL_W, PANEL_H, 22)
+    panelBg.fillRoundedRect(-panelW / 2, -panelH / 2 + 6 * ui, panelW, panelH, 22 * ui)
     panelBg.fillStyle(theme.panel, 0.98)
-    panelBg.fillRoundedRect(-PANEL_W / 2, -PANEL_H / 2, PANEL_W, PANEL_H, 22)
-    panelBg.lineStyle(3, theme.accent, 0.8)
-    panelBg.strokeRoundedRect(-PANEL_W / 2, -PANEL_H / 2, PANEL_W, PANEL_H, 22)
+    panelBg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 22 * ui)
+    panelBg.lineStyle(3 * ui, theme.accent, 0.8)
+    panelBg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 22 * ui)
     this.panel.add(panelBg)
 
-    const swallow = scene.add.zone(0, 0, PANEL_W, PANEL_H).setInteractive()
+    const swallow = scene.add.zone(0, 0, panelW, panelH).setInteractive()
     this.panel.add(swallow)
 
     this.panel.add(
       scene.add
-        .text(0, -PANEL_H / 2 + 30, i18n.t('drink.title'), textStyle(theme, 24, theme.text, true))
+        .text(
+          0,
+          -panelH / 2 + 30 * ui,
+          i18n.t('drink.title'),
+          textStyle(theme, 24 * ui, theme.text, true),
+        )
         .setOrigin(0.5),
     )
     this.balance = scene.add
-      .text(0, -PANEL_H / 2 + 58, '', textStyle(theme, 15, theme.textMuted, true))
+      .text(0, -panelH / 2 + 60 * ui, '', textStyle(theme, 15 * ui, theme.textMuted, true))
       .setOrigin(0.5)
     this.panel.add(this.balance)
 
     const close = scene.add
-      .text(PANEL_W / 2 - 22, -PANEL_H / 2 + 22, '×', textStyle(theme, 26, theme.textMuted, true))
+      .text(
+        panelW / 2 - 22 * ui,
+        -panelH / 2 + 24 * ui,
+        '×',
+        textStyle(theme, 26 * ui, theme.textMuted, true),
+      )
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
     close.on('pointerdown', () => options.onClose())
@@ -116,42 +129,59 @@ export class DrinkPicker {
 
   private createRow(index: number, kind: DrinkKind): DrinkRow {
     const { scene, theme, i18n } = this.options
-    const container = scene.add.container(0, -PANEL_H / 2 + 104 + index * 78)
+    const ui = this.options.layout.ui
+    const rowW = ROW_W * ui
+    const container = scene.add.container(0, (-PANEL_H / 2 + 108 + index * 84) * ui)
     const bg = scene.add.graphics()
     container.add(bg)
 
     const cup = scene.add.graphics()
-    drawCup(cup, -ROW_W / 2 + 34, 0, 1.3, DRINK_CUP_COLORS[kind])
+    drawCup(cup, -rowW / 2 + 34 * ui, 0, 1.3 * ui, DRINK_CUP_COLORS[kind])
     container.add(cup)
 
     const name = scene.add
-      .text(-ROW_W / 2 + 62, -11, i18n.t(`drink.${kind}`), textStyle(theme, 17, theme.text, true))
+      .text(
+        -rowW / 2 + 62 * ui,
+        -12 * ui,
+        i18n.t(`drink.${kind}`),
+        textStyle(theme, 17 * ui, theme.text, true),
+      )
       .setOrigin(0, 0.5)
     container.add(name)
 
     const desc = scene.add
-      .text(-ROW_W / 2 + 62, 12, this.describe(kind), textStyle(theme, 12, theme.textMuted, false))
+      .text(
+        -rowW / 2 + 62 * ui,
+        15 * ui,
+        this.describe(kind),
+        textStyle(theme, 12 * ui, theme.textMuted, false),
+      )
       .setOrigin(0, 0.5)
     container.add(desc)
 
-    const coin = scene.add.image(76, -12, coinTextureKey()).setScale(0.4)
+    const coin = scene.add.image(76 * ui, -12 * ui, coinTextureKey()).setScale(0.4 * ui)
     container.add(coin)
     const price = scene.add
-      .text(86, -12, String(drinkPrice(kind)), textStyle(theme, 14, theme.text, true))
+      .text(
+        86 * ui,
+        -12 * ui,
+        String(drinkPrice(kind)),
+        textStyle(theme, 14 * ui, theme.text, true),
+      )
       .setOrigin(0, 0.5)
     container.add(price)
 
     const active = scene.add
-      .text(76, 12, '', textStyle(theme, 11, cssColor(theme.accentAlt), true))
+      .text(76 * ui, 14 * ui, '', textStyle(theme, 11 * ui, cssColor(theme.accentAlt), true))
       .setOrigin(0, 0.5)
     container.add(active)
 
     const buy = scene.add
-      .text(ROW_W / 2 - 48, 0, i18n.t('drink.buy'), textStyle(theme, 14, theme.text, true))
+      .text(rowW / 2 - 48 * ui, 0, i18n.t('drink.buy'), textStyle(theme, 14 * ui, theme.text, true))
       .setOrigin(0.5)
     container.add(buy)
 
-    const zone = scene.add.zone(0, 0, ROW_W, ROW_H).setInteractive({ useHandCursor: true })
+    const zone = scene.add.zone(0, 0, rowW, ROW_H * ui).setInteractive({ useHandCursor: true })
     zone.on('pointerdown', () => {
       if (this.state.coins < drinkPrice(kind)) return
       this.options.onBuy(kind)
@@ -182,15 +212,18 @@ export class DrinkPicker {
     row.price.setText(String(price))
 
     const { theme, i18n } = this.options
-    const halfW = ROW_W / 2
-    const halfH = ROW_H / 2
+    const ui = this.options.layout.ui
+    const rowW = ROW_W * ui
+    const rowH = ROW_H * ui
+    const halfW = rowW / 2
+    const halfH = rowH / 2
     row.bg.clear()
     row.bg.fillStyle(theme.surface, affordable ? 1 : 0.55)
-    row.bg.fillRoundedRect(-halfW, -halfH, ROW_W, ROW_H, 13)
-    row.bg.lineStyle(2, affordable ? theme.borderSoft : theme.ink, affordable ? 1 : 0.18)
-    row.bg.strokeRoundedRect(-halfW, -halfH, ROW_W, ROW_H, 13)
+    row.bg.fillRoundedRect(-halfW, -halfH, rowW, rowH, 13 * ui)
+    row.bg.lineStyle(2 * ui, affordable ? theme.borderSoft : theme.ink, affordable ? 1 : 0.18)
+    row.bg.strokeRoundedRect(-halfW, -halfH, rowW, rowH, 13 * ui)
     row.bg.fillStyle(affordable ? theme.accent : theme.borderSoft, affordable ? 0.18 : 0.12)
-    row.bg.fillRoundedRect(halfW - 96, -17, 80, 34, 10)
+    row.bg.fillRoundedRect(halfW - 96 * ui, -18 * ui, 80 * ui, 36 * ui, 10 * ui)
 
     row.name.setColor(affordable ? theme.text : theme.textMuted)
     row.desc.setColor(theme.textMuted)

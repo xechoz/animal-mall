@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Scale the whole interface for phones: HUD text, buttons, menus, dialogs, the
+  shop panel and in-world labels now grow up to 1.55x on small screens while
+  tablets and desktops keep their current layout. The shop panel uses three
+  columns and the full viewport in landscape so the larger cards still fit.
 - Add strawberry, grape, potato and eggplant, bringing each production zone to
   six plantable crops. The shop and plant chooser lay out six cards per zone.
 - Animals no longer eat directly from shelves. Each animal has a trough that the

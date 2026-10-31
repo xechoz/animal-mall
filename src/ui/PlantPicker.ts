@@ -31,17 +31,18 @@ export class PlantPicker {
 
   constructor(options: PlantPickerOptions) {
     const { scene, layout, theme, state, zone, slot } = options
+    const ui = layout.ui
     const products = PLANT_SHOP_ORDER.filter((product) => zoneOf(product) === zone)
     const rows = Math.ceil(products.length / COLUMNS)
-    const width = PADDING * 2 + COLUMNS * BUTTON_W + (COLUMNS - 1) * GAP
-    const height = PADDING * 2 + rows * BUTTON_H + (rows - 1) * GAP
+    const width = (PADDING * 2 + COLUMNS * BUTTON_W + (COLUMNS - 1) * GAP) * ui
+    const height = (PADDING * 2 + rows * BUTTON_H + (rows - 1) * GAP) * ui
     const point = layout.map.plantSlots[zone][slot] ?? layout.map.playerStart
     const screen = worldToScreen(layout, point)
-    const x = Math.max(width / 2 + 10, Math.min(layout.width - width / 2 - 10, screen.x))
-    const bottom = Math.max(150, screen.y - 38 * layout.worldScale)
+    const x = Math.max(width / 2 + 10 * ui, Math.min(layout.width - width / 2 - 10 * ui, screen.x))
+    const bottom = Math.max(150 * ui, screen.y - 38 * layout.worldScale * ui)
     const y = Math.max(
-      height / 2 + 84,
-      Math.min(layout.height - height / 2 - 20, bottom - height / 2),
+      height / 2 + 84 * ui,
+      Math.min(layout.height - height / 2 - 20 * ui, bottom - height / 2),
     )
 
     this.root = scene.add.container(0, 0).setDepth(6900)
@@ -57,21 +58,21 @@ export class PlantPicker {
 
     const g = scene.add.graphics()
     g.fillStyle(theme.shadow, 0.2)
-    g.fillRoundedRect(-width / 2, -height / 2 + 5, width, height, 18)
+    g.fillRoundedRect(-width / 2, -height / 2 + 5 * ui, width, height, 18 * ui)
     g.fillStyle(theme.panel, 0.98)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 18)
-    g.lineStyle(3, theme.accent, 0.9)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 18)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 18 * ui)
+    g.lineStyle(3 * ui, theme.accent, 0.9)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 18 * ui)
     g.fillStyle(theme.accent, 0.9)
-    g.fillTriangle(-10, height / 2 - 1, 10, height / 2 - 1, 0, height / 2 + 13)
+    g.fillTriangle(-10 * ui, height / 2 - ui, 10 * ui, height / 2 - ui, 0, height / 2 + 13 * ui)
     panel.add(g)
 
     const noProducers = state.producers.length === 0
     products.forEach((plant, index) => {
       const column = index % COLUMNS
       const row = Math.floor(index / COLUMNS)
-      const bx = -width / 2 + PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2
-      const by = -height / 2 + PADDING + row * (BUTTON_H + GAP) + BUTTON_H / 2
+      const bx = -width / 2 + (PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2) * ui
+      const by = -height / 2 + (PADDING + row * (BUTTON_H + GAP) + BUTTON_H / 2) * ui
       const cost = producerCost(plant)
       const deposit = state.deposits[plantDepositKey(plant)] ?? 0
       const remaining = Math.max(0, cost - deposit)
@@ -95,32 +96,35 @@ export class PlantPicker {
     enabled: boolean,
   ): Phaser.GameObjects.Container {
     const { scene, theme } = options
+    const ui = options.layout.ui
+    const buttonW = BUTTON_W * ui
+    const buttonH = BUTTON_H * ui
     const button = scene.add.container(x, y)
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, enabled ? 1 : 0.55)
-    g.fillRoundedRect(-BUTTON_W / 2, -BUTTON_H / 2, BUTTON_W, BUTTON_H, 12)
-    g.lineStyle(2, enabled ? theme.borderSoft : theme.ink, enabled ? 1 : 0.18)
-    g.strokeRoundedRect(-BUTTON_W / 2, -BUTTON_H / 2, BUTTON_W, BUTTON_H, 12)
+    g.fillRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
+    g.lineStyle(2 * ui, enabled ? theme.borderSoft : theme.ink, enabled ? 1 : 0.18)
+    g.strokeRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
     button.add(g)
 
-    const icon = scene.add.image(-26, 0, productTextureKey(product)).setScale(0.62)
+    const icon = scene.add.image(-26 * ui, 0, productTextureKey(product)).setScale(0.62 * ui)
     if (!enabled) icon.setAlpha(0.5)
     button.add(icon)
 
-    const coin = scene.add.image(4, 0, coinTextureKey()).setScale(0.42)
+    const coin = scene.add.image(4 * ui, 0, coinTextureKey()).setScale(0.42 * ui)
     if (!enabled) coin.setAlpha(0.5)
     button.add(coin)
     const label = scene.add
       .text(
-        14,
+        14 * ui,
         0,
         String(price),
-        textStyle(theme, 15, enabled ? theme.text : theme.textMuted, true),
+        textStyle(theme, 15 * ui, enabled ? theme.text : theme.textMuted, true),
       )
       .setOrigin(0, 0.5)
     button.add(label)
 
-    const zone = scene.add.zone(0, 0, BUTTON_W, BUTTON_H).setInteractive({ useHandCursor: true })
+    const zone = scene.add.zone(0, 0, buttonW, buttonH).setInteractive({ useHandCursor: true })
     zone.on('pointerdown', () => {
       if (!enabled) return
       options.onSelect(product)
