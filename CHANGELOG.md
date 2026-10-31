@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
 
 - Let the player carry several kinds of goods in one basket. Harvesting empties
   the nearest ready producer in one pick, stocking unloads every carried product
