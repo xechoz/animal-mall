@@ -4,7 +4,7 @@ import { INTERACT, PORTRAIT_MAP } from './config'
 import { feedCount } from './production'
 import { purchasePlant, purchaseUpgrade } from './purchase'
 import { initialSave } from './saveData'
-import { createShopState, inRegisterZone, stepShop, toSave } from './state'
+import { createShopState, inRegisterZone, removeProducerFromState, stepShop, toSave } from './state'
 import type { GameEvent, SaveData, ShopState, Vec2 } from './types'
 
 function withPlayer(state: ShopState, pos: Vec2): ShopState {
@@ -70,8 +70,7 @@ describe('shop simulation', () => {
     )
     let result = simulate(state, 1)
     state = result.state
-    expect(state.player.carry).toBe('apple')
-    expect(state.player.carryCount).toBe(1)
+    expect(state.player.carry).toEqual({ apple: 1 })
     expect(state.tutorial).toBe('stock')
 
     state = withPlayer(state, PORTRAIT_MAP.shelfAccess.fruit)
@@ -156,8 +155,93 @@ describe('shop simulation', () => {
       state.producers[0]?.pos ?? PORTRAIT_MAP.plots[0] ?? { x: 115, y: 255 },
     )
     state = simulate(state, 1).state
-    expect(state.player.carryCount).toBe(1)
+    expect(state.player.carry).toEqual({ apple: 1 })
     expect(INTERACT.harvestMs).toBeGreaterThan(0)
+  })
+
+  it('harvests a whole producer in one pick and mixes kinds in the basket', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      producers: [
+        { product: 'apple', slot: 0 },
+        { product: 'pear', slot: 1 },
+      ],
+    }
+    let state = createShopState(save, PORTRAIT_MAP)
+    state = {
+      ...state,
+      producers: state.producers.map((producer) => ({
+        ...producer,
+        ready: producer.product === 'apple' ? 3 : 2,
+      })),
+    }
+    const apple = state.producers[0] as NonNullable<ShopState['producers'][number]>
+    state = simulate(withPlayer(state, apple.pos), 1).state
+    expect(state.player.carry).toEqual({ apple: 3 })
+
+    const pear = state.producers[1] as NonNullable<ShopState['producers'][number]>
+    state = simulate(withPlayer(state, pear.pos), 5).state
+    expect(state.player.carry).toEqual({ apple: 3, pear: 2 })
+  })
+
+  it('stops a mixed harvest at the shared carry capacity', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      producers: [
+        { product: 'apple', slot: 0 },
+        { product: 'pear', slot: 1 },
+      ],
+    }
+    let state = createShopState(save, PORTRAIT_MAP)
+    state = {
+      ...state,
+      producers: state.producers.map((producer) => ({ ...producer, ready: 5 })),
+    }
+    const apple = state.producers[0] as NonNullable<ShopState['producers'][number]>
+    state = simulate(withPlayer(state, apple.pos), 1).state
+    expect(state.player.carry).toEqual({ apple: 5 })
+
+    const pear = state.producers[1] as NonNullable<ShopState['producers'][number]>
+    state = simulate(withPlayer(state, pear.pos), 5).state
+    expect(state.player.carry).toEqual({ apple: 5, pear: 1 })
+  })
+
+  it('stocks every carried product of the shelf zone in one action', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      producers: [
+        { product: 'apple', slot: 0 },
+        { product: 'pear', slot: 1 },
+      ],
+    }
+    let state = createShopState(save, PORTRAIT_MAP)
+    state = {
+      ...state,
+      player: { ...state.player, carry: { apple: 2, pear: 1, carrot: 3 } },
+    }
+    state = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.fruit), 1).state
+    expect(state.shelves.fruit.stock.apple).toBe(2)
+    expect(state.shelves.fruit.stock.pear).toBe(1)
+    expect(state.shelves.fruit.stock.carrot).toBe(0)
+    expect(state.player.carry).toEqual({ carrot: 3 })
+  })
+
+  it('removes only the discarded producer from a mixed basket', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      producers: [
+        { product: 'apple', slot: 0 },
+        { product: 'pear', slot: 1 },
+      ],
+    }
+    let state = createShopState(save, PORTRAIT_MAP)
+    state = {
+      ...state,
+      player: { ...state.player, carry: { apple: 2, pear: 1 } },
+    }
+    const pear = state.producers[1] as NonNullable<ShopState['producers'][number]>
+    state = removeProducerFromState(state, pear.id)
+    expect(state.player.carry).toEqual({ apple: 2 })
   })
 
   it('is deterministic for a seed and input sequence', () => {
@@ -167,17 +251,18 @@ describe('shop simulation', () => {
     expect(JSON.stringify(a.state)).toBe(JSON.stringify(b.state))
   })
 
-  it('feeds a trough when the player stands at it with produce', () => {
+  it('pours every carried plant into a trough and leaves other goods alone', () => {
     const base = createShopState(eggSave(), PORTRAIT_MAP)
     let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
     state = {
       ...state,
-      player: { ...state.player, carry: 'apple', carryCount: 3 },
+      player: { ...state.player, carry: { apple: 2, carrot: 1, milk: 2 } },
     }
 
     const result = simulate(state, 1)
-    expect(result.state.producers[0]?.feed.apple).toBe(1)
-    expect(result.state.player.carryCount).toBe(2)
+    expect(result.state.producers[0]?.feed.apple).toBe(2)
+    expect(result.state.producers[0]?.feed.carrot).toBe(1)
+    expect(result.state.player.carry).toEqual({ milk: 2 })
     expect(result.events.some((event) => event.type === 'feed')).toBe(true)
   })
 
@@ -186,12 +271,12 @@ describe('shop simulation', () => {
     let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
     state = {
       ...state,
-      player: { ...state.player, carry: 'apple', carryCount: 3 },
+      player: { ...state.player, carry: { apple: 3 } },
     }
 
     const result = simulate(state, 1, { input: { moveX: 1, moveY: 0 } })
     expect(result.state.producers[0]?.feed.apple ?? 0).toBe(0)
-    expect(result.state.player.carryCount).toBe(3)
+    expect(result.state.player.carry).toEqual({ apple: 3 })
   })
 
   it('does not put a non-plant product in a trough', () => {
@@ -199,14 +284,14 @@ describe('shop simulation', () => {
     let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
     state = {
       ...state,
-      player: { ...state.player, carry: 'milk', carryCount: 2 },
+      player: { ...state.player, carry: { milk: 2 } },
     }
 
     const result = simulate(state, 1)
     expect(
       feedCount(result.state.producers[0] as NonNullable<ShopState['producers'][number]>),
     ).toBe(0)
-    expect(result.state.player.carryCount).toBe(2)
+    expect(result.state.player.carry).toEqual({ milk: 2 })
   })
 
   it('persists producers, coins and upgrades through a save projection', () => {

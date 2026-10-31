@@ -1,5 +1,6 @@
 import { type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { carriedKinds } from '../logic/carry'
 import { zoneOf } from '../logic/config'
 import type { ShopState, TutorialStep, Vec2 } from '../logic/types'
 import { type GameLayout, worldToScreen } from './layout'
@@ -97,7 +98,7 @@ export class TutorialOverlay {
         break
       }
       case 'stock': {
-        const kind = state.player.carry
+        const kind = carriedKinds(state.player.carry)[0] ?? null
         this.target =
           kind === null
             ? (this.layout.map.plots[0] ?? this.layout.map.playerStart)

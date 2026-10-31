@@ -1,3 +1,4 @@
+import { carriedKinds, carryOf, EMPTY_CARRY } from './carry'
 import { distance } from './collision'
 import { DRINK_RADIUS, DRINKS, drinkPrice, FACILITY_DWELL_MS, REST, TRASH_RADIUS } from './config'
 import type {
@@ -41,16 +42,19 @@ export function stepFacilityDwell(
   let drinkDwellMs = facility.drinkDwellMs
   let drinkArmed = facility.drinkArmed
 
-  if (player.carry !== null && player.carryCount > 0) {
+  const carried = carriedKinds(player.carry)
+  if (carried.length > 0) {
     if (distance(player.pos, map.facilities.trashPoint) <= TRASH_RADIUS) {
       trashDwellMs += dtMs
       if (trashDwellMs >= FACILITY_DWELL_MS) {
-        events.push({
-          type: 'discard',
-          product: player.carry,
-          amount: player.carryCount,
-        })
-        nextPlayer = { ...player, carry: null, carryCount: 0 }
+        for (const product of carried) {
+          events.push({
+            type: 'discard',
+            product,
+            amount: carryOf(player.carry, product),
+          })
+        }
+        nextPlayer = { ...player, carry: EMPTY_CARRY }
         trashDwellMs = 0
       }
     } else {

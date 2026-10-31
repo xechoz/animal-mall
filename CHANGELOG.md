@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Let the player carry several kinds of goods in one basket. Harvesting empties
+  the nearest ready producer in one pick, stocking unloads every carried product
+  belonging to that shelf's zone, and feeding pours every carried plant into the
+  trough. Capacity is still shared across all kinds.
 - Scale the whole interface for phones: HUD text, buttons, menus, dialogs, the
   shop panel and in-world labels now grow up to 1.55x on small screens while
   tablets and desktops keep their current layout. The shop panel uses three

@@ -1,4 +1,5 @@
 import type { Rng } from '@mg/core/rng'
+import { addCarry, carryOf, carryTotal, EMPTY_CARRY, removeCarry, takeCarry } from './carry'
 import { distance, distanceSq, moveWithCollision } from './collision'
 import {
   CUSTOMER_RADIUS,
@@ -11,6 +12,7 @@ import {
   INTERACT,
   isPlantKind,
   moveSpeed,
+  PLANT_ORDER,
   PLAYER_RADIUS,
   PRODUCT_ORDER,
   PRODUCT_WEIGHT,
@@ -20,6 +22,7 @@ import {
   scanIntervalMs,
   shelfCapacity,
   WANDER,
+  ZONE_ORDER,
   zeroBuffs,
   zoneOf,
 } from './config'
@@ -95,8 +98,7 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
       prevPos: map.playerStart,
       facing: 1,
       moving: false,
-      carry: null,
-      carryCount: 0,
+      carry: EMPTY_CARRY,
       harvestMs: 0,
       stockMs: 0,
       feedMs: 0,
@@ -242,73 +244,74 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   shelves = production.shelves
   events.push(...production.events)
 
-  if (player.harvestMs <= 0 && player.carryCount < carryMax) {
-    const producer = nearestCollectable(producers, player.pos, player.carry)
-    if (producer !== null) {
-      producers = collectFromProducer(producers, producer.id)
-      player = {
-        ...player,
-        carry: producer.product,
-        carryCount: player.carryCount + 1,
-        harvestMs: INTERACT.harvestMs,
+  if (player.harvestMs <= 0) {
+    const room = carryMax - carryTotal(player.carry)
+    if (room > 0) {
+      const producer = nearestCollectable(producers, player.pos)
+      if (producer !== null) {
+        const amount = Math.min(producer.ready, room)
+        producers = collectFromProducer(producers, producer.id, amount)
+        player = {
+          ...player,
+          carry: addCarry(player.carry, producer.product, amount),
+          harvestMs: INTERACT.harvestMs,
+        }
+        events.push({ type: 'harvest', product: producer.product, amount })
       }
-      events.push({ type: 'harvest', product: producer.product, amount: 1 })
     }
   }
 
-  if (player.stockMs <= 0 && player.carry !== null && player.carryCount > 0) {
-    const product = player.carry
-    const zone = zoneOf(product)
-    const shelf = shelves[zone]
-    if (
-      binReady(shelves, product) &&
-      shelf.stock[product] < shelf.capacity &&
-      distance(player.pos, map.shelfAccess[zone]) <= INTERACT.stockRadius
-    ) {
-      shelves = addStock(shelves, product, 1)
-      const nextCount = player.carryCount - 1
-      player = {
-        ...player,
-        carryCount: nextCount,
-        carry: nextCount > 0 ? product : null,
-        stockMs: INTERACT.stockMs,
+  if (player.stockMs <= 0) {
+    const zone = nearestShelfZone(player.pos, map)
+    if (zone !== null) {
+      let carry = player.carry
+      let stocked = false
+      for (const product of PRODUCT_ORDER) {
+        const amount = carryOf(carry, product)
+        if (amount <= 0 || zoneOf(product) !== zone) continue
+        if (!binReady(shelves, product)) continue
+        const room = shelves[zone].capacity - shelves[zone].stock[product]
+        if (room <= 0) continue
+        const moved = Math.min(amount, room)
+        shelves = addStock(shelves, product, moved)
+        carry = takeCarry(carry, product, moved).carry
+        events.push({ type: 'stock', product, amount: moved })
+        stocked = true
       }
-      events.push({ type: 'stock', product, amount: 1 })
+      if (stocked) player = { ...player, carry, stockMs: INTERACT.stockMs }
     }
   }
 
   /**
-   * Feeding is deliberate: the player must stand at the trough with produce in
-   * hand. Walking past it never dumps the basket.
+   * Feeding is deliberate: the player must stand at the trough. Walking past it
+   * never dumps the basket, and every carried plant is poured in at once.
    */
-  const carried = player.carry
-  if (
-    player.feedMs <= 0 &&
-    carried !== null &&
-    isPlantKind(carried) &&
-    player.carryCount > 0 &&
-    distance(player.pos, player.prevPos) <= 0.5
-  ) {
+  if (player.feedMs <= 0 && distance(player.pos, player.prevPos) <= 0.5) {
     const trough = nearestTrough(producers, player.pos, map, INTERACT.feedRadius)
     if (trough !== null) {
-      const fed = addFeed(trough, carried, 1)
-      if (fed.accepted > 0) {
-        producers = producers.map((producer) =>
-          producer.id === trough.id ? fed.producer : producer,
-        )
-        const nextCount = player.carryCount - fed.accepted
-        player = {
-          ...player,
-          carryCount: nextCount,
-          carry: nextCount > 0 ? carried : null,
-          feedMs: INTERACT.feedMs,
-        }
+      let carry = player.carry
+      let troughState = trough
+      let fedAny = false
+      for (const product of PLANT_ORDER) {
+        const amount = carryOf(carry, product)
+        if (amount <= 0) continue
+        const fed = addFeed(troughState, product, amount)
+        if (fed.accepted <= 0) continue
+        troughState = fed.producer
+        carry = takeCarry(carry, product, fed.accepted).carry
         events.push({
           type: 'feed',
           producerId: trough.id,
-          product: carried,
+          product,
           amount: fed.accepted,
         })
+        fedAny = true
+      }
+      if (fedAny) {
+        producers = producers.map((producer) =>
+          producer.id === trough.id ? troughState : producer,
+        )
+        player = { ...player, carry, feedMs: INTERACT.feedMs }
       }
     }
   }
@@ -616,6 +619,19 @@ export function inRegisterZone(pos: Vec2, map: ShopMap): boolean {
   return Math.hypot(pos.x - closestX, pos.y - closestY) <= REGISTER_RADIUS
 }
 
+function nearestShelfZone(pos: Vec2, map: ShopMap): ZoneId | null {
+  let best: ZoneId | null = null
+  let bestDistance: number = INTERACT.stockRadius
+  for (const zone of ZONE_ORDER) {
+    const reach = distance(pos, map.shelfAccess[zone])
+    if (reach <= bestDistance) {
+      best = zone
+      bestDistance = reach
+    }
+  }
+  return best
+}
+
 export function refreshStateShelves(state: ShopState): ShopState {
   const shelves = refreshShelves(
     { ...state.shelves },
@@ -652,8 +668,8 @@ export function removeProducerFromState(state: ShopState, id: number): ShopState
   const producers = state.producers.filter((producer) => producer.id !== id)
   const stillHasProduct = producers.some((producer) => producer.product === removed.product)
   let player = state.player
-  if (!stillHasProduct && player.carry === removed.product) {
-    player = { ...player, carry: null, carryCount: 0 }
+  if (!stillHasProduct) {
+    player = { ...player, carry: removeCarry(player.carry, removed.product) }
   }
   const shelves = refreshShelves(
     { ...state.shelves },
@@ -699,7 +715,7 @@ function advanceTutorial(
   ) {
     return 'harvest'
   }
-  if (current === 'harvest' && player.carryCount > 0) return 'stock'
+  if (current === 'harvest' && carryTotal(player.carry) > 0) return 'stock'
   if (
     current === 'stock' &&
     PRODUCT_ORDER.some((product) => shelves[zoneOf(product)].everStocked[product])

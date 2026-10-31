@@ -1,6 +1,7 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
-import type { PlayerState } from '../logic/types'
+import { carriedKinds, carryOf, carryTotal } from '../logic/carry'
+import type { PlayerState, ProductKind } from '../logic/types'
 import { playerTextureKey } from './animalArt'
 import { productTextureKey } from './productArt'
 
@@ -50,18 +51,25 @@ export class PlayerView extends Phaser.GameObjects.Container {
     this.setPosition(x, y - bob)
     this.bodyImage.setScale(player.facing * 0.82, 0.82)
 
-    const key = `${player.carry}-${player.carryCount}`
+    const kinds = carriedKinds(player.carry)
+    const key = kinds.map((product) => `${product}:${carryOf(player.carry, product)}`).join('|')
     if (key !== this.carryKey) {
       this.carryKey = key
+      const stack: ProductKind[] = []
+      for (const product of kinds) {
+        const count = carryOf(player.carry, product)
+        for (let index = 0; index < count && stack.length < 5; index += 1) {
+          stack.push(product)
+        }
+      }
       this.carrying.forEach((icon, index) => {
-        const visible = player.carry !== null && index < Math.min(5, player.carryCount)
-        icon.setVisible(visible)
-        if (visible && player.carry !== null) icon.setTexture(productTextureKey(player.carry))
+        const product = stack[index]
+        icon.setVisible(product !== undefined)
+        if (product !== undefined) icon.setTexture(productTextureKey(product))
       })
-      const overflow = player.carryCount > 5
-      this.carryCount
-        .setText(overflow ? `×${player.carryCount}` : '')
-        .setVisible(overflow && player.carry !== null)
+      const total = carryTotal(player.carry)
+      const overflow = total > 5
+      this.carryCount.setText(overflow ? `×${total}` : '').setVisible(overflow)
     }
     this.carryCount.setColor(this.theme.text)
   }

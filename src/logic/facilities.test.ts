@@ -46,8 +46,8 @@ function dwell(
   return { state: current, events }
 }
 
-function carrying(state: ShopState, product: 'apple', count: number): ShopState {
-  return { ...state, player: { ...state.player, carry: product, carryCount: count } }
+function carrying(state: ShopState, carry: ShopState['player']['carry']): ShopState {
+  return { ...state, player: { ...state.player, carry } }
 }
 
 function emptyFacility(): FacilityState {
@@ -78,25 +78,26 @@ function customerAtRegister(): CustomerState {
 }
 
 describe('facility dwell', () => {
-  it('empties the carried stack only after half a second by the bin', () => {
+  it('empties a mixed carried stack only after half a second by the bin', () => {
     let state = createShopState(initialSave(), PORTRAIT_MAP)
-    state = carrying(withPlayer(state, PORTRAIT_MAP.facilities.trashPoint), 'apple', 3)
+    state = carrying(withPlayer(state, PORTRAIT_MAP.facilities.trashPoint), {
+      apple: 2,
+      pear: 1,
+    })
     state = { ...state, facility: emptyFacility() }
 
     const early = dwell(state, 9)
     expect(early.events).toHaveLength(0)
-    expect(early.state.player.carry).toBe('apple')
-    expect(early.state.player.carryCount).toBe(3)
+    expect(early.state.player.carry).toEqual({ apple: 2, pear: 1 })
 
     const done = dwell(state, 10)
-    expect(done.state.player.carry).toBeNull()
-    expect(done.state.player.carryCount).toBe(0)
-    expect(done.events.some((event) => event.type === 'discard')).toBe(true)
+    expect(done.state.player.carry).toEqual({})
+    expect(done.events.filter((event) => event.type === 'discard')).toHaveLength(2)
   })
 
   it('resets the bin timer when the player steps away', () => {
     let state = createShopState(initialSave(), PORTRAIT_MAP)
-    state = carrying(withPlayer(state, PORTRAIT_MAP.facilities.trashPoint), 'apple', 2)
+    state = carrying(withPlayer(state, PORTRAIT_MAP.facilities.trashPoint), { apple: 2 })
     state = { ...state, facility: emptyFacility() }
     const partial = dwell(state, 9).state
     const away = withPlayer(partial, {
@@ -108,7 +109,7 @@ describe('facility dwell', () => {
 
     const back = withPlayer(reset, PORTRAIT_MAP.facilities.trashPoint)
     const result = dwell(back, 9)
-    expect(result.state.player.carryCount).toBe(2)
+    expect(result.state.player.carry).toEqual({ apple: 2 })
   })
 
   it('does not tick the bin while the player is empty-handed', () => {
@@ -204,13 +205,11 @@ describe('drinks', () => {
       },
       PORTRAIT_MAP,
     )
-    const stocked = carrying(
-      withPlayer(apple, apple.producers[0]?.pos ?? { x: 115, y: 255 }),
-      'apple',
-      6,
-    )
+    const stocked = carrying(withPlayer(apple, apple.producers[0]?.pos ?? { x: 115, y: 255 }), {
+      apple: 6,
+    })
     const noBuff = stepShop(stocked, { moveX: 0, moveY: 0 }, rng, 50)
-    expect(noBuff.state.player.carryCount).toBe(6)
+    expect(noBuff.state.player.carry).toEqual({ apple: 6 })
     const withTea = stepShop(
       {
         ...stocked,
@@ -220,7 +219,7 @@ describe('drinks', () => {
       rng,
       50,
     )
-    expect(withTea.state.player.carryCount).toBe(7)
+    expect(withTea.state.player.carry).toEqual({ apple: 7 })
 
     const queueState = createShopState(
       {

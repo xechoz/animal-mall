@@ -170,13 +170,11 @@ export function eligibleProducts(
 export function nearestCollectable(
   producers: readonly ProducerState[],
   pos: Vec2,
-  carry: ProductKind | null,
 ): ProducerState | null {
   let best: ProducerState | null = null
   let bestDistance = Number.POSITIVE_INFINITY
   for (const producer of producers) {
     if (producer.ready <= 0) continue
-    if (carry !== null && carry !== producer.product) continue
     const distanceToProducer = distance(pos, producer.pos)
     if (distanceToProducer <= INTERACT.harvestRadius && distanceToProducer < bestDistance) {
       best = producer
@@ -189,9 +187,12 @@ export function nearestCollectable(
 export function collectFromProducer(
   producers: readonly ProducerState[],
   id: number,
+  amount = 1,
 ): readonly ProducerState[] {
   return producers.map((producer) =>
-    producer.id === id ? { ...producer, ready: Math.max(0, producer.ready - 1) } : producer,
+    producer.id === id
+      ? { ...producer, ready: Math.max(0, producer.ready - Math.max(0, amount)) }
+      : producer,
   )
 }
 

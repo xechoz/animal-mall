@@ -5,6 +5,9 @@ export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish'
 export type PlantKind = FruitKind | VegKind
 export type ProductKind = PlantKind | AnimalProductKind | ProcessedKind
 
+/** A mixed basket: how many of each product the player is carrying. */
+export type Carry = Readonly<Partial<Record<ProductKind, number>>>
+
 export type ZoneId = 'fruit' | 'veg' | 'farm' | 'kitchen'
 export type ProducerKind = 'plant' | 'animal' | 'station'
 
@@ -138,8 +141,7 @@ export interface PlayerState {
   readonly prevPos: Vec2
   readonly facing: -1 | 1
   readonly moving: boolean
-  readonly carry: ProductKind | null
-  readonly carryCount: number
+  readonly carry: Carry
   readonly harvestMs: number
   readonly stockMs: number
   readonly feedMs: number
