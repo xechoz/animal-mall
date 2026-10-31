@@ -1,5 +1,4 @@
 import {
-  ANIMAL_PENS,
   FRUIT_ORDER,
   isAnimalProductKind,
   isFruitKind,
@@ -10,13 +9,14 @@ import {
   STAFF,
   STAFF_ORDER,
   STARTING_COINS,
-  STATION_SLOTS,
   UPGRADE_ORDER,
   UPGRADES,
   ZONE_ORDER,
 } from './config'
 import type {
+  AnimalProductKind,
   PlantKind,
+  ProcessedKind,
   ProductKind,
   SaveData,
   SaveProducer,
@@ -220,6 +220,21 @@ function parseProducers(record: Record<string, unknown>): SaveProducer[] {
   return producers
 }
 
+// Animal pens and stations use stable slot indices, so saves stay valid when
+// the same shop moves between the portrait and landscape layouts.
+const ANIMAL_SLOTS: Readonly<Record<AnimalProductKind, number>> = {
+  egg: 0,
+  milk: 1,
+  yarn: 2,
+  fish: 3,
+}
+
+const PROCESSED_SLOTS: Readonly<Record<ProcessedKind, number>> = {
+  cake: 0,
+  sweater: 1,
+  grilledFish: 2,
+}
+
 function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {
   if (isPlantKind(product)) {
     if (typeof rawSlot !== 'number' || !Number.isInteger(rawSlot) || rawSlot < 0 || rawSlot > 3) {
@@ -227,8 +242,8 @@ function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {
     }
     return rawSlot
   }
-  if (isAnimalProductKind(product)) return ANIMAL_PENS[product].index
-  if (isProcessedKind(product)) return STATION_SLOTS[product].index
+  if (isAnimalProductKind(product)) return ANIMAL_SLOTS[product]
+  if (isProcessedKind(product)) return PROCESSED_SLOTS[product]
   return null
 }
 

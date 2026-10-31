@@ -1,5 +1,6 @@
 import { type Insets, NO_INSETS } from '@mg/core'
-import type { Rect, Vec2 } from '../logic/types'
+import { shopMapFor } from '../logic/config'
+import type { Rect, ShopMap, Vec2 } from '../logic/types'
 
 export interface HudLayout {
   readonly bar: Rect
@@ -16,6 +17,7 @@ export interface GameLayout {
   readonly height: number
   readonly portrait: boolean
   readonly insets: Insets
+  readonly map: ShopMap
   readonly room: Rect
   readonly worldScale: number
   readonly hud: HudLayout
@@ -23,8 +25,6 @@ export interface GameLayout {
   readonly panelHeight: number
 }
 
-const ROOM_UNITS_W = 680
-const ROOM_UNITS_H = 1200
 const TOP_GAP = 78
 const BUTTON_SIZE = 64
 
@@ -34,18 +34,16 @@ export function computeGameLayout(
   insets: Insets = NO_INSETS,
 ): GameLayout {
   const portrait = height >= width
+  const map = shopMapFor(width, height)
   const safeWidth = width - insets.left - insets.right
   const top = insets.top + TOP_GAP
   const availableHeight = Math.max(240, height - top - insets.bottom - 12)
-  const scale = Math.max(
-    0.2,
-    Math.min((safeWidth - 24) / ROOM_UNITS_W, availableHeight / ROOM_UNITS_H),
-  )
+  const scale = Math.max(0.2, Math.min((safeWidth - 24) / map.room.w, availableHeight / map.room.h))
   const room: Rect = {
-    x: insets.left + (safeWidth - ROOM_UNITS_W * scale) / 2,
-    y: top + (availableHeight - ROOM_UNITS_H * scale) / 2,
-    w: ROOM_UNITS_W * scale,
-    h: ROOM_UNITS_H * scale,
+    x: insets.left + (safeWidth - map.room.w * scale) / 2,
+    y: top + (availableHeight - map.room.h * scale) / 2,
+    w: map.room.w * scale,
+    h: map.room.h * scale,
   }
 
   const bar: Rect = {
@@ -63,6 +61,7 @@ export function computeGameLayout(
     height,
     portrait,
     insets,
+    map,
     room,
     worldScale: scale,
     hud: {

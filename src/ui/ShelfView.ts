@@ -1,8 +1,8 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { SHELF_RECTS, ZONE_PRODUCTS } from '../logic/config'
-import type { ProductKind, ShelfState, ZoneId } from '../logic/types'
+import { ZONE_PRODUCTS } from '../logic/config'
+import type { ProductKind, ShelfState, ShopMap, ZoneId } from '../logic/types'
 import { productTextureKey } from './productArt'
 
 export class ShelfView extends Phaser.GameObjects.Container {
@@ -13,8 +13,8 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private readonly bins: readonly ProductKind[]
   private lastKey = ''
 
-  constructor(scene: Phaser.Scene, theme: Theme, zone: ZoneId) {
-    const rect = SHELF_RECTS[zone]
+  constructor(scene: Phaser.Scene, theme: Theme, zone: ZoneId, map: ShopMap) {
+    const rect = map.shelves[zone]
     super(scene, rect.x + rect.w / 2, rect.y + rect.h / 2)
     const width = rect.w
     const height = rect.h

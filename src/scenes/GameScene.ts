@@ -12,14 +12,7 @@ import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
-import {
-  isPlantKind,
-  isProcessedKind,
-  producerCost,
-  REGISTER_POINT,
-  SHELF_RECTS,
-  ZONE_ORDER,
-} from '../logic/config'
+import { isPlantKind, isProcessedKind, producerCost, ZONE_ORDER } from '../logic/config'
 import {
   type PurchaseOutcome,
   type PurchaseResult,
@@ -32,11 +25,11 @@ import {
   purchaseZone,
   removeProducer,
 } from '../logic/purchase'
-import { createShopState, stepShop, toSave } from '../logic/state'
+import { createShopState, remapShopState, stepShop, toSave } from '../logic/state'
 import type { GameEvent, PlantKind, ProductKind, ShopState, ZoneId } from '../logic/types'
 import { progressSave } from '../save'
 import { createAnimalTextures } from '../ui/animalArt'
-import { COIN_PILE_POINT, CoinPileView } from '../ui/CoinPileView'
+import { CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
 import { coinTextureKey } from '../ui/fruitArt'
 import { fullscreenActive, fullscreenSupported, toggleGameFullscreen } from '../ui/fullscreen'
@@ -134,12 +127,12 @@ export class GameScene extends Phaser.Scene {
     createAnimalTextures(this)
     createProductTextures(this)
     this.saveStore = progressSave(this.services)
-    this.state = createShopState(this.saveStore.read())
+    const viewport = readViewport(this)
+    this.layout = computeGameLayout(viewport.width, viewport.height, viewport.insets)
+    this.state = createShopState(this.saveStore.read(), this.layout.map)
     const seed = Number(this.services.params.get('seed'))
     this.rng = createRng(Number.isFinite(seed) && seed > 0 ? seed : randomSeed())
 
-    const viewport = readViewport(this)
-    this.layout = computeGameLayout(viewport.width, viewport.height, viewport.insets)
     this.cameras.main.setBackgroundColor(gameColors.theme.bg)
 
     this.drawBackdrop()
@@ -212,14 +205,20 @@ export class GameScene extends Phaser.Scene {
       farm: i18n.t('zone.farm'),
       kitchen: i18n.t('zone.kitchen'),
     }
-    const background = createShopBackground(this, theme, i18n.t('game.title'), labels)
+    const background = createShopBackground(
+      this,
+      theme,
+      i18n.t('game.title'),
+      labels,
+      this.layout.map,
+    )
     background.setDepth(0)
     this.world.add(background)
 
     this.shelfViews = Object.fromEntries(
       ZONE_ORDER.map((zone) => {
-        const view = new ShelfView(this, theme, zone)
-        const rect = SHELF_RECTS[zone]
+        const view = new ShelfView(this, theme, zone, this.layout.map)
+        const rect = this.layout.map.shelves[zone]
         view.setDepth(rect.y + rect.h)
         this.world.add(view)
         return [zone, view]
@@ -227,15 +226,15 @@ export class GameScene extends Phaser.Scene {
     ) as Record<ZoneId, ShelfView>
 
     this.staffStations = {
-      cashier: new StaffStationView(this, theme, 'cashier'),
-      picker: new StaffStationView(this, theme, 'picker'),
+      cashier: new StaffStationView(this, theme, 'cashier', this.layout.map),
+      picker: new StaffStationView(this, theme, 'picker', this.layout.map),
     }
     this.staffStations.cashier.setDepth(1120)
     this.staffStations.picker.setDepth(560)
     this.world.add(this.staffStations.cashier)
     this.world.add(this.staffStations.picker)
 
-    this.coinPile = new CoinPileView(this, theme)
+    this.coinPile = new CoinPileView(this, theme, this.layout.map)
     this.world.add(this.coinPile)
 
     this.playerView = new PlayerView(this, theme)
@@ -628,7 +627,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private coinCollectBurst(amount: number): void {
-    const from = worldToScreen(this.layout, REGISTER_POINT)
+    const from = worldToScreen(this.layout, this.layout.map.register)
     const to = this.layout.hud.coins
     const count = Math.min(6, Math.max(1, Math.ceil(amount / 4)))
     for (let index = 0; index < count; index += 1) {
@@ -652,8 +651,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private coinToPile(): void {
-    const from = worldToScreen(this.layout, REGISTER_POINT)
-    const to = worldToScreen(this.layout, COIN_PILE_POINT)
+    const from = worldToScreen(this.layout, this.layout.map.register)
+    const to = worldToScreen(this.layout, {
+      x: this.layout.map.counter.x + this.layout.map.counter.w - 15,
+      y: this.layout.map.counter.y + 22,
+    })
     const coin = this.add
       .image(from.x, from.y - 10, coinTextureKey())
       .setScale(0.5)
@@ -669,7 +671,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private coinBurst(amount: number): void {
-    const point = worldToScreen(this.layout, REGISTER_POINT)
+    const point = worldToScreen(this.layout, this.layout.map.register)
     for (let index = 0; index < Math.min(3, amount); index += 1) {
       const coin = this.add
         .image(point.x + (index - 1) * 8, point.y - 8, coinTextureKey())
@@ -868,21 +870,27 @@ export class GameScene extends Phaser.Scene {
     if (
       next.width === this.layout.width &&
       next.height === this.layout.height &&
-      next.portrait === this.layout.portrait
+      next.map.id === this.layout.map.id &&
+      next.room.x === this.layout.room.x &&
+      next.room.y === this.layout.room.y &&
+      next.room.w === this.layout.room.w &&
+      next.room.h === this.layout.room.h
     ) {
       return
     }
     const previousMode = this.mode
-    const orientationChanged = next.portrait !== this.layout.portrait
+    const mapChanged = next.map.id !== this.layout.map.id
 
     this.destroyFloatingUi()
+    if (mapChanged) this.state = remapShopState(this.state, next.map)
     this.layout = next
+    if (mapChanged) this.rebuildWorld()
     this.applyWorldLayout()
     this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(this, this.layout, this.services.theme)
 
-    if (previousMode === 'playing' && orientationChanged) {
+    if (previousMode === 'playing' && mapChanged) {
       this.pauseGame()
     } else if (previousMode === 'paused') {
       this.showPauseOverlay()
@@ -900,6 +908,17 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(7500)
     }
+  }
+
+  private rebuildWorld(): void {
+    this.world.destroy(true)
+    this.producerViews.clear()
+    this.customerViews.clear()
+    this.staffViews.clear()
+    this.buildWorld()
+    this.syncCustomers(1, 0)
+    this.syncStaff(1, 0)
+    this.coinPile.updatePile(this.state.pendingCoins)
   }
 
   private applyWorldLayout(): void {

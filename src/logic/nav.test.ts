@@ -1,93 +1,82 @@
 import { describe, expect, it } from 'vitest'
 import { blockedAt } from './collision'
 import {
-  ANIMAL_ACCESS,
   ANIMAL_ORDER,
-  ANIMAL_PENS,
-  CROP_PLOTS,
   CUSTOMER_RADIUS,
-  DOOR_POINT,
-  PLANT_ACCESS,
-  PLAYER_START,
-  PLOTS,
+  LANDSCAPE_MAP,
+  PORTRAIT_MAP,
   PROCESSED_ORDER,
-  QUEUE_SLOTS,
-  SHELF_ACCESS,
-  STATION_ACCESS,
-  STATION_SLOTS,
   ZONE_ORDER,
 } from './config'
 import { findPath, lineWalkable } from './nav'
+import type { ShopMap } from './types'
 
-describe('navigation', () => {
-  const targets = [
-    ...ZONE_ORDER.map((zone) => SHELF_ACCESS[zone]),
-    ...QUEUE_SLOTS,
-    DOOR_POINT,
-    ...PLANT_ACCESS.fruit,
-    ...PLANT_ACCESS.veg,
-    ...ANIMAL_ORDER.map((product) => ANIMAL_ACCESS[product]),
-    ...PROCESSED_ORDER.map((product) => STATION_ACCESS[product]),
-  ]
+const MAPS: readonly ShopMap[] = [PORTRAIT_MAP, LANDSCAPE_MAP]
 
-  it('reaches every shelf, producer, queue slot and the door', () => {
-    for (const target of targets) {
-      const path = findPath(PLAYER_START, target, CUSTOMER_RADIUS)
-      expect(path).not.toBeNull()
-      expect(path?.length).toBeGreaterThan(0)
-      for (const point of path ?? []) {
-        expect(blockedAt(point.x, point.y, CUSTOMER_RADIUS)).toBe(false)
-      }
-    }
-  })
+for (const map of MAPS) {
+  describe(`${map.id} navigation`, () => {
+    const targets = [
+      ...ZONE_ORDER.map((zone) => map.shelfAccess[zone]),
+      ...map.queueSlots,
+      map.doorPoint,
+      ...map.plantAccess.fruit,
+      ...map.plantAccess.veg,
+      ...ANIMAL_ORDER.map((product) => map.animalAccess[product]),
+      ...PROCESSED_ORDER.map((product) => map.stationAccess[product]),
+    ]
 
-  it('walks around shelves and plots instead of through them', () => {
-    const path = findPath({ x: 320, y: 1120 }, { x: 115, y: 255 }, CUSTOMER_RADIUS)
-    expect(path).not.toBeNull()
-    for (const point of path ?? []) {
-      expect(blockedAt(point.x, point.y, CUSTOMER_RADIUS)).toBe(false)
-    }
-  })
-
-  it('has line of sight across the central aisle', () => {
-    expect(lineWalkable(PLAYER_START, { x: 320, y: 560 }, CUSTOMER_RADIUS)).toBe(true)
-  })
-
-  it('does not line-of-sight through a shelf', () => {
-    expect(lineWalkable({ x: 170, y: 170 }, { x: 170, y: 60 }, CUSTOMER_RADIUS)).toBe(false)
-  })
-
-  it('keeps all facility centers blocked for customers', () => {
-    for (const plot of [...PLOTS, ...CROP_PLOTS]) {
-      expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS)).toBe(true)
-    }
-    for (const product of ANIMAL_ORDER) {
-      const pen = ANIMAL_PENS[product]
-      expect(blockedAt(pen.x, pen.y, CUSTOMER_RADIUS)).toBe(true)
-    }
-    for (const product of PROCESSED_ORDER) {
-      const station = STATION_SLOTS[product]
-      expect(blockedAt(station.x, station.y, CUSTOMER_RADIUS)).toBe(true)
-    }
-  })
-
-  it('reaches the queue and door from every shelf', () => {
-    for (const zone of ZONE_ORDER) {
-      for (const target of [...QUEUE_SLOTS, DOOR_POINT]) {
-        const path = findPath(SHELF_ACCESS[zone], target, CUSTOMER_RADIUS)
+    it('reaches every shelf, producer, queue slot and the door', () => {
+      for (const target of targets) {
+        const path = findPath(map.playerStart, target, CUSTOMER_RADIUS, map)
         expect(path).not.toBeNull()
+        expect(path?.length).toBeGreaterThan(0)
+        for (const point of path ?? []) {
+          expect(blockedAt(point.x, point.y, CUSTOMER_RADIUS, map)).toBe(false)
+        }
       }
-    }
-  })
+    })
 
-  it('reaches its own shelf from every producer', () => {
-    for (const product of ANIMAL_ORDER) {
-      const path = findPath(ANIMAL_ACCESS[product], SHELF_ACCESS.farm, CUSTOMER_RADIUS)
+    it('walks around shelves and plots instead of through them', () => {
+      const target = map.plantAccess.fruit[0]
+      expect(target).toBeDefined()
+      const path = findPath(
+        map.playerStart,
+        target as { x: number; y: number },
+        CUSTOMER_RADIUS,
+        map,
+      )
       expect(path).not.toBeNull()
-    }
-    for (const product of PROCESSED_ORDER) {
-      const path = findPath(STATION_ACCESS[product], SHELF_ACCESS.kitchen, CUSTOMER_RADIUS)
-      expect(path).not.toBeNull()
-    }
+      for (const point of path ?? []) {
+        expect(blockedAt(point.x, point.y, CUSTOMER_RADIUS, map)).toBe(false)
+      }
+    })
+
+    it('has line of sight across the main aisle', () => {
+      const from = map.id === 'portrait' ? { x: 320, y: 1120 } : { x: 300, y: 620 }
+      const to = map.id === 'portrait' ? { x: 320, y: 560 } : { x: 1100, y: 620 }
+      expect(lineWalkable(from, to, CUSTOMER_RADIUS, map)).toBe(true)
+    })
+
+    it('does not line-of-sight through a shelf', () => {
+      const shelf = map.shelves.fruit
+      const center = { x: shelf.x + shelf.w / 2, y: shelf.y + shelf.h / 2 }
+      expect(lineWalkable(center, { x: center.x, y: shelf.y - 30 }, CUSTOMER_RADIUS, map)).toBe(
+        false,
+      )
+    })
+
+    it('keeps all facility centers blocked for customers', () => {
+      for (const plot of [...map.plots, ...map.cropPlots]) {
+        expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS, map)).toBe(true)
+      }
+      for (const product of ANIMAL_ORDER) {
+        const pen = map.animalPens[product]
+        expect(blockedAt(pen.x, pen.y, CUSTOMER_RADIUS, map)).toBe(true)
+      }
+      for (const product of PROCESSED_ORDER) {
+        const station = map.stationSlots[product]
+        expect(blockedAt(station.x, station.y, CUSTOMER_RADIUS, map)).toBe(true)
+      }
+    })
   })
-})
+}

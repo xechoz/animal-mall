@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+- Support both orientations with dedicated shop plans: the tall plan in
+  portrait and a wide four-column plan in landscape. Rotating keeps coins,
+  trees, upgrades, deposits and pending counter coins, resets transient
+  shoppers and returns the player to the door.
 - Expand the shop into four zones: fruit, vegetables, farm and kitchen, with
-  fifteen products and a portrait 680×1200 single-screen layout.
+  fifteen products and a 680×1200 portrait plan.
 - Add vegetables, farm animals and ponds. Animals eat fruit or vegetables from
   the shelves and keep one unit for customers; the pond produces fish.
 - Add processing stations: the oven turns eggs and milk into cake, the loom

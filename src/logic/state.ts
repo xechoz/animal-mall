@@ -1,25 +1,20 @@
 import type { Rng } from '@mg/core/rng'
 import { distance, distanceSq, moveWithCollision } from './collision'
 import {
-  COUNTER_RECT,
   CUSTOMER_RADIUS,
   CUSTOMER_SPECIES,
   CUSTOMER_TUNING,
   carryCapacity,
-  DOOR_POINT,
-  DOOR_SPAWN,
   fertilizerMultiplier,
   INTERACT,
   isPlantKind,
   moveSpeed,
   PLAYER_RADIUS,
-  PLAYER_START,
   PRODUCT_ORDER,
   PRODUCT_WEIGHT,
+  producerPosition,
   productPrice,
-  QUEUE_SLOTS,
   REGISTER_RADIUS,
-  SHELF_ACCESS,
   scanIntervalMs,
   shelfCapacity,
   zoneOf,
@@ -47,6 +42,7 @@ import type {
   ProductKind,
   SaveData,
   ShelfState,
+  ShopMap,
   ShopState,
   SpeciesId,
   StepInput,
@@ -62,11 +58,11 @@ interface CustomerMove {
   readonly arrived: boolean
 }
 
-export function createShopState(save: SaveData): ShopState {
+export function createShopState(save: SaveData, map: ShopMap): ShopState {
   const zones = { ...save.zones }
   const shelves = emptyShelves(zones, shelfCapacity(save.upgrades.shelf))
   const producers = save.producers.map((producer, index) =>
-    createProducer(producer.product, producer.slot, index + 1),
+    createProducer(producer.product, producer.slot, index + 1, map),
   )
   let nextShelves = refreshShelves(shelves, producers, zones, shelfCapacity(save.upgrades.shelf))
   if (save.served > 0) {
@@ -81,13 +77,14 @@ export function createShopState(save: SaveData): ShopState {
         : 'buyTree'
 
   return {
+    map,
     coins: save.coins,
     totalEarned: save.totalEarned,
     served: save.served,
     pendingCoins: save.pendingCoins,
     player: {
-      pos: PLAYER_START,
-      prevPos: PLAYER_START,
+      pos: map.playerStart,
+      prevPos: map.playerStart,
       facing: 1,
       moving: false,
       carry: null,
@@ -106,10 +103,41 @@ export function createShopState(save: SaveData): ShopState {
     nextProducerId: producers.length + 1,
     upgrades: save.upgrades,
     staff: save.staff,
-    staffMembers: createStaffMembers(save.staff),
+    staffMembers: createStaffMembers(save.staff, map),
     deposits: save.deposits,
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
     tutorial,
+  }
+}
+
+/**
+ * Moves a running shop onto another floor plan. Progress and carried goods are
+ * kept; transient shoppers and staff movement are reset so no path can point
+ * at an obstacle from the old map.
+ */
+export function remapShopState(state: ShopState, map: ShopMap): ShopState {
+  if (state.map.id === map.id) return state
+  return {
+    ...state,
+    map,
+    player: {
+      ...state.player,
+      pos: map.playerStart,
+      prevPos: map.playerStart,
+      moving: false,
+      harvestMs: 0,
+      stockMs: 0,
+    },
+    producers: state.producers.map((producer) => ({
+      ...producer,
+      pos: producerPosition(map, producer.product, producer.slot),
+    })),
+    customers: [],
+    queue: [],
+    register: { customerId: null, scanMs: 0 },
+    spawnMs: 1_200,
+    staffMembers: createStaffMembers(state.staff, map),
+    quickBuy: { targetKey: null, dwellMs: 0, armed: true },
   }
 }
 
@@ -135,6 +163,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   const growth = fertilizerMultiplier(state.upgrades.fertilizer)
   const carryMax = carryCapacity(state.upgrades.carry)
   const speed = moveSpeed(state.upgrades.speed)
+  const map = state.map
 
   let coins = state.coins
   let totalEarned = state.totalEarned
@@ -165,7 +194,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     const step = (speed * dt) / 1000
     player = {
       ...player,
-      pos: moveWithCollision(player.pos, moveX * step, moveY * step, PLAYER_RADIUS),
+      pos: moveWithCollision(player.pos, moveX * step, moveY * step, PLAYER_RADIUS, map),
       moving: true,
       facing: moveX < -0.08 ? -1 : moveX > 0.08 ? 1 : player.facing,
     }
@@ -205,7 +234,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     if (
       binReady(shelves, product) &&
       shelf.stock[product] < shelf.capacity &&
-      distance(player.pos, SHELF_ACCESS[zone]) <= INTERACT.stockRadius
+      distance(player.pos, map.shelfAccess[zone]) <= INTERACT.stockRadius
     ) {
       shelves = addStock(shelves, product, 1)
       const nextCount = player.carryCount - 1
@@ -231,7 +260,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     if (customer.phase === 'leaving') {
       const moved = advanceCustomer(customer, dt)
       customer = moved.customer
-      if (moved.arrived || distance(customer.pos, DOOR_POINT) < 14) {
+      if (moved.arrived || distance(customer.pos, map.doorPoint) < 14) {
         events.push({ type: 'customerLeave', customerId: customer.id, sad: customer.sad })
         continue
       }
@@ -242,7 +271,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     const beingServed =
       queue[0] === customer.id &&
       customer.phase === 'inQueue' &&
-      (hasCashier || inRegisterZone(player.pos))
+      (hasCashier || inRegisterZone(player.pos, map))
     if (!beingServed) {
       const factor =
         customer.phase === 'inQueue' && customer.queueIndex > 0
@@ -252,7 +281,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     }
 
     if (customer.patienceMs <= 0) {
-      customer = leaveCustomer(customer)
+      customer = leaveCustomer(customer, map)
       if (queue.includes(customer.id)) {
         queue = queue.filter((id) => id !== customer.id)
         queueChanged = true
@@ -319,7 +348,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
               ...customer,
               target: next,
               phase: 'toShelf',
-              path: pathTo(customer.pos, SHELF_ACCESS[zoneOf(next)], radius),
+              path: pathTo(customer.pos, map.shelfAccess[zoneOf(next)], radius, map),
               pathIndex: 0,
             }
           } else if (customer.basket.length > 0) {
@@ -332,28 +361,28 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
                 target: null,
                 phase: 'toQueue',
                 queueIndex: index,
-                path: pathTo(customer.pos, QUEUE_SLOTS[index] as Vec2, radius),
+                path: pathTo(customer.pos, map.queueSlots[index] as Vec2, radius, map),
                 pathIndex: 0,
               }
             } else {
-              customer = leaveCustomer(customer)
+              customer = leaveCustomer(customer, map)
             }
           } else {
-            customer = leaveCustomer(customer)
+            customer = leaveCustomer(customer, map)
           }
         }
       }
     } else {
-      customer = leaveCustomer(customer)
+      customer = leaveCustomer(customer, map)
     }
 
     customers.push(customer)
   }
 
-  if (queueChanged) customers = retargetQueue(customers, queue, radius)
+  if (queueChanged) customers = retargetQueue(customers, queue, radius, map)
 
   const frontId = queue[0]
-  if (frontId !== undefined && (hasCashier || inRegisterZone(player.pos))) {
+  if (frontId !== undefined && (hasCashier || inRegisterZone(player.pos, map))) {
     const index = customers.findIndex((customer) => customer.id === frontId)
     const front = index >= 0 ? customers[index] : undefined
     if (front !== undefined && front.phase === 'inQueue') {
@@ -368,7 +397,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         basket = basket.slice(1)
         const price = productPrice(product)
         paid += price
-        if (hasCashier && !inRegisterZone(player.pos)) {
+        if (hasCashier && !inRegisterZone(player.pos, map)) {
           pendingCoins += price
           events.push({ type: 'coinsPending', amount: price })
         } else {
@@ -388,7 +417,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           phase: 'leaving',
           target: null,
           queueIndex: -1,
-          path: pathTo(customer.pos, DOOR_POINT, radius),
+          path: pathTo(customer.pos, map.doorPoint, radius, map),
           pathIndex: 0,
         }
         queue = queue.slice(1)
@@ -405,9 +434,9 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     register = { customerId: null, scanMs: 0 }
   }
 
-  if (queueChanged) customers = retargetQueue(customers, queue, radius)
+  if (queueChanged) customers = retargetQueue(customers, queue, radius, map)
 
-  if (pendingCoins > 0 && inRegisterZone(player.pos)) {
+  if (pendingCoins > 0 && inRegisterZone(player.pos, map)) {
     events.push({ type: 'coinsCollected', amount: pendingCoins })
     coins += pendingCoins
     pendingCoins = 0
@@ -441,7 +470,14 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       const product = eligible[0] as ProductKind
       customers = [
         ...customers,
-        createCustomer(nextCustomerId, rng, [product], CUSTOMER_TUNING.tutorialPatienceMs, radius),
+        createCustomer(
+          nextCustomerId,
+          rng,
+          [product],
+          CUSTOMER_TUNING.tutorialPatienceMs,
+          radius,
+          map,
+        ),
       ]
       nextCustomerId += 1
       spawnMs = 2_500
@@ -450,7 +486,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       const wanted = Array.from({ length: count }, () => weightedProduct(rng, eligible))
       customers = [
         ...customers,
-        createCustomer(nextCustomerId, rng, wanted, CUSTOMER_TUNING.patienceMs, radius),
+        createCustomer(nextCustomerId, rng, wanted, CUSTOMER_TUNING.patienceMs, radius, map),
       ]
       nextCustomerId += 1
       spawnMs = CUSTOMER_TUNING.spawnMs + rng.int(CUSTOMER_TUNING.spawnJitterMs)
@@ -495,9 +531,10 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   return { state: nextState, events }
 }
 
-export function inRegisterZone(pos: Vec2): boolean {
-  const closestX = Math.max(COUNTER_RECT.x, Math.min(pos.x, COUNTER_RECT.x + COUNTER_RECT.w))
-  const closestY = Math.max(COUNTER_RECT.y, Math.min(pos.y, COUNTER_RECT.y + COUNTER_RECT.h))
+export function inRegisterZone(pos: Vec2, map: ShopMap): boolean {
+  const counter = map.counter
+  const closestX = Math.max(counter.x, Math.min(pos.x, counter.x + counter.w))
+  const closestY = Math.max(counter.y, Math.min(pos.y, counter.y + counter.h))
   return Math.hypot(pos.x - closestX, pos.y - closestY) <= REGISTER_RADIUS
 }
 
@@ -611,15 +648,16 @@ function createCustomer(
   wanted: readonly ProductKind[],
   patienceMs: number,
   radius: number,
+  map: ShopMap,
 ): CustomerState {
   const species = rng.pick(CUSTOMER_SPECIES) as SpeciesId
   const first = wanted[0] as ProductKind
   return {
     id,
     species,
-    pos: DOOR_SPAWN,
-    prevPos: DOOR_SPAWN,
-    path: pathTo(DOOR_SPAWN, SHELF_ACCESS[zoneOf(first)], radius),
+    pos: map.doorSpawn,
+    prevPos: map.doorSpawn,
+    path: pathTo(map.doorSpawn, map.shelfAccess[zoneOf(first)], radius, map),
     pathIndex: 0,
     phase: 'toShelf',
     wanted,
@@ -635,7 +673,7 @@ function createCustomer(
   }
 }
 
-function leaveCustomer(customer: CustomerState): CustomerState {
+function leaveCustomer(customer: CustomerState, map: ShopMap): CustomerState {
   if (customer.phase === 'leaving') return customer
   return {
     ...customer,
@@ -643,7 +681,7 @@ function leaveCustomer(customer: CustomerState): CustomerState {
     sad: true,
     target: null,
     queueIndex: -1,
-    path: pathTo(customer.pos, DOOR_POINT, CUSTOMER_RADIUS),
+    path: pathTo(customer.pos, map.doorPoint, CUSTOMER_RADIUS, map),
     pathIndex: 0,
   }
 }
@@ -684,6 +722,7 @@ function retargetQueue(
   customers: readonly CustomerState[],
   queue: readonly number[],
   radius: number,
+  map: ShopMap,
 ): CustomerState[] {
   const indexes = new Map<number, number>()
   for (const [index, id] of queue.entries()) indexes.set(id, index)
@@ -691,21 +730,21 @@ function retargetQueue(
     const index = indexes.get(customer.id)
     if (index === undefined || customer.phase === 'leaving') return customer
     if (customer.phase !== 'inQueue' && customer.phase !== 'toQueue') return customer
-    const slot = QUEUE_SLOTS[index] as Vec2
+    const slot = map.queueSlots[index] as Vec2
     const atSlot = distanceSq(customer.pos, slot) < 9
     if (atSlot && customer.phase === 'inQueue' && customer.queueIndex === index) return customer
     return {
       ...customer,
       queueIndex: index,
       phase: atSlot ? 'inQueue' : 'toQueue',
-      path: atSlot ? [] : pathTo(customer.pos, slot, radius),
+      path: atSlot ? [] : pathTo(customer.pos, slot, radius, map),
       pathIndex: 0,
     }
   })
 }
 
-function pathTo(from: Vec2, to: Vec2, radius: number): readonly Vec2[] {
-  return findPath(from, to, radius) ?? [to]
+function pathTo(from: Vec2, to: Vec2, radius: number, map: ShopMap): readonly Vec2[] {
+  return findPath(from, to, radius, map) ?? [to]
 }
 
 export type { CustomerPhase, UpgradeKind }

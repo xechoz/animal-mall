@@ -1,0 +1,223 @@
+import type {
+  AnimalProductKind,
+  Plot,
+  ProcessedKind,
+  Rect,
+  ShopMap,
+  ShopMapId,
+  StaffKind,
+  StaffSpot,
+  Vec2,
+  ZoneId,
+} from './types'
+
+export const PLOT_SIZE = { w: 68, h: 46 } as const
+export const PEN_SIZE = { w: 80, h: 56 } as const
+export const STATION_SIZE = { w: 80, h: 56 } as const
+
+const ACCESS_GAP = 24
+
+interface ShopMapInput {
+  readonly id: ShopMapId
+  readonly room: { readonly w: number; readonly h: number }
+  readonly wall: number
+  readonly playerStart: Vec2
+  readonly doorPoint: Vec2
+  readonly doorSpawn: Vec2
+  readonly counter: Rect
+  readonly register: Vec2
+  readonly queueSlots: readonly Vec2[]
+  readonly shelves: Readonly<Record<ZoneId, Rect>>
+  readonly shelfAccess: Readonly<Record<ZoneId, Vec2>>
+  readonly plots: readonly Plot[]
+  readonly cropPlots: readonly Plot[]
+  readonly animalPens: Readonly<Record<AnimalProductKind, Plot>>
+  readonly stationSlots: Readonly<Record<ProcessedKind, Plot>>
+  readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
+}
+
+function plotAccess(plot: Plot): Vec2 {
+  return { x: plot.x, y: plot.y + PLOT_SIZE.h / 2 + ACCESS_GAP }
+}
+
+function penAccess(pen: Plot): Vec2 {
+  return { x: pen.x, y: pen.y + PEN_SIZE.h / 2 + ACCESS_GAP }
+}
+
+function stationAccess(station: Plot): Vec2 {
+  return { x: station.x, y: station.y + STATION_SIZE.h / 2 + ACCESS_GAP }
+}
+
+function plotRect(plot: Plot): Rect {
+  return {
+    x: plot.x - PLOT_SIZE.w / 2,
+    y: plot.y - PLOT_SIZE.h / 2,
+    w: PLOT_SIZE.w,
+    h: PLOT_SIZE.h,
+  }
+}
+
+function penRect(pen: Plot): Rect {
+  return {
+    x: pen.x - PEN_SIZE.w / 2,
+    y: pen.y - PEN_SIZE.h / 2,
+    w: PEN_SIZE.w,
+    h: PEN_SIZE.h,
+  }
+}
+
+function stationRect(station: Plot): Rect {
+  return {
+    x: station.x - STATION_SIZE.w / 2,
+    y: station.y - STATION_SIZE.h / 2,
+    w: STATION_SIZE.w,
+    h: STATION_SIZE.h,
+  }
+}
+
+function createShopMap(input: ShopMapInput): ShopMap {
+  const animalAccess = Object.fromEntries(
+    Object.entries(input.animalPens).map(([product, pen]) => [product, penAccess(pen)]),
+  ) as Record<AnimalProductKind, Vec2>
+  const stationAccesses = Object.fromEntries(
+    Object.entries(input.stationSlots).map(([product, station]) => [
+      product,
+      stationAccess(station),
+    ]),
+  ) as Record<ProcessedKind, Vec2>
+
+  return {
+    ...input,
+    plantSlots: { fruit: input.plots, veg: input.cropPlots },
+    plantAccess: {
+      fruit: input.plots.map(plotAccess),
+      veg: input.cropPlots.map(plotAccess),
+    },
+    animalAccess,
+    stationAccess: stationAccesses,
+    obstacles: [
+      ...Object.values(input.shelves),
+      ...input.plots.map(plotRect),
+      ...input.cropPlots.map(plotRect),
+      ...Object.values(input.animalPens).map(penRect),
+      ...Object.values(input.stationSlots).map(stationRect),
+      input.counter,
+    ],
+  }
+}
+
+export const PORTRAIT_MAP: ShopMap = createShopMap({
+  id: 'portrait',
+  room: { w: 680, h: 1200 },
+  wall: 24,
+  playerStart: { x: 320, y: 1080 },
+  doorPoint: { x: 280, y: 1150 },
+  doorSpawn: { x: 280, y: 1150 },
+  counter: { x: 380, y: 1040, w: 180, h: 60 },
+  register: { x: 470, y: 1070 },
+  queueSlots: [
+    { x: 560, y: 1005 },
+    { x: 500, y: 1005 },
+    { x: 440, y: 1005 },
+    { x: 380, y: 1005 },
+  ],
+  shelves: {
+    fruit: { x: 60, y: 92, w: 220, h: 50 },
+    veg: { x: 400, y: 92, w: 220, h: 50 },
+    farm: { x: 60, y: 592, w: 220, h: 50 },
+    kitchen: { x: 400, y: 592, w: 220, h: 50 },
+  },
+  shelfAccess: {
+    fruit: { x: 170, y: 170 },
+    veg: { x: 510, y: 170 },
+    farm: { x: 170, y: 670 },
+    kitchen: { x: 510, y: 670 },
+  },
+  plots: [
+    { index: 0, x: 115, y: 255 },
+    { index: 1, x: 225, y: 255 },
+    { index: 2, x: 115, y: 385 },
+    { index: 3, x: 225, y: 385 },
+  ],
+  cropPlots: [
+    { index: 0, x: 455, y: 255 },
+    { index: 1, x: 565, y: 255 },
+    { index: 2, x: 455, y: 385 },
+    { index: 3, x: 565, y: 385 },
+  ],
+  animalPens: {
+    egg: { index: 0, x: 110, y: 760 },
+    milk: { index: 1, x: 220, y: 760 },
+    yarn: { index: 2, x: 110, y: 890 },
+    fish: { index: 3, x: 220, y: 890 },
+  },
+  stationSlots: {
+    cake: { index: 0, x: 455, y: 760 },
+    sweater: { index: 1, x: 565, y: 760 },
+    grilledFish: { index: 2, x: 455, y: 890 },
+  },
+  staffStations: {
+    cashier: { station: { x: 470, y: 1120 }, home: { x: 470, y: 1120 } },
+    picker: { station: { x: 320, y: 560 }, home: { x: 320, y: 560 } },
+  },
+})
+
+export const LANDSCAPE_MAP: ShopMap = createShopMap({
+  id: 'landscape',
+  room: { w: 1200, h: 680 },
+  wall: 24,
+  playerStart: { x: 300, y: 600 },
+  doorPoint: { x: 280, y: 630 },
+  doorSpawn: { x: 280, y: 630 },
+  counter: { x: 510, y: 540, w: 180, h: 60 },
+  register: { x: 600, y: 570 },
+  queueSlots: [
+    { x: 600, y: 500 },
+    { x: 540, y: 500 },
+    { x: 480, y: 500 },
+    { x: 420, y: 500 },
+  ],
+  shelves: {
+    fruit: { x: 40, y: 92, w: 220, h: 50 },
+    veg: { x: 340, y: 92, w: 220, h: 50 },
+    farm: { x: 640, y: 92, w: 220, h: 50 },
+    kitchen: { x: 940, y: 92, w: 220, h: 50 },
+  },
+  shelfAccess: {
+    fruit: { x: 150, y: 170 },
+    veg: { x: 450, y: 170 },
+    farm: { x: 750, y: 170 },
+    kitchen: { x: 1050, y: 170 },
+  },
+  plots: [
+    { index: 0, x: 85, y: 200 },
+    { index: 1, x: 215, y: 200 },
+    { index: 2, x: 85, y: 340 },
+    { index: 3, x: 215, y: 340 },
+  ],
+  cropPlots: [
+    { index: 0, x: 385, y: 200 },
+    { index: 1, x: 515, y: 200 },
+    { index: 2, x: 385, y: 340 },
+    { index: 3, x: 515, y: 340 },
+  ],
+  animalPens: {
+    egg: { index: 0, x: 685, y: 200 },
+    milk: { index: 1, x: 815, y: 200 },
+    yarn: { index: 2, x: 685, y: 340 },
+    fish: { index: 3, x: 815, y: 340 },
+  },
+  stationSlots: {
+    cake: { index: 0, x: 985, y: 200 },
+    sweater: { index: 1, x: 1115, y: 200 },
+    grilledFish: { index: 2, x: 985, y: 340 },
+  },
+  staffStations: {
+    cashier: { station: { x: 600, y: 630 }, home: { x: 600, y: 630 } },
+    picker: { station: { x: 600, y: 450 }, home: { x: 600, y: 450 } },
+  },
+})
+
+export function shopMapFor(width: number, height: number): ShopMap {
+  return width > height ? LANDSCAPE_MAP : PORTRAIT_MAP
+}

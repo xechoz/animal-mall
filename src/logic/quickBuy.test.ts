@@ -1,6 +1,6 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
-import { ANIMAL_ACCESS, COUNTER_RECT, PLOTS, REGISTER_POINT, STAFF } from './config'
+import { PORTRAIT_MAP } from './config'
 import { plantDepositKey, purchasePlant, purchaseStaff, removeProducer } from './purchase'
 import { initialSave } from './saveData'
 import { createShopState, inRegisterZone, stepShop } from './state'
@@ -34,20 +34,30 @@ function appleSave(coins: number) {
 
 describe('register proximity', () => {
   it('serves from the front, left and right of the counter', () => {
-    expect(inRegisterZone(REGISTER_POINT)).toBe(true)
-    expect(inRegisterZone({ x: REGISTER_POINT.x, y: REGISTER_POINT.y + 48 })).toBe(true)
-    expect(inRegisterZone({ x: COUNTER_RECT.x - 24, y: COUNTER_RECT.y + 20 })).toBe(true)
+    expect(inRegisterZone(PORTRAIT_MAP.register, PORTRAIT_MAP)).toBe(true)
     expect(
-      inRegisterZone({ x: COUNTER_RECT.x + COUNTER_RECT.w + 24, y: COUNTER_RECT.y + 20 }),
+      inRegisterZone({ x: PORTRAIT_MAP.register.x, y: PORTRAIT_MAP.register.y + 48 }, PORTRAIT_MAP),
     ).toBe(true)
-    expect(inRegisterZone({ x: 120, y: 180 })).toBe(false)
+    expect(
+      inRegisterZone(
+        { x: PORTRAIT_MAP.counter.x - 24, y: PORTRAIT_MAP.counter.y + 20 },
+        PORTRAIT_MAP,
+      ),
+    ).toBe(true)
+    expect(
+      inRegisterZone(
+        { x: PORTRAIT_MAP.counter.x + PORTRAIT_MAP.counter.w + 24, y: PORTRAIT_MAP.counter.y + 20 },
+        PORTRAIT_MAP,
+      ),
+    ).toBe(true)
+    expect(inRegisterZone({ x: 120, y: 180 }, PORTRAIT_MAP)).toBe(false)
   })
 })
 
 describe('quick buy', () => {
   it('opens the plant chooser after standing at an empty plot', () => {
-    let state = createShopState(initialSave())
-    const plot = PLOTS[0] as Vec2
+    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    const plot = PORTRAIT_MAP.plots[0] as Vec2
     state = withPlayer(state, { x: plot.x, y: plot.y + 40 })
     const result = simulate(state, 20)
     expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(true)
@@ -55,15 +65,15 @@ describe('quick buy', () => {
   })
 
   it('does not open while the player keeps moving', () => {
-    let state = createShopState(initialSave())
-    const plot = PLOTS[0] as Vec2
+    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    const plot = PORTRAIT_MAP.plots[0] as Vec2
     state = withPlayer(state, { x: plot.x, y: plot.y + 40 })
     const result = simulate(state, 20, { input: { moveX: 0.2, moveY: 0 } })
     expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(false)
   })
 
   it('never lets the opening fund be trapped in an unaffordable plant', () => {
-    const state = createShopState(initialSave())
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
     const pear = purchasePlant(state, 'pear')
     expect(pear.result).toBe('insufficient')
     expect(pear.state.coins).toBe(100)
@@ -71,8 +81,8 @@ describe('quick buy', () => {
   })
 
   it('deposits all coins toward a staff hire and applies them later', () => {
-    let state = createShopState(appleSave(100))
-    const station = STAFF.picker.station
+    let state = createShopState(appleSave(100), PORTRAIT_MAP)
+    const station = PORTRAIT_MAP.staffStations.picker.station
     state = withPlayer(state, { x: station.x, y: station.y + 20 })
     const result = simulate(state, 30)
     expect(result.state.coins).toBe(0)
@@ -88,10 +98,13 @@ describe('quick buy', () => {
   })
 
   it('uses a plant deposit in the shop', () => {
-    const state = createShopState({
-      ...appleSave(0),
-      deposits: { [plantDepositKey('pear')]: 100 },
-    })
+    const state = createShopState(
+      {
+        ...appleSave(0),
+        deposits: { [plantDepositKey('pear')]: 100 },
+      },
+      PORTRAIT_MAP,
+    )
     const bought = purchasePlant({ ...state, coins: 80 }, 'pear')
     expect(bought.result).toBe('ok')
     expect(bought.state.producers.some((producer) => producer.product === 'pear')).toBe(true)
@@ -99,12 +112,15 @@ describe('quick buy', () => {
   })
 
   it('quick-buys an animal when standing at its pen', () => {
-    const state = createShopState({
-      ...initialSave(),
-      coins: 1_000,
-      zones: { fruit: true, veg: true, farm: true, kitchen: false },
-    })
-    const pen = ANIMAL_ACCESS.milk
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 1_000,
+        zones: { fruit: true, veg: true, farm: true, kitchen: false },
+      },
+      PORTRAIT_MAP,
+    )
+    const pen = PORTRAIT_MAP.animalAccess.milk
     const result = simulate(withPlayer(state, { x: pen.x, y: pen.y - 6 }), 30)
     expect(result.state.producers.some((producer) => producer.product === 'milk')).toBe(true)
   })
@@ -112,11 +128,14 @@ describe('quick buy', () => {
 
 describe('staff', () => {
   it('lets a cashier serve while the player is away and piles coins', () => {
-    let state = createShopState({
-      ...appleSave(0),
-      served: 3,
-      staff: { cashier: 1, picker: 0 },
-    })
+    let state = createShopState(
+      {
+        ...appleSave(0),
+        served: 3,
+        staff: { cashier: 1, picker: 0 },
+      },
+      PORTRAIT_MAP,
+    )
     state = {
       ...state,
       shelves: {
@@ -136,9 +155,9 @@ describe('staff', () => {
   })
 
   it('banks pending coins when the player walks to the counter', () => {
-    const state = withPlayer(createShopState(appleSave(0)), {
-      x: REGISTER_POINT.x,
-      y: REGISTER_POINT.y + 40,
+    const state = withPlayer(createShopState(appleSave(0), PORTRAIT_MAP), {
+      x: PORTRAIT_MAP.register.x,
+      y: PORTRAIT_MAP.register.y + 40,
     })
     const result = simulate({ ...state, pendingCoins: 48 }, 1)
     expect(result.state.pendingCoins).toBe(0)
@@ -147,18 +166,21 @@ describe('staff', () => {
   })
 
   it('lets a picker harvest and stock without the player', () => {
-    const state = createShopState({
-      ...appleSave(0),
-      served: 3,
-      staff: { cashier: 0, picker: 1 },
-    })
+    const state = createShopState(
+      {
+        ...appleSave(0),
+        served: 3,
+        staff: { cashier: 0, picker: 1 },
+      },
+      PORTRAIT_MAP,
+    )
     const result = simulate(state, 1_400)
     expect(result.state.shelves.fruit.stock.apple).toBeGreaterThan(0)
     expect(result.events.some((event) => event.type === 'staffStock')).toBe(true)
   })
 
   it('caps staff hiring at the configured level', () => {
-    let state = createShopState({ ...appleSave(10_000) })
+    let state = createShopState({ ...appleSave(10_000) }, PORTRAIT_MAP)
     state = purchaseStaff(state, 'cashier', false).state
     expect(purchaseStaff(state, 'cashier', false).result).toBe('maxed')
   })
@@ -166,12 +188,12 @@ describe('staff', () => {
 
 describe('last producer guard', () => {
   it('blocks removing the last producer when the refund cannot buy a new one', () => {
-    const state = createShopState(appleSave(0))
+    const state = createShopState(appleSave(0), PORTRAIT_MAP)
     expect(removeProducer(state, state.producers[0]?.id as number).result).toBe('lastProducer')
   })
 
   it('allows removing the last producer when the player can replant', () => {
-    const state = createShopState(appleSave(100))
+    const state = createShopState(appleSave(100), PORTRAIT_MAP)
     expect(removeProducer(state, state.producers[0]?.id as number).result).toBe('ok')
   })
 })

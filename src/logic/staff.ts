@@ -1,11 +1,12 @@
 import { distanceSq } from './collision'
-import { producerAccess, SHELF_ACCESS, STAFF, zoneOf } from './config'
+import { producerAccess, STAFF, zoneOf } from './config'
 import { findPath } from './nav'
 import { addStock, binReady, collectFromProducer } from './production'
 import type {
   GameEvent,
   ProducerState,
   ShelfState,
+  ShopMap,
   ShopState,
   StaffKind,
   StaffState,
@@ -15,6 +16,7 @@ import type {
 } from './types'
 
 interface StaffContext {
+  readonly map: ShopMap
   producers: readonly ProducerState[]
   shelves: Record<ZoneId, ShelfState>
   events: GameEvent[]
@@ -26,11 +28,12 @@ export function staffMemberId(kind: StaffKind, index: number): number {
 
 export function createStaffMembers(
   staff: Readonly<Record<StaffKind, number>>,
+  map: ShopMap,
 ): readonly StaffState[] {
   const members: StaffState[] = []
   for (const kind of ['cashier', 'picker'] as const) {
     for (let index = 0; index < staff[kind]; index += 1) {
-      members.push(createStaffMember(kind, index))
+      members.push(createStaffMember(kind, index, map))
     }
   }
   return members
@@ -39,6 +42,7 @@ export function createStaffMembers(
 export function syncStaffMembers(
   members: readonly StaffState[],
   staff: Readonly<Record<StaffKind, number>>,
+  map: ShopMap,
 ): readonly StaffState[] {
   const alive = new Set<number>()
   for (const kind of ['cashier', 'picker'] as const) {
@@ -48,7 +52,9 @@ export function syncStaffMembers(
   for (const kind of ['cashier', 'picker'] as const) {
     for (let index = 0; index < staff[kind]; index += 1) {
       const id = staffMemberId(kind, index)
-      if (!kept.some((member) => member.id === id)) kept.push(createStaffMember(kind, index))
+      if (!kept.some((member) => member.id === id)) {
+        kept.push(createStaffMember(kind, index, map))
+      }
     }
   }
   return kept
@@ -56,14 +62,15 @@ export function syncStaffMembers(
 
 export function stepStaff(state: ShopState, dtMs: number): StepResult {
   const ctx: StaffContext = {
+    map: state.map,
     producers: state.producers,
     shelves: { ...state.shelves },
     events: [],
   }
-  const members = syncStaffMembers(state.staffMembers, state.staff)
+  const members = syncStaffMembers(state.staffMembers, state.staff, state.map)
   const nextMembers = members.map((member) =>
     member.kind === 'cashier'
-      ? stepCashier(member)
+      ? stepCashier(member, state.map)
       : stepPicker(member, ctx, Math.max(0, Math.min(dtMs, 50))),
   )
 
@@ -78,10 +85,11 @@ export function stepStaff(state: ShopState, dtMs: number): StepResult {
   }
 }
 
-function createStaffMember(kind: StaffKind, index: number): StaffState {
+function createStaffMember(kind: StaffKind, index: number, map: ShopMap): StaffState {
   const config = STAFF[kind]
   const offset = kind === 'picker' ? (index - 0.5) * 34 : 0
-  const home = { x: config.home.x + offset, y: config.home.y }
+  const station = map.staffStations[kind]
+  const home = { x: station.home.x + offset, y: station.home.y }
   return {
     id: staffMemberId(kind, index),
     kind,
@@ -102,8 +110,8 @@ function createStaffMember(kind: StaffKind, index: number): StaffState {
   }
 }
 
-function stepCashier(member: StaffState): StaffState {
-  const pos = STAFF.cashier.home
+function stepCashier(member: StaffState, map: ShopMap): StaffState {
+  const pos = map.staffStations.cashier.home
   return {
     ...member,
     pos,
@@ -148,13 +156,13 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number): StaffS
     if (!binReady(ctx.shelves, next.carry)) {
       return { ...next, carry: null, carryCount: 0, phase: 'idle', waitMs: 300 }
     }
-    if (shelf.stock[next.carry] < shelf.capacity) return startToShelf(next)
+    if (shelf.stock[next.carry] < shelf.capacity) return startToShelf(next, ctx.map)
     return { ...next, waitMs: 500 }
   }
 
   const producer = pickProducer(ctx.producers, ctx.shelves, next.pos)
   if (producer === null) return { ...next, waitMs: 500 }
-  return startToProducer(next, producer)
+  return startToProducer(next, producer, ctx.map)
 }
 
 function arrivedAtTarget(member: StaffState, ctx: StaffContext): StaffState {
@@ -174,10 +182,10 @@ function arrivedAtTarget(member: StaffState, ctx: StaffContext): StaffState {
       carryCount,
       moving: false,
     }
-    if (carryCount >= STAFF.picker.carry) return startToShelf(next)
+    if (carryCount >= STAFF.picker.carry) return startToShelf(next, ctx.map)
     const more = pickProducer(ctx.producers, ctx.shelves, next.pos)
-    if (more === null) return startToShelf(next)
-    return startToProducer(next, more)
+    if (more === null) return startToShelf(next, ctx.map)
+    return startToProducer(next, more, ctx.map)
   }
 
   if (member.phase === 'toShelf') {
@@ -233,18 +241,18 @@ function finishStock(member: StaffState, ctx: StaffContext): StaffState {
   }
 }
 
-function startToProducer(member: StaffState, producer: ProducerState): StaffState {
+function startToProducer(member: StaffState, producer: ProducerState, map: ShopMap): StaffState {
   return {
     ...member,
     phase: 'toProducer',
     targetProducerId: producer.id,
     targetShelf: null,
-    path: pathTo(member.pos, producerAccess(producer.product, producer.slot)),
+    path: pathTo(member.pos, producerAccess(map, producer.product, producer.slot), map),
     pathIndex: 0,
   }
 }
 
-function startToShelf(member: StaffState): StaffState {
+function startToShelf(member: StaffState, map: ShopMap): StaffState {
   const product = member.carry
   if (product === null) return { ...member, phase: 'idle', waitMs: 240 }
   const zone = zoneOf(product)
@@ -253,7 +261,7 @@ function startToShelf(member: StaffState): StaffState {
     phase: 'toShelf',
     targetShelf: zone,
     targetProducerId: null,
-    path: pathTo(member.pos, SHELF_ACCESS[zone]),
+    path: pathTo(member.pos, map.shelfAccess[zone], map),
     pathIndex: 0,
   }
 }
@@ -321,6 +329,6 @@ function advanceStaff(member: StaffState, dtMs: number): { member: StaffState; a
   }
 }
 
-function pathTo(from: Vec2, to: Vec2): readonly Vec2[] {
-  return findPath(from, to, 12) ?? [to]
+function pathTo(from: Vec2, to: Vec2, map: ShopMap): readonly Vec2[] {
+  return findPath(from, to, 12, map) ?? [to]
 }

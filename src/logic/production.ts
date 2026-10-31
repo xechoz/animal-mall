@@ -1,20 +1,17 @@
 import { distance } from './collision'
 import {
-  ANIMAL_PENS,
   ANIMALS,
   AUTO_RESERVE,
-  CROP_PLOTS,
   INTERACT,
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
   PLANTS,
-  PLOTS,
   PRODUCT_ORDER,
+  producerPosition,
   RECIPES,
   type RecipeConfig,
   type RecipeInput,
-  STATION_SLOTS,
   ZONE_ORDER,
   ZONE_PRODUCTS,
   zoneOf,
@@ -26,19 +23,17 @@ import type {
   ProducerState,
   ProductKind,
   ShelfState,
+  ShopMap,
   Vec2,
   ZoneId,
   ZoneUnlocks,
 } from './types'
 
-const FRUIT_SLOTS = PLOTS
-const VEG_SLOTS = CROP_PLOTS
-const STATIONS = STATION_SLOTS
-
 export function createProducer(
   product: ProductKind,
   slot: number,
   id: number,
+  map: ShopMap,
   fresh = false,
 ): ProducerState {
   const kind = isPlantKind(product) ? 'plant' : isAnimalProductKind(product) ? 'animal' : 'station'
@@ -47,27 +42,12 @@ export function createProducer(
     kind,
     product,
     slot,
-    pos: producerPositionFor(product, slot),
+    pos: producerPosition(map, product, slot),
     progressMs: 0,
     ready: fresh ? 0 : kind === 'plant' ? 1 : 0,
     mature: fresh ? false : kind === 'plant',
     hungry: false,
   }
-}
-
-function producerPositionFor(product: ProductKind, slot: number): Vec2 {
-  if (isPlantKind(product)) {
-    const zone = zoneOf(product)
-    const points = zone === 'fruit' ? FRUIT_SLOTS : VEG_SLOTS
-    const point = points[slot] ?? points[0]
-    return point === undefined ? { x: 320, y: 560 } : { x: point.x, y: point.y }
-  }
-  if (isAnimalProductKind(product)) {
-    const position = ANIMAL_PENS[product]
-    return { x: position.x, y: position.y }
-  }
-  const position = STATIONS[product]
-  return { x: position.x, y: position.y }
 }
 
 export function emptyShelves(zones: ZoneUnlocks, capacity: number): Record<ZoneId, ShelfState> {

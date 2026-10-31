@@ -1,9 +1,8 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
-import { COUNTER_RECT } from '../logic/config'
+import type { ShopMap } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
 
-export const COIN_PILE_POINT = { x: 545, y: 1062 }
 const COIN_CAP = 14
 
 export class CoinPileView extends Phaser.GameObjects.Container {
@@ -13,10 +12,10 @@ export class CoinPileView extends Phaser.GameObjects.Container {
   private readonly amount: Phaser.GameObjects.Text
   private lastAmount = -1
 
-  constructor(scene: Phaser.Scene, theme: Theme) {
-    super(scene, COIN_PILE_POINT.x, COIN_PILE_POINT.y)
+  constructor(scene: Phaser.Scene, theme: Theme, map: ShopMap) {
+    super(scene, map.counter.x + map.counter.w - 15, map.counter.y + 22)
     this.theme = theme
-    this.setDepth(COUNTER_RECT.y + COUNTER_RECT.h - 2)
+    this.setDepth(map.counter.y + map.counter.h - 2)
 
     this.pile = scene.add.graphics()
     this.add(this.pile)

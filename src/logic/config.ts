@@ -2,10 +2,9 @@ import type {
   AnimalProductKind,
   FruitKind,
   PlantKind,
-  Plot,
   ProcessedKind,
   ProductKind,
-  Rect,
+  ShopMap,
   SpeciesId,
   StaffKind,
   UpgradeKind,
@@ -14,16 +13,9 @@ import type {
   ZoneId,
 } from './types'
 
-export const ROOM_W = 680
-export const ROOM_H = 1200
-export const WALL = 24
 export const PLAYER_RADIUS = 15
 export const CUSTOMER_RADIUS = 12
 export const NAV_CELL = 20
-
-export const PLAYER_START: Vec2 = { x: 320, y: 1080 }
-export const DOOR_POINT: Vec2 = { x: 280, y: 1150 }
-export const DOOR_SPAWN: Vec2 = { x: 280, y: 1150 }
 
 export const FRUIT_ORDER: readonly FruitKind[] = ['apple', 'pear', 'peach', 'cherry']
 export const VEG_ORDER: readonly VegKind[] = ['carrot', 'tomato', 'corn', 'pumpkin']
@@ -194,8 +186,6 @@ export const STAFF_ORDER: readonly StaffKind[] = ['cashier', 'picker']
 
 export interface StaffConfig {
   readonly costs: readonly number[]
-  readonly station: Vec2
-  readonly home: Vec2
   readonly species: SpeciesId
   readonly speed: number
   readonly carry: number
@@ -206,8 +196,6 @@ export interface StaffConfig {
 export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
   cashier: {
     costs: [320],
-    station: { x: 470, y: 1120 },
-    home: { x: 470, y: 1120 },
     species: 'cat',
     speed: 0,
     carry: 0,
@@ -216,8 +204,6 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
   },
   picker: {
     costs: [260, 680],
-    station: { x: 320, y: 560 },
-    home: { x: 320, y: 560 },
     species: 'rabbit',
     speed: 112,
     carry: 4,
@@ -254,181 +240,50 @@ export function fertilizerMultiplier(level: number): number {
 }
 
 export interface ZoneConfig {
-  readonly shelf: Rect
-  readonly access: Vec2
   readonly unlockCost: number
   readonly includes: ProductKind | null
 }
 
 export const ZONES: Readonly<Record<ZoneId, ZoneConfig>> = {
-  fruit: {
-    shelf: { x: 60, y: 92, w: 220, h: 50 },
-    access: { x: 170, y: 170 },
-    unlockCost: 0,
-    includes: null,
-  },
-  veg: {
-    shelf: { x: 400, y: 92, w: 220, h: 50 },
-    access: { x: 510, y: 170 },
-    unlockCost: 0,
-    includes: null,
-  },
-  farm: {
-    shelf: { x: 60, y: 592, w: 220, h: 50 },
-    access: { x: 170, y: 670 },
-    unlockCost: 600,
-    includes: 'egg',
-  },
-  kitchen: {
-    shelf: { x: 400, y: 592, w: 220, h: 50 },
-    access: { x: 510, y: 670 },
-    unlockCost: 1_200,
-    includes: 'cake',
-  },
+  fruit: { unlockCost: 0, includes: null },
+  veg: { unlockCost: 0, includes: null },
+  farm: { unlockCost: 600, includes: 'egg' },
+  kitchen: { unlockCost: 1_200, includes: 'cake' },
 }
 
-export const SHELF_RECTS: Readonly<Record<ZoneId, Rect>> = Object.fromEntries(
-  ZONE_ORDER.map((zone) => [zone, ZONES[zone].shelf]),
-) as Readonly<Record<ZoneId, Rect>>
+export const REGISTER_RADIUS = 50
 
-export const SHELF_ACCESS: Readonly<Record<ZoneId, Vec2>> = Object.fromEntries(
-  ZONE_ORDER.map((zone) => [zone, ZONES[zone].access]),
-) as Readonly<Record<ZoneId, Vec2>>
-
-export const PLOTS: readonly Plot[] = [
-  { index: 0, x: 115, y: 255 },
-  { index: 1, x: 225, y: 255 },
-  { index: 2, x: 115, y: 385 },
-  { index: 3, x: 225, y: 385 },
-]
-
-export const CROP_PLOTS: readonly Plot[] = [
-  { index: 0, x: 455, y: 255 },
-  { index: 1, x: 565, y: 255 },
-  { index: 2, x: 455, y: 385 },
-  { index: 3, x: 565, y: 385 },
-]
-
-export const PLOT_SIZE = { w: 68, h: 46 } as const
-
-export const PLOT_ACCESS: readonly Vec2[] = PLOTS.map((plot) => ({
-  x: plot.x,
-  y: plot.y + PLOT_SIZE.h / 2 + 24,
-}))
-
-export const CROP_ACCESS: readonly Vec2[] = CROP_PLOTS.map((plot) => ({
-  x: plot.x,
-  y: plot.y + PLOT_SIZE.h / 2 + 24,
-}))
-
-export const PLANT_SLOTS: Readonly<Record<'fruit' | 'veg', readonly Plot[]>> = {
-  fruit: PLOTS,
-  veg: CROP_PLOTS,
-}
-
-export const PLANT_ACCESS: Readonly<Record<'fruit' | 'veg', readonly Vec2[]>> = {
-  fruit: PLOT_ACCESS,
-  veg: CROP_ACCESS,
-}
-
-export const ANIMAL_PENS: Readonly<Record<AnimalProductKind, Plot>> = {
-  egg: { index: 0, x: 110, y: 760 },
-  milk: { index: 1, x: 220, y: 760 },
-  yarn: { index: 2, x: 110, y: 890 },
-  fish: { index: 3, x: 220, y: 890 },
-}
-
-export const STATION_SLOTS: Readonly<Record<ProcessedKind, Plot>> = {
-  cake: { index: 0, x: 455, y: 760 },
-  sweater: { index: 1, x: 565, y: 760 },
-  grilledFish: { index: 2, x: 455, y: 890 },
-}
-
-export const PEN_SIZE = { w: 80, h: 56 } as const
-export const STATION_SIZE = { w: 80, h: 56 } as const
-
-export const ANIMAL_ACCESS: Readonly<Record<AnimalProductKind, Vec2>> = Object.fromEntries(
-  ANIMAL_ORDER.map((product) => {
-    const pen = ANIMAL_PENS[product]
-    return [product, { x: pen.x, y: pen.y + PEN_SIZE.h / 2 + 24 }]
-  }),
-) as Readonly<Record<AnimalProductKind, Vec2>>
-
-export const STATION_ACCESS: Readonly<Record<ProcessedKind, Vec2>> = Object.fromEntries(
-  PROCESSED_ORDER.map((product) => {
-    const station = STATION_SLOTS[product]
-    return [product, { x: station.x, y: station.y + STATION_SIZE.h / 2 + 24 }]
-  }),
-) as Readonly<Record<ProcessedKind, Vec2>>
-
-export function producerPosition(product: ProductKind, slot: number): Vec2 {
+export function producerPosition(map: ShopMap, product: ProductKind, slot: number): Vec2 {
   if (isPlantKind(product)) {
     const zone = isFruitKind(product) ? 'fruit' : 'veg'
-    const point = PLANT_SLOTS[zone][slot] ?? PLANT_SLOTS[zone][0]
-    return point === undefined ? PLAYER_START : { x: point.x, y: point.y }
+    const point = map.plantSlots[zone][slot] ?? map.plantSlots[zone][0]
+    return point === undefined ? map.playerStart : { x: point.x, y: point.y }
   }
   if (isAnimalProductKind(product)) {
-    const pen = ANIMAL_PENS[product]
+    const pen = map.animalPens[product]
     return { x: pen.x, y: pen.y }
   }
-  const station = STATION_SLOTS[product]
+  const station = map.stationSlots[product]
   return { x: station.x, y: station.y }
 }
 
-export function producerAccess(product: ProductKind, slot: number): Vec2 {
+export function producerAccess(map: ShopMap, product: ProductKind, slot: number): Vec2 {
   if (isPlantKind(product)) {
     const zone = isFruitKind(product) ? 'fruit' : 'veg'
-    return PLANT_ACCESS[zone][slot] ?? PLAYER_START
+    return map.plantAccess[zone][slot] ?? map.playerStart
   }
-  if (isAnimalProductKind(product)) return ANIMAL_ACCESS[product]
-  return STATION_ACCESS[product]
+  if (isAnimalProductKind(product)) return map.animalAccess[product]
+  return map.stationAccess[product]
 }
 
-export const COUNTER_RECT: Rect = { x: 380, y: 1040, w: 180, h: 60 }
-export const REGISTER_POINT: Vec2 = { x: 470, y: 1070 }
-export const REGISTER_RADIUS = 50
-
-export const QUEUE_SLOTS: readonly Vec2[] = [
-  { x: 560, y: 1005 },
-  { x: 500, y: 1005 },
-  { x: 440, y: 1005 },
-  { x: 380, y: 1005 },
-]
-
-export const STATIC_OBSTACLES: readonly Rect[] = [
-  ...ZONE_ORDER.map((zone) => SHELF_RECTS[zone]),
-  ...PLOTS.map((plot) => ({
-    x: plot.x - PLOT_SIZE.w / 2,
-    y: plot.y - PLOT_SIZE.h / 2,
-    w: PLOT_SIZE.w,
-    h: PLOT_SIZE.h,
-  })),
-  ...CROP_PLOTS.map((plot) => ({
-    x: plot.x - PLOT_SIZE.w / 2,
-    y: plot.y - PLOT_SIZE.h / 2,
-    w: PLOT_SIZE.w,
-    h: PLOT_SIZE.h,
-  })),
-  ...ANIMAL_ORDER.map((product) => {
-    const pen = ANIMAL_PENS[product]
-    return {
-      x: pen.x - PEN_SIZE.w / 2,
-      y: pen.y - PEN_SIZE.h / 2,
-      w: PEN_SIZE.w,
-      h: PEN_SIZE.h,
-    }
-  }),
-  ...PROCESSED_ORDER.map((product) => {
-    const station = STATION_SLOTS[product]
-    return {
-      x: station.x - STATION_SIZE.w / 2,
-      y: station.y - STATION_SIZE.h / 2,
-      w: STATION_SIZE.w,
-      h: STATION_SIZE.h,
-    }
-  }),
-  COUNTER_RECT,
-]
+export {
+  LANDSCAPE_MAP,
+  PEN_SIZE,
+  PLOT_SIZE,
+  PORTRAIT_MAP,
+  STATION_SIZE,
+  shopMapFor,
+} from './shopMap'
 
 export const CUSTOMER_SPECIES: readonly SpeciesId[] = [
   'cat',

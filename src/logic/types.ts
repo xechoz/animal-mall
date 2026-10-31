@@ -36,6 +36,41 @@ export interface Plot {
   readonly y: number
 }
 
+export type ShopMapId = 'portrait' | 'landscape'
+
+export interface StaffSpot {
+  readonly station: Vec2
+  readonly home: Vec2
+}
+
+/**
+ * One complete shop floor plan. The simulation only knows this shape, so the
+ * same rules run on the portrait and landscape layouts.
+ */
+export interface ShopMap {
+  readonly id: ShopMapId
+  readonly room: { readonly w: number; readonly h: number }
+  readonly wall: number
+  readonly playerStart: Vec2
+  readonly doorPoint: Vec2
+  readonly doorSpawn: Vec2
+  readonly counter: Rect
+  readonly register: Vec2
+  readonly queueSlots: readonly Vec2[]
+  readonly shelves: Readonly<Record<ZoneId, Rect>>
+  readonly shelfAccess: Readonly<Record<ZoneId, Vec2>>
+  readonly plots: readonly Plot[]
+  readonly cropPlots: readonly Plot[]
+  readonly plantSlots: Readonly<Record<'fruit' | 'veg', readonly Plot[]>>
+  readonly plantAccess: Readonly<Record<'fruit' | 'veg', readonly Vec2[]>>
+  readonly animalPens: Readonly<Record<AnimalProductKind, Plot>>
+  readonly animalAccess: Readonly<Record<AnimalProductKind, Vec2>>
+  readonly stationSlots: Readonly<Record<ProcessedKind, Plot>>
+  readonly stationAccess: Readonly<Record<ProcessedKind, Vec2>>
+  readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
+  readonly obstacles: readonly Rect[]
+}
+
 export interface SaveProducer {
   readonly product: ProductKind
   readonly slot: number
@@ -140,6 +175,7 @@ export interface QuickBuyState {
 }
 
 export interface ShopState {
+  readonly map: ShopMap
   readonly coins: number
   readonly totalEarned: number
   readonly served: number

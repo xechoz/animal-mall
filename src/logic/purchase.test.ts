@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { UPGRADES } from './config'
+import { PORTRAIT_MAP, UPGRADES } from './config'
 import {
   emptyPlantSlot,
   plantedCount,
@@ -20,7 +20,7 @@ function saveWith(coins: number): SaveData {
 
 describe('purchases', () => {
   it('spends the starting 100 coins on the first apple tree', () => {
-    const state = createShopState(initialSave())
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
     expect(state.coins).toBe(100)
     const outcome = purchasePlant(state, 'apple')
     expect(outcome.result).toBe('ok')
@@ -32,10 +32,10 @@ describe('purchases', () => {
   })
 
   it('rejects a plant without enough coins or an empty slot', () => {
-    const state = createShopState(initialSave())
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
     expect(purchasePlant(state, 'pear').result).toBe('insufficient')
 
-    let rich = createShopState(saveWith(10_000))
+    let rich = createShopState(saveWith(10_000), PORTRAIT_MAP)
     for (let index = 0; index < 4; index += 1) {
       rich = purchasePlant(rich, 'apple').state
     }
@@ -44,7 +44,7 @@ describe('purchases', () => {
   })
 
   it('keeps one bin per planted product', () => {
-    let state = createShopState(saveWith(10_000))
+    let state = createShopState(saveWith(10_000), PORTRAIT_MAP)
     state = purchasePlant(state, 'apple').state
     state = purchasePlant(state, 'pear').state
     expect(plantedCount(state, 'apple')).toBe(1)
@@ -54,7 +54,7 @@ describe('purchases', () => {
   })
 
   it('upgrades once per level and enforces the cap', () => {
-    let state = createShopState(saveWith(10_000))
+    let state = createShopState(saveWith(10_000), PORTRAIT_MAP)
     for (let level = 0; level < UPGRADES.shelf.costs.length; level += 1) {
       const cost = upgradeCost('shelf', level)
       expect(cost).not.toBeNull()
@@ -66,7 +66,7 @@ describe('purchases', () => {
   })
 
   it('refunds half a removed plant and locks its bin', () => {
-    let state = createShopState(saveWith(1_000))
+    let state = createShopState(saveWith(1_000), PORTRAIT_MAP)
     state = purchasePlant(state, 'apple').state
     const before = state.coins
     const id = state.producers[0]?.id
@@ -79,38 +79,38 @@ describe('purchases', () => {
   })
 
   it('requires the first sale before vegetables unlock', () => {
-    const state = createShopState(initialSave())
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
     expect(purchaseZone(state, 'veg').result).toBe('locked')
-    const served = createShopState({ ...initialSave(), served: 1 })
+    const served = createShopState({ ...initialSave(), served: 1 }, PORTRAIT_MAP)
     const outcome = purchaseZone(served, 'veg')
     expect(outcome.result).toBe('ok')
     expect(outcome.state.zones.veg).toBe(true)
   })
 
   it('unlocks the farm with a chicken and the kitchen with an oven', () => {
-    const farm = purchaseZone(createShopState(saveWith(600)), 'farm')
+    const farm = purchaseZone(createShopState(saveWith(600), PORTRAIT_MAP), 'farm')
     expect(farm.result).toBe('ok')
     expect(farm.state.zones.farm).toBe(true)
     expect(farm.state.producers.some((producer) => producer.product === 'egg')).toBe(true)
 
-    const kitchen = purchaseZone(createShopState(saveWith(1_200)), 'kitchen')
+    const kitchen = purchaseZone(createShopState(saveWith(1_200), PORTRAIT_MAP), 'kitchen')
     expect(kitchen.result).toBe('ok')
     expect(kitchen.state.zones.kitchen).toBe(true)
     expect(kitchen.state.producers.some((producer) => producer.product === 'cake')).toBe(true)
   })
 
   it('locks animal purchases behind their zone', () => {
-    const locked = purchaseProducer(createShopState(saveWith(1_000)), 'milk')
+    const locked = purchaseProducer(createShopState(saveWith(1_000), PORTRAIT_MAP), 'milk')
     expect(locked.result).toBe('lockedZone')
 
-    const farm = purchaseZone(createShopState(saveWith(1_600)), 'farm').state
+    const farm = purchaseZone(createShopState(saveWith(1_600), PORTRAIT_MAP), 'farm').state
     const cow = purchaseProducer(farm, 'milk')
     expect(cow.result).toBe('ok')
     expect(cow.state.producers.some((producer) => producer.product === 'milk')).toBe(true)
   })
 
   it('does not go negative', () => {
-    const state = createShopState(initialSave())
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
     const outcome = purchasePlant(state, 'cherry')
     expect(outcome.result).toBe('insufficient')
     expect(outcome.state.coins).toBe(100)

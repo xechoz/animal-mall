@@ -2,11 +2,9 @@ import { distance } from './collision'
 import {
   isPlantKind,
   PLANT_ORDER,
-  PLANT_SLOTS,
   producerCost,
   producerPosition,
   QUICK_BUY,
-  STAFF,
   STAFF_ORDER,
   ZONE_ORDER,
   ZONE_PRODUCTS,
@@ -89,7 +87,7 @@ export function plantOfferForSlot(
   slot: number,
 ): PlantOffer | null {
   if (!state.zones[zone]) return null
-  const point = PLANT_SLOTS[zone][slot]
+  const point = state.map.plantSlots[zone][slot]
   if (point === undefined) return null
   if (
     state.producers.some(
@@ -154,7 +152,7 @@ export function producerOfferFor(state: ShopState, product: ProductKind): Produc
     cost,
     deposit: 0,
     remaining: cost,
-    pos: producerPosition(product, 0),
+    pos: producerPosition(state.map, product, 0),
   }
 }
 
@@ -163,7 +161,7 @@ export function staffOfferFor(state: ShopState, kind: StaffKind): StaffOffer | n
   const cost = staffCost(kind, level)
   if (cost === null) return null
   const deposit = state.deposits[staffDepositKey(kind)] ?? 0
-  const station = STAFF[kind].station
+  const station = state.map.staffStations[kind].station
   return {
     type: 'staff',
     id: `staff-${kind}`,
@@ -181,7 +179,7 @@ export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
   const offers: PurchaseOffer[] = []
   for (const zone of ZONE_ORDER) {
     if (zone !== 'fruit' && zone !== 'veg') continue
-    for (const plot of PLANT_SLOTS[zone]) {
+    for (const plot of state.map.plantSlots[zone]) {
       const offer = plantOfferForSlot(state, zone, plot.index)
       if (offer !== null) offers.push(offer)
     }

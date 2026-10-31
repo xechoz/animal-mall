@@ -1,15 +1,12 @@
 import {
-  ANIMAL_PENS,
   FRUIT_ORDER,
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
   PLANT_ORDER,
-  PLANT_SLOTS,
   PLANTS,
   producerCost,
   STAFF,
-  STATION_SLOTS,
   shelfCapacity,
   UPGRADE_ORDER,
   UPGRADES,
@@ -91,7 +88,7 @@ export function emptyPlantSlot(state: ShopState, zone: 'fruit' | 'veg'): number 
       .filter((producer) => isPlantKind(producer.product) && zoneOf(producer.product) === zone)
       .map((producer) => producer.slot),
   )
-  const point = PLANT_SLOTS[zone].find((plot) => !used.has(plot.index))
+  const point = state.map.plantSlots[zone].find((plot) => !used.has(plot.index))
   return point === undefined ? null : point.index
 }
 
@@ -116,7 +113,7 @@ export function purchasePlantAt(
   const zone = zoneOf(product)
   if (zone !== 'fruit' && zone !== 'veg') return { state, result: 'missing', events: [] }
   if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
-  const point = PLANT_SLOTS[zone][slot]
+  const point = state.map.plantSlots[zone][slot]
   if (point === undefined) return { state, result: 'noSlot', events: [] }
   if (
     state.producers.some(
@@ -139,7 +136,7 @@ export function purchasePlantAt(
   const remaining = Math.max(0, cost - deposit)
 
   if (state.coins >= remaining) {
-    const producer = createProducer(product, slot, state.nextProducerId, true)
+    const producer = createProducer(product, slot, state.nextProducerId, state.map, true)
     const key = plantDepositKey(product)
     const deposits = { ...state.deposits }
     delete deposits[key]
@@ -196,7 +193,13 @@ export function purchaseProducer(state: ShopState, product: ProductKind): Purcha
     }
     const cost = producerCost(product)
     if (state.coins < cost) return { state, result: 'insufficient', events: [] }
-    const producer = createProducer(product, fixedSlot(product), state.nextProducerId, true)
+    const producer = createProducer(
+      product,
+      fixedSlot(product, state.map),
+      state.nextProducerId,
+      state.map,
+      true,
+    )
     const next = addProducerToState({ ...state, coins: state.coins - cost }, producer)
     return {
       state: next,
@@ -222,7 +225,13 @@ export function purchaseZone(state: ShopState, zone: ZoneId): PurchaseOutcome {
 
   const includes = config.includes
   if (includes !== null && !state.producers.some((producer) => producer.product === includes)) {
-    const producer = createProducer(includes, fixedSlot(includes), next.nextProducerId, true)
+    const producer = createProducer(
+      includes,
+      fixedSlot(includes, next.map),
+      next.nextProducerId,
+      next.map,
+      true,
+    )
     next = addProducerToState(next, producer)
   }
 
@@ -331,10 +340,10 @@ export function nextUpgradeKind(state: ShopState): UpgradeKind | null {
   return kind ?? null
 }
 
-function fixedSlot(product: ProductKind): number {
+function fixedSlot(product: ProductKind, map: ShopState['map']): number {
   if (isPlantKind(product)) return 0
-  if (isAnimalProductKind(product)) return ANIMAL_PENS[product].index
-  if (isProcessedKind(product)) return STATION_SLOTS[product].index
+  if (isAnimalProductKind(product)) return map.animalPens[product].index
+  if (isProcessedKind(product)) return map.stationSlots[product].index
   return 0
 }
 

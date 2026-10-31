@@ -75,7 +75,7 @@ export class MapOffers {
 
   private apply(label: OfferLabel, offer: PurchaseOffer, state: ShopState): void {
     const point = worldToScreen(this.layout, offer.pos)
-    const lift = 58
+    const lift = this.layout.portrait ? 58 : 24
     const x = Math.max(WIDTH / 2 + 8, Math.min(this.layout.width - WIDTH / 2 - 8, point.x))
     const y = Math.max(
       86,

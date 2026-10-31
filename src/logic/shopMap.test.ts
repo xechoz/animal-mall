@@ -1,0 +1,156 @@
+import { createRng } from '@mg/core/rng'
+import { describe, expect, it } from 'vitest'
+import { blockedAt } from './collision'
+import {
+  CUSTOMER_RADIUS,
+  LANDSCAPE_MAP,
+  PLAYER_RADIUS,
+  PORTRAIT_MAP,
+  producerPosition,
+  shopMapFor,
+} from './config'
+import { initialSave } from './saveData'
+import { createShopState, remapShopState, stepShop } from './state'
+import type { ShopMap } from './types'
+
+const MAPS: readonly ShopMap[] = [PORTRAIT_MAP, LANDSCAPE_MAP]
+
+function insideMap(map: ShopMap, x: number, y: number): boolean {
+  return x >= map.wall && x <= map.room.w - map.wall && y >= map.wall && y <= map.room.h - map.wall
+}
+
+for (const map of MAPS) {
+  describe(`${map.id} map geometry`, () => {
+    it('keeps every access point walkable for the player and customers', () => {
+      const points = [
+        map.playerStart,
+        map.doorPoint,
+        ...Object.values(map.shelfAccess),
+        ...map.plantAccess.fruit,
+        ...map.plantAccess.veg,
+        ...Object.values(map.animalAccess),
+        ...Object.values(map.stationAccess),
+        ...map.queueSlots,
+      ]
+      for (const point of points) {
+        expect(insideMap(map, point.x, point.y)).toBe(true)
+        expect(blockedAt(point.x, point.y, PLAYER_RADIUS, map)).toBe(false)
+        expect(blockedAt(point.x, point.y, CUSTOMER_RADIUS, map)).toBe(false)
+      }
+    })
+
+    it('keeps facilities and the counter inside the room', () => {
+      for (const rect of Object.values(map.shelves)) {
+        expect(insideMap(map, rect.x, rect.y)).toBe(true)
+        expect(insideMap(map, rect.x + rect.w, rect.y + rect.h)).toBe(true)
+      }
+      for (const plot of [...map.plots, ...map.cropPlots, ...Object.values(map.animalPens)]) {
+        expect(insideMap(map, plot.x, plot.y)).toBe(true)
+      }
+      for (const station of Object.values(map.stationSlots)) {
+        expect(insideMap(map, station.x, station.y)).toBe(true)
+      }
+      expect(insideMap(map, map.counter.x, map.counter.y)).toBe(true)
+      expect(insideMap(map, map.counter.x + map.counter.w, map.counter.y + map.counter.h)).toBe(
+        true,
+      )
+    })
+
+    it('covers every obstacle in the collision list', () => {
+      for (const plot of [...map.plots, ...map.cropPlots]) {
+        expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS, map)).toBe(true)
+      }
+      for (const pen of Object.values(map.animalPens)) {
+        expect(blockedAt(pen.x, pen.y, CUSTOMER_RADIUS, map)).toBe(true)
+      }
+      for (const station of Object.values(map.stationSlots)) {
+        expect(blockedAt(station.x, station.y, CUSTOMER_RADIUS, map)).toBe(true)
+      }
+      for (const shelf of Object.values(map.shelves)) {
+        expect(blockedAt(shelf.x + shelf.w / 2, shelf.y + shelf.h / 2, CUSTOMER_RADIUS, map)).toBe(
+          true,
+        )
+      }
+    })
+  })
+}
+
+describe('shop map selection', () => {
+  it('uses the wide plan in landscape and the tall plan in portrait', () => {
+    expect(shopMapFor(844, 390).id).toBe('landscape')
+    expect(shopMapFor(390, 844).id).toBe('portrait')
+  })
+})
+
+describe('remapping a run', () => {
+  it('keeps progress and moves producers onto the new floor plan', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 500,
+        served: 3,
+        pendingCoins: 24,
+        producers: [
+          { product: 'apple', slot: 0 },
+          { product: 'milk', slot: 1 },
+        ],
+        zones: { fruit: true, veg: true, farm: true, kitchen: false },
+        staff: { cashier: 1, picker: 1 },
+      },
+      PORTRAIT_MAP,
+    )
+    const moved = remapShopState(state, LANDSCAPE_MAP)
+    expect(moved.map.id).toBe('landscape')
+    expect(moved.coins).toBe(500)
+    expect(moved.served).toBe(3)
+    expect(moved.pendingCoins).toBe(24)
+    expect(moved.producers).toHaveLength(2)
+    expect(moved.producers.map((producer) => producer.product)).toEqual(['apple', 'milk'])
+    for (const producer of moved.producers) {
+      expect(producer.pos).toEqual(producerPosition(LANDSCAPE_MAP, producer.product, producer.slot))
+    }
+    expect(moved.player.pos).toEqual(LANDSCAPE_MAP.playerStart)
+    expect(moved.customers).toHaveLength(0)
+    expect(moved.queue).toHaveLength(0)
+    expect(moved.staffMembers).toHaveLength(2)
+    expect(moved.tutorial).toBe('done')
+  })
+
+  it('is a no-op when the map does not change', () => {
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
+    expect(remapShopState(state, PORTRAIT_MAP)).toBe(state)
+  })
+})
+
+describe('landscape simulation', () => {
+  it('runs customers, the counter and a cashier on the wide plan', () => {
+    let state = createShopState(
+      {
+        ...initialSave(),
+        coins: 0,
+        served: 3,
+        producers: [{ product: 'apple', slot: 0 }],
+        staff: { cashier: 1, picker: 0 },
+      },
+      LANDSCAPE_MAP,
+    )
+    state = {
+      ...state,
+      shelves: {
+        ...state.shelves,
+        fruit: {
+          ...state.shelves.fruit,
+          stock: { ...state.shelves.fruit.stock, apple: 4 },
+          everStocked: { ...state.shelves.fruit.everStocked, apple: true },
+        },
+      },
+      spawnMs: 0,
+    }
+    const rng = createRng(7)
+    for (let tick = 0; tick < 1_200; tick += 1) {
+      state = stepShop(state, { moveX: 0, moveY: 0 }, rng, 50).state
+    }
+    expect(state.served).toBeGreaterThan(3)
+    expect(state.pendingCoins).toBeGreaterThan(0)
+  })
+})

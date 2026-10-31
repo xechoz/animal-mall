@@ -1,5 +1,4 @@
-import { ROOM_H, ROOM_W, STATIC_OBSTACLES, WALL } from './config'
-import type { Rect, Vec2 } from './types'
+import type { Rect, ShopMap, Vec2 } from './types'
 
 export function distanceSq(a: Vec2, b: Vec2): number {
   const dx = a.x - b.x
@@ -19,21 +18,27 @@ export function circleIntersectsRect(x: number, y: number, radius: number, rect:
   return dx * dx + dy * dy < radius * radius
 }
 
-export function blockedAt(x: number, y: number, radius: number): boolean {
-  if (x - radius < WALL || x + radius > ROOM_W - WALL) return true
-  if (y - radius < WALL || y + radius > ROOM_H - WALL) return true
-  return STATIC_OBSTACLES.some((rect) => circleIntersectsRect(x, y, radius, rect))
+export function blockedAt(x: number, y: number, radius: number, map: ShopMap): boolean {
+  if (x - radius < map.wall || x + radius > map.room.w - map.wall) return true
+  if (y - radius < map.wall || y + radius > map.room.h - map.wall) return true
+  return map.obstacles.some((rect) => circleIntersectsRect(x, y, radius, rect))
 }
 
 /**
  * Axis-separated circle movement. Blocked axes are discarded, so diagonal
  * input slides along shelves and the counter instead of sticking.
  */
-export function moveWithCollision(pos: Vec2, dx: number, dy: number, radius: number): Vec2 {
+export function moveWithCollision(
+  pos: Vec2,
+  dx: number,
+  dy: number,
+  radius: number,
+  map: ShopMap,
+): Vec2 {
   let x = pos.x
   let y = pos.y
-  if (!blockedAt(x + dx, y, radius)) x += dx
-  if (!blockedAt(x, y + dy, radius)) y += dy
+  if (!blockedAt(x + dx, y, radius, map)) x += dx
+  if (!blockedAt(x, y + dy, radius, map)) y += dy
   return { x, y }
 }
 

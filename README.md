@@ -15,9 +15,9 @@ arriving, and a missed sale only costs that sale.
 
 - Press and drag anywhere on the play field to move; there is no visible stick.
   WASD / arrow keys also work and take priority while held.
-- The shop is a single portrait screen with four zones: fruit (top-left),
-  vegetables (top-right), farm (bottom-left) and kitchen (bottom-right). Each
-  zone has one shelf for its products.
+- The shop adapts to both orientations: a tall plan in portrait and four zones
+  in a row in landscape. Rotating pauses and remaps the run without losing
+  coins, plants, upgrades or deposits. Each zone has one shelf for its products.
 - Harvest, stocking and checkout happen automatically when you are close enough.
   The counter has a wide service area.
 - Walk to an empty plot and stop to open the plant chooser. Fruit trees and
@@ -77,11 +77,12 @@ npm run dev
 
 Source layout:
 
-- `src/logic/` — pure shop simulation, navigation, purchases, production,
-  feeding, quick-buy deposits, staff AI and save migration.
+- `src/logic/` — pure shop simulation, the portrait and landscape floor plans,
+  navigation, purchases, production, feeding, quick-buy deposits, staff AI and
+  save migration.
 - `src/scenes/` — menu and game scenes; fixed 60 Hz simulation with render
   interpolation and a live shop overlay.
-- `src/ui/` — procedural art, portrait layout, joystick, HUD, map offers, plant
+- `src/ui/` — procedural art, responsive layout, joystick, HUD, map offers, plant
   chooser, producer/shelf views, staff and coin-pile views, panels and overlays.
 - `src/i18n.ts` — English and Chinese copy.
 - `src/save.ts` — versioned save adapter.

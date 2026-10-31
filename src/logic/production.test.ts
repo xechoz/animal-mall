@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shelfCapacity } from './config'
+import { PORTRAIT_MAP, shelfCapacity } from './config'
 import { addStock, createProducer, emptyShelves, stepProduction } from './production'
 import type { ProductKind, ShelfState, ZoneId } from './types'
 
@@ -28,7 +28,7 @@ function run(
   stock: Partial<Record<ProductKind, number>>,
   ticks: number,
 ) {
-  const producer = createProducer(producerProduct, 0, 1)
+  const producer = createProducer(producerProduct, 0, 1, PORTRAIT_MAP)
   let shelves = shelvesWith(stock)
   let state = producer
   for (let tick = 0; tick < ticks; tick += 1) {
@@ -41,7 +41,7 @@ function run(
 
 describe('production', () => {
   it('grows a plant to maturity and fruit', () => {
-    const fresh = createProducer('apple', 0, 1, true)
+    const fresh = createProducer('apple', 0, 1, PORTRAIT_MAP, true)
     let shelves = shelvesWith({})
     let state = fresh
     for (let tick = 0; tick < 200; tick += 1) {

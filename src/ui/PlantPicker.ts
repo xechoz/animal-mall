@@ -1,6 +1,6 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { PLANT_SLOTS, producerCost, ZONE_PRODUCTS } from '../logic/config'
+import { producerCost, ZONE_PRODUCTS } from '../logic/config'
 import { plantDepositKey } from '../logic/purchase'
 import type { PlantKind, ShopState } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
@@ -31,7 +31,7 @@ export class PlantPicker {
 
   constructor(options: PlantPickerOptions) {
     const { scene, layout, theme, state, zone, slot } = options
-    const point = PLANT_SLOTS[zone][slot] ?? { x: 320, y: 320 }
+    const point = layout.map.plantSlots[zone][slot] ?? layout.map.playerStart
     const screen = worldToScreen(layout, point)
     const x = Math.max(WIDTH / 2 + 10, Math.min(layout.width - WIDTH / 2 - 10, screen.x))
     const bottom = Math.max(150, screen.y - 38 * layout.worldScale)

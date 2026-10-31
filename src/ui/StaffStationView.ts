@@ -1,7 +1,7 @@
 import type { Theme } from '@mg/core'
 import Phaser from 'phaser'
 import { STAFF } from '../logic/config'
-import type { StaffKind } from '../logic/types'
+import type { ShopMap, StaffKind } from '../logic/types'
 import { animalTextureKey } from './animalArt'
 import { coinTextureKey } from './fruitArt'
 import { productTextureKey } from './productArt'
@@ -11,8 +11,8 @@ export class StaffStationView extends Phaser.GameObjects.Container {
   private readonly level: Phaser.GameObjects.Graphics
   private lastLevel = -1
 
-  constructor(scene: Phaser.Scene, theme: Theme, kind: StaffKind) {
-    const station = STAFF[kind].station
+  constructor(scene: Phaser.Scene, theme: Theme, kind: StaffKind, map: ShopMap) {
+    const station = map.staffStations[kind].station
     super(scene, station.x, station.y)
     this.kind = kind
 

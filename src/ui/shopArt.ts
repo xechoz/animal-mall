@@ -3,22 +3,13 @@ import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import {
   ANIMAL_ORDER,
-  ANIMAL_PENS,
-  COUNTER_RECT,
-  CROP_PLOTS,
   PEN_SIZE,
   PLOT_SIZE,
-  PLOTS,
   PROCESSED_ORDER,
-  QUEUE_SLOTS,
-  REGISTER_POINT,
-  ROOM_H,
-  ROOM_W,
   STATION_SIZE,
-  STATION_SLOTS,
   ZONE_ORDER,
 } from '../logic/config'
-import type { ZoneId } from '../logic/types'
+import type { ShopMap, ZoneId } from '../logic/types'
 
 const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
   fruit: 0xf08a6a,
@@ -32,27 +23,42 @@ export function createShopBackground(
   theme: Theme,
   title: string,
   labels: Readonly<Record<ZoneId, string>>,
+  map: ShopMap,
+): Phaser.GameObjects.Container {
+  return map.id === 'landscape'
+    ? createLandscapeShopBackground(scene, theme, title, labels, map)
+    : createPortraitShopBackground(scene, theme, title, labels, map)
+}
+
+function createPortraitShopBackground(
+  scene: Phaser.Scene,
+  theme: Theme,
+  title: string,
+  labels: Readonly<Record<ZoneId, string>>,
+  map: ShopMap,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
   const g = scene.add.graphics()
   container.add(g)
+  const width = map.room.w
+  const height = map.room.h
 
   g.fillStyle(theme.bg, 1)
-  g.fillRect(0, 0, ROOM_W, ROOM_H)
+  g.fillRect(0, 0, width, height)
   g.fillStyle(gameColors.wall, 1)
-  g.fillRect(0, 0, ROOM_W, ROOM_H)
+  g.fillRect(0, 0, width, height)
 
   // Floor planks.
   g.fillStyle(gameColors.floor, 1)
-  g.fillRect(40, 80, 600, 1080)
+  g.fillRect(40, 80, width - 80, height - 120)
   for (let row = 0; row < 36; row += 1) {
     const y = 80 + row * 30
     g.fillStyle(row % 2 === 0 ? 0xf6dfba : 0xf0d3a5, 1)
-    g.fillRect(40, y, 600, 30)
+    g.fillRect(40, y, width - 80, 30)
     g.lineStyle(1, gameColors.floorLine, 0.55)
-    g.lineBetween(40, y, 640, y)
+    g.lineBetween(40, y, width - 40, y)
     const seam = row % 2 === 0 ? 40 : 140
-    for (let x = seam; x < 640; x += 180) g.lineBetween(x, y, x, y + 30)
+    for (let x = seam; x < width - 40; x += 180) g.lineBetween(x, y, x, y + 30)
   }
 
   // Zone floor tints.
@@ -77,32 +83,32 @@ export function createShopBackground(
   // Central aisles.
   g.fillStyle(0xffffff, 0.16)
   g.fillRoundedRect(300, 144, 80, 856, 18)
-  g.fillRoundedRect(40, 520, 600, 60, 18)
+  g.fillRoundedRect(40, 520, width - 80, 60, 18)
 
-  drawGhostFacilities(g)
+  drawGhostFacilities(g, map)
 
   // Top wall and awning.
   g.fillStyle(gameColors.wall, 1)
-  g.fillRect(24, 24, 632, 56)
+  g.fillRect(24, 24, width - 48, 56)
   g.fillStyle(gameColors.wallDark, 1)
-  g.fillRect(24, 74, 632, 6)
+  g.fillRect(24, 74, width - 48, 6)
   for (let index = 0; index < 26; index += 1) {
     g.fillStyle(index % 2 === 0 ? gameColors.coral : gameColors.cream, 1)
     g.fillRect(28 + index * 24, 24, 24, 22)
   }
   g.fillStyle(0x3b2f3a, 0.12)
-  g.fillRect(40, 46, 600, 4)
+  g.fillRect(40, 46, width - 80, 4)
 
   // Side and bottom walls.
   g.fillStyle(gameColors.wall, 1)
-  g.fillRect(24, 80, 16, 1080)
-  g.fillRect(640, 80, 16, 1080)
+  g.fillRect(24, 80, 16, height - 120)
+  g.fillRect(width - 40, 80, 16, height - 120)
   g.fillStyle(gameColors.wallDark, 1)
-  g.fillRect(40, 1160, 220, 16)
-  g.fillRect(340, 1160, 300, 16)
+  g.fillRect(40, height - 40, 220, 16)
+  g.fillRect(340, height - 40, width - 380, 16)
   g.fillStyle(0x3b2f3a, 0.12)
-  g.fillRect(40, 1158, 220, 3)
-  g.fillRect(340, 1158, 300, 3)
+  g.fillRect(40, height - 42, 220, 3)
+  g.fillRect(340, height - 42, width - 380, 3)
 
   // Window on the top wall.
   g.fillStyle(0x3b2f3a, 0.75)
@@ -123,10 +129,11 @@ export function createShopBackground(
   g.fillRoundedRect(258, 25, 164, 38, 12)
   g.fillStyle(gameColors.woodLight, 1)
   g.fillRoundedRect(263, 29, 154, 30, 9)
-  const sign = scene.add
-    .text(340, 44, title, displayTextStyle(theme, 20, '#fff7e8', true, 2, 2))
-    .setOrigin(0.5)
-  container.add(sign)
+  container.add(
+    scene.add
+      .text(340, 44, title, displayTextStyle(theme, 20, '#fff7e8', true, 2, 2))
+      .setOrigin(0.5),
+  )
 
   // Pendant lamps.
   for (const x of [180, 340, 500]) {
@@ -146,14 +153,9 @@ export function createShopBackground(
   g.lineStyle(3, 0xf7d6c4, 1)
   g.strokeRoundedRect(290, 528, 92, 36, 14)
 
-  // Queue markers.
-  for (const slot of QUEUE_SLOTS) {
-    g.fillStyle(0xffffff, 0.22)
-    g.fillEllipse(slot.x, slot.y + 16, 32, 10)
-  }
-
-  drawCounter(g)
-  drawDoorMat(g)
+  drawQueueMarkers(g, map)
+  drawCounter(g, map)
+  drawDoorMat(g, 278, 1108)
   drawPlant(g, 60, 1128)
   drawPlant(g, 620, 1128)
   drawPlant(g, 60, 110)
@@ -162,8 +164,149 @@ export function createShopBackground(
   return container
 }
 
-function drawGhostFacilities(g: Phaser.GameObjects.Graphics): void {
-  for (const plot of [...PLOTS, ...CROP_PLOTS]) {
+function createLandscapeShopBackground(
+  scene: Phaser.Scene,
+  theme: Theme,
+  title: string,
+  labels: Readonly<Record<ZoneId, string>>,
+  map: ShopMap,
+): Phaser.GameObjects.Container {
+  const container = scene.add.container(0, 0)
+  const g = scene.add.graphics()
+  container.add(g)
+  const width = map.room.w
+  const height = map.room.h
+
+  g.fillStyle(theme.bg, 1)
+  g.fillRect(0, 0, width, height)
+  g.fillStyle(gameColors.wall, 1)
+  g.fillRect(0, 0, width, height)
+
+  // Floor planks across the wide room.
+  g.fillStyle(gameColors.floor, 1)
+  g.fillRect(40, 80, width - 80, height - 120)
+  for (let y = 80; y < height - 40; y += 30) {
+    const row = Math.floor((y - 80) / 30)
+    g.fillStyle(row % 2 === 0 ? 0xf6dfba : 0xf0d3a5, 1)
+    g.fillRect(40, y, width - 80, 30)
+    g.lineStyle(1, gameColors.floorLine, 0.55)
+    g.lineBetween(40, y, width - 40, y)
+    const seam = row % 2 === 0 ? 40 : 140
+    for (let x = seam; x < width - 40; x += 180) g.lineBetween(x, y, x, y + 30)
+  }
+
+  // Four zone strips.
+  for (const zone of ZONE_ORDER) {
+    const shelf = map.shelves[zone]
+    const left = shelf.x
+    const top = 88
+    g.fillStyle(ZONE_TINTS[zone], 0.1)
+    g.fillRoundedRect(left, top, shelf.w, 300, 18)
+    g.lineStyle(2, ZONE_TINTS[zone], 0.22)
+    g.strokeRoundedRect(left, top, shelf.w, 300, 18)
+    container.add(
+      scene.add
+        .text(left + 10, 160, labels[zone], textStyle(theme, 12, theme.textMuted, true))
+        .setOrigin(0, 0.5),
+    )
+  }
+
+  // Aisles between the zones and below them.
+  g.fillStyle(0xffffff, 0.16)
+  for (const x of [260, 560, 860]) g.fillRoundedRect(x, 88, 80, 300, 18)
+  g.fillRoundedRect(40, 400, width - 80, 110, 18)
+
+  drawGhostFacilities(g, map)
+
+  // Top wall and awning.
+  g.fillStyle(gameColors.wall, 1)
+  g.fillRect(24, 24, width - 48, 56)
+  g.fillStyle(gameColors.wallDark, 1)
+  g.fillRect(24, 74, width - 48, 6)
+  for (let x = 28; x + 24 <= width - 28; x += 24) {
+    const index = Math.round((x - 28) / 24)
+    g.fillStyle(index % 2 === 0 ? gameColors.coral : gameColors.cream, 1)
+    g.fillRect(x, 24, 24, 22)
+  }
+  g.fillStyle(0x3b2f3a, 0.12)
+  g.fillRect(40, 46, width - 80, 4)
+
+  // Side and bottom walls.
+  g.fillStyle(gameColors.wall, 1)
+  g.fillRect(24, 80, 16, height - 120)
+  g.fillRect(width - 40, 80, 16, height - 120)
+  g.fillStyle(gameColors.wallDark, 1)
+  g.fillRect(40, height - 40, 192, 16)
+  g.fillRect(328, height - 40, width - 368, 16)
+  g.fillStyle(0x3b2f3a, 0.12)
+  g.fillRect(40, height - 42, 192, 3)
+  g.fillRect(328, height - 42, width - 368, 3)
+
+  // Window on the top wall.
+  g.fillStyle(0x3b2f3a, 0.75)
+  g.fillRoundedRect(70, 28, 110, 30, 6)
+  g.fillStyle(gameColors.sky, 1)
+  g.fillRoundedRect(73, 31, 104, 24, 4)
+  g.fillStyle(0xffffff, 0.65)
+  g.fillEllipse(94, 39, 26, 8)
+  g.fillEllipse(140, 35, 22, 7)
+  g.lineStyle(3, gameColors.cream, 1)
+  g.lineBetween(125, 31, 125, 55)
+  g.lineBetween(73, 43, 177, 43)
+
+  // Shop sign.
+  g.fillStyle(0x3b2f3a, 0.22)
+  g.fillRoundedRect(width / 2 - 80, 28, 160, 38, 12)
+  g.fillStyle(gameColors.woodDark, 1)
+  g.fillRoundedRect(width / 2 - 82, 25, 164, 38, 12)
+  g.fillStyle(gameColors.woodLight, 1)
+  g.fillRoundedRect(width / 2 - 77, 29, 154, 30, 9)
+  container.add(
+    scene.add
+      .text(width / 2, 44, title, displayTextStyle(theme, 20, '#fff7e8', true, 2, 2))
+      .setOrigin(0.5),
+  )
+
+  // Pendant lamps.
+  for (const x of [180, 450, 750, 1020]) {
+    g.lineStyle(2, 0x3b2f3a, 0.3)
+    g.lineBetween(x, 54, x, 66)
+    g.fillStyle(0xffd166, 1)
+    g.fillCircle(x, 70, 8)
+    g.fillStyle(0xfff3b0, 0.7)
+    g.fillCircle(x - 2, 68, 4)
+  }
+
+  // Rug in the open right-hand corner.
+  g.fillStyle(0x3b2f3a, 0.08)
+  g.fillRoundedRect(814, 404, 232, 72, 24)
+  g.fillStyle(0xe9b7a3, 1)
+  g.fillRoundedRect(810, 400, 232, 72, 24)
+  g.lineStyle(3, 0xf7d6c4, 1)
+  g.strokeRoundedRect(820, 410, 212, 52, 18)
+  g.lineStyle(2, 0xd99a86, 0.55)
+  for (let x = 842; x < 1010; x += 24) g.lineBetween(x, 416, x, 456)
+
+  drawQueueMarkers(g, map)
+  drawCounter(g, map)
+  drawDoorMat(g, 278, 596)
+  drawPlant(g, 60, 620)
+  drawPlant(g, 1140, 620)
+  drawPlant(g, 60, 110)
+  drawPlant(g, 1140, 110)
+
+  return container
+}
+
+function drawQueueMarkers(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
+  for (const slot of map.queueSlots) {
+    g.fillStyle(0xffffff, 0.22)
+    g.fillEllipse(slot.x, slot.y + 16, 32, 10)
+  }
+}
+
+function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
+  for (const plot of [...map.plots, ...map.cropPlots]) {
     const left = plot.x - PLOT_SIZE.w / 2
     const top = plot.y - PLOT_SIZE.h / 2
     g.fillStyle(0x8f5734, 0.12)
@@ -177,7 +320,7 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics): void {
   }
 
   for (const product of ANIMAL_ORDER) {
-    const pen = ANIMAL_PENS[product]
+    const pen = map.animalPens[product]
     const left = pen.x - PEN_SIZE.w / 2
     const top = pen.y - PEN_SIZE.h / 2
     g.fillStyle(0xe0c080, 0.14)
@@ -193,7 +336,7 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics): void {
   }
 
   for (const product of PROCESSED_ORDER) {
-    const station = STATION_SLOTS[product]
+    const station = map.stationSlots[product]
     const left = station.x - STATION_SIZE.w / 2
     const top = station.y - STATION_SIZE.h / 2
     g.fillStyle(0x8fa6c9, 0.14)
@@ -205,8 +348,9 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics): void {
   }
 }
 
-function drawCounter(g: Phaser.GameObjects.Graphics): void {
-  const rect = COUNTER_RECT
+function drawCounter(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
+  const rect = map.counter
+  const register = map.register
   g.fillStyle(0x3b2f3a, 0.18)
   g.fillRoundedRect(rect.x, rect.y + 8, rect.w, rect.h, 12)
   g.fillStyle(gameColors.woodDark, 1)
@@ -221,19 +365,31 @@ function drawCounter(g: Phaser.GameObjects.Graphics): void {
 
   // Register.
   g.fillStyle(0x3b2f3a, 0.2)
-  g.fillRoundedRect(REGISTER_POINT.x - 25, REGISTER_POINT.y - 16, 52, 32, 8)
+  g.fillRoundedRect(register.x - 25, register.y - 16, 52, 32, 8)
   g.fillStyle(0x4b4050, 1)
-  g.fillRoundedRect(REGISTER_POINT.x - 26, REGISTER_POINT.y - 18, 50, 30, 8)
+  g.fillRoundedRect(register.x - 26, register.y - 18, 50, 30, 8)
   g.fillStyle(0x9be7d0, 1)
-  g.fillRoundedRect(REGISTER_POINT.x - 17, REGISTER_POINT.y - 13, 32, 15, 4)
+  g.fillRoundedRect(register.x - 17, register.y - 13, 32, 15, 4)
   g.fillStyle(0x3b2f3a, 0.45)
   for (let row = 0; row < 2; row += 1) {
     for (let column = 0; column < 4; column += 1) {
-      g.fillRoundedRect(REGISTER_POINT.x - 20 + column * 8, REGISTER_POINT.y + 5 + row * 5, 5, 3, 1)
+      g.fillRoundedRect(register.x - 20 + column * 8, register.y + 5 + row * 5, 5, 3, 1)
     }
   }
   g.fillStyle(0xffd166, 1)
-  g.fillCircle(REGISTER_POINT.x + 22, REGISTER_POINT.y + 10, 4)
+  g.fillCircle(register.x + 22, register.y + 10, 4)
+}
+
+function drawDoorMat(g: Phaser.GameObjects.Graphics, centerX: number, top: number): void {
+  const left = centerX - 46
+  g.fillStyle(0x3b2f3a, 0.12)
+  g.fillRoundedRect(left + 2, top + 2, 92, 46, 8)
+  g.fillStyle(0xf7d6c4, 1)
+  g.fillRoundedRect(left, top, 92, 46, 8)
+  g.lineStyle(3, gameColors.coral, 0.8)
+  g.strokeRoundedRect(left + 6, top + 6, 80, 34, 5)
+  g.lineBetween(left + 14, top + 14, left + 78, top + 14)
+  g.lineBetween(left + 14, top + 32, left + 78, top + 32)
 }
 
 function drawPlant(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
@@ -251,15 +407,4 @@ function drawPlant(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
   g.fillEllipse(x - 11, y - 14, 13, 8)
   g.fillStyle(gameColors.leafLight, 1)
   g.fillEllipse(x + 2, y - 20, 8, 5)
-}
-
-function drawDoorMat(g: Phaser.GameObjects.Graphics): void {
-  g.fillStyle(0x3b2f3a, 0.12)
-  g.fillRoundedRect(234, 1110, 92, 46, 8)
-  g.fillStyle(0xf7d6c4, 1)
-  g.fillRoundedRect(232, 1108, 92, 46, 8)
-  g.lineStyle(3, gameColors.coral, 0.8)
-  g.strokeRoundedRect(238, 1114, 80, 34, 5)
-  g.lineBetween(246, 1122, 310, 1122)
-  g.lineBetween(246, 1140, 310, 1140)
 }
