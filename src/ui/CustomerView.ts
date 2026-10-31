@@ -6,6 +6,7 @@ import { productTextureKey } from './productArt'
 
 export class CustomerView extends Phaser.GameObjects.Container {
   private readonly bodyImage: Phaser.GameObjects.Image
+  private readonly moodArt: Phaser.GameObjects.Graphics
   private readonly bubble: Phaser.GameObjects.Container
   private readonly bubbleBg: Phaser.GameObjects.Graphics
   private readonly bubbleIcons: Phaser.GameObjects.Image[] = []
@@ -37,6 +38,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
       .setOrigin(0.5, 0.9)
       .setScale(0.74)
     this.add(this.bodyImage)
+    this.moodArt = scene.add.graphics()
+    this.add(this.moodArt)
 
     this.patienceBg = scene.add.rectangle(0, -66, 46, 6, 0x3b2f3a, 0.28).setOrigin(0.5)
     this.patienceFill = scene.add.rectangle(-23, -66, 46, 6, 0x5fbf9f, 1).setOrigin(0, 0.5)
@@ -98,7 +101,12 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.patienceFill.setFillStyle(ratio > 0.55 ? 0x5fbf9f : ratio > 0.25 ? 0xffd166 : 0xe25d5d)
     this.patienceBg.setVisible(!customer.sad)
 
-    const bubbleKey = `${customer.phase}-${customer.wanted.join(',')}-${customer.basket.length}-${customer.sad}`
+    const angry = customer.angerMs >= 1_200
+    this.drawMood(customer, angry, time)
+    this.bubble.setVisible(!angry)
+    this.bodyImage.setX(angry ? Math.sin(time * 0.035 + customer.id) * 1.6 : 0)
+
+    const bubbleKey = `${customer.phase}-${customer.wanted.join(',')}-${customer.basket.length}-${customer.sad}-${angry}`
     if (bubbleKey !== this.bubbleKey) {
       this.bubbleKey = bubbleKey
       this.redrawBubble(customer)
@@ -118,9 +126,95 @@ export class CustomerView extends Phaser.GameObjects.Container {
     }
   }
 
+  private drawMood(customer: CustomerState, angry: boolean, time: number): void {
+    this.moodArt.clear()
+    if (!angry) return
+
+    const twitch = Math.sin(time * 0.012 + customer.id) * 0.7
+    const g = this.moodArt
+
+    // Angry brows scowl inward, and the mouth turns into a frown.
+    g.lineStyle(2.6, 0x3b2f3a, 0.92)
+    g.lineBetween(-12, -55 - twitch, -4, -58 + twitch)
+    g.lineBetween(12, -55 + twitch, 4, -58 - twitch)
+    g.lineStyle(2.2, 0x3b2f3a, 0.92)
+    g.lineBetween(-6, -34, 0, -37)
+    g.lineBetween(0, -37, 6, -34)
+    g.fillStyle(0xe25d5d, 0.4)
+    g.fillEllipse(-14, -41, 8, 4.5)
+    g.fillEllipse(14, -41, 8, 4.5)
+
+    // Comic anger vein on the temple, matching the flames above the head.
+    drawAngerMark(g, 25, -56, 6, 0xd94b4b)
+    this.drawFlames(customer.id, time)
+  }
+
+  /**
+   * Three flickering fire tongues above the head plus rising embers. The flame
+   * group replaces the thought bubble while angry; the bubble comes back as
+   * soon as the anger cools down.
+   */
+  private drawFlames(customerId: number, time: number): void {
+    const g = this.moodArt
+    const t = time * 0.006 + customerId
+    const glow = 0.1 + Math.abs(Math.sin(t * 1.9)) * 0.05
+
+    g.fillStyle(0xff6a3d, glow)
+    g.fillCircle(0, -86, 20)
+    g.fillStyle(0xffb45c, glow * 0.85)
+    g.fillCircle(0, -82, 12)
+
+    const tongues = [
+      { x: -13, base: -72, height: 17, width: 9, seed: 0.4 },
+      { x: 0, base: -70, height: 27, width: 11, seed: 2.1 },
+      { x: 13, base: -72, height: 15, width: 8, seed: 3.7 },
+    ]
+    for (const tongue of tongues) {
+      const flick = Math.sin(t * 3.1 + tongue.seed) * 3
+      const sway = Math.sin(t * 1.7 + tongue.seed) * 2.6
+      const tip = new Phaser.Math.Vector2(tongue.x + sway, tongue.base - tongue.height - flick)
+      const half = tongue.width / 2
+
+      g.fillStyle(0xf0642f, 0.95)
+      g.fillPoints(
+        [
+          new Phaser.Math.Vector2(tongue.x - half, tongue.base),
+          new Phaser.Math.Vector2(tongue.x - half * 1.2, tongue.base - tongue.height * 0.45),
+          tip,
+          new Phaser.Math.Vector2(tongue.x + half * 1.2, tongue.base - tongue.height * 0.42),
+          new Phaser.Math.Vector2(tongue.x + half, tongue.base),
+        ],
+        true,
+      )
+
+      g.fillStyle(0xffb347, 1)
+      g.fillPoints(
+        [
+          new Phaser.Math.Vector2(tongue.x - half * 0.52, tongue.base),
+          new Phaser.Math.Vector2(
+            tongue.x + sway * 0.4,
+            tongue.base - tongue.height * 0.66 - flick * 0.5,
+          ),
+          new Phaser.Math.Vector2(tongue.x + half * 0.52, tongue.base),
+        ],
+        true,
+      )
+
+      g.fillStyle(0xfff0b8, 0.85)
+      g.fillCircle(tongue.x, tongue.base - tongue.height * 0.24, half * 0.42)
+    }
+
+    for (let index = 0; index < 4; index += 1) {
+      const phase = (t * 0.55 + index * 0.27) % 1
+      g.fillStyle(0xffc46b, (1 - phase) * 0.8)
+      g.fillCircle(Math.sin(t * 2 + index * 2.2) * 11, -78 - phase * 26, 1.6 + (1 - phase) * 1.2)
+    }
+  }
+
   private redrawBubble(customer: CustomerState): void {
-    const icons = customer.sad ? [] : customer.wanted.slice(0, 3)
-    const width = customer.sad ? 34 : icons.length > 0 ? icons.length * 19 + 12 : 34
+    const angry = customer.angerMs >= 1_200
+    const icons = customer.sad || angry ? [] : customer.wanted.slice(0, 3)
+    const width = customer.sad || angry ? 34 : icons.length > 0 ? icons.length * 19 + 12 : 34
     const height = 30
     this.bubbleBg.clear()
     this.bubbleBg.fillStyle(0x3b2f3a, 0.16)
@@ -133,7 +227,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.bubbleBg.fillTriangle(-5, height / 2 - 1, 5, height / 2 - 1, 0, height / 2 + 7)
 
     this.bubbleIcons.forEach((icon, index) => {
-      const visible = !customer.sad && index < icons.length
+      const visible = !customer.sad && !angry && index < icons.length
       icon.setVisible(visible)
       if (visible) {
         const kind = icons[index]
@@ -142,9 +236,31 @@ export class CustomerView extends Phaser.GameObjects.Container {
       }
     })
 
-    const complete = !customer.sad && icons.length === 0
-    this.bubbleMark.setVisible(customer.sad || complete)
-    this.bubbleMark.setText(customer.sad ? '!' : '✓')
-    this.bubbleMark.setColor(customer.sad ? '#e25d5d' : '#3f8454')
+    const complete = !customer.sad && !angry && icons.length === 0
+    const upset = customer.sad || angry
+    this.bubbleMark.setVisible(upset || complete)
+    this.bubbleMark.setText(upset ? '!' : '✓')
+    this.bubbleMark.setColor(upset ? '#e25d5d' : '#3f8454')
   }
+}
+
+/** Comic anger vein: four short strokes meeting at the temple. */
+function drawAngerMark(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  size: number,
+  color: number,
+): void {
+  g.lineStyle(Math.max(1.8, size * 0.4), color, 0.95)
+  g.beginPath()
+  g.moveTo(x - size, y - size)
+  g.lineTo(x - size * 0.3, y - size * 0.3)
+  g.moveTo(x + size, y - size)
+  g.lineTo(x + size * 0.3, y - size * 0.3)
+  g.moveTo(x - size, y + size)
+  g.lineTo(x - size * 0.3, y + size * 0.3)
+  g.moveTo(x + size, y + size)
+  g.lineTo(x + size * 0.3, y + size * 0.3)
+  g.strokePath()
 }

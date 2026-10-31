@@ -147,4 +147,19 @@ export function drawRestMat(g: Phaser.GameObjects.Graphics, rect: Rect): void {
   g.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, 18)
   g.lineStyle(3, 0xfff3dd, 0.55)
   g.strokeRoundedRect(rect.x + 6, rect.y + 6, rect.w - 12, rect.h - 12, 13)
+
+  // Three little stools make the break corner read as a place to sit.
+  for (let index = 0; index < 3; index += 1) {
+    const x = rect.x + 20 + index * ((rect.w - 40) / 2)
+    const y = rect.y + rect.h - 15
+    g.fillStyle(0x3b2f3a, 0.12)
+    g.fillEllipse(x, y + 8, 22, 5)
+    g.fillStyle(0x6f4b2e, 1)
+    g.fillRoundedRect(x - 7, y + 1, 3, 9, 1.5)
+    g.fillRoundedRect(x + 4, y + 1, 3, 9, 1.5)
+    g.fillStyle(0xd39a65, 1)
+    g.fillEllipse(x, y - 2, 21, 10)
+    g.fillStyle(0xf0c99b, 1)
+    g.fillEllipse(x, y - 4, 17, 7)
+  }
 }

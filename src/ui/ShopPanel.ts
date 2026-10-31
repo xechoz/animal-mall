@@ -989,6 +989,9 @@ export class ShopPanel {
         grow: Math.round(PLANTS[product].growMs / 1000),
       })
     }
+    if (product === 'fish') {
+      return i18n.t('shop.stats.fish', { price: productPrice(product) })
+    }
     if (isAnimalProductKind(product)) {
       const config = ANIMALS[product]
       return i18n.t('shop.stats.animal', {
@@ -1009,6 +1012,7 @@ export class ShopPanel {
 
   private producerDetail(product: ProductKind): string {
     const { i18n } = this.options
+    if (product === 'fish') return i18n.t('shop.fishing')
     if (isAnimalProductKind(product)) {
       return i18n.t('shop.dietAny')
     }

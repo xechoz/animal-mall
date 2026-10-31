@@ -12,6 +12,16 @@ const LEAF_DARK = gameColors.leafDark
 const LEAF_LIGHT = gameColors.leafLight
 const SHADOW = 0x3b2f3a
 
+/** Each species gets its own foliage ramp instead of one green for all trees. */
+const LEAF_PALETTES = {
+  apple: { dark: 0x4f8f5f, base: 0x6fbf78, light: 0xa8e6a0 },
+  pear: { dark: 0x7c9e45, base: 0x9dbf58, light: 0xc8df8a },
+  peach: { dark: 0x5f9a66, base: 0x82bd7d, light: 0xb8e0a8 },
+  cherry: { dark: 0x3f7258, base: 0x5c9a6e, light: 0x8cc48c },
+  strawberry: { dark: 0x4f9458, base: 0x74c46a, light: 0xa9e58b },
+  grape: { dark: 0x667f3f, base: 0x8aa654, light: 0xb8cc7a },
+} as const
+
 const YIELD_TINT: Readonly<Record<PlantKind, number>> = {
   apple: FRUIT_COLORS.apple,
   pear: FRUIT_COLORS.pear,
@@ -182,6 +192,7 @@ function drawVegetable(g: Phaser.GameObjects.Graphics, product: PlantKind, ready
 }
 
 function drawAppleTree(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.apple
   g.fillStyle(SHADOW, 0.13)
   g.fillEllipse(0, -3, 26, 8)
   drawTrunk(g, 50, 11)
@@ -189,19 +200,20 @@ function drawAppleTree(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.lineBetween(0, -42, -14, -56)
   g.lineBetween(0, -46, 13, -58)
 
-  blob(g, -17, -61, 18, 16, LEAF_DARK)
-  blob(g, 17, -63, 17, 15, LEAF_DARK)
-  blob(g, 0, -76, 23, 18, LEAF_DARK)
-  blob(g, -17, -64, 14, 12, LEAF)
-  blob(g, 16, -66, 13, 11, LEAF)
-  blob(g, -1, -78, 18, 14, LEAF)
-  blob(g, -19, -72, 6, 5, LEAF_LIGHT)
-  blob(g, 8, -84, 6, 4, LEAF_LIGHT)
+  blob(g, -17, -61, 18, 16, leaf.dark)
+  blob(g, 17, -63, 17, 15, leaf.dark)
+  blob(g, 0, -76, 23, 18, leaf.dark)
+  blob(g, -17, -64, 14, 12, leaf.base)
+  blob(g, 16, -66, 13, 11, leaf.base)
+  blob(g, -1, -78, 18, 14, leaf.base)
+  blob(g, -19, -72, 6, 5, leaf.light)
+  blob(g, 8, -84, 6, 4, leaf.light)
 
   drawYield(g, ready, APPLE_SLOTS, drawApple)
 }
 
 function drawPearTree(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.pear
   g.fillStyle(SHADOW, 0.13)
   g.fillEllipse(0, -3, 24, 7)
   drawTrunk(g, 56, 10)
@@ -210,19 +222,20 @@ function drawPearTree(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.lineBetween(0, -44, 12, -58)
 
   // Upright teardrop crown, unlike the round apple canopy.
-  blob(g, 0, -63, 18, 12, LEAF_DARK)
-  blob(g, 0, -77, 15, 14, LEAF_DARK)
-  blob(g, 0, -91, 10, 11, LEAF_DARK)
-  blob(g, 0, -64, 14, 9, LEAF)
-  blob(g, 0, -78, 11, 11, LEAF)
-  blob(g, 0, -91, 7, 8, LEAF)
-  blob(g, -6, -85, 4, 5, LEAF_LIGHT)
-  blob(g, 5, -70, 3, 4, LEAF_LIGHT)
+  blob(g, 0, -63, 18, 12, leaf.dark)
+  blob(g, 0, -77, 15, 14, leaf.dark)
+  blob(g, 0, -91, 10, 11, leaf.dark)
+  blob(g, 0, -64, 14, 9, leaf.base)
+  blob(g, 0, -78, 11, 11, leaf.base)
+  blob(g, 0, -91, 7, 8, leaf.base)
+  blob(g, -6, -85, 4, 5, leaf.light)
+  blob(g, 5, -70, 3, 4, leaf.light)
 
   drawYield(g, ready, PEAR_SLOTS, drawPear)
 }
 
 function drawPeachTree(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.peach
   g.fillStyle(SHADOW, 0.13)
   g.fillEllipse(0, -3, 30, 8)
   drawTrunk(g, 44, 12)
@@ -231,19 +244,20 @@ function drawPeachTree(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.lineBetween(0, -40, 22, -54)
 
   // Low, spreading crown, much wider and flatter than the apple tree.
-  blob(g, -23, -57, 16, 11, LEAF_DARK)
-  blob(g, 23, -59, 15, 11, LEAF_DARK)
-  blob(g, 0, -65, 21, 13, LEAF_DARK)
-  blob(g, -23, -60, 12, 8, LEAF)
-  blob(g, 22, -62, 11, 8, LEAF)
-  blob(g, 0, -67, 17, 10, LEAF)
-  blob(g, -25, -67, 5, 3, LEAF_LIGHT)
-  blob(g, 12, -72, 4, 3, LEAF_LIGHT)
+  blob(g, -23, -57, 16, 11, leaf.dark)
+  blob(g, 23, -59, 15, 11, leaf.dark)
+  blob(g, 0, -65, 21, 13, leaf.dark)
+  blob(g, -23, -60, 12, 8, leaf.base)
+  blob(g, 22, -62, 11, 8, leaf.base)
+  blob(g, 0, -67, 17, 10, leaf.base)
+  blob(g, -25, -67, 5, 3, leaf.light)
+  blob(g, 12, -72, 4, 3, leaf.light)
 
   drawYield(g, ready, PEACH_SLOTS, drawPeach)
 }
 
 function drawCherryTree(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.cherry
   g.fillStyle(SHADOW, 0.13)
   g.fillEllipse(0, -3, 25, 7)
   drawTrunk(g, 56, 9)
@@ -253,19 +267,20 @@ function drawCherryTree(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.lineBetween(-14, -58, -22, -52)
   g.lineBetween(14, -56, 22, -52)
 
-  blob(g, -18, -63, 17, 14, LEAF_DARK)
-  blob(g, 18, -65, 16, 13, LEAF_DARK)
-  blob(g, 0, -75, 21, 16, LEAF_DARK)
-  blob(g, -18, -66, 13, 11, LEAF)
-  blob(g, 17, -68, 12, 10, LEAF)
-  blob(g, -1, -77, 17, 13, LEAF)
-  blob(g, -20, -74, 5, 4, LEAF_LIGHT)
-  blob(g, 7, -83, 5, 4, LEAF_LIGHT)
+  blob(g, -18, -63, 17, 14, leaf.dark)
+  blob(g, 18, -65, 16, 13, leaf.dark)
+  blob(g, 0, -75, 21, 16, leaf.dark)
+  blob(g, -18, -66, 13, 11, leaf.base)
+  blob(g, 17, -68, 12, 10, leaf.base)
+  blob(g, -1, -77, 17, 13, leaf.base)
+  blob(g, -20, -74, 5, 4, leaf.light)
+  blob(g, 7, -83, 5, 4, leaf.light)
 
   drawYield(g, ready, CHERRY_SLOTS, drawCherryPair)
 }
 
 function drawStrawberryBush(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.strawberry
   g.fillStyle(SHADOW, 0.12)
   g.fillEllipse(0, -2, 30, 7)
   for (const [x, y] of [
@@ -275,11 +290,11 @@ function drawStrawberryBush(g: Phaser.GameObjects.Graphics, ready: number): void
     [9, -13],
     [20, -7],
   ]) {
-    blob(g, x, y, 10, 6, LEAF_DARK)
-    blob(g, x - 2, y - 2, 7, 4, LEAF)
+    blob(g, x, y, 10, 6, leaf.dark)
+    blob(g, x - 2, y - 2, 7, 4, leaf.base)
   }
-  blob(g, -5, -18, 8, 5, LEAF_LIGHT)
-  blob(g, 13, -19, 7, 4, LEAF_LIGHT)
+  blob(g, -5, -18, 8, 5, leaf.light)
+  blob(g, 13, -19, 7, 4, leaf.light)
 
   drawFlower(g, -14, -20)
   drawFlower(g, 7, -22)
@@ -287,6 +302,7 @@ function drawStrawberryBush(g: Phaser.GameObjects.Graphics, ready: number): void
 }
 
 function drawGrapeVine(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leafTone = LEAF_PALETTES.grape
   g.fillStyle(SHADOW, 0.12)
   g.fillEllipse(0, -2, 28, 7)
   g.fillStyle(TRUNK_DARK, 1)
@@ -305,11 +321,11 @@ function drawGrapeVine(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.lineTo(1, -52)
   g.strokePath()
 
-  leaf(g, -15, -48, 22, 14, -0.45, LEAF_DARK)
-  leaf(g, 15, -45, 21, 13, 0.4, LEAF_DARK)
-  leaf(g, 0, -58, 17, 11, 0.1, LEAF)
-  leaf(g, -13, -46, 14, 9, -0.5, LEAF)
-  leaf(g, 14, -44, 13, 8, 0.45, LEAF)
+  leaf(g, -15, -48, 22, 14, -0.45, leafTone.dark)
+  leaf(g, 15, -45, 21, 13, 0.4, leafTone.dark)
+  leaf(g, 0, -58, 17, 11, 0.1, leafTone.base)
+  leaf(g, -13, -46, 14, 9, -0.5, leafTone.base)
+  leaf(g, 14, -44, 13, 8, 0.45, leafTone.base)
 
   drawYield(g, ready, GRAPE_SLOTS, drawGrapeCluster)
 }

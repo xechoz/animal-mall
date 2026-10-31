@@ -14,6 +14,8 @@ export interface PlantPickerOptions {
   readonly state: ShopState
   readonly zone: 'fruit' | 'veg'
   readonly slot: number
+  /** Set when the slot already has a crop and the player is changing it. */
+  readonly current?: PlantKind
   readonly onSelect: (product: PlantKind) => void
   readonly onClose: () => void
 }
@@ -74,10 +76,12 @@ export class PlantPicker {
       const bx = -width / 2 + (PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2) * ui
       const by = -height / 2 + (PADDING + row * (BUTTON_H + GAP) + BUTTON_H / 2) * ui
       const cost = producerCost(plant)
-      const deposit = state.deposits[plantDepositKey(plant)] ?? 0
+      const deposit = state.deposits[plantDepositKey(plant, options.slot)] ?? 0
       const remaining = Math.max(0, cost - deposit)
       const enabled = state.coins > 0 && (!noProducers || state.coins >= remaining)
-      panel.add(this.choiceButton(options, plant, bx, by, remaining, enabled))
+      panel.add(
+        this.choiceButton(options, plant, bx, by, remaining, enabled, options.current === plant),
+      )
     })
   }
 
@@ -94,6 +98,7 @@ export class PlantPicker {
     y: number,
     price: number,
     enabled: boolean,
+    current: boolean,
   ): Phaser.GameObjects.Container {
     const { scene, theme } = options
     const ui = options.layout.ui
@@ -103,7 +108,7 @@ export class PlantPicker {
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, enabled ? 1 : 0.55)
     g.fillRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
-    g.lineStyle(2 * ui, enabled ? theme.borderSoft : theme.ink, enabled ? 1 : 0.18)
+    g.lineStyle(3 * ui, current ? theme.accentAlt : enabled ? theme.borderSoft : theme.ink, 1)
     g.strokeRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
     button.add(g)
 

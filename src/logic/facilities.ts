@@ -81,7 +81,12 @@ export function stepFacilityDwell(
 
   return {
     player: nextPlayer,
-    facility: { trashDwellMs, drinkDwellMs, drinkArmed },
+    facility: {
+      ...facility,
+      trashDwellMs,
+      drinkDwellMs,
+      drinkArmed,
+    },
     events,
   }
 }

@@ -111,6 +111,18 @@ export class FacilityOverlay {
       this.ring.lineStyle(2 * ui, this.theme.panel, 0.7)
       this.ring.strokeCircle(point.x, point.y - 18 * ui, radius + 5 * ui)
     }
+    if (state.facility.urgeDwellMs > 0) {
+      const member = state.staffMembers.find(
+        (candidate) => candidate.id === state.facility.urgeTargetId,
+      )
+      if (member !== undefined) {
+        this.drawProgress(
+          member.pos,
+          state.facility.urgeDwellMs / FACILITY_DWELL_MS,
+          this.theme.accentAlt,
+        )
+      }
+    }
   }
 
   private drawProgress(point: Vec2, ratio: number, color: number): void {

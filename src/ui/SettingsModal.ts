@@ -12,6 +12,7 @@ export interface SettingsOptions {
   readonly fullscreenAvailable: boolean
   readonly onToggleSound: () => boolean
   readonly onToggleFullscreen: () => void
+  readonly onOpenLanguage: () => void
   readonly onClose: () => void
 }
 
@@ -35,7 +36,7 @@ export class SettingsModal {
     this.root.add(backdrop)
 
     const cardW = Math.min(500 * ui, layout.width - 40 * ui)
-    const cardH = Math.min(300 * ui, layout.height - 40 * ui)
+    const cardH = Math.min(390 * ui, layout.height - 40 * ui)
     const card = scene.add.container(layout.width / 2, layout.height / 2)
     this.root.add(card)
     const block = scene.add.rectangle(0, 0, cardW, cardH, 0, 0).setInteractive()
@@ -85,7 +86,21 @@ export class SettingsModal {
       },
     )
     this.fullscreenButton.setEnabled(options.fullscreenAvailable)
-    card.add([this.soundButton, this.fullscreenButton])
+    const languageButton = new Button(
+      scene,
+      0,
+      -cardH / 2 + 212 * ui,
+      i18n.t('menu.language'),
+      theme,
+      {
+        width: cardW - 70 * ui,
+        height: 48 * ui,
+        fontSize: 16 * ui,
+        variant: 'soft',
+        onClick: () => options.onOpenLanguage(),
+      },
+    )
+    card.add([this.soundButton, this.fullscreenButton, languageButton])
 
     card.add(
       new Button(scene, 0, cardH / 2 - 40 * ui, i18n.t('settings.close'), theme, {

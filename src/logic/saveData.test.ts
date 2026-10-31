@@ -63,6 +63,22 @@ describe('save data', () => {
     expect(save.zones.veg).toBe(true)
   })
 
+  it('accepts the sixth planting slot and rejects a seventh', () => {
+    const save = migrateSave({
+      coins: 100,
+      producers: [
+        { product: 'apple', slot: 5 },
+        { product: 'carrot', slot: 5 },
+        { product: 'pear', slot: 6 },
+      ],
+      zones: { farm: true },
+    })
+    expect(save.producers).toEqual([
+      { product: 'apple', slot: 5 },
+      { product: 'carrot', slot: 5 },
+    ])
+  })
+
   it('restores the newer fruit and vegetable kinds', () => {
     const save = migrateSave({
       coins: 100,

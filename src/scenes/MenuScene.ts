@@ -9,7 +9,6 @@ import {
 import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
-import { ZONE_ORDER } from '../logic/config'
 import { hasProgress, progressSave } from '../save'
 import { createAnimalTextures, playerTextureKey } from '../ui/animalArt'
 import { createFruitTextures, fruitTextureKey } from '../ui/fruitArt'
@@ -92,20 +91,6 @@ export class MenuScene extends Phaser.Scene {
     )
     this.startButton.setDepth(30)
 
-    this.add
-      .text(
-        width / 2,
-        startY + 78 * ui,
-        i18n.t('menu.stats', {
-          coins: save.coins,
-          zones: ZONE_ORDER.filter((zone) => save.zones[zone]).length,
-          served: save.served,
-        }),
-        textStyle(theme, 16 * ui, theme.textMuted, true),
-      )
-      .setOrigin(0.5)
-      .setDepth(20)
-
     const hint = fullscreenHint(this.scale)
     if (hint !== null) {
       this.add
@@ -124,7 +109,7 @@ export class MenuScene extends Phaser.Scene {
       width - insets.right - 42 * ui,
       insets.top + 42 * ui,
       {
-        icon: 'soundOn',
+        icon: 'gear',
         theme,
         variant: 'soft',
         size: 54 * ui,
@@ -132,19 +117,6 @@ export class MenuScene extends Phaser.Scene {
       },
     )
     settingsButton.setDepth(40)
-    const languageButton = new RoundButton(
-      this,
-      width - insets.right - 104 * ui,
-      insets.top + 42 * ui,
-      {
-        icon: 'globe',
-        theme,
-        variant: 'soft',
-        size: 54 * ui,
-        onClick: () => this.openLanguage(),
-      },
-    )
-    languageButton.setDepth(40)
 
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -183,6 +155,11 @@ export class MenuScene extends Phaser.Scene {
         this.time.delayedCall(100, () => {
           this.settingsModal?.setFullscreen(fullscreenActive())
         })
+      },
+      onOpenLanguage: () => {
+        this.settingsModal?.destroy()
+        this.settingsModal = undefined
+        this.openLanguage()
       },
       onClose: () => {
         this.settingsModal = undefined

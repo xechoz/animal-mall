@@ -2,6 +2,7 @@ import { distance, distanceToRect } from './collision'
 import {
   isPlantKind,
   PLANT_ORDER,
+  PLOT_SIZE,
   producerCost,
   producerPosition,
   QUICK_BUY,
@@ -12,12 +13,12 @@ import {
   zoneOf,
 } from './config'
 import {
-  activePlantDeposit,
   plantDepositKey,
   purchasePlantAt,
   purchaseProducer,
   purchaseStaff,
   purchaseZone,
+  slotPlantDeposit,
   staffCost,
   staffDepositKey,
 } from './purchase'
@@ -25,6 +26,7 @@ import type {
   GameEvent,
   PlantKind,
   ProductKind,
+  Rect,
   ShopState,
   StaffKind,
   StepResult,
@@ -43,6 +45,8 @@ export interface PlantOffer {
   readonly deposit: number
   readonly remaining: number
   readonly pos: Vec2
+  /** Area trigger. Standing anywhere near the bed counts, not its centre. */
+  readonly rect: Rect
   readonly requiresChoice: boolean
 }
 
@@ -80,7 +84,18 @@ export interface ZoneOffer {
   readonly pos: Vec2
 }
 
-export type PurchaseOffer = PlantOffer | ProducerOffer | StaffOffer | ZoneOffer
+export interface SwapOffer {
+  readonly type: 'swap'
+  readonly id: string
+  readonly key: string
+  readonly zone: 'fruit' | 'veg'
+  readonly slot: number
+  readonly product: PlantKind
+  readonly pos: Vec2
+  readonly rect: Rect
+}
+
+export type PurchaseOffer = PlantOffer | ProducerOffer | StaffOffer | ZoneOffer | SwapOffer
 
 const cheapestPlant: Readonly<Record<'fruit' | 'veg', number>> = {
   fruit: Math.min(
@@ -114,14 +129,13 @@ export function plantOfferForSlot(
     return null
   }
 
-  const active = activePlantDeposit(state)
-  if (active !== null && zoneOf(active.kind) !== zone) return null
+  const active = slotPlantDeposit(state, zone, slot)
   if (active !== null) {
     const cost = producerCost(active.kind) as number
     return {
       type: 'plant',
       id: `plant-${zone}-${slot}`,
-      key: plantDepositKey(active.kind),
+      key: plantDepositKey(active.kind, slot),
       zone,
       slot,
       product: active.kind,
@@ -129,6 +143,7 @@ export function plantOfferForSlot(
       deposit: active.amount,
       remaining: Math.max(0, cost - active.amount),
       pos: { x: point.x, y: point.y },
+      rect: plotRect(point),
       requiresChoice: false,
     }
   }
@@ -147,7 +162,47 @@ export function plantOfferForSlot(
     deposit: 0,
     remaining: cost,
     pos: { x: point.x, y: point.y },
+    rect: plotRect(point),
     requiresChoice: true,
+  }
+}
+
+function plotRect(point: Vec2): Rect {
+  return {
+    x: point.x - PLOT_SIZE.w / 2,
+    y: point.y - PLOT_SIZE.h / 2,
+    w: PLOT_SIZE.w,
+    h: PLOT_SIZE.h,
+  }
+}
+
+export function swapOfferForSlot(
+  state: ShopState,
+  zone: 'fruit' | 'veg',
+  slot: number,
+): SwapOffer | null {
+  if (!state.zones[zone]) return null
+  const point = state.map.plantSlots[zone][slot]
+  if (point === undefined) return null
+  const producer = state.producers.find(
+    (candidate) =>
+      isPlantKind(candidate.product) &&
+      zoneOf(candidate.product) === zone &&
+      candidate.slot === slot,
+  )
+  if (producer === undefined || !isPlantKind(producer.product)) return null
+  // Swapping while fruit is still on the tree would fight the automatic
+  // harvest, so the dwell chooser waits until the bed has nothing left.
+  if (producer.ready > 0) return null
+  return {
+    type: 'swap',
+    id: `swap-${zone}-${slot}`,
+    key: `swap:${zone}:${slot}`,
+    zone,
+    slot,
+    product: producer.product,
+    pos: { x: point.x, y: point.y },
+    rect: plotRect(point),
   }
 }
 
@@ -217,7 +272,12 @@ export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
     if (zone !== 'fruit' && zone !== 'veg') continue
     for (const plot of state.map.plantSlots[zone]) {
       const offer = plantOfferForSlot(state, zone, plot.index)
-      if (offer !== null) offers.push(offer)
+      if (offer !== null) {
+        offers.push(offer)
+        continue
+      }
+      const swap = swapOfferForSlot(state, zone, plot.index)
+      if (swap !== null) offers.push(swap)
     }
   }
   for (const zone of ZONE_ORDER) {
@@ -244,13 +304,17 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
     const gap =
       offer.type === 'zone'
         ? distanceToRect(pos, state.map.zoneAreas[offer.zone])
-        : distance(pos, offer.pos)
+        : offer.type === 'plant' || offer.type === 'swap'
+          ? distanceToRect(pos, offer.rect)
+          : distance(pos, offer.pos)
     const radius =
       offer.type === 'staff'
         ? QUICK_BUY.stationRadius
         : offer.type === 'zone'
           ? QUICK_BUY.zoneMargin
-          : QUICK_BUY.radius
+          : offer.type === 'plant' || offer.type === 'swap'
+            ? QUICK_BUY.plotMargin
+            : QUICK_BUY.radius
     if (gap <= radius && gap < bestDistance) {
       best = offer
       bestDistance = gap
@@ -262,6 +326,9 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
 
 export function quickBuyThreshold(offer: PurchaseOffer): number {
   if (offer.type === 'zone') return QUICK_BUY.zoneMs
+  // Swapping only opens the chooser; the actual purchase happens inside it, so
+  // it uses the same half-second as opening an empty bed.
+  if (offer.type === 'swap') return QUICK_BUY.openMs
   return offer.type === 'plant' && offer.requiresChoice ? QUICK_BUY.openMs : QUICK_BUY.buyMs
 }
 
@@ -311,6 +378,16 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
         quickBuy: { ...current, dwellMs: 0, armed: false },
       },
       events: [{ type: 'plantPickerReady', zone: offer.zone, slot: offer.slot }],
+    }
+  }
+
+  if (offer.type === 'swap') {
+    return {
+      state: {
+        ...state,
+        quickBuy: { ...current, dwellMs: 0, armed: false },
+      },
+      events: [{ type: 'plantSwapReady', zone: offer.zone, slot: offer.slot }],
     }
   }
 

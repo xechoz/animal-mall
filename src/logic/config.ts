@@ -93,18 +93,18 @@ export interface PlantConfig {
 }
 
 export const PLANTS: Readonly<Record<PlantKind, PlantConfig>> = {
-  apple: { cost: 100, price: 4, growMs: 8_000, fruitMs: 5_000, maxFruit: 3 },
-  pear: { cost: 180, price: 6, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
-  peach: { cost: 320, price: 8, growMs: 16_000, fruitMs: 9_000, maxFruit: 4 },
-  cherry: { cost: 520, price: 10, growMs: 20_000, fruitMs: 11_000, maxFruit: 4 },
-  strawberry: { cost: 260, price: 7, growMs: 14_000, fruitMs: 8_000, maxFruit: 4 },
-  grape: { cost: 820, price: 15, growMs: 24_000, fruitMs: 12_000, maxFruit: 3 },
-  carrot: { cost: 70, price: 4, growMs: 5_000, fruitMs: 4_000, maxFruit: 3 },
-  tomato: { cost: 110, price: 6, growMs: 7_000, fruitMs: 5_000, maxFruit: 3 },
-  corn: { cost: 190, price: 9, growMs: 10_000, fruitMs: 6_500, maxFruit: 3 },
-  pumpkin: { cost: 380, price: 16, growMs: 14_000, fruitMs: 8_000, maxFruit: 2 },
-  potato: { cost: 280, price: 12, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
-  eggplant: { cost: 620, price: 22, growMs: 16_000, fruitMs: 10_000, maxFruit: 3 },
+  apple: { cost: 80, price: 6, growMs: 8_000, fruitMs: 5_000, maxFruit: 3 },
+  pear: { cost: 140, price: 9, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
+  peach: { cost: 260, price: 12, growMs: 16_000, fruitMs: 9_000, maxFruit: 4 },
+  cherry: { cost: 420, price: 15, growMs: 20_000, fruitMs: 11_000, maxFruit: 4 },
+  strawberry: { cost: 220, price: 10, growMs: 14_000, fruitMs: 8_000, maxFruit: 4 },
+  grape: { cost: 680, price: 22, growMs: 24_000, fruitMs: 12_000, maxFruit: 3 },
+  carrot: { cost: 60, price: 6, growMs: 5_000, fruitMs: 4_000, maxFruit: 3 },
+  tomato: { cost: 95, price: 9, growMs: 7_000, fruitMs: 5_000, maxFruit: 3 },
+  corn: { cost: 160, price: 13, growMs: 10_000, fruitMs: 6_500, maxFruit: 3 },
+  pumpkin: { cost: 300, price: 22, growMs: 14_000, fruitMs: 8_000, maxFruit: 2 },
+  potato: { cost: 230, price: 17, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
+  eggplant: { cost: 520, price: 30, growMs: 16_000, fruitMs: 10_000, maxFruit: 3 },
 }
 
 /** Shop and chooser order: cheapest first, independent of the demand order. */
@@ -125,10 +125,10 @@ export interface AnimalConfig {
 }
 
 export const ANIMALS: Readonly<Record<AnimalProductKind, AnimalConfig>> = {
-  egg: { cost: 0, price: 8, cycleMs: 10_000, capacity: 3 },
-  milk: { cost: 600, price: 14, cycleMs: 16_000, capacity: 2 },
-  yarn: { cost: 900, price: 18, cycleMs: 20_000, capacity: 2 },
-  fish: { cost: 400, price: 12, cycleMs: 14_000, capacity: 3 },
+  egg: { cost: 0, price: 12, cycleMs: 10_000, capacity: 3 },
+  milk: { cost: 350, price: 20, cycleMs: 16_000, capacity: 2 },
+  yarn: { cost: 550, price: 26, cycleMs: 20_000, capacity: 2 },
+  fish: { cost: 250, price: 18, cycleMs: 14_000, capacity: 3 },
 }
 
 /** A trough holds one full production batch of whole produce items. */
@@ -161,15 +161,15 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
     ],
   },
   sweater: {
-    cost: 700,
-    price: 60,
+    cost: 450,
+    price: 70,
     craftMs: 16_000,
     capacity: 3,
     inputs: [{ product: 'yarn', count: 2 }],
   },
   grilledFish: {
-    cost: 500,
-    price: 40,
+    cost: 320,
+    price: 55,
     craftMs: 10_000,
     capacity: 3,
     inputs: [{ product: 'fish', count: 1 }],
@@ -321,14 +321,22 @@ export const FACILITY_DWELL_MS = 500
 export const TRASH_RADIUS = 58
 export const DRINK_RADIUS = 48
 
+export const FISHING = {
+  radius: 64,
+  castMs: 500,
+  catchMs: 500,
+} as const
+
 export const QUICK_BUY = {
-  openMs: 520,
+  openMs: 500,
   buyMs: 1_000,
   zoneMs: 500,
   radius: 62,
   stationRadius: 80,
   /** How far outside a zone footprint still counts as standing at it. */
   zoneMargin: 36,
+  /** How far outside a crop bed still counts as standing at that bed. */
+  plotMargin: 38,
 } as const
 
 export function carryCapacity(level: number): number {
@@ -359,8 +367,8 @@ export interface ZoneConfig {
 export const ZONES: Readonly<Record<ZoneId, ZoneConfig>> = {
   fruit: { unlockCost: 0, includes: null },
   veg: { unlockCost: 0, includes: null },
-  farm: { unlockCost: 600, includes: 'egg' },
-  kitchen: { unlockCost: 1_200, includes: 'cake' },
+  farm: { unlockCost: 350, includes: 'egg' },
+  kitchen: { unlockCost: 800, includes: 'cake' },
 }
 
 export const REGISTER_RADIUS = 50
@@ -391,8 +399,10 @@ export function producerAccess(map: ShopMap, product: ProductKind, slot: number)
 export {
   LANDSCAPE_MAP,
   PEN_SIZE,
+  PLANT_FIELDS,
   PLOT_SIZE,
   PORTRAIT_MAP,
+  plantSlotCount,
   STATION_SIZE,
   shopMapFor,
 } from './shopMap'
@@ -444,5 +454,5 @@ export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   kitchen: 2,
 }
 
-export const SAVE_VERSION = 3
+export const SAVE_VERSION = 4
 export const STARTING_COINS = 100

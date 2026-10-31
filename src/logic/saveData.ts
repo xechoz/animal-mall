@@ -6,6 +6,7 @@ import {
   isProcessedKind,
   isProductKind,
   PLANTS,
+  plantSlotCount,
   STAFF,
   STAFF_ORDER,
   STARTING_COINS,
@@ -237,7 +238,13 @@ const PROCESSED_SLOTS: Readonly<Record<ProcessedKind, number>> = {
 
 function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {
   if (isPlantKind(product)) {
-    if (typeof rawSlot !== 'number' || !Number.isInteger(rawSlot) || rawSlot < 0 || rawSlot > 3) {
+    const zone = isFruitKind(product) ? 'fruit' : 'veg'
+    if (
+      typeof rawSlot !== 'number' ||
+      !Number.isInteger(rawSlot) ||
+      rawSlot < 0 ||
+      rawSlot >= plantSlotCount(zone)
+    ) {
       return null
     }
     return rawSlot

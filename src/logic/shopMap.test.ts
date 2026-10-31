@@ -107,6 +107,17 @@ for (const map of MAPS) {
       ).toBe(true)
     })
 
+    it('lets the player walk through animal pens and stations while customers route around them', () => {
+      for (const pen of Object.values(map.animalPens)) {
+        expect(blockedAt(pen.x, pen.y, PLAYER_RADIUS, map, map.playerObstacles)).toBe(false)
+        expect(blockedAt(pen.x, pen.y, PLAYER_RADIUS, map)).toBe(true)
+      }
+      for (const station of Object.values(map.stationSlots)) {
+        expect(blockedAt(station.x, station.y, PLAYER_RADIUS, map, map.playerObstacles)).toBe(false)
+        expect(blockedAt(station.x, station.y, PLAYER_RADIUS, map)).toBe(true)
+      }
+    })
+
     it('leaves crop beds walkable for the player and customers', () => {
       for (const plot of [...map.plots, ...map.cropPlots]) {
         expect(blockedAt(plot.x, plot.y, PLAYER_RADIUS, map)).toBe(false)

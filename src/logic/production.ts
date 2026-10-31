@@ -253,6 +253,10 @@ function advancePlant(
 
 function advanceAnimal(producer: ProducerState, dtMs: number, events: GameEvent[]): ProducerState {
   if (!isAnimalProductKind(producer.product)) return producer
+  // Fish are caught at the pond by the player, not produced from a trough.
+  if (producer.product === 'fish') {
+    return producer.progressMs === 0 ? producer : { ...producer, progressMs: 0, hungry: false }
+  }
   const config = ANIMALS[producer.product]
   if (producer.ready >= config.capacity) {
     return producer.progressMs === 0 ? producer : { ...producer, progressMs: 0 }
@@ -358,7 +362,7 @@ export function nearestTrough(
   let best: ProducerState | null = null
   let bestDistance = Number.POSITIVE_INFINITY
   for (const producer of producers) {
-    if (!isAnimalProductKind(producer.product)) continue
+    if (!isAnimalProductKind(producer.product) || producer.product === 'fish') continue
     if (feedSpace(producer) <= 0) continue
     const distanceToTrough = distance(pos, map.animalAccess[producer.product])
     if (distanceToTrough > radius || distanceToTrough >= bestDistance) continue

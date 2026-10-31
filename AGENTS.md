@@ -69,6 +69,30 @@ submodule. Do not copy platform source into this repo.
   in-world unlock depend on opening the shop.
 - `veg` stays free after the first sale and is not part of the paid zone quick
   buy.
+- Plant beds are area triggers too: `distanceToRect(player, plotRect) <=
+  QUICK_BUY.plotMargin`, never centre-point distance. A player standing between
+  two rows must still reach both beds.
+- Planting grids live in `PLANT_FIELDS` / the `fruitField` and `vegField` layout
+  entries in `src/logic/shopMap.ts`. Fruit and vegetables may use different
+  `cols × rows`; save validation reads `plantSlotCount`, so never hard-code a
+  slot limit elsewhere.
+- The pond is not an animal pen. Fish are caught by standing in front of
+  `map.animalAccess.fish`; they never eat trough feed and pickers must skip them.
+- Standing still is the shared interaction verb. Free/contextual actions use
+  500 ms; paid purchases keep the longer one-second dwell to prevent accidental
+  spending. Every dwell must cancel on movement and show a visible ring.
+- Resting staff can be woken by tapping their character or standing next to them
+  for 500 ms. Keep the HUD nudge button as an accessibility fallback.
+- Empty beds always show a compact coin price chip and are tappable: a short tap
+  (or 500 ms dwell) opens the plant chooser. The chip shrinks to a small sticker
+  sitting on the soil until the player is near.
+- Crop swapping uses the same 500 ms dwell once the bed has nothing left to
+  harvest, or a long press on the bed. Holding the finger for `BED_HOLD_MS`
+  opens the chooser directly. The old crop refunds half, and the new crop costs
+  full price.
+- Plant deposits are per bed (`plant:<kind>:<slot>`). Never use one global
+  deposit key for every slot; legacy `plant:<kind>` keys are read only on the
+  first empty bed.
 
 ## Commands
 

@@ -64,18 +64,32 @@ export function staffMax(kind: StaffKind): number {
   return STAFF[kind].costs.length
 }
 
-export function plantDepositKey(kind: PlantKind): string {
-  return `plant:${kind}`
+export function plantDepositKey(kind: PlantKind, slot?: number): string {
+  return slot === undefined ? `plant:${kind}` : `plant:${kind}:${slot}`
 }
 
 export function staffDepositKey(kind: StaffKind): string {
   return `staff:${kind}`
 }
 
-export function activePlantDeposit(
+/**
+ * Deposits belong to one bed. A legacy global `plant:<kind>` deposit is shown
+ * only on the first empty bed so old saves stay usable without painting every
+ * other bed with the same deposit ring.
+ */
+export function slotPlantDeposit(
   state: ShopState,
+  zone: 'fruit' | 'veg',
+  slot: number,
 ): { readonly kind: PlantKind; readonly amount: number } | null {
   for (const kind of PLANT_ORDER) {
+    if (zoneOf(kind) !== zone) continue
+    const amount = state.deposits[plantDepositKey(kind, slot)] ?? 0
+    if (amount > 0) return { kind, amount }
+  }
+  if (emptyPlantSlot(state, zone) !== slot) return null
+  for (const kind of PLANT_ORDER) {
+    if (zoneOf(kind) !== zone) continue
     const amount = state.deposits[plantDepositKey(kind)] ?? 0
     if (amount > 0) return { kind, amount }
   }
@@ -126,7 +140,7 @@ export function purchasePlantAt(
     return { state, result: 'missing', events: [] }
   }
 
-  const active = activePlantDeposit(state)
+  const active = slotPlantDeposit(state, zone, slot)
   if (active !== null && active.kind !== product) {
     return { state, result: 'locked', events: [] }
   }
@@ -137,9 +151,9 @@ export function purchasePlantAt(
 
   if (state.coins >= remaining) {
     const producer = createProducer(product, slot, state.nextProducerId, state.map, true)
-    const key = plantDepositKey(product)
     const deposits = { ...state.deposits }
-    delete deposits[key]
+    delete deposits[plantDepositKey(product, slot)]
+    delete deposits[plantDepositKey(product)]
     let next = addProducerToState(
       {
         ...state,
@@ -163,11 +177,11 @@ export function purchasePlantAt(
   }
 
   const amount = state.coins
-  const key = plantDepositKey(product)
-  const deposits = {
-    ...state.deposits,
-    [key]: deposit + amount,
-  }
+  const key = plantDepositKey(product, slot)
+  const deposits = { ...state.deposits }
+  // Move a legacy global deposit onto the bed the player is paying at.
+  delete deposits[plantDepositKey(product)]
+  deposits[key] = deposit + amount
   return {
     state: { ...state, coins: 0, deposits },
     result: 'deposited',
@@ -178,6 +192,51 @@ export function purchasePlantAt(
         product,
         amount,
         remaining: Math.max(0, cost - deposits[key]),
+      },
+    ],
+  }
+}
+
+/**
+ * Replaces one planted crop without changing how many producers the shop has.
+ * The old crop refunds half of its cost, the new crop costs full price, and the
+ * player only needs to cover the difference. Empty slots still use
+ * `purchasePlantAt`.
+ */
+export function replacePlantAt(
+  state: ShopState,
+  product: PlantKind,
+  slot: number,
+): PurchaseOutcome {
+  const zone = zoneOf(product)
+  if (zone !== 'fruit' && zone !== 'veg') return { state, result: 'missing', events: [] }
+  if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
+  const current = state.producers.find(
+    (producer) =>
+      isPlantKind(producer.product) && zoneOf(producer.product) === zone && producer.slot === slot,
+  )
+  if (current === undefined) return { state, result: 'missing', events: [] }
+  if (current.product === product) return { state, result: 'maxed', events: [] }
+
+  const cost = PLANTS[product].cost
+  const refund = Math.floor(producerCost(current.product) * 0.5)
+  const available = state.coins + refund
+  if (available < cost) return { state, result: 'insufficient', events: [] }
+
+  const without = removeProducerFromState(state, current.id)
+  const producer = createProducer(product, slot, state.nextProducerId, state.map, true)
+  let next = addProducerToState({ ...without, coins: available - cost }, producer)
+  next = setTutorial(next, state.tutorial === 'buyTree' ? 'grow' : state.tutorial)
+  return {
+    state: next,
+    result: 'ok',
+    events: [
+      {
+        type: 'producerReplaced',
+        product,
+        previous: current.product,
+        slot,
+        refund,
       },
     ],
   }

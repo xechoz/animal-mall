@@ -51,7 +51,13 @@ function carrying(state: ShopState, carry: ShopState['player']['carry']): ShopSt
 }
 
 function emptyFacility(): FacilityState {
-  return { trashDwellMs: 0, drinkDwellMs: 0, drinkArmed: true }
+  return {
+    trashDwellMs: 0,
+    drinkDwellMs: 0,
+    drinkArmed: true,
+    urgeTargetId: null,
+    urgeDwellMs: 0,
+  }
 }
 
 function customerAtRegister(): CustomerState {
@@ -73,6 +79,7 @@ function customerAtRegister(): CustomerState {
     queueIndex: 0,
     speed: 58,
     sad: false,
+    angerMs: 0,
     paid: 0,
   }
 }

@@ -18,6 +18,48 @@ export const STATION_SIZE = { w: 80, h: 56 } as const
 
 const ACCESS_GAP = 24
 
+/**
+ * Planting grids are configuration, not hard-coded arrays. Fruit trees need
+ * more room than vegetables, so the two zones can use different shapes.
+ * Change these values and the floor plan, save-slot validation and shop art
+ * all follow.
+ */
+export interface PlantField {
+  readonly cols: number
+  readonly rows: number
+}
+
+export const PLANT_FIELDS: Readonly<Record<'fruit' | 'veg', PlantField>> = {
+  fruit: { cols: 2, rows: 3 },
+  veg: { cols: 3, rows: 2 },
+}
+
+export function plantSlotCount(zone: 'fruit' | 'veg'): number {
+  const field = PLANT_FIELDS[zone]
+  return field.cols * field.rows
+}
+
+interface FieldLayout extends PlantField {
+  readonly x: number
+  readonly y: number
+  readonly gapX: number
+  readonly gapY: number
+}
+
+function fieldPlots(field: FieldLayout): readonly Plot[] {
+  const plots: Plot[] = []
+  for (let row = 0; row < field.rows; row += 1) {
+    for (let column = 0; column < field.cols; column += 1) {
+      plots.push({
+        index: row * field.cols + column,
+        x: field.x + column * field.gapX,
+        y: field.y + row * field.gapY,
+      })
+    }
+  }
+  return plots
+}
+
 interface ShopMapInput {
   readonly id: ShopMapId
   readonly room: { readonly w: number; readonly h: number }
@@ -31,8 +73,8 @@ interface ShopMapInput {
   readonly shelves: Readonly<Record<ZoneId, Rect>>
   readonly zoneAreas: Readonly<Record<ZoneId, Rect>>
   readonly shelfAccess: Readonly<Record<ZoneId, Vec2>>
-  readonly plots: readonly Plot[]
-  readonly cropPlots: readonly Plot[]
+  readonly fruitField: FieldLayout
+  readonly vegField: FieldLayout
   readonly animalPens: Readonly<Record<AnimalProductKind, Plot>>
   readonly stationSlots: Readonly<Record<ProcessedKind, Plot>>
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
@@ -70,6 +112,8 @@ function stationRect(station: Plot): Rect {
 }
 
 function createShopMap(input: ShopMapInput): ShopMap {
+  const plots = fieldPlots(input.fruitField)
+  const cropPlots = fieldPlots(input.vegField)
   const animalAccess = Object.fromEntries(
     Object.entries(input.animalPens).map(([product, pen]) => [product, penAccess(pen)]),
   ) as Record<AnimalProductKind, Vec2>
@@ -80,23 +124,30 @@ function createShopMap(input: ShopMapInput): ShopMap {
     ]),
   ) as Record<ProcessedKind, Vec2>
 
+  const solid = [
+    ...Object.values(input.shelves),
+    input.counter,
+    input.facilities.trashRect,
+    input.facilities.vendingRect,
+  ]
+
   return {
     ...input,
-    plantSlots: { fruit: input.plots, veg: input.cropPlots },
+    plots,
+    cropPlots,
+    plantSlots: { fruit: plots, veg: cropPlots },
     plantAccess: {
-      fruit: input.plots.map(plotAccess),
-      veg: input.cropPlots.map(plotAccess),
+      fruit: plots.map(plotAccess),
+      veg: cropPlots.map(plotAccess),
     },
     animalAccess,
     stationAccess: stationAccesses,
     obstacles: [
-      ...Object.values(input.shelves),
+      ...solid,
       ...Object.values(input.animalPens).map(penRect),
       ...Object.values(input.stationSlots).map(stationRect),
-      input.counter,
-      input.facilities.trashRect,
-      input.facilities.vendingRect,
     ],
+    playerObstacles: solid,
   }
 }
 
@@ -133,18 +184,8 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     farm: { x: 170, y: 170 },
     kitchen: { x: 510, y: 170 },
   },
-  plots: [
-    { index: 0, x: 115, y: 760 },
-    { index: 1, x: 225, y: 760 },
-    { index: 2, x: 115, y: 890 },
-    { index: 3, x: 225, y: 890 },
-  ],
-  cropPlots: [
-    { index: 0, x: 455, y: 760 },
-    { index: 1, x: 565, y: 760 },
-    { index: 2, x: 455, y: 890 },
-    { index: 3, x: 565, y: 890 },
-  ],
+  fruitField: { ...PLANT_FIELDS.fruit, x: 115, y: 735, gapX: 110, gapY: 100 },
+  vegField: { ...PLANT_FIELDS.veg, x: 430, y: 785, gapX: 80, gapY: 110 },
   animalPens: {
     egg: { index: 0, x: 110, y: 255 },
     milk: { index: 1, x: 220, y: 255 },
@@ -212,18 +253,8 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
     farm: { x: 750, y: 170 },
     kitchen: { x: 1050, y: 170 },
   },
-  plots: [
-    { index: 0, x: 85, y: 200 },
-    { index: 1, x: 215, y: 200 },
-    { index: 2, x: 85, y: 340 },
-    { index: 3, x: 215, y: 340 },
-  ],
-  cropPlots: [
-    { index: 0, x: 385, y: 200 },
-    { index: 1, x: 515, y: 200 },
-    { index: 2, x: 385, y: 340 },
-    { index: 3, x: 515, y: 340 },
-  ],
+  fruitField: { ...PLANT_FIELDS.fruit, x: 85, y: 195, gapX: 130, gapY: 65 },
+  vegField: { ...PLANT_FIELDS.veg, x: 380, y: 225, gapX: 70, gapY: 90 },
   animalPens: {
     egg: { index: 0, x: 685, y: 200 },
     milk: { index: 1, x: 815, y: 200 },

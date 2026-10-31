@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- Turn the fish pond into a fishing spot: stand in front without moving for
+  half a second to cast, then half a second to catch. Fish no longer eat trough
+  feed, pickers skip them, and the pond draws a rod, line, bobber and ripples
+  with cast/catch sounds.
+- Show a coin price sticker on every empty crop bed so it is obvious the bed is
+  plantable, and let a tap on the bed or its sticker open the plant chooser.
+- Open the crop swap chooser after a 500 ms dwell once the bed is empty, or by
+  holding a finger on the bed; previously swapping required a one-second dwell
+  and empty hands, which automatic harvesting made hard to reach.
+- Draw flickering anger flames, rising embers and a comic anger vein above an
+  upset customer instead of a plain `!` bubble.
+- Replace the fixed four-plot fields with configurable grids: fruit uses a 2×3
+  field and vegetables a 3×2 field. Save version 4 keeps old slots valid and
+  leaves the new slots empty.
+- Make crop beds area triggers instead of centre-point triggers, so standing
+  between two rows still finds a bed. Empty beds are distance-gated so six
+  labels no longer cover the shop.
+- Allow swapping a planted crop by standing on its bed with empty hands for one
+  second; the old crop refunds half and the new one costs full price. The shop's
+  remove button remains as a fallback.
+- Bind partial plant payments to the bed that received them, so the remaining
+  beds stop showing another bed's deposit ring.
+- Let the player walk through animal pens and kitchen stations while customers
+  and staff still route around them, and add station input icons and feed
+  choices so both flows are readable.
+- Unify the menu into one gear settings card (sound, fullscreen, language),
+  remove the menu stat line, and strip sound/fullscreen from the pause card.
+- Ignore the blur that fullscreen emits while a run is starting, so tapping
+  Open Shop no longer lands on the pause card.
+- Show angry customer faces for missed products and long queues, add resting
+  stools, click-to-nudge staff, path/finger tutorial hints, and an early-game
+  economy pass.
 - Move the portrait shop's cashier hire sign to the right of the counter, just
   above the trash bin, so checking out at the counter no longer deposits the
   earnings toward the cashier. The wide plan moves its sign to the counter's

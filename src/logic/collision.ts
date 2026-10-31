@@ -25,10 +25,16 @@ export function circleIntersectsRect(x: number, y: number, radius: number, rect:
   return dx * dx + dy * dy < radius * radius
 }
 
-export function blockedAt(x: number, y: number, radius: number, map: ShopMap): boolean {
+export function blockedAt(
+  x: number,
+  y: number,
+  radius: number,
+  map: ShopMap,
+  obstacles: readonly Rect[] = map.obstacles,
+): boolean {
   if (x - radius < map.wall || x + radius > map.room.w - map.wall) return true
   if (y - radius < map.wall || y + radius > map.room.h - map.wall) return true
-  return map.obstacles.some((rect) => circleIntersectsRect(x, y, radius, rect))
+  return obstacles.some((rect) => circleIntersectsRect(x, y, radius, rect))
 }
 
 /**
@@ -41,11 +47,12 @@ export function moveWithCollision(
   dy: number,
   radius: number,
   map: ShopMap,
+  obstacles: readonly Rect[] = map.playerObstacles,
 ): Vec2 {
   let x = pos.x
   let y = pos.y
-  if (!blockedAt(x + dx, y, radius, map)) x += dx
-  if (!blockedAt(x, y + dy, radius, map)) y += dy
+  if (!blockedAt(x + dx, y, radius, map, obstacles)) x += dx
+  if (!blockedAt(x, y + dy, radius, map, obstacles)) y += dy
   return { x, y }
 }
 

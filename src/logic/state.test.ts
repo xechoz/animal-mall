@@ -99,7 +99,7 @@ describe('shop simulation', () => {
     // The cashier hire sign sits beside the counter now, so checking out no
     // longer sweeps the earnings into the cashier deposit.
     expect(state.deposits['staff:cashier']).toBeUndefined()
-    expect(state.coins).toBe(4)
+    expect(state.coins).toBe(6)
     expect(state.zones.veg).toBe(true)
     expect(state.tutorial).toBe('done')
     expect(result.events.some((event) => event.type === 'sale')).toBe(true)
@@ -248,7 +248,7 @@ describe('shop simulation', () => {
     const spots = [
       { x: 75, y: 660 },
       { x: 265, y: 660 },
-      { x: 170, y: 690 },
+      { x: 170, y: 660 },
     ]
     for (const pos of spots) {
       const state = withPlayer(

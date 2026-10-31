@@ -1,18 +1,41 @@
 import { drawIcon, type IconName, mixColor, type Theme } from '@mg/core'
 import Phaser from 'phaser'
 
+export type RoundButtonIcon = IconName | 'gear'
+
 export interface RoundButtonOptions {
   readonly size?: number
-  readonly icon: IconName
+  readonly icon: RoundButtonIcon
   readonly theme: Theme
   readonly variant?: 'primary' | 'soft'
   readonly onClick: () => void
   readonly badge?: boolean
 }
 
+function drawGear(g: Phaser.GameObjects.Graphics, size: number, color: number): void {
+  const half = size / 2
+  const inner = half * 0.52
+  const outer = half * 0.82
+  const line = Math.max(2, size * 0.1)
+  g.fillStyle(color, 1)
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (index * Math.PI) / 4
+    const points = [
+      new Phaser.Math.Vector2(Math.cos(angle - 0.16) * inner, Math.sin(angle - 0.16) * inner),
+      new Phaser.Math.Vector2(Math.cos(angle - 0.22) * outer, Math.sin(angle - 0.22) * outer),
+      new Phaser.Math.Vector2(Math.cos(angle + 0.22) * outer, Math.sin(angle + 0.22) * outer),
+      new Phaser.Math.Vector2(Math.cos(angle + 0.16) * inner, Math.sin(angle + 0.16) * inner),
+    ]
+    g.fillPoints(points, true)
+  }
+  g.lineStyle(line, color, 1)
+  g.strokeCircle(0, 0, inner)
+  g.strokeCircle(0, 0, half * 0.22)
+}
+
 export class RoundButton extends Phaser.GameObjects.Container {
   private readonly theme: Theme
-  private readonly icon: IconName
+  private readonly icon: RoundButtonIcon
   private readonly buttonSize: number
   private readonly variant: 'primary' | 'soft'
   private readonly face: Phaser.GameObjects.Graphics
@@ -109,7 +132,8 @@ export class RoundButton extends Phaser.GameObjects.Container {
       g.fillEllipse(0, -radius * 0.34, radius * 1.15, radius * 0.58)
     }
 
-    drawIcon(g, this.icon, Math.round(size * 0.42), iconColor)
+    if (this.icon === 'gear') drawGear(g, Math.round(size * 0.42), iconColor)
+    else drawIcon(g, this.icon, Math.round(size * 0.42), iconColor)
 
     if (this.badgeVisible) {
       g.fillStyle(this.theme.accent, 1)

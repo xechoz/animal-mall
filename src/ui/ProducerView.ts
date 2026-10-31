@@ -25,10 +25,14 @@ export class ProducerView extends Phaser.GameObjects.Container {
   readonly ground: Phaser.GameObjects.Graphics
   private readonly art: Phaser.GameObjects.Graphics
   private readonly ring: Phaser.GameObjects.Graphics
+  private readonly feedRing: Phaser.GameObjects.Graphics
+  private readonly feedChoices: Phaser.GameObjects.Container
   private readonly badge: Phaser.GameObjects.Text
   private readonly status: Phaser.GameObjects.Text
   private readonly productIcon: Phaser.GameObjects.Image
   private readonly feedIcon: Phaser.GameObjects.Image
+  private readonly inputIcons: Phaser.GameObjects.Image[] = []
+  private readonly inputCounts: Phaser.GameObjects.Text[] = []
   private lastKey = ''
 
   constructor(scene: Phaser.Scene, theme: Theme, producer: ProducerState, textScale: number) {
@@ -37,7 +41,20 @@ export class ProducerView extends Phaser.GameObjects.Container {
     if (producer.kind === 'plant') drawPlantBed(this.ground, producer)
     this.art = scene.add.graphics()
     this.ring = scene.add.graphics()
-    this.add([this.art, this.ring])
+    this.feedRing = scene.add.graphics()
+    this.add([this.art, this.ring, this.feedRing])
+
+    const feedBg = scene.add.graphics()
+    feedBg.fillStyle(0xfff7e8, 0.96)
+    feedBg.fillRoundedRect(-24, -13, 48, 26, 10)
+    feedBg.lineStyle(2, theme.ink, 0.25)
+    feedBg.strokeRoundedRect(-24, -13, 48, 26, 10)
+    feedBg.fillStyle(0xfff7e8, 0.96)
+    feedBg.fillTriangle(-4, 13, 4, 13, 0, 19)
+    const apple = scene.add.image(-9, -1, productTextureKey('apple')).setScale(0.42)
+    const carrot = scene.add.image(9, -1, productTextureKey('carrot')).setScale(0.42)
+    this.feedChoices = scene.add.container(0, -86, [feedBg, apple, carrot]).setVisible(false)
+    this.add(this.feedChoices)
 
     this.badge = scene.add
       .text(0, -62, '', textStyle(theme, 14 * textScale, theme.text, true))
@@ -62,7 +79,31 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.feedIcon = scene.add.image(0, -58, feedTextureKey()).setScale(0.38).setVisible(false)
     this.add(this.feedIcon)
 
+    for (let index = 0; index < 2; index += 1) {
+      const icon = scene.add
+        .image(-13 + index * 26, -36, productTextureKey('egg'))
+        .setScale(0.34)
+        .setVisible(false)
+      const count = scene.add
+        .text(-3 + index * 26, -27, '', textStyle(theme, 10 * textScale, theme.text, true))
+        .setOrigin(0.5)
+        .setVisible(false)
+      this.inputIcons.push(icon)
+      this.inputCounts.push(count)
+      this.add([icon, count])
+    }
+
     scene.add.existing(this)
+  }
+
+  /** Highlights the trough while the player carries something it accepts. */
+  setFeedActive(active: boolean): void {
+    this.feedRing.clear()
+    if (!active) return
+    this.feedRing.lineStyle(3, 0xffd166, 0.95)
+    this.feedRing.strokeCircle(28, 20, 17)
+    this.feedRing.lineStyle(2, 0xfff7e8, 0.8)
+    this.feedRing.strokeCircle(28, 20, 21)
   }
 
   updateProducer(producer: ProducerState): void {
@@ -77,6 +118,9 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.status.setVisible(false)
     this.productIcon.setVisible(false)
     this.feedIcon.setVisible(false)
+    this.feedChoices.setVisible(false)
+    for (const icon of this.inputIcons) icon.setVisible(false)
+    for (const count of this.inputCounts) count.setVisible(false)
 
     if (producer.kind === 'plant' && isPlantKind(producer.product)) {
       const ratio = producer.mature
@@ -87,7 +131,21 @@ export class ProducerView extends Phaser.GameObjects.Container {
     } else if (producer.kind === 'animal') {
       drawAnimal(this.art, producer)
       drawTrough(this.art, producer)
-    } else if (producer.kind === 'station') drawStation(this.art, producer)
+    } else if (producer.kind === 'station') {
+      drawStation(this.art, producer)
+      if (isProcessedKind(producer.product)) {
+        RECIPES[producer.product].inputs.forEach((input, index) => {
+          const icon = this.inputIcons[index]
+          const count = this.inputCounts[index]
+          if (icon === undefined || count === undefined) return
+          icon
+            .setTexture(productTextureKey(input.product))
+            .setVisible(true)
+            .setAlpha(producer.progressMs > 0 ? 0.45 : 1)
+          count.setText(`×${input.count}`).setVisible(true)
+        })
+      }
+    }
 
     if (producer.kind === 'plant' && !producer.mature) {
       if (isPlantKind(producer.product)) {
@@ -117,10 +175,11 @@ export class ProducerView extends Phaser.GameObjects.Container {
     if (producer.hungry && isAnimalProductKind(producer.product)) {
       this.feedIcon.setTexture(feedTextureKey()).setVisible(true)
       this.status.setText('!').setColor('#e25d5d').setVisible(true)
+      this.feedChoices.setVisible(producer.product !== 'fish')
     } else if (producer.kind !== 'plant') {
       this.productIcon
         .setTexture(productTextureKey(producer.product))
-        .setPosition(0, producer.kind === 'station' ? -30 : -34)
+        .setPosition(0, producer.kind === 'station' ? -58 : -34)
         .setVisible(true)
     }
   }
@@ -157,37 +216,42 @@ function drawProgress(g: Phaser.GameObjects.Graphics, ratio: number, y: number):
 function drawPlantBed(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
   if (!isPlantKind(producer.product)) return
   const isFruit = zoneOf(producer.product) === 'fruit'
-  const width = 68
-  const height = 46
+  const width = isFruit ? 54 : 60
+
+  // A soft soil mound instead of a wooden planter box. The shadow and a couple
+  // of grass tufts sell the depth without adding collision.
+  g.fillStyle(0x3b2f3a, 0.14)
+  g.fillEllipse(0, 12, width + 8, 16)
+  g.fillStyle(gameColors.dirtDark, 1)
+  g.fillEllipse(0, 6, width, isFruit ? 22 : 20)
+  g.fillStyle(gameColors.dirt, 1)
+  g.fillEllipse(-2, 3, width - 8, isFruit ? 17 : 15)
+  g.fillStyle(0xb98a5c, 0.55)
+  g.fillEllipse(-10, 0, width * 0.34, 5)
+  g.fillStyle(0x8a5a2e, 0.5)
+  g.fillEllipse(10, 4, width * 0.28, 4)
+  g.fillStyle(gameColors.leafDark, 0.8)
+  g.fillEllipse(-width / 2 + 5, 8, 8, 4)
+  g.fillEllipse(width / 2 - 6, 10, 7, 3.5)
 
   if (isFruit) {
-    g.fillStyle(0x3b2f3a, 0.16)
-    g.fillEllipse(0, 24, width + 8, 14)
-    g.fillStyle(gameColors.woodDark, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 8)
-    g.fillStyle(gameColors.wood, 1)
-    g.fillRoundedRect(-width / 2 + 4, -height / 2 + 2, width - 8, height - 8, 6)
-    g.fillStyle(gameColors.dirtDark, 1)
-    g.fillEllipse(0, -height / 2 + 5, width - 14, 12)
-    g.fillStyle(gameColors.dirt, 1)
-    g.fillEllipse(0, -height / 2 + 3, width - 22, 8)
+    g.fillStyle(0xc9a06a, 0.65)
+    g.fillCircle(-6, 5, 1.4)
+    g.fillCircle(8, 7, 1.1)
     return
   }
 
-  g.fillStyle(0x3b2f3a, 0.14)
-  g.fillEllipse(0, 23, width + 6, 12)
-  g.fillStyle(0x8f5734, 1)
-  g.fillRoundedRect(-width / 2, -height / 2, width, height, 7)
-  g.fillStyle(0xa66b42, 1)
-  g.fillRoundedRect(-width / 2 + 4, -height / 2 + 3, width - 8, height - 10, 5)
-  g.fillStyle(0x6f4b2e, 0.7)
-  for (let row = 0; row < 3; row += 1) {
-    g.fillRoundedRect(-width / 2 + 8, -height / 2 + 10 + row * 9, width - 16, 3, 1.5)
+  // Vegetable rows: three curved furrows, not a rectangular board.
+  g.lineStyle(2, 0x6f4b2e, 0.5)
+  for (let row = 0; row < 2; row += 1) {
+    g.beginPath()
+    g.arc(0, 2 + row * 8, width * 0.34, Math.PI * 0.15, Math.PI * 0.85)
+    g.strokePath()
   }
 }
 
 function drawTrough(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
-  if (!isAnimalProductKind(producer.product)) return
+  if (!isAnimalProductKind(producer.product) || producer.product === 'fish') return
   const capacity = troughCapacity(producer.product)
   const count = feedCount(producer)
   const spacing = 6
@@ -230,7 +294,7 @@ function drawAnimal(g: Phaser.GameObjects.Graphics, producer: ProducerState): vo
     g.fillEllipse(20, 8, 12, 7)
     g.fillStyle(0xffffff, 0.45)
     g.fillEllipse(10, -14, 10, 4)
-    for (let index = 0; index < producer.ready; index += 1) {
+    for (let index = 0; index < Math.max(2, producer.ready); index += 1) {
       g.fillStyle(0xf08a3c, 1)
       g.fillEllipse(-14 + index * 14, 6, 14, 7)
       g.fillStyle(0xffb066, 1)

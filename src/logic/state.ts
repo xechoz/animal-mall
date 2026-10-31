@@ -28,6 +28,7 @@ import {
   zoneOf,
 } from './config'
 import { stepFacilityDwell } from './facilities'
+import { stepFishing } from './fishing'
 import { findPath } from './nav'
 import {
   addFeed,
@@ -118,7 +119,14 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
     staffMembers: createStaffMembers(save.staff, map),
     deposits: save.deposits,
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
-    facility: { trashDwellMs: 0, drinkDwellMs: 0, drinkArmed: true },
+    fishing: { pondId: null, phase: 'idle', timerMs: 0, armed: true },
+    facility: {
+      trashDwellMs: 0,
+      drinkDwellMs: 0,
+      drinkArmed: true,
+      urgeTargetId: null,
+      urgeDwellMs: 0,
+    },
     buffs: zeroBuffs(),
     tutorial,
   }
@@ -153,7 +161,14 @@ export function remapShopState(state: ShopState, map: ShopMap): ShopState {
     spawnMs: 1_200,
     staffMembers: createStaffMembers(state.staff, map),
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
-    facility: { trashDwellMs: 0, drinkDwellMs: 0, drinkArmed: true },
+    fishing: { pondId: null, phase: 'idle', timerMs: 0, armed: true },
+    facility: {
+      trashDwellMs: 0,
+      drinkDwellMs: 0,
+      drinkArmed: true,
+      urgeTargetId: null,
+      urgeDwellMs: 0,
+    },
   }
 }
 
@@ -323,6 +338,16 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   facility = facilityStep.facility
   events.push(...facilityStep.events)
 
+  const fishingStep = stepFishing(
+    { ...state, player, producers, fishing: state.fishing },
+    dt,
+    moving,
+    carryMax,
+  )
+  player = fishingStep.state.player
+  const fishing = fishingStep.state.fishing
+  events.push(...fishingStep.events)
+
   tutorial = advanceTutorial(tutorial, producers, shelves, player, served)
   if (tutorial === 'checkout') spawnMs = Math.min(spawnMs, 1_200)
 
@@ -352,7 +377,18 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         customer.phase === 'inQueue' && customer.queueIndex > 0
           ? CUSTOMER_TUNING.queuePatienceFactor
           : 1
-      customer = { ...customer, patienceMs: customer.patienceMs - dt * factor }
+      const waitingInQueue = customer.phase === 'inQueue'
+      const angerMs = waitingInQueue
+        ? Math.min(3_000, customer.angerMs + dt * 0.45)
+        : Math.max(0, customer.angerMs - dt * 0.6)
+      customer = {
+        ...customer,
+        patienceMs: customer.patienceMs - dt * factor,
+        angerMs:
+          customer.patienceMs / customer.maxPatienceMs < 0.35 ? Math.max(angerMs, 1_200) : angerMs,
+      }
+    } else {
+      customer = { ...customer, angerMs: Math.max(0, customer.angerMs - dt) }
     }
 
     if (customer.patienceMs <= 0) {
@@ -409,6 +445,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
             customer = {
               ...customer,
               wanted: customer.wanted.slice(1),
+              angerMs: Math.max(customer.angerMs, 2_400),
             }
             events.push({
               type: 'customerMissed',
@@ -594,6 +631,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     upgrades: state.upgrades,
     staff: state.staff,
     deposits: state.deposits,
+    fishing,
     facility,
     buffs,
     tutorial,
@@ -786,6 +824,7 @@ function createCustomer(
     queueIndex: -1,
     speed: CUSTOMER_TUNING.speed,
     sad: false,
+    angerMs: 0,
     paid: 0,
   }
 }

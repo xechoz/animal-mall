@@ -1,8 +1,14 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
 import { PORTRAIT_MAP } from './config'
-import { plantDepositKey, purchasePlant, purchaseStaff, removeProducer } from './purchase'
-import { mapOffers } from './quickBuy'
+import {
+  plantDepositKey,
+  purchasePlant,
+  purchasePlantAt,
+  purchaseStaff,
+  removeProducer,
+} from './purchase'
+import { mapOffers, type PurchaseOffer } from './quickBuy'
 import { initialSave } from './saveData'
 import { createShopState, inRegisterZone, stepShop } from './state'
 import type { GameEvent, ShopState, Vec2 } from './types'
@@ -63,6 +69,62 @@ describe('quick buy', () => {
     const result = simulate(state, 20)
     expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(true)
     expect(result.state.producers).toHaveLength(0)
+  })
+
+  it('keeps every empty slot offered after one crop is planted', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 1_000,
+        producers: [{ product: 'apple', slot: 0 }],
+      },
+      PORTRAIT_MAP,
+    )
+    const offers = mapOffers(state).filter((offer) => offer.type === 'plant')
+    expect(offers).toHaveLength(5)
+  })
+
+  it('shows a deposit only on the bed it was paid into', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 100,
+        producers: [{ product: 'apple', slot: 0 }],
+      },
+      PORTRAIT_MAP,
+    )
+    const deposited = purchasePlantAt(state, 'pear', 1, true)
+    expect(deposited.result).toBe('deposited')
+    const offers = mapOffers(deposited.state).filter(
+      (offer): offer is Extract<PurchaseOffer, { type: 'plant' }> => offer.type === 'plant',
+    )
+    expect(offers.find((offer) => offer.slot === 1)?.deposit).toBe(100)
+    expect(offers.find((offer) => offer.slot === 2)?.deposit).toBe(0)
+  })
+
+  it('opens the swap chooser after half a second on a planted bed', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 1_000,
+        producers: [{ product: 'apple', slot: 0 }],
+      },
+      PORTRAIT_MAP,
+    )
+    const plot = PORTRAIT_MAP.plots[0] as Vec2
+    const result = simulate(withPlayer(state, plot), 11)
+    expect(result.events.some((event) => event.type === 'plantSwapReady')).toBe(true)
+    expect(result.events.some((event) => event.type === 'producerReplaced')).toBe(false)
+    expect(result.state.coins).toBe(1_000)
+  })
+
+  it('opens a bed while standing between two rows, not just at its centre', () => {
+    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    const first = PORTRAIT_MAP.plots[0] as Vec2
+    const below = PORTRAIT_MAP.plots[2] as Vec2
+    state = withPlayer(state, { x: first.x, y: (first.y + below.y) / 2 })
+    const result = simulate(state, 12)
+    expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(true)
   })
 
   it('does not open while the player keeps moving', () => {
@@ -164,7 +226,7 @@ describe('quick buy', () => {
 
     const result = simulate(withPlayer(state, access), 11)
     expect(result.state.zones.farm).toBe(true)
-    expect(result.state.coins).toBe(0)
+    expect(result.state.coins).toBe(250)
     expect(
       result.events.some((event) => event.type === 'zoneUnlocked' && event.zone === 'farm'),
     ).toBe(true)
@@ -175,7 +237,7 @@ describe('quick buy', () => {
     const state = createShopState({ ...initialSave(), coins: 600 }, PORTRAIT_MAP)
     const result = simulate(withPlayer(state, { x: 170, y: 440 }), 11)
     expect(result.state.zones.farm).toBe(true)
-    expect(result.state.coins).toBe(0)
+    expect(result.state.coins).toBe(250)
   })
 
   it('unlocks from just outside the zone footprint', () => {
@@ -194,7 +256,7 @@ describe('quick buy', () => {
     const state = createShopState({ ...initialSave(), coins: 1_200 }, PORTRAIT_MAP)
     const result = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.kitchen), 11)
     expect(result.state.zones.kitchen).toBe(true)
-    expect(result.state.coins).toBe(0)
+    expect(result.state.coins).toBe(400)
     expect(result.state.producers.some((producer) => producer.product === 'cake')).toBe(true)
   })
 
@@ -207,7 +269,7 @@ describe('quick buy', () => {
   })
 
   it('does not offer a zone unlock before the player can afford it', () => {
-    const state = createShopState({ ...initialSave(), coins: 599 }, PORTRAIT_MAP)
+    const state = createShopState({ ...initialSave(), coins: 349 }, PORTRAIT_MAP)
     const result = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.farm), 30)
     expect(result.state.zones.farm).toBe(false)
     expect(result.events.some((event) => event.type === 'zoneUnlocked')).toBe(false)

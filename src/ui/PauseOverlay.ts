@@ -7,25 +7,20 @@ export interface PauseOptions {
   readonly layout: GameLayout
   readonly theme: Theme
   readonly i18n: I18n
-  readonly soundEnabled: boolean
-  readonly fullscreenActive: boolean
-  readonly fullscreenAvailable: boolean
   readonly onResume: () => void
   readonly onShop: () => void
   readonly onMenu: () => void
-  readonly onToggleSound: () => boolean
-  readonly onToggleFullscreen: () => void
 }
 
+/**
+ * In-run pause card. Sound, fullscreen and language live in the menu settings
+ * so this stays a three-choice decision: resume, browse the shop or leave.
+ */
 export class PauseOverlay {
   private readonly root: Phaser.GameObjects.Container
-  private readonly options: PauseOptions
-  private readonly soundButton: Button
-  private readonly fullscreenButton: Button
   private closed = false
 
   constructor(options: PauseOptions) {
-    this.options = options
     const { scene, layout, theme, i18n } = options
     const ui = layout.ui
     this.root = scene.add.container(0, 0).setDepth(7100)
@@ -37,7 +32,7 @@ export class PauseOverlay {
     this.root.add(backdrop)
 
     const cardW = Math.min(420 * ui, layout.width - 40 * ui)
-    const cardH = Math.min(500 * ui, layout.height - 40 * ui)
+    const cardH = Math.min(390 * ui, layout.height - 40 * ui)
     const card = scene.add.container(layout.width / 2, layout.height / 2)
     this.root.add(card)
     const g = scene.add.graphics()
@@ -61,74 +56,35 @@ export class PauseOverlay {
     )
 
     const buttonWidth = cardW - 80 * ui
-    const startY = -cardH / 2 + 116 * ui
-    const gap = 58 * ui
+    const startY = -cardH / 2 + 122 * ui
+    const gap = 68 * ui
     const resume = new Button(scene, 0, startY, i18n.t('pause.resume'), theme, {
       width: buttonWidth,
-      height: 52 * ui,
-      fontSize: 19 * ui,
+      height: 56 * ui,
+      fontSize: 20 * ui,
       variant: 'primary',
       onClick: options.onResume,
     })
     const shop = new Button(scene, 0, startY + gap, i18n.t('pause.shop'), theme, {
       width: buttonWidth,
-      height: 48 * ui,
-      fontSize: 17 * ui,
+      height: 52 * ui,
+      fontSize: 18 * ui,
       variant: 'soft',
       onClick: options.onShop,
     })
-    this.soundButton = new Button(scene, 0, startY + gap * 2, this.soundLabel(), theme, {
+    const menu = new Button(scene, 0, startY + gap * 2, i18n.t('pause.menu'), theme, {
       width: buttonWidth,
       height: 48 * ui,
       fontSize: 16 * ui,
-      variant: 'soft',
-      onClick: () => {
-        const enabled = options.onToggleSound()
-        this.soundButton.setText(this.soundLabel(enabled))
-      },
-    })
-    this.fullscreenButton = new Button(
-      scene,
-      0,
-      startY + gap * 3,
-      this.fullscreenLabel(options.fullscreenActive),
-      theme,
-      {
-        width: buttonWidth,
-        height: 48 * ui,
-        fontSize: 16 * ui,
-        variant: 'soft',
-        onClick: () => options.onToggleFullscreen(),
-      },
-    )
-    this.fullscreenButton.setEnabled(options.fullscreenAvailable)
-    const menu = new Button(scene, 0, startY + gap * 4, i18n.t('pause.menu'), theme, {
-      width: buttonWidth,
-      height: 44 * ui,
-      fontSize: 15 * ui,
       variant: 'ghost',
       onClick: options.onMenu,
     })
-    card.add([resume, shop, this.soundButton, this.fullscreenButton, menu])
-  }
-
-  setFullscreen(active: boolean): void {
-    this.fullscreenButton.setText(this.fullscreenLabel(active))
+    card.add([resume, shop, menu])
   }
 
   destroy(): void {
     if (this.closed) return
     this.closed = true
     this.root.destroy(true)
-  }
-
-  private soundLabel(enabled = this.options.soundEnabled): string {
-    return this.options.i18n.t('pause.sound', {
-      state: this.options.i18n.t(enabled ? 'common.on' : 'common.off'),
-    })
-  }
-
-  private fullscreenLabel(active: boolean): string {
-    return this.options.i18n.t(active ? 'pause.exitFullscreen' : 'pause.fullscreen')
   }
 }

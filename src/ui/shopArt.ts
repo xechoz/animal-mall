@@ -354,16 +354,15 @@ function drawQueueMarkers(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
 
 function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   for (const plot of [...map.plots, ...map.cropPlots]) {
-    const left = plot.x - PLOT_SIZE.w / 2
-    const top = plot.y - PLOT_SIZE.h / 2
-    g.fillStyle(0x8f5734, 0.12)
-    g.fillRoundedRect(left, top, PLOT_SIZE.w, PLOT_SIZE.h, 7)
-    g.lineStyle(2, 0x8f5734, 0.22)
-    g.strokeRoundedRect(left, top, PLOT_SIZE.w, PLOT_SIZE.h, 7)
-    g.lineStyle(1, 0x6f4b2e, 0.18)
-    for (let row = 0; row < 2; row += 1) {
-      g.lineBetween(left + 9, top + 16 + row * 13, left + PLOT_SIZE.w - 9, top + 16 + row * 13)
-    }
+    // Empty beds read as soft soil patches, not rectangular cards.
+    g.fillStyle(0x8a5a2e, 0.1)
+    g.fillEllipse(plot.x, plot.y + 8, PLOT_SIZE.w + 14, PLOT_SIZE.h * 0.72)
+    g.fillStyle(0x9c6b42, 0.16)
+    g.fillEllipse(plot.x, plot.y + 4, PLOT_SIZE.w, PLOT_SIZE.h * 0.55)
+    g.fillStyle(0xb98a5c, 0.16)
+    g.fillEllipse(plot.x - 8, plot.y + 2, PLOT_SIZE.w * 0.42, PLOT_SIZE.h * 0.26)
+    g.lineStyle(1.5, 0x8f5734, 0.18)
+    g.strokeEllipse(plot.x, plot.y + 6, PLOT_SIZE.w + 2, PLOT_SIZE.h * 0.5)
   }
 
   for (const product of ANIMAL_ORDER) {

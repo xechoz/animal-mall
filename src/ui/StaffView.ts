@@ -11,6 +11,7 @@ const APRON = {
 } as const
 
 export class StaffView extends Phaser.GameObjects.Container {
+  readonly hit: Phaser.GameObjects.Zone
   private readonly bodyImage: Phaser.GameObjects.Image
   private readonly apron: Phaser.GameObjects.Graphics
   private readonly carrying: Phaser.GameObjects.Image[] = []
@@ -64,6 +65,9 @@ export class StaffView extends Phaser.GameObjects.Container {
       .setAngle(-8)
       .setVisible(false)
     this.add(this.sleep)
+
+    this.hit = scene.add.zone(0, -38, 46, 86).setInteractive({ useHandCursor: true })
+    this.add(this.hit)
 
     scene.add.existing(this)
   }

@@ -3,11 +3,11 @@
 A cozy endless management game built with Phaser 4 on
 [`xechoz/mg-platform`](https://github.com/xechoz/mg-platform).
 
-Grow six fruits and six vegetables, raise chickens, cows, sheep and pond fish,
-then turn their produce into cakes, sweaters and grilled fish. Stock four zone
-shelves and serve the neighborhood animals at the counter. Each animal has a
-trough: put produce in it yourself or let a picker fill it, and the animal eats
-the cheapest item first. Hire a cashier and pickers to keep the shop running, or
+Grow six fruits and six vegetables, raise chickens, cows and sheep, then fish at
+the pond and turn the produce into cakes, sweaters and grilled fish. Stock four
+zone shelves and serve the neighborhood animals at the counter. Each land animal
+has a trough: put produce in it yourself or let a picker fill it, and the animal
+eats the cheapest item first. Hire a cashier and pickers to keep the shop running, or
 use the in-world quick-buy signs to buy without opening the shop. There is no
 timer or failure state: customers keep arriving, and a missed sale only costs
 that sale.
@@ -28,25 +28,41 @@ that sale.
 - The locked farm and kitchen zones can be bought in place: stand still anywhere
   inside one, or just next to it, for half a second once you can afford it. The
   shop still lists both zones as an alternative.
-- Walk to an empty plot and stop to open the plant chooser. Fruit trees and
-  vegetable crops grow on their own; harvested goods go to the matching shelf.
-- Every animal has a trough in front of its pen. Carry fruit or vegetables to
+- Every empty plot shows a coin price sticker, so bare soil never looks dead.
+  Tap the plot (or its sticker) to open the plant chooser immediately, or just
+  stop next to it for half a second. Fruit uses a 2×3 field and vegetables a 3×2
+  field; both grids are configuration in `src/logic/shopMap.ts`, so the counts
+  can be tuned without touching save or UI code. Fruit trees and vegetable crops
+  grow on their own; harvested goods go to the matching shelf.
+- Stand on a planted bed for half a second once it has nothing left to pick, or
+  hold a finger on it, to open the crop chooser and swap it. The old crop refunds
+  half its cost and the new one costs full price. The shop's production tab still
+  has the remove button as a fallback. Partial payments stay on the bed where
+  they were paid; other beds keep their normal price instead of all showing the
+  same deposit ring.
+- Land animals have a trough in front of their pen. Carry fruit or vegetables to
   the trough and stand still to drop them in one by one; pickers also fill
   troughs with produce they harvest. Animals eat the cheapest item in the
   trough, one whole item per production cycle. An empty trough shows a feed
-  icon and the animal waits until you or a picker fills it. Trough contents are
-  not saved and reset on reload.
+  icon with fruit/vegetable choices, and the trough highlights when you carry
+  something it accepts. Trough contents are not saved and reset on reload.
+- The pond is not an animal pen. Stand in front of it without moving for half a
+  second to cast; half a second later the line bites and one fish goes into your
+  basket. Walking away or a full basket cancels the attempt. Pickers do not fish
+  and the pond has no trough.
 - Kitchen stations pull eggs, milk, yarn or fish from the farm shelf and leave
   one of each for customers. Finished cakes, sweaters and grilled fish wait on
   the station tray; walk up to collect them and stock the kitchen shelf.
 - Staff signs use the same quick-buy flow and disappear once their station is
   fully staffed. A cashier serves customers
-  automatically; pickers harvest fruit, vegetables and animal products, but not
-  station output. Cashier income waits as a coin pile on the counter.
+  automatically; pickers harvest fruit, vegetables and land-animal products, but
+  not station output or the pond. Cashier income waits as a coin pile on the
+  counter.
 - Staff take breaks at the free drink machine in the bottom-left corner. After
   roughly a minute they walk over, drink for a few seconds and then either
-  return on their own or lounge until you walk up and nudge them. A cashier only
-  leaves when the counter is quiet.
+  return on their own or lounge on a stool until you walk up and nudge them.
+  Tap a resting character or stand next to them for half a second; the HUD
+  button remains as a fallback. A cashier only leaves when the counter is quiet.
 - Stand in front of the drink machine for half a second to open the paid drink
   menu: apple soda (+15% move speed), milk tea (+3 carry capacity) or lemon tea
   (+25% scanning speed), each for 45 seconds. Drinks are free for staff; player
@@ -58,6 +74,15 @@ that sale.
 - The shop stays live while open. Removing a plant refunds half its cost; the
   last producer cannot be removed if the refund would leave you unable to
   replant. Customers only order products that have been stocked at least once.
+- Standing still is the main interaction verb. Free/contextual actions resolve
+  after 500 ms (open a bed, unlock a zone, fish, open the drink menu, nudge
+  staff, discard goods); paid purchases keep the longer one-second dwell so a
+  passing tap cannot spend coins. Walking always cancels the ring.
+- Unhappy customers show it: a missing product, a long queue or a slow checkout
+  turns the patience bar red, adds angry brows and cheeks, a comic anger vein on
+  the temple and flickering flames over the head with rising embers. The thought
+  bubble gives way to the fire while they are angry. They still leave normally;
+  there is no failure state.
 
 The game starts with 100 coins and an in-world guide for the first apple tree.
 Fruits are apple, pear, peach, cherry, strawberry and grape; vegetables are
@@ -67,14 +92,15 @@ kitchen zone for half a second to buy it, or unlock it in the shop.
 
 ## Save and language
 
-- Progress is stored as `mg:animal-mall:progress`, save version `3`.
+- Progress is stored as `mg:animal-mall:progress`, save version `4`.
 - Coins, pending counter coins, earned coins, served customers, zones, planted
   crops, animals, stations, tool levels, staff levels and non-refundable
-  deposits persist. Shelf stock, trough contents, station progress, customers,
-  staff break state and temporary drink buffs reset on reload.
-- Version 2 fruit-tree saves migrate automatically: old trees become producers,
-  vegetables unlock if the save has served customers, and stranded deposits are
-  returned to coins.
+  deposits persist. Shelf stock, trough contents, fishing state, station
+  progress, customers, staff break state and temporary drink buffs reset on
+  reload.
+- Version 2 and 3 saves migrate automatically: old trees become producers,
+  vegetables unlock if the save has served customers, stranded deposits are
+  returned to coins, and the new fifth/sixth planting slots start empty.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
 - All art is drawn procedurally with Phaser Graphics; the soundtrack and the

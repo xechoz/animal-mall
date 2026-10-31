@@ -1,6 +1,7 @@
 import type { Rng } from '@mg/core/rng'
 import { distanceSq } from './collision'
 import {
+  FACILITY_DWELL_MS,
   isAnimalProductKind,
   isPlantKind,
   producerAccess,
@@ -88,15 +89,68 @@ export function stepStaff(state: ShopState, dtMs: number, rng: Rng): StepResult 
   const dt = Math.max(0, Math.min(dtMs, 50))
   const members = syncStaffMembers(state.staffMembers, state.staff, state.map)
   const nextMembers = members.map((member) => stepMember(member, ctx, dt, rng))
+  const urged = stepUrgeDwell(state, nextMembers, dt, ctx.events)
 
   return {
     state: {
       ...state,
       producers: ctx.producers,
       shelves: ctx.shelves,
-      staffMembers: nextMembers,
+      staffMembers: urged.members,
+      facility: urged.facility,
     },
     events: ctx.events,
+  }
+}
+
+/**
+ * A resting staff member can be woken by standing next to them for the same
+ * half second used by every other world interaction. Clicking the character is
+ * handled by the scene and calls `urgeStaff` directly.
+ */
+function stepUrgeDwell(
+  state: ShopState,
+  members: readonly StaffState[],
+  dtMs: number,
+  events: GameEvent[],
+): { members: readonly StaffState[]; facility: ShopState['facility'] } {
+  const player = state.player
+  const still = !player.moving && distanceSq(player.pos, player.prevPos) <= 0.25
+  let target: StaffState | null = null
+  let best = Number.POSITIVE_INFINITY
+  if (still) {
+    for (const member of members) {
+      if (member.phase !== 'resting') continue
+      const range = distanceSq(player.pos, member.pos)
+      if (range <= REST.urgeRadius * REST.urgeRadius && range < best) {
+        target = member
+        best = range
+      }
+    }
+  }
+
+  if (target === null) {
+    return {
+      members,
+      facility: { ...state.facility, urgeTargetId: null, urgeDwellMs: 0 },
+    }
+  }
+
+  const dwellMs =
+    state.facility.urgeTargetId === target.id ? state.facility.urgeDwellMs + dtMs : dtMs
+  if (dwellMs < FACILITY_DWELL_MS) {
+    return {
+      members,
+      facility: { ...state.facility, urgeTargetId: target.id, urgeDwellMs: dwellMs },
+    }
+  }
+
+  events.push({ type: 'staffUrged', staffId: target.id })
+  return {
+    members: members.map((member) =>
+      member.id === target.id ? startToWork(member, state.map) : member,
+    ),
+    facility: { ...state.facility, urgeTargetId: null, urgeDwellMs: 0 },
   }
 }
 
@@ -533,7 +587,7 @@ function pickTrough(producers: readonly ProducerState[], pos: Vec2): ProducerSta
   let best: ProducerState | null = null
   let bestDistance = Number.POSITIVE_INFINITY
   for (const producer of producers) {
-    if (!isAnimalProductKind(producer.product)) continue
+    if (!isAnimalProductKind(producer.product) || producer.product === 'fish') continue
     if (feedSpace(producer) <= 0) continue
     const distanceToTrough = distanceSq(pos, producer.pos)
     if (distanceToTrough < bestDistance) {
@@ -546,7 +600,10 @@ function pickTrough(producers: readonly ProducerState[], pos: Vec2): ProducerSta
 
 function hasTroughSpace(producers: readonly ProducerState[]): boolean {
   return producers.some(
-    (producer) => isAnimalProductKind(producer.product) && feedSpace(producer) > 0,
+    (producer) =>
+      isAnimalProductKind(producer.product) &&
+      producer.product !== 'fish' &&
+      feedSpace(producer) > 0,
   )
 }
 

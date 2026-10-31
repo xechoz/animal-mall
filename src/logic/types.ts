@@ -97,7 +97,14 @@ export interface ShopMap {
   readonly stationAccess: Readonly<Record<ProcessedKind, Vec2>>
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
   readonly facilities: FacilityLayout
+  /** Solid props for every walker: shelves, counter, pens and stations. */
   readonly obstacles: readonly Rect[]
+  /**
+   * Player-only collision. Animal pens and kitchen stations are deliberately
+   * left out so the player can walk through their footprint like crop beds,
+   * while customers and staff still route around them.
+   */
+  readonly playerObstacles: readonly Rect[]
 }
 
 export interface SaveProducer {
@@ -169,6 +176,8 @@ export interface CustomerState {
   readonly queueIndex: number
   readonly speed: number
   readonly sad: boolean
+  /** Grows when an order is missed or the queue waits too long. Transient. */
+  readonly angerMs: number
   readonly paid: number
 }
 
@@ -219,11 +228,20 @@ export interface FacilityState {
   readonly trashDwellMs: number
   readonly drinkDwellMs: number
   readonly drinkArmed: boolean
+  readonly urgeTargetId: number | null
+  readonly urgeDwellMs: number
 }
 
 export interface QuickBuyState {
   readonly targetKey: string | null
   readonly dwellMs: number
+  readonly armed: boolean
+}
+
+export interface FishingState {
+  readonly pondId: number | null
+  readonly phase: 'idle' | 'waiting'
+  readonly timerMs: number
   readonly armed: boolean
 }
 
@@ -248,6 +266,7 @@ export interface ShopState {
   readonly staffMembers: readonly StaffState[]
   readonly deposits: Readonly<Record<string, number>>
   readonly quickBuy: QuickBuyState
+  readonly fishing: FishingState
   readonly facility: FacilityState
   readonly buffs: BuffTimers
   readonly tutorial: TutorialStep
@@ -288,6 +307,13 @@ export type GameEvent =
       readonly product: ProductKind
       readonly slot: number
     }
+  | {
+      readonly type: 'producerReplaced'
+      readonly product: ProductKind
+      readonly previous: ProductKind
+      readonly slot: number
+      readonly refund: number
+    }
   | { readonly type: 'zoneUnlocked'; readonly zone: ZoneId }
   | { readonly type: 'upgradeBought'; readonly kind: UpgradeKind; readonly level: number }
   | { readonly type: 'staffBought'; readonly kind: StaffKind; readonly level: number }
@@ -310,6 +336,11 @@ export type GameEvent =
       readonly zone: 'fruit' | 'veg'
       readonly slot: number
     }
+  | {
+      readonly type: 'plantSwapReady'
+      readonly zone: 'fruit' | 'veg'
+      readonly slot: number
+    }
   | { readonly type: 'coinsPending'; readonly amount: number }
   | { readonly type: 'coinsCollected'; readonly amount: number }
   | { readonly type: 'staffHarvest'; readonly staffId: number; readonly product: ProductKind }
@@ -321,6 +352,9 @@ export type GameEvent =
       readonly amount: number
     }
   | { readonly type: 'staffFeed'; readonly staffId: number; readonly product: PlantKind }
+  | { readonly type: 'fishCast'; readonly pondId: number }
+  | { readonly type: 'fishCaught'; readonly pondId: number }
+  | { readonly type: 'fishFull'; readonly pondId: number }
   | { readonly type: 'discard'; readonly product: ProductKind; readonly amount: number }
   | { readonly type: 'drinkMenuReady' }
   | { readonly type: 'drinkBought'; readonly drink: DrinkKind; readonly price: number }

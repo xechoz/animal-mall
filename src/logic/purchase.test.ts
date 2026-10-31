@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PORTRAIT_MAP, UPGRADES } from './config'
+import { PORTRAIT_MAP, plantSlotCount, UPGRADES } from './config'
 import {
   emptyPlantSlot,
   plantedCount,
@@ -8,6 +8,7 @@ import {
   purchaseUpgrade,
   purchaseZone,
   removeProducer,
+  replacePlantAt,
   upgradeCost,
 } from './purchase'
 import { initialSave } from './saveData'
@@ -24,7 +25,7 @@ describe('purchases', () => {
     expect(state.coins).toBe(100)
     const outcome = purchasePlant(state, 'apple')
     expect(outcome.result).toBe('ok')
-    expect(outcome.state.coins).toBe(0)
+    expect(outcome.state.coins).toBe(20)
     expect(outcome.state.producers).toHaveLength(1)
     expect(outcome.state.producers[0]?.slot).toBe(0)
     expect(outcome.state.shelves.fruit.bins.apple).toBe(true)
@@ -36,7 +37,7 @@ describe('purchases', () => {
     expect(purchasePlant(state, 'pear').result).toBe('insufficient')
 
     let rich = createShopState(saveWith(10_000), PORTRAIT_MAP)
-    for (let index = 0; index < 4; index += 1) {
+    for (let index = 0; index < plantSlotCount('fruit'); index += 1) {
       rich = purchasePlant(rich, 'apple').state
     }
     expect(emptyPlantSlot(rich, 'fruit')).toBeNull()
@@ -74,8 +75,24 @@ describe('purchases', () => {
     const outcome = removeProducer(state, id as number)
     expect(outcome.result).toBe('ok')
     expect(outcome.state.producers).toHaveLength(0)
-    expect(outcome.state.coins).toBe(before + 50)
+    expect(outcome.state.coins).toBe(before + 40)
     expect(outcome.state.shelves.fruit.bins.apple).toBe(false)
+  })
+
+  it('swaps a planted crop and refunds half of the old one', () => {
+    let state = createShopState(saveWith(1_000), PORTRAIT_MAP)
+    state = purchasePlant(state, 'apple').state
+    const before = state.coins
+    const outcome = replacePlantAt(state, 'pear', 0)
+    expect(outcome.result).toBe('ok')
+    expect(outcome.state.producers).toHaveLength(1)
+    expect(outcome.state.producers[0]?.product).toBe('pear')
+    expect(outcome.state.coins).toBe(before - 140 + 40)
+    expect(
+      outcome.events.some(
+        (event) => event.type === 'producerReplaced' && event.previous === 'apple',
+      ),
+    ).toBe(true)
   })
 
   it('requires the first sale before vegetables unlock', () => {
