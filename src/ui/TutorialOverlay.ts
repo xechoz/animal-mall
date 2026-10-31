@@ -29,7 +29,7 @@ export class TutorialOverlay {
       .text(0, 0, '', {
         ...textStyle(theme, 15, theme.text, true),
         align: 'center',
-        wordWrap: { width: Math.min(460, layout.width - 80) },
+        wordWrap: { width: Math.min(460, layout.room.w - 80) },
       })
       .setOrigin(0.5)
       .setDepth(6201)
@@ -114,10 +114,10 @@ export class TutorialOverlay {
   }
 
   private layoutPill(): void {
-    const textWidth = Math.min(460, this.layout.width - 80)
+    const textWidth = Math.min(460, this.layout.room.w - 80)
     const pillWidth = Math.max(120, Math.min(500, this.text.width + 56))
     const pillHeight = 42
-    const x = this.layout.width / 2
+    const x = this.layout.room.x + this.layout.room.w / 2
     const y = this.layout.height - this.layout.insets.bottom - 28
     this.pill.clear()
     this.pill.fillStyle(0x3b2f3a, 0.16)

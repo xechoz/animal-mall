@@ -9,6 +9,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private readonly icons: Phaser.GameObjects.Image[] = []
   private readonly counts: Phaser.GameObjects.Text[] = []
   private readonly lockOverlay: Phaser.GameObjects.Container
+  private readonly showLock: boolean
   private readonly countText: Phaser.GameObjects.Text
   private readonly bins: readonly ProductKind[]
   private lastKey = ''
@@ -20,6 +21,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
     const height = rect.h
     const products = ZONE_PRODUCTS[zone]
     this.bins = products
+    this.showLock = map.id !== 'landscape'
     const gap = 5
     const pad = 8
     const binWidth = (width - pad * 2 - gap * (products.length - 1)) / products.length
@@ -82,7 +84,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
     this.lastKey = key
 
     const wasVisible = this.lockOverlay.visible
-    this.lockOverlay.setVisible(!shelf.active)
+    this.lockOverlay.setVisible(this.showLock && !shelf.active)
     this.icons.forEach((icon, index) => {
       const product = this.bins[index]
       if (product === undefined) return

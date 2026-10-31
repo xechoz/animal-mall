@@ -76,10 +76,11 @@ export class MapOffers {
   private apply(label: OfferLabel, offer: PurchaseOffer, state: ShopState): void {
     const point = worldToScreen(this.layout, offer.pos)
     const lift = this.layout.portrait ? 58 : 24
-    const x = Math.max(WIDTH / 2 + 8, Math.min(this.layout.width - WIDTH / 2 - 8, point.x))
+    const room = this.layout.room
+    const x = Math.max(room.x + WIDTH / 2 + 8, Math.min(room.x + room.w - WIDTH / 2 - 8, point.x))
     const y = Math.max(
-      86,
-      Math.min(this.layout.height - 44, point.y - lift * this.layout.worldScale - 16),
+      room.y + HEIGHT / 2 + 8,
+      Math.min(room.y + room.h - HEIGHT / 2 - 8, point.y - lift * this.layout.worldScale - 16),
     )
     label.container.setPosition(x, y)
 

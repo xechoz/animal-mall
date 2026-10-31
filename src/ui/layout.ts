@@ -3,6 +3,7 @@ import { shopMapFor } from '../logic/config'
 import type { Rect, ShopMap, Vec2 } from '../logic/types'
 
 export interface HudLayout {
+  readonly vertical: boolean
   readonly bar: Rect
   readonly coins: Vec2
   readonly goal: Vec2
@@ -25,36 +26,56 @@ export interface GameLayout {
   readonly panelHeight: number
 }
 
+export interface GameLayoutOptions {
+  /** Phones and tablets move the HUD into a vertical rail in landscape. */
+  readonly mobile?: boolean
+}
+
 const TOP_GAP = 78
 const BUTTON_SIZE = 64
+const RAIL_WIDTH = 104
+const RAIL_GAP = 10
+const RAIL_ROOM_GAP = 12
 
 export function computeGameLayout(
   width: number,
   height: number,
   insets: Insets = NO_INSETS,
+  options: GameLayoutOptions = {},
 ): GameLayout {
   const portrait = height >= width
+  const vertical = options.mobile === true && !portrait
   const map = shopMapFor(width, height)
-  const safeWidth = width - insets.left - insets.right
-  const top = insets.top + TOP_GAP
+  const contentLeft = vertical ? insets.left + RAIL_GAP + RAIL_WIDTH + RAIL_ROOM_GAP : insets.left
+  const contentWidth = Math.max(240, width - contentLeft - insets.right)
+  const top = insets.top + (vertical ? 12 : TOP_GAP)
   const availableHeight = Math.max(240, height - top - insets.bottom - 12)
-  const scale = Math.max(0.2, Math.min((safeWidth - 24) / map.room.w, availableHeight / map.room.h))
+  const scale = Math.max(
+    0.2,
+    Math.min((contentWidth - 24) / map.room.w, availableHeight / map.room.h),
+  )
   const room: Rect = {
-    x: insets.left + (safeWidth - map.room.w * scale) / 2,
+    x: contentLeft + (contentWidth - map.room.w * scale) / 2,
     y: top + (availableHeight - map.room.h * scale) / 2,
     w: map.room.w * scale,
     h: map.room.h * scale,
   }
 
-  const bar: Rect = {
-    x: insets.left + 12,
-    y: insets.top + 8,
-    w: Math.max(240, safeWidth - 24),
-    h: 60,
-  }
+  const bar: Rect = vertical
+    ? {
+        x: insets.left + RAIL_GAP,
+        y: insets.top + RAIL_GAP,
+        w: RAIL_WIDTH,
+        h: Math.max(300, height - insets.top - insets.bottom - RAIL_GAP * 2),
+      }
+    : {
+        x: insets.left + 12,
+        y: insets.top + 8,
+        w: Math.max(240, contentWidth - 24),
+        h: 60,
+      }
   const centerY = bar.y + bar.h / 2
-  const shopX = bar.x + bar.w - BUTTON_SIZE * 1.55
-  const pauseX = bar.x + bar.w - BUTTON_SIZE * 0.55
+  const centerX = bar.x + bar.w / 2
 
   return {
     width,
@@ -65,12 +86,19 @@ export function computeGameLayout(
     room,
     worldScale: scale,
     hud: {
+      vertical,
       bar,
-      coins: { x: bar.x + 58, y: centerY },
-      goal: { x: insets.left + safeWidth / 2, y: centerY },
-      goalWidth: Math.min(220, Math.max(120, safeWidth * 0.3)),
-      shop: { x: shopX, y: centerY },
-      pause: { x: pauseX, y: centerY },
+      coins: vertical ? { x: centerX, y: bar.y + 40 } : { x: bar.x + 58, y: centerY },
+      goal: vertical
+        ? { x: centerX, y: bar.y + 120 }
+        : { x: insets.left + contentWidth / 2, y: centerY },
+      goalWidth: vertical ? bar.w - 32 : Math.min(220, Math.max(120, contentWidth * 0.3)),
+      shop: vertical
+        ? { x: centerX, y: Math.max(bar.y + 208, bar.y + bar.h - 250) }
+        : { x: bar.x + bar.w - BUTTON_SIZE * 1.55, y: centerY },
+      pause: vertical
+        ? { x: centerX, y: Math.max(bar.y + 288, bar.y + bar.h - 150) }
+        : { x: bar.x + bar.w - BUTTON_SIZE * 0.55, y: centerY },
       buttonSize: BUTTON_SIZE,
     },
     panelWidth: Math.min(720, width - 24),

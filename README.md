@@ -16,8 +16,10 @@ arriving, and a missed sale only costs that sale.
 - Press and drag anywhere on the play field to move; there is no visible stick.
   WASD / arrow keys also work and take priority while held.
 - The shop adapts to both orientations: a tall plan in portrait and four zones
-  in a row in landscape. Rotating pauses and remaps the run without losing
-  coins, plants, upgrades or deposits. Each zone has one shelf for its products.
+  in a row in landscape. On phones and tablets the landscape HUD becomes a left
+  vertical rail; desktop keeps the top bar. Rotating pauses and remaps the run
+  without losing coins, plants, upgrades or deposits. Each zone has one shelf
+  for its products.
 - Harvest, stocking and checkout happen automatically when you are close enough.
   The counter has a wide service area.
 - Walk to an empty plot and stop to open the plant chooser. Fruit trees and

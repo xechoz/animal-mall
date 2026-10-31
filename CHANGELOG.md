@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Move the mobile landscape HUD into a left vertical rail, freeing the top of
+  the screen for the shop; phones and tablets with plenty of vertical space keep
+  the existing top bar in portrait and on desktop.
+- Enlarge landscape zone headers and dim locked zones with an unlock lock instead
+  of leaving only tiny shelf locks. A compact four-zone status strip in the
+  mobile rail shows lock state, ready output and hungry producers.
 - Make crop beds walkable for the player and NPCs; shelves, animal pens,
   processing stations and the counter still block movement.
 - Draw crop beds as a ground layer so the player stands on the soil while the

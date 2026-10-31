@@ -24,10 +24,11 @@ export class Toast {
 
   show(message: string): void {
     this.timer?.remove()
-    const width = Math.min(520, this.layout.width - 40)
+    const hud = this.layout.hud
+    const width = Math.min(520, this.layout.room.w - 40)
     const height = 38
-    const x = this.layout.width / 2
-    const y = this.layout.hud.bar.y + this.layout.hud.bar.h + 32
+    const x = this.layout.room.x + this.layout.room.w / 2
+    const y = hud.vertical ? this.layout.room.y + 46 : hud.bar.y + hud.bar.h + 32
     this.bg.clear()
     this.bg.fillStyle(0x3b2f3a, 0.16)
     this.bg.fillRoundedRect(x - width / 2, y - height / 2 + 4, width, height, 16)

@@ -11,7 +11,7 @@ import {
 } from '../logic/config'
 import type { ShopMap, ZoneId } from '../logic/types'
 
-const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
+export const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
   fruit: 0xf08a6a,
   veg: 0x7fb069,
   farm: 0xe0b45a,
@@ -195,20 +195,28 @@ function createLandscapeShopBackground(
     for (let x = seam; x < width - 40; x += 180) g.lineBetween(x, y, x, y + 30)
   }
 
-  // Four zone strips.
+  // Four zone strips, each with a readable header pill below its shelf.
   for (const zone of ZONE_ORDER) {
     const shelf = map.shelves[zone]
     const left = shelf.x
     const top = 88
-    g.fillStyle(ZONE_TINTS[zone], 0.1)
+    const tint = ZONE_TINTS[zone]
+    g.fillStyle(tint, 0.1)
     g.fillRoundedRect(left, top, shelf.w, 300, 18)
-    g.lineStyle(2, ZONE_TINTS[zone], 0.22)
+    g.lineStyle(2, tint, 0.22)
     g.strokeRoundedRect(left, top, shelf.w, 300, 18)
-    container.add(
-      scene.add
-        .text(left + 10, 160, labels[zone], textStyle(theme, 12, theme.textMuted, true))
-        .setOrigin(0, 0.5),
-    )
+
+    const label = scene.add
+      .text(left + shelf.w / 2, 158, labels[zone], textStyle(theme, 18, theme.text, true))
+      .setOrigin(0.5)
+    const pillWidth = Math.max(72, label.width + 34)
+    g.fillStyle(tint, 0.2)
+    g.fillRoundedRect(left + shelf.w / 2 - pillWidth / 2, 142, pillWidth, 30, 15)
+    g.lineStyle(2, tint, 0.55)
+    g.strokeRoundedRect(left + shelf.w / 2 - pillWidth / 2, 142, pillWidth, 30, 15)
+    g.fillStyle(tint, 1)
+    g.fillCircle(left + shelf.w / 2 - pillWidth / 2 + 14, 157, 4.5)
+    container.add(label)
   }
 
   // Aisles between the zones and below them.
@@ -217,6 +225,7 @@ function createLandscapeShopBackground(
   g.fillRoundedRect(40, 400, width - 80, 110, 18)
 
   drawGhostFacilities(g, map)
+  drawKitchenCorner(g, map.stationSlots.sweater.x, map.stationSlots.grilledFish.y)
 
   // Top wall and awning.
   g.fillStyle(gameColors.wall, 1)
@@ -346,6 +355,19 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void
     g.lineStyle(1, 0x6f89b0, 0.2)
     g.lineBetween(left + 10, top + 14, left + STATION_SIZE.w - 10, top + 14)
   }
+}
+
+function drawKitchenCorner(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(0x3b2f3a, 0.06)
+  g.fillEllipse(x, y + 18, 78, 16)
+  g.fillStyle(0x8fa6c9, 0.16)
+  g.fillEllipse(x, y, 82, 52)
+  g.lineStyle(2, 0x6f89b0, 0.3)
+  g.strokeEllipse(x, y, 72, 42)
+  g.lineStyle(1, 0x6f89b0, 0.22)
+  g.strokeEllipse(x, y, 52, 28)
+  g.fillStyle(0x6f89b0, 0.18)
+  g.fillEllipse(x, y, 18, 8)
 }
 
 function drawCounter(g: Phaser.GameObjects.Graphics, map: ShopMap): void {

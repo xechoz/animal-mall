@@ -2,6 +2,7 @@ import {
   displayTextStyle,
   type GameServices,
   getServices,
+  isMobileDevice,
   onAppHidden,
   onLayoutChange,
   readViewport,
@@ -49,6 +50,7 @@ import { StaffView } from '../ui/StaffView'
 import { createShopBackground } from '../ui/shopArt'
 import { Toast } from '../ui/Toast'
 import { TutorialOverlay } from '../ui/TutorialOverlay'
+import { ZoneOverlay } from '../ui/ZoneOverlay'
 
 const STEP_MS = 1000 / 60
 const SAVE_EVERY_MS = 5_000
@@ -96,6 +98,7 @@ export class GameScene extends Phaser.Scene {
   private customerViews = new Map<number, CustomerView>()
   private staffViews = new Map<number, StaffView>()
   private staffStations!: Record<'cashier' | 'picker', StaffStationView>
+  private zoneOverlay!: ZoneOverlay
   private coinPile!: CoinPileView
   private mapOffers?: MapOffers
   private plantPicker?: PlantPicker
@@ -128,7 +131,9 @@ export class GameScene extends Phaser.Scene {
     createProductTextures(this)
     this.saveStore = progressSave(this.services)
     const viewport = readViewport(this)
-    this.layout = computeGameLayout(viewport.width, viewport.height, viewport.insets)
+    this.layout = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
+      mobile: isMobileDevice(),
+    })
     this.state = createShopState(this.saveStore.read(), this.layout.map)
     const seed = Number(this.services.params.get('seed'))
     this.rng = createRng(Number.isFinite(seed) && seed > 0 ? seed : randomSeed())
@@ -214,6 +219,10 @@ export class GameScene extends Phaser.Scene {
     )
     background.setDepth(0)
     this.world.add(background)
+
+    this.zoneOverlay = new ZoneOverlay(this, theme, this.layout.map)
+    this.zoneOverlay.setDepth(50)
+    this.world.add(this.zoneOverlay)
 
     this.shelfViews = Object.fromEntries(
       ZONE_ORDER.map((zone) => {
@@ -379,6 +388,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateWorldViews(): void {
+    this.zoneOverlay.updateZones(this.state)
     for (const zone of ZONE_ORDER) {
       this.shelfViews[zone].updateShelf(this.state.shelves[zone])
     }
@@ -874,10 +884,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleLayout(viewport: Viewport): void {
-    const next = computeGameLayout(viewport.width, viewport.height, viewport.insets)
+    const next = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
+      mobile: isMobileDevice(),
+    })
     if (
       next.width === this.layout.width &&
       next.height === this.layout.height &&
+      next.hud.vertical === this.layout.hud.vertical &&
       next.map.id === this.layout.map.id &&
       next.room.x === this.layout.room.x &&
       next.room.y === this.layout.room.y &&
