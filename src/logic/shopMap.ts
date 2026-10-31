@@ -48,15 +48,6 @@ function stationAccess(station: Plot): Vec2 {
   return { x: station.x, y: station.y + STATION_SIZE.h / 2 + ACCESS_GAP }
 }
 
-function plotRect(plot: Plot): Rect {
-  return {
-    x: plot.x - PLOT_SIZE.w / 2,
-    y: plot.y - PLOT_SIZE.h / 2,
-    w: PLOT_SIZE.w,
-    h: PLOT_SIZE.h,
-  }
-}
-
 function penRect(pen: Plot): Rect {
   return {
     x: pen.x - PEN_SIZE.w / 2,
@@ -97,8 +88,6 @@ function createShopMap(input: ShopMapInput): ShopMap {
     stationAccess: stationAccesses,
     obstacles: [
       ...Object.values(input.shelves),
-      ...input.plots.map(plotRect),
-      ...input.cropPlots.map(plotRect),
       ...Object.values(input.animalPens).map(penRect),
       ...Object.values(input.stationSlots).map(stationRect),
       input.counter,

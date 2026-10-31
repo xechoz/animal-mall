@@ -56,10 +56,7 @@ for (const map of MAPS) {
       )
     })
 
-    it('covers every obstacle in the collision list', () => {
-      for (const plot of [...map.plots, ...map.cropPlots]) {
-        expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS, map)).toBe(true)
-      }
+    it('keeps shelves, pens, stations and the counter blocked for customers', () => {
       for (const pen of Object.values(map.animalPens)) {
         expect(blockedAt(pen.x, pen.y, CUSTOMER_RADIUS, map)).toBe(true)
       }
@@ -70,6 +67,21 @@ for (const map of MAPS) {
         expect(blockedAt(shelf.x + shelf.w / 2, shelf.y + shelf.h / 2, CUSTOMER_RADIUS, map)).toBe(
           true,
         )
+      }
+      expect(
+        blockedAt(
+          map.counter.x + map.counter.w / 2,
+          map.counter.y + map.counter.h / 2,
+          CUSTOMER_RADIUS,
+          map,
+        ),
+      ).toBe(true)
+    })
+
+    it('leaves crop beds walkable for the player and customers', () => {
+      for (const plot of [...map.plots, ...map.cropPlots]) {
+        expect(blockedAt(plot.x, plot.y, PLAYER_RADIUS, map)).toBe(false)
+        expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS, map)).toBe(false)
       }
     })
   })

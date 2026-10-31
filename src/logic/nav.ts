@@ -95,6 +95,12 @@ export function findPath(
   return null
 }
 
+export function walkablePointNear(point: Vec2, radius: number, map: ShopMap): Vec2 | null {
+  const grid = gridFor(map)
+  const cell = nearestWalkable(toCell(point, grid), radius, map, grid)
+  return cell < 0 ? null : fromCell(cell, grid)
+}
+
 export function lineWalkable(from: Vec2, to: Vec2, radius: number, map: ShopMap): boolean {
   const dx = to.x - from.x
   const dy = to.y - from.y

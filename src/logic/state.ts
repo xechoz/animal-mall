@@ -17,6 +17,7 @@ import {
   REGISTER_RADIUS,
   scanIntervalMs,
   shelfCapacity,
+  WANDER,
   zoneOf,
 } from './config'
 import { findPath } from './nav'
@@ -52,6 +53,7 @@ import type {
   Vec2,
   ZoneId,
 } from './types'
+import { wanderPath } from './wander'
 
 interface CustomerMove {
   readonly customer: CustomerState
@@ -348,7 +350,14 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
               ...customer,
               target: next,
               phase: 'toShelf',
-              path: pathTo(customer.pos, map.shelfAccess[zoneOf(next)], radius, map),
+              path: wanderPath(
+                customer.pos,
+                map.shelfAccess[zoneOf(next)],
+                radius,
+                map,
+                rng,
+                WANDER.customer,
+              ),
               pathIndex: 0,
             }
           } else if (customer.basket.length > 0) {
@@ -417,7 +426,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           phase: 'leaving',
           target: null,
           queueIndex: -1,
-          path: pathTo(customer.pos, map.doorPoint, radius, map),
+          path: wanderPath(customer.pos, map.doorPoint, radius, map, rng, WANDER.customer),
           pathIndex: 0,
         }
         queue = queue.slice(1)
@@ -520,7 +529,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   nextState = quick.state
   events.push(...quick.events)
 
-  const staff = stepStaff(nextState, dt)
+  const staff = stepStaff(nextState, dt, rng)
   nextState = staff.state
   events.push(...staff.events)
 
@@ -657,7 +666,14 @@ function createCustomer(
     species,
     pos: map.doorSpawn,
     prevPos: map.doorSpawn,
-    path: pathTo(map.doorSpawn, map.shelfAccess[zoneOf(first)], radius, map),
+    path: wanderPath(
+      map.doorSpawn,
+      map.shelfAccess[zoneOf(first)],
+      radius,
+      map,
+      rng,
+      WANDER.customer,
+    ),
     pathIndex: 0,
     phase: 'toShelf',
     wanted,

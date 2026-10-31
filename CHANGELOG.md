@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Make crop beds walkable for the player and NPCs; shelves, animal pens,
+  processing stations and the counter still block movement.
+- Draw crop beds as a ground layer so the player stands on the soil while the
+  plants overlap them, and sort shop objects by footprint depth instead of
+  creation order.
+- Let customers and picker staff take bounded, seeded scenic detours so the shop
+  feels busy instead of everyone walking the same shortest line.
 - Support both orientations with dedicated shop plans: the tall plan in
   portrait and a wide four-column plan in landscape. Rotating keeps coins,
   trees, upgrades, deposits and pending counter coins, resets transient

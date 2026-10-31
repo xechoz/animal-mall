@@ -10,6 +10,7 @@ import type {
   UpgradeKind,
   Vec2,
   VegKind,
+  WanderTuning,
   ZoneId,
 } from './types'
 
@@ -307,6 +308,11 @@ export const CUSTOMER_TUNING = {
   shelfWaitMs: 3_500,
   queuePatienceFactor: 0.65,
 } as const
+
+export const WANDER: Readonly<Record<'customer' | 'staff', WanderTuning>> = {
+  customer: { chance: 0.4, minLeg: 120, minExtra: 20, maxExtra: 0.3, maxOffset: 120 },
+  staff: { chance: 0.2, minLeg: 140, minExtra: 16, maxExtra: 0.15, maxOffset: 90 },
+}
 
 export const INTERACT = {
   harvestRadius: 84,

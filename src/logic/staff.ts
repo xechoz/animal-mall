@@ -1,6 +1,6 @@
+import type { Rng } from '@mg/core/rng'
 import { distanceSq } from './collision'
-import { producerAccess, STAFF, zoneOf } from './config'
-import { findPath } from './nav'
+import { producerAccess, STAFF, WANDER, zoneOf } from './config'
 import { addStock, binReady, collectFromProducer } from './production'
 import type {
   GameEvent,
@@ -14,6 +14,7 @@ import type {
   Vec2,
   ZoneId,
 } from './types'
+import { wanderPath } from './wander'
 
 interface StaffContext {
   readonly map: ShopMap
@@ -60,7 +61,7 @@ export function syncStaffMembers(
   return kept
 }
 
-export function stepStaff(state: ShopState, dtMs: number): StepResult {
+export function stepStaff(state: ShopState, dtMs: number, rng: Rng): StepResult {
   const ctx: StaffContext = {
     map: state.map,
     producers: state.producers,
@@ -71,7 +72,7 @@ export function stepStaff(state: ShopState, dtMs: number): StepResult {
   const nextMembers = members.map((member) =>
     member.kind === 'cashier'
       ? stepCashier(member, state.map)
-      : stepPicker(member, ctx, Math.max(0, Math.min(dtMs, 50))),
+      : stepPicker(member, ctx, Math.max(0, Math.min(dtMs, 50)), rng),
   )
 
   return {
@@ -123,7 +124,7 @@ function stepCashier(member: StaffState, map: ShopMap): StaffState {
   }
 }
 
-function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number): StaffState {
+function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng): StaffState {
   let next: StaffState = {
     ...member,
     prevPos: member.pos,
@@ -135,7 +136,7 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number): StaffS
     const moved = advanceStaff(next, dtMs)
     next = moved.member
     if (moved.arrived) {
-      next = arrivedAtTarget(next, ctx)
+      next = arrivedAtTarget(next, ctx, rng)
     }
     return next
   }
@@ -156,16 +157,16 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number): StaffS
     if (!binReady(ctx.shelves, next.carry)) {
       return { ...next, carry: null, carryCount: 0, phase: 'idle', waitMs: 300 }
     }
-    if (shelf.stock[next.carry] < shelf.capacity) return startToShelf(next, ctx.map)
+    if (shelf.stock[next.carry] < shelf.capacity) return startToShelf(next, ctx.map, rng)
     return { ...next, waitMs: 500 }
   }
 
   const producer = pickProducer(ctx.producers, ctx.shelves, next.pos)
   if (producer === null) return { ...next, waitMs: 500 }
-  return startToProducer(next, producer, ctx.map)
+  return startToProducer(next, producer, ctx.map, rng)
 }
 
-function arrivedAtTarget(member: StaffState, ctx: StaffContext): StaffState {
+function arrivedAtTarget(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
   if (member.phase === 'toProducer') {
     const producer = ctx.producers.find((candidate) => candidate.id === member.targetProducerId)
     if (producer === undefined || producer.ready <= 0) {
@@ -182,10 +183,10 @@ function arrivedAtTarget(member: StaffState, ctx: StaffContext): StaffState {
       carryCount,
       moving: false,
     }
-    if (carryCount >= STAFF.picker.carry) return startToShelf(next, ctx.map)
+    if (carryCount >= STAFF.picker.carry) return startToShelf(next, ctx.map, rng)
     const more = pickProducer(ctx.producers, ctx.shelves, next.pos)
-    if (more === null) return startToShelf(next, ctx.map)
-    return startToProducer(next, more, ctx.map)
+    if (more === null) return startToShelf(next, ctx.map, rng)
+    return startToProducer(next, more, ctx.map, rng)
   }
 
   if (member.phase === 'toShelf') {
@@ -241,18 +242,30 @@ function finishStock(member: StaffState, ctx: StaffContext): StaffState {
   }
 }
 
-function startToProducer(member: StaffState, producer: ProducerState, map: ShopMap): StaffState {
+function startToProducer(
+  member: StaffState,
+  producer: ProducerState,
+  map: ShopMap,
+  rng: Rng,
+): StaffState {
   return {
     ...member,
     phase: 'toProducer',
     targetProducerId: producer.id,
     targetShelf: null,
-    path: pathTo(member.pos, producerAccess(map, producer.product, producer.slot), map),
+    path: wanderPath(
+      member.pos,
+      producerAccess(map, producer.product, producer.slot),
+      12,
+      map,
+      rng,
+      WANDER.staff,
+    ),
     pathIndex: 0,
   }
 }
 
-function startToShelf(member: StaffState, map: ShopMap): StaffState {
+function startToShelf(member: StaffState, map: ShopMap, rng: Rng): StaffState {
   const product = member.carry
   if (product === null) return { ...member, phase: 'idle', waitMs: 240 }
   const zone = zoneOf(product)
@@ -261,7 +274,7 @@ function startToShelf(member: StaffState, map: ShopMap): StaffState {
     phase: 'toShelf',
     targetShelf: zone,
     targetProducerId: null,
-    path: pathTo(member.pos, map.shelfAccess[zone], map),
+    path: wanderPath(member.pos, map.shelfAccess[zone], 12, map, rng, WANDER.staff),
     pathIndex: 0,
   }
 }
@@ -327,8 +340,4 @@ function advanceStaff(member: StaffState, dtMs: number): { member: StaffState; a
     },
     arrived: index >= member.path.length,
   }
-}
-
-function pathTo(from: Vec2, to: Vec2, map: ShopMap): readonly Vec2[] {
-  return findPath(from, to, 12, map) ?? [to]
 }

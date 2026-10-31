@@ -36,6 +36,14 @@ export interface Plot {
   readonly y: number
 }
 
+export interface WanderTuning {
+  readonly chance: number
+  readonly minLeg: number
+  readonly minExtra: number
+  readonly maxExtra: number
+  readonly maxOffset: number
+}
+
 export type ShopMapId = 'portrait' | 'landscape'
 
 export interface StaffSpot {

@@ -36,15 +36,11 @@ for (const map of MAPS) {
       }
     })
 
-    it('walks around shelves and plots instead of through them', () => {
-      const target = map.plantAccess.fruit[0]
-      expect(target).toBeDefined()
-      const path = findPath(
-        map.playerStart,
-        target as { x: number; y: number },
-        CUSTOMER_RADIUS,
-        map,
-      )
+    it('walks across crop beds instead of treating them as walls', () => {
+      const plot = map.plots[0]
+      expect(plot).toBeDefined()
+      expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS, map)).toBe(false)
+      const path = findPath(map.playerStart, plot, CUSTOMER_RADIUS, map)
       expect(path).not.toBeNull()
       for (const point of path ?? []) {
         expect(blockedAt(point.x, point.y, CUSTOMER_RADIUS, map)).toBe(false)
@@ -65,9 +61,11 @@ for (const map of MAPS) {
       )
     })
 
-    it('keeps all facility centers blocked for customers', () => {
-      for (const plot of [...map.plots, ...map.cropPlots]) {
-        expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS, map)).toBe(true)
+    it('keeps shelves, pens, stations and the counter blocked for customers', () => {
+      for (const shelf of Object.values(map.shelves)) {
+        expect(blockedAt(shelf.x + shelf.w / 2, shelf.y + shelf.h / 2, CUSTOMER_RADIUS, map)).toBe(
+          true,
+        )
       }
       for (const product of ANIMAL_ORDER) {
         const pen = map.animalPens[product]
@@ -77,6 +75,14 @@ for (const map of MAPS) {
         const station = map.stationSlots[product]
         expect(blockedAt(station.x, station.y, CUSTOMER_RADIUS, map)).toBe(true)
       }
+      expect(
+        blockedAt(
+          map.counter.x + map.counter.w / 2,
+          map.counter.y + map.counter.h / 2,
+          CUSTOMER_RADIUS,
+          map,
+        ),
+      ).toBe(true)
     })
   })
 }

@@ -12,7 +12,7 @@ import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
-import { isPlantKind, isProcessedKind, producerCost, ZONE_ORDER } from '../logic/config'
+import { isPlantKind, isProcessedKind, PLOT_SIZE, producerCost, ZONE_ORDER } from '../logic/config'
 import {
   type PurchaseOutcome,
   type PurchaseResult,
@@ -229,8 +229,8 @@ export class GameScene extends Phaser.Scene {
       cashier: new StaffStationView(this, theme, 'cashier', this.layout.map),
       picker: new StaffStationView(this, theme, 'picker', this.layout.map),
     }
-    this.staffStations.cashier.setDepth(1120)
-    this.staffStations.picker.setDepth(560)
+    this.staffStations.cashier.setDepth(this.layout.map.staffStations.cashier.station.y + 26)
+    this.staffStations.picker.setDepth(this.layout.map.staffStations.picker.station.y + 26)
     this.world.add(this.staffStations.cashier)
     this.world.add(this.staffStations.picker)
 
@@ -317,6 +317,9 @@ export class GameScene extends Phaser.Scene {
     this.syncCustomers(alpha, time)
     this.syncStaff(alpha, time)
     this.updateWorldViews()
+    // Container children ignore depth, so sort by the depth values refreshed
+    // above to keep actors and scenery layered by their footprint.
+    this.world.sort('depth')
     this.hud.update(this.state)
     this.mapOffers?.update(this.state)
     this.coinPile.updatePile(this.state.pendingCoins)
@@ -387,13 +390,18 @@ export class GameScene extends Phaser.Scene {
       if (view === undefined) {
         view = new ProducerView(this, this.services.theme, producer)
         this.world.add(view)
+        // The soil bed is a separate ground layer so actors stand on top of it
+        // while the crop art still draws over them.
+        view.ground.setDepth(1)
+        this.world.add(view.ground)
         this.producerViews.set(producer.id, view)
       }
       view.updateProducer(producer)
-      view.setDepth(producer.pos.y)
+      view.setDepth(producer.kind === 'plant' ? producer.pos.y + PLOT_SIZE.h / 2 : producer.pos.y)
     }
     for (const [id, view] of this.producerViews) {
       if (alive.has(id)) continue
+      view.ground.destroy()
       view.destroy()
       this.producerViews.delete(id)
     }

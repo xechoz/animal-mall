@@ -15,6 +15,11 @@ import { FRUIT_COLORS } from './fruitArt'
 import { productTextureKey } from './productArt'
 
 export class ProducerView extends Phaser.GameObjects.Container {
+  /**
+   * Soil bed drawn below every actor so the player can stand on it while the
+   * crop layer above hides them, giving the feeling of walking through bushes.
+   */
+  readonly ground: Phaser.GameObjects.Graphics
   private readonly art: Phaser.GameObjects.Graphics
   private readonly ring: Phaser.GameObjects.Graphics
   private readonly badge: Phaser.GameObjects.Text
@@ -25,6 +30,8 @@ export class ProducerView extends Phaser.GameObjects.Container {
 
   constructor(scene: Phaser.Scene, theme: Theme, producer: ProducerState) {
     super(scene, producer.pos.x, producer.pos.y)
+    this.ground = scene.add.graphics().setPosition(producer.pos.x, producer.pos.y)
+    if (producer.kind === 'plant') drawPlantBed(this.ground, producer)
     this.art = scene.add.graphics()
     this.ring = scene.add.graphics()
     this.add([this.art, this.ring])
@@ -70,7 +77,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.productIcon.setVisible(false)
     this.feedIcon.setVisible(false)
 
-    if (producer.kind === 'plant') drawPlant(this.art, producer)
+    if (producer.kind === 'plant') drawPlantCrop(this.art, producer)
     else if (producer.kind === 'animal') drawAnimal(this.art, producer)
     else drawStation(this.art, producer)
 
@@ -133,9 +140,8 @@ function drawProgress(g: Phaser.GameObjects.Graphics, ratio: number, y: number):
   g.fillRoundedRect(-width / 2, y, width * Math.max(0, Math.min(1, ratio)), 5, 2.5)
 }
 
-function drawPlant(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
+function drawPlantBed(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
   if (!isPlantKind(producer.product)) return
-  const config = PLANTS[producer.product]
   const isFruit = zoneOf(producer.product) === 'fruit'
   const width = 68
   const height = 46
@@ -151,18 +157,25 @@ function drawPlant(g: Phaser.GameObjects.Graphics, producer: ProducerState): voi
     g.fillEllipse(0, -height / 2 + 5, width - 14, 12)
     g.fillStyle(gameColors.dirt, 1)
     g.fillEllipse(0, -height / 2 + 3, width - 22, 8)
-  } else {
-    g.fillStyle(0x3b2f3a, 0.14)
-    g.fillEllipse(0, 23, width + 6, 12)
-    g.fillStyle(0x8f5734, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 7)
-    g.fillStyle(0xa66b42, 1)
-    g.fillRoundedRect(-width / 2 + 4, -height / 2 + 3, width - 8, height - 10, 5)
-    g.fillStyle(0x6f4b2e, 0.7)
-    for (let row = 0; row < 3; row += 1) {
-      g.fillRoundedRect(-width / 2 + 8, -height / 2 + 10 + row * 9, width - 16, 3, 1.5)
-    }
+    return
   }
+
+  g.fillStyle(0x3b2f3a, 0.14)
+  g.fillEllipse(0, 23, width + 6, 12)
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(-width / 2, -height / 2, width, height, 7)
+  g.fillStyle(0xa66b42, 1)
+  g.fillRoundedRect(-width / 2 + 4, -height / 2 + 3, width - 8, height - 10, 5)
+  g.fillStyle(0x6f4b2e, 0.7)
+  for (let row = 0; row < 3; row += 1) {
+    g.fillRoundedRect(-width / 2 + 8, -height / 2 + 10 + row * 9, width - 16, 3, 1.5)
+  }
+}
+
+function drawPlantCrop(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
+  if (!isPlantKind(producer.product)) return
+  const config = PLANTS[producer.product]
+  const isFruit = zoneOf(producer.product) === 'fruit'
 
   const ratio = producer.mature ? 1 : Math.min(1, producer.progressMs / config.growMs)
   if (ratio < 0.38) {
