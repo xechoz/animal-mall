@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Stock shelves from anywhere along the shelf instead of a single access point:
+  the trigger is now the shelf rectangle plus a 70-unit margin, so both ends and
+  the whole front count. Standing between the fruit and vegetable shelves stocks
+  both at once, and a faint outline marks a shelf while there is something to put
+  away and room to take it.
 - Play a three-gulp CC0 drinking sound and a cup-to-mouth animation when buying
   a drink, with a small fizz burst for the apple soda. The drink machine also
   reacts to the purchase.

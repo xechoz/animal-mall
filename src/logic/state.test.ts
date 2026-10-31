@@ -4,7 +4,14 @@ import { INTERACT, PORTRAIT_MAP } from './config'
 import { feedCount } from './production'
 import { purchasePlant, purchaseUpgrade } from './purchase'
 import { initialSave } from './saveData'
-import { createShopState, inRegisterZone, removeProducerFromState, stepShop, toSave } from './state'
+import {
+  createShopState,
+  inRegisterZone,
+  removeProducerFromState,
+  stepShop,
+  stockReach,
+  toSave,
+} from './state'
 import type { GameEvent, SaveData, ShopState, Vec2 } from './types'
 
 function withPlayer(state: ShopState, pos: Vec2): ShopState {
@@ -227,6 +234,94 @@ describe('shop simulation', () => {
     expect(state.shelves.fruit.stock.pear).toBe(1)
     expect(state.shelves.fruit.stock.carrot).toBe(0)
     expect(state.player.carry).toEqual({ carrot: 3 })
+  })
+
+  it('stocks from anywhere along the shelf, not from one access point', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      producers: [
+        { product: 'apple', slot: 0 },
+        { product: 'pear', slot: 1 },
+      ],
+    }
+    const base = createShopState(save, PORTRAIT_MAP)
+    const spots = [
+      { x: 75, y: 660 },
+      { x: 265, y: 660 },
+      { x: 170, y: 690 },
+    ]
+    for (const pos of spots) {
+      const state = withPlayer(
+        { ...base, player: { ...base.player, carry: { apple: 2, pear: 1 } } },
+        pos,
+      )
+      const next = simulate(state, 1).state
+      expect(next.shelves.fruit.stock.apple, `apple at ${pos.x},${pos.y}`).toBe(2)
+      expect(next.shelves.fruit.stock.pear, `pear at ${pos.x},${pos.y}`).toBe(1)
+    }
+  })
+
+  it('does not stock from the far end of the same zone', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      producers: [{ product: 'apple', slot: 0 }],
+    }
+    const base = createShopState(save, PORTRAIT_MAP)
+    const state = withPlayer(
+      { ...base, player: { ...base.player, carry: { apple: 2 } } },
+      { x: 170, y: 900 },
+    )
+    const next = simulate(state, 1).state
+    expect(next.shelves.fruit.stock.apple).toBe(0)
+    expect(next.player.carry).toEqual({ apple: 2 })
+  })
+
+  it('stocks both shelves when standing between them', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      zones: { fruit: true, veg: true, farm: false, kitchen: false },
+      producers: [
+        { product: 'apple', slot: 0 },
+        { product: 'carrot', slot: 0 },
+      ],
+    }
+    const base = createShopState(save, PORTRAIT_MAP)
+    const state = withPlayer(
+      { ...base, player: { ...base.player, carry: { apple: 1, carrot: 1 } } },
+      { x: 340, y: 660 },
+    )
+    const next = simulate(state, 1).state
+    expect(next.shelves.fruit.stock.apple).toBe(1)
+    expect(next.shelves.veg.stock.carrot).toBe(1)
+    expect(next.player.carry).toEqual({})
+  })
+
+  it('reports only the shelves the player can actually stock', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      producers: [{ product: 'apple', slot: 0 }],
+    }
+    const base = createShopState(save, PORTRAIT_MAP)
+    let state = withPlayer(
+      { ...base, player: { ...base.player, carry: { apple: 1 } } },
+      { x: 90, y: 665 },
+    )
+    expect(stockReach(state)).toEqual(['fruit'])
+
+    const full: ShopState = {
+      ...state,
+      shelves: {
+        ...state.shelves,
+        fruit: {
+          ...state.shelves.fruit,
+          stock: { ...state.shelves.fruit.stock, apple: state.shelves.fruit.capacity },
+        },
+      },
+    }
+    expect(stockReach(full)).toEqual([])
+
+    state = withPlayer(state, { x: 170, y: 900 })
+    expect(stockReach(state)).toEqual([])
   })
 
   it('removes only the discarded producer from a mixed basket', () => {

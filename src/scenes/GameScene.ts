@@ -38,7 +38,7 @@ import {
   removeProducer,
 } from '../logic/purchase'
 import { urgeStaff } from '../logic/staff'
-import { createShopState, remapShopState, stepShop, toSave } from '../logic/state'
+import { createShopState, remapShopState, stepShop, stockReach, toSave } from '../logic/state'
 import type {
   DrinkKind,
   GameEvent,
@@ -478,8 +478,10 @@ export class GameScene extends Phaser.Scene {
 
   private updateWorldViews(): void {
     this.zoneOverlay.updateZones(this.state)
+    const reach = stockReach(this.state)
     for (const zone of ZONE_ORDER) {
       this.shelfViews[zone].updateShelf(this.state.shelves[zone])
+      this.shelfViews[zone].setReach(reach.includes(zone))
     }
 
     const alive = new Set<number>()

@@ -60,6 +60,11 @@ submodule. Do not copy platform source into this repo.
   truth for the floor tint, the locked overlay and the trigger area.
 - Zone unlocks take 0.5 s (`QUICK_BUY.zoneMs`); other quick buys use the
   thresholds in `src/logic/config.ts`.
+- Stocking is area based as well. Standing within `INTERACT.stockMargin` of a
+  shelf rectangle puts every carried product of that zone away; the shelf front
+  is a band, not a point. `map.shelfAccess` stays the path target for customers,
+  staff and the tutorial arrow, so keep every access point inside the margin.
+  `stockReach()` in `src/logic/state.ts` drives the shelf highlight.
 - The shop panel keeps its unlock buttons as a redundant path. Do not make an
   in-world unlock depend on opening the shop.
 - `veg` stays free after the first sale and is not part of the paid zone quick

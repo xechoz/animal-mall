@@ -10,6 +10,8 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private readonly counts: Phaser.GameObjects.Text[] = []
   private readonly lockOverlay: Phaser.GameObjects.Container
   private readonly showLock: boolean
+  private readonly reachGlow: Phaser.GameObjects.Graphics
+  private reachOn = false
   private readonly countText: Phaser.GameObjects.Text
   private readonly slotCount: number
   private bins: (ProductKind | null)[]
@@ -30,6 +32,14 @@ export class ShelfView extends Phaser.GameObjects.Container {
     const gap = 5
     const pad = 8
     const binWidth = (width - pad * 2 - gap * (this.slotCount - 1)) / this.slotCount
+
+    this.reachGlow = scene.add.graphics()
+    this.reachGlow.fillStyle(0xfff3dd, 0.12)
+    this.reachGlow.fillRoundedRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 12)
+    this.reachGlow.lineStyle(3, gameColors.cream, 0.5)
+    this.reachGlow.strokeRoundedRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 12)
+    this.reachGlow.setAlpha(0).setVisible(false)
+    this.add(this.reachGlow)
 
     const g = scene.add.graphics()
     g.fillStyle(0x3b2f3a, 0.16)
@@ -89,6 +99,22 @@ export class ShelfView extends Phaser.GameObjects.Container {
     this.add(this.lockOverlay)
 
     scene.add.existing(this)
+  }
+
+  /** Soft outline while the player can stock here. Kept faint on purpose. */
+  setReach(on: boolean): void {
+    if (on === this.reachOn) return
+    this.reachOn = on
+    this.scene.tweens.killTweensOf(this.reachGlow)
+    if (on) this.reachGlow.setVisible(true)
+    this.scene.tweens.add({
+      targets: this.reachGlow,
+      alpha: on ? 1 : 0,
+      duration: on ? 140 : 80,
+      onComplete: () => {
+        if (!this.reachOn) this.reachGlow.setVisible(false)
+      },
+    })
   }
 
   updateShelf(shelf: ShelfState): void {

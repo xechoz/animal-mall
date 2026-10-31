@@ -1,8 +1,9 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
-import { blockedAt } from './collision'
+import { blockedAt, distanceToRect } from './collision'
 import {
   CUSTOMER_RADIUS,
+  INTERACT,
   LANDSCAPE_MAP,
   PLAYER_RADIUS,
   PORTRAIT_MAP,
@@ -72,6 +73,15 @@ for (const map of MAPS) {
         expect(area.x + area.w).toBeGreaterThanOrEqual(shelf.x + shelf.w)
         expect(area.y).toBeLessThanOrEqual(shelf.y)
         expect(area.y + area.h).toBeGreaterThanOrEqual(shelf.y + shelf.h)
+      }
+    })
+
+    it('keeps every shelf access point inside the stock reach', () => {
+      for (const zone of ZONE_ORDER) {
+        expect(
+          distanceToRect(map.shelfAccess[zone], map.shelves[zone]),
+          `${map.id} ${zone}`,
+        ).toBeLessThanOrEqual(INTERACT.stockMargin)
       }
     })
 

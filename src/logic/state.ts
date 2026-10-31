@@ -1,6 +1,6 @@
 import type { Rng } from '@mg/core/rng'
 import { addCarry, carryOf, carryTotal, EMPTY_CARRY, removeCarry, takeCarry } from './carry'
-import { distance, distanceSq, moveWithCollision } from './collision'
+import { distance, distanceSq, distanceToRect, moveWithCollision } from './collision'
 import {
   CUSTOMER_RADIUS,
   CUSTOMER_SPECIES,
@@ -23,6 +23,7 @@ import {
   shelfCapacity,
   WANDER,
   ZONE_ORDER,
+  ZONE_PRODUCTS,
   zeroBuffs,
   zoneOf,
 } from './config'
@@ -262,13 +263,14 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   }
 
   if (player.stockMs <= 0) {
-    const zone = nearestShelfZone(player.pos, map)
-    if (zone !== null) {
+    const zones = shelvesInReach(player.pos, map)
+    if (zones.length > 0) {
       let carry = player.carry
       let stocked = false
       for (const product of PRODUCT_ORDER) {
         const amount = carryOf(carry, product)
-        if (amount <= 0 || zoneOf(product) !== zone) continue
+        const zone = zoneOf(product)
+        if (amount <= 0 || !zones.includes(zone)) continue
         if (!binReady(shelves, product)) continue
         const room = shelves[zone].capacity - shelves[zone].stock[product]
         if (room <= 0) continue
@@ -619,17 +621,31 @@ export function inRegisterZone(pos: Vec2, map: ShopMap): boolean {
   return Math.hypot(pos.x - closestX, pos.y - closestY) <= REGISTER_RADIUS
 }
 
-function nearestShelfZone(pos: Vec2, map: ShopMap): ZoneId | null {
-  let best: ZoneId | null = null
-  let bestDistance: number = INTERACT.stockRadius
-  for (const zone of ZONE_ORDER) {
-    const reach = distance(pos, map.shelfAccess[zone])
-    if (reach <= bestDistance) {
-      best = zone
-      bestDistance = reach
-    }
-  }
-  return best
+/**
+ * Shelves are area triggers, exactly like zone unlocks: any spot along the
+ * shelf edge (within `INTERACT.stockMargin`) counts, never a single access
+ * point. Customers and staff still path to `map.shelfAccess`.
+ */
+function shelvesInReach(pos: Vec2, map: ShopMap): readonly ZoneId[] {
+  return ZONE_ORDER.filter((zone) => distanceToRect(pos, map.shelves[zone]) <= INTERACT.stockMargin)
+}
+
+/**
+ * Zones the player can stock right now: in reach, unlocked, carrying a matching
+ * product and with room left on the shelf. The shelf hint reads this, so it
+ * never lights up when the goods would not actually move.
+ */
+export function stockReach(state: ShopState): readonly ZoneId[] {
+  return shelvesInReach(state.player.pos, state.map).filter((zone) => {
+    const shelf = state.shelves[zone]
+    if (!shelf.active) return false
+    return ZONE_PRODUCTS[zone].some(
+      (product) =>
+        carryOf(state.player.carry, product) > 0 &&
+        binReady(state.shelves, product) &&
+        shelf.capacity - shelf.stock[product] > 0,
+    )
+  })
 }
 
 export function refreshStateShelves(state: ShopState): ShopState {

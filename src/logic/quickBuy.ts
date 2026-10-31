@@ -1,4 +1,4 @@
-import { distance } from './collision'
+import { distance, distanceToRect } from './collision'
 import {
   isPlantKind,
   PLANT_ORDER,
@@ -25,7 +25,6 @@ import type {
   GameEvent,
   PlantKind,
   ProductKind,
-  Rect,
   ShopState,
   StaffKind,
   StepResult,
@@ -259,13 +258,6 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
   }
 
   return best
-}
-
-/** Zero inside the rectangle; otherwise the distance to its nearest edge. */
-function distanceToRect(pos: Vec2, rect: Rect): number {
-  const dx = Math.max(rect.x - pos.x, 0, pos.x - (rect.x + rect.w))
-  const dy = Math.max(rect.y - pos.y, 0, pos.y - (rect.y + rect.h))
-  return Math.hypot(dx, dy)
 }
 
 export function quickBuyThreshold(offer: PurchaseOffer): number {

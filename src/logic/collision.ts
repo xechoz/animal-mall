@@ -10,6 +10,13 @@ export function distance(a: Vec2, b: Vec2): number {
   return Math.sqrt(distanceSq(a, b))
 }
 
+/** Zero inside the rectangle; otherwise the distance to its nearest edge. */
+export function distanceToRect(pos: Vec2, rect: Rect): number {
+  const dx = Math.max(rect.x - pos.x, 0, pos.x - (rect.x + rect.w))
+  const dy = Math.max(rect.y - pos.y, 0, pos.y - (rect.y + rect.h))
+  return Math.hypot(dx, dy)
+}
+
 export function circleIntersectsRect(x: number, y: number, radius: number, rect: Rect): boolean {
   const closestX = Math.max(rect.x, Math.min(x, rect.x + rect.w))
   const closestY = Math.max(rect.y, Math.min(y, rect.y + rect.h))

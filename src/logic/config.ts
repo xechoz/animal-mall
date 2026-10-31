@@ -427,7 +427,8 @@ export const WANDER: Readonly<Record<'customer' | 'staff', WanderTuning>> = {
 
 export const INTERACT = {
   harvestRadius: 84,
-  stockRadius: 66,
+  /** How close the player must be to a shelf edge to stock it, not to a point. */
+  stockMargin: 70,
   feedRadius: 60,
   harvestMs: 240,
   stockMs: 90,
