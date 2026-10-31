@@ -51,7 +51,7 @@ that sale.
   menu: apple soda (+15% move speed), milk tea (+3 carry capacity) or lemon tea
   (+25% scanning speed), each for 45 seconds. Drinks are free for staff; player
   drinks cost coins and refresh their timer when bought again. Buying one makes
-  the bear raise a cup and gulp three times, with a fizz bubble burst for the
+  the bear raise a cup, take a sip and swallow, with a fizz bubble burst for the
   apple soda.
 - The trash bin is in the bottom-right corner. Stand near it with goods in hand
   for half a second and the whole carried stack is discarded automatically.

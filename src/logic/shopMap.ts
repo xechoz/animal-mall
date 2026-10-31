@@ -157,7 +157,10 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     grilledFish: { index: 2, x: 455, y: 385 },
   },
   staffStations: {
-    cashier: { station: { x: 470, y: 1120 }, home: { x: 470, y: 1120 } },
+    // `station` is the hire sign and quick-buy trigger; `home` is where the
+    // cashier actually works. The sign sits above the trash bin, clear of both
+    // the counter and the bin's own trigger area.
+    cashier: { station: { x: 620, y: 1035 }, home: { x: 470, y: 1120 } },
     picker: { station: { x: 320, y: 560 }, home: { x: 320, y: 560 } },
   },
   facilities: {
@@ -233,7 +236,7 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
     grilledFish: { index: 2, x: 985, y: 340 },
   },
   staffStations: {
-    cashier: { station: { x: 600, y: 630 }, home: { x: 600, y: 630 } },
+    cashier: { station: { x: 730, y: 600 }, home: { x: 600, y: 630 } },
     picker: { station: { x: 600, y: 450 }, home: { x: 600, y: 450 } },
   },
   facilities: {

@@ -98,10 +98,10 @@ describe('quick buy', () => {
     expect(hired.state.coins).toBe(60)
   })
 
-  it('hires the cashier from near the counter sign', () => {
+  it('hires the cashier from near the sign beside the counter', () => {
     const station = PORTRAIT_MAP.staffStations.cashier.station
     const state = createShopState(appleSave(400), PORTRAIT_MAP)
-    const result = simulate(withPlayer(state, { x: station.x - 70, y: station.y }), 30)
+    const result = simulate(withPlayer(state, { x: station.x - 40, y: station.y + 20 }), 30)
     expect(result.state.staff.cashier).toBe(1)
     expect(result.state.coins).toBe(80)
     expect(
@@ -112,7 +112,7 @@ describe('quick buy', () => {
   it('deposits coins toward the cashier from near the counter sign', () => {
     const station = PORTRAIT_MAP.staffStations.cashier.station
     const state = createShopState(appleSave(100), PORTRAIT_MAP)
-    const result = simulate(withPlayer(state, { x: station.x - 70, y: station.y }), 30)
+    const result = simulate(withPlayer(state, { x: station.x - 40, y: station.y + 20 }), 30)
     expect(result.state.staff.cashier).toBe(0)
     expect(result.state.deposits['staff:cashier']).toBe(100)
   })

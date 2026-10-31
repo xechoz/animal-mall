@@ -8,12 +8,16 @@ import { productTextureKey } from './productArt'
 
 const BODY_SCALE = 0.82
 const CUP_SCALE = 0.95
-const DRINK_MS = 900
-const RAISE_MS = 120
-const LOWER_MS = 650
-/** Gulp beats baked into drink-gulp.mp3, in milliseconds from the purchase. */
-const GULP_TIMES_MS: readonly number[] = [100, 280, 460]
-const GULP_WINDOW_MS = 180
+const DRINK_MS = 1350
+const RAISE_MS = 140
+const LOWER_MS = 1080
+/** Sip and swallow beats baked into drink-gulp.mp3, in milliseconds. */
+const SIP_BEATS: readonly { readonly start: number; readonly duration: number }[] = [
+  { start: 185, duration: 355 },
+  { start: 825, duration: 228 },
+]
+/** Fizz beats for the apple soda, spread across the sip and the swallow. */
+const FIZZ_DELAYS_MS: readonly number[] = [200, 320, 440, 860]
 
 interface DrinkState {
   readonly start: number
@@ -29,10 +33,10 @@ function smoothstep(value: number): number {
 
 function gulpPulse(elapsed: number): number {
   let pulse = 0
-  for (const gulp of GULP_TIMES_MS) {
-    const local = elapsed - gulp
-    if (local < 0 || local > GULP_WINDOW_MS) continue
-    pulse = Math.max(pulse, Math.sin((local / GULP_WINDOW_MS) * Math.PI))
+  for (const beat of SIP_BEATS) {
+    const local = elapsed - beat.start
+    if (local < 0 || local > beat.duration) continue
+    pulse = Math.max(pulse, Math.sin((local / beat.duration) * Math.PI))
   }
   return pulse
 }
@@ -82,7 +86,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
     scene.add.existing(this)
   }
 
-  /** Plays the three-gulp drinking pose once; the cup follows the body. */
+  /** Plays the sip-and-swallow drinking pose once; the cup follows the body. */
   playDrink(kind: DrinkKind): void {
     this.drink = { start: this.scene.time.now }
     this.cup.clear()
@@ -93,9 +97,9 @@ export class PlayerView extends Phaser.GameObjects.Container {
     })
     this.cup.setVisible(true).setAlpha(0)
     if (kind === 'appleSoda') {
-      for (let index = 0; index < 4; index += 1) {
-        this.scene.time.delayedCall(120 + index * 110, () => this.spawnFizz(index))
-      }
+      FIZZ_DELAYS_MS.forEach((delay, index) => {
+        this.scene.time.delayedCall(delay, () => this.spawnFizz(index))
+      })
     }
   }
 

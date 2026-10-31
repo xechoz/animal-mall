@@ -2,14 +2,18 @@
 
 ## Unreleased
 
+- Move the portrait shop's cashier hire sign to the right of the counter, just
+  above the trash bin, so checking out at the counter no longer deposits the
+  earnings toward the cashier. The wide plan moves its sign to the counter's
+  right side too; the cashier still works from the same spot.
 - Stock shelves from anywhere along the shelf instead of a single access point:
   the trigger is now the shelf rectangle plus a 70-unit margin, so both ends and
   the whole front count. Standing between the fruit and vegetable shelves stocks
   both at once, and a faint outline marks a shelf while there is something to put
   away and room to take it.
-- Play a three-gulp CC0 drinking sound and a cup-to-mouth animation when buying
-  a drink, with a small fizz burst for the apple soda. The drink machine also
-  reacts to the purchase.
+- Play a CC0 sip-and-swallow drinking sound and a cup-to-mouth animation when
+  buying a drink, with a small fizz burst for the apple soda. The drink machine
+  also reacts to the purchase.
 - Unlock the farm and kitchen by standing still anywhere inside or next to
   their locked zone for half a second once you can afford it, without opening
   the shop. The zone footprint drives the floor tint and the trigger, and the

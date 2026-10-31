@@ -96,10 +96,10 @@ describe('shop simulation', () => {
     result = simulate(state, 120)
     state = result.state
     expect(state.served).toBe(1)
-    // The cashier hire sign sits at the counter, so lingering there after the
-    // sale deposits the earnings toward hiring the cashier.
-    expect(state.deposits['staff:cashier']).toBe(4)
-    expect(state.coins).toBe(0)
+    // The cashier hire sign sits beside the counter now, so checking out no
+    // longer sweeps the earnings into the cashier deposit.
+    expect(state.deposits['staff:cashier']).toBeUndefined()
+    expect(state.coins).toBe(4)
     expect(state.zones.veg).toBe(true)
     expect(state.tutorial).toBe('done')
     expect(result.events.some((event) => event.type === 'sale')).toBe(true)
