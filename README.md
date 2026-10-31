@@ -33,6 +33,16 @@ arriving, and a missed sale only costs that sale.
 - Staff signs use the same quick-buy flow. A cashier serves customers
   automatically; pickers harvest fruit, vegetables and animal products, but not
   station output. Cashier income waits as a coin pile on the counter.
+- Staff take breaks at the free drink machine in the bottom-left corner. After
+  roughly a minute they walk over, drink for a few seconds and then either
+  return on their own or lounge until you walk up and nudge them. A cashier only
+  leaves when the counter is quiet.
+- Stand in front of the drink machine for half a second to open the paid drink
+  menu: apple soda (+15% move speed), milk tea (+3 carry capacity) or lemon tea
+  (+25% scanning speed), each for 45 seconds. Drinks are free for staff; player
+  drinks cost coins and refresh their timer when bought again.
+- The trash bin is in the bottom-right corner. Stand near it with goods in hand
+  for half a second and the whole carried stack is discarded automatically.
 - The shop stays live while open. Removing a plant refunds half its cost; the
   last producer cannot be removed if the refund would leave you unable to
   replant. Customers only order products that have been stocked at least once.
@@ -46,7 +56,8 @@ bought in the shop.
 - Progress is stored as `mg:animal-mall:progress`, save version `3`.
 - Coins, pending counter coins, earned coins, served customers, zones, planted
   crops, animals, stations, tool levels, staff levels and non-refundable
-  deposits persist. Shelf stock, station progress and customers reset on reload.
+  deposits persist. Shelf stock, station progress, customers, staff break state
+  and temporary drink buffs reset on reload.
 - Version 2 fruit-tree saves migrate automatically: old trees become producers,
   vegetables unlock if the save has served customers, and stranded deposits are
   returned to coins.
@@ -77,15 +88,24 @@ npm run dev
 | `npm run package:crazy:basic` | CrazyGames lifecycle build |
 | `npm run package:crazy:full` | CrazyGames lifecycle + ads build |
 
+### Dev tuning
+
+On `npm run dev` (or with `?debug=1`) the HUD shows a small `DEV` button. It
+opens a live panel for the current coin balance and the sell price of every
+product and drink. Price changes apply immediately to checkout and the drink
+menu; they are intentionally in-memory only and reset on reload. The button is
+not shown in production builds unless `?debug=1` is present.
+
 Source layout:
 
 - `src/logic/` — pure shop simulation, the portrait and landscape floor plans,
-  navigation, purchases, production, feeding, quick-buy deposits, staff AI and
-  save migration.
+  navigation, purchases, production, feeding, quick-buy deposits, facilities,
+  staff AI and save migration.
 - `src/scenes/` — menu and game scenes; fixed 60 Hz simulation with render
   interpolation and a live shop overlay.
 - `src/ui/` — procedural art, responsive layout, joystick, HUD, map offers, plant
-  chooser, producer/shelf views, staff and coin-pile views, panels and overlays.
+  chooser, producer/shelf views, staff and coin-pile views, facility and drink
+  overlays, the dev tuning panel, panels and dialogues.
 - `src/i18n.ts` — English and Chinese copy.
 - `src/save.ts` — versioned save adapter.
 

@@ -1,5 +1,6 @@
 import type {
   AnimalProductKind,
+  DrinkKind,
   FruitKind,
   PlantKind,
   ProcessedKind,
@@ -143,10 +144,23 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
   },
 }
 
-export function productPrice(product: ProductKind): number {
+/** Dev-only overrides. Empty in normal play; the dev panel edits these live. */
+export const DEV_TUNING: {
+  prices: Partial<Record<ProductKind, number>>
+  drinkPrices: Partial<Record<DrinkKind, number>>
+} = {
+  prices: {},
+  drinkPrices: {},
+}
+
+export function defaultProductPrice(product: ProductKind): number {
   if (isPlantKind(product)) return PLANTS[product].price
   if (isAnimalProductKind(product)) return ANIMALS[product].price
   return RECIPES[product].price
+}
+
+export function productPrice(product: ProductKind): number {
+  return DEV_TUNING.prices[product] ?? defaultProductPrice(product)
 }
 
 export function producerCost(product: ProductKind): number {
@@ -212,6 +226,65 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
     stockMs: 320,
   },
 }
+
+export const DRINK_ORDER: readonly DrinkKind[] = ['appleSoda', 'milkTea', 'lemonTea']
+
+export interface DrinkConfig {
+  readonly price: number
+  readonly durationMs: number
+  readonly speedBonus: number
+  readonly carryBonus: number
+  readonly scanBonus: number
+}
+
+export const DRINKS: Readonly<Record<DrinkKind, DrinkConfig>> = {
+  appleSoda: {
+    price: 20,
+    durationMs: 45_000,
+    speedBonus: 0.15,
+    carryBonus: 0,
+    scanBonus: 0,
+  },
+  milkTea: {
+    price: 35,
+    durationMs: 45_000,
+    speedBonus: 0,
+    carryBonus: 3,
+    scanBonus: 0,
+  },
+  lemonTea: {
+    price: 30,
+    durationMs: 45_000,
+    speedBonus: 0,
+    carryBonus: 0,
+    scanBonus: 0.25,
+  },
+}
+
+export function defaultDrinkPrice(kind: DrinkKind): number {
+  return DRINKS[kind].price
+}
+
+export function drinkPrice(kind: DrinkKind): number {
+  return DEV_TUNING.drinkPrices[kind] ?? defaultDrinkPrice(kind)
+}
+
+export function zeroBuffs(): Record<DrinkKind, number> {
+  return Object.fromEntries(DRINK_ORDER.map((kind) => [kind, 0])) as Record<DrinkKind, number>
+}
+
+export const REST = {
+  workMs: 60_000,
+  workStaggerMs: 8_000,
+  drinkMs: 7_000,
+  returnPercent: 60,
+  urgeRadius: 80,
+  walkSpeed: 92,
+} as const
+
+export const FACILITY_DWELL_MS = 500
+export const TRASH_RADIUS = 58
+export const DRINK_RADIUS = 48
 
 export const QUICK_BUY = {
   openMs: 520,

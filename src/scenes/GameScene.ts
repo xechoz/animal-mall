@@ -13,7 +13,17 @@ import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
-import { isPlantKind, isProcessedKind, PLOT_SIZE, producerCost, ZONE_ORDER } from '../logic/config'
+import { distance } from '../logic/collision'
+import {
+  DRINK_RADIUS,
+  DRINKS,
+  isPlantKind,
+  isProcessedKind,
+  PLOT_SIZE,
+  producerCost,
+  ZONE_ORDER,
+} from '../logic/config'
+import { nearestRestingStaff, purchaseDrink } from '../logic/facilities'
 import {
   type PurchaseOutcome,
   type PurchaseResult,
@@ -26,12 +36,26 @@ import {
   purchaseZone,
   removeProducer,
 } from '../logic/purchase'
+import { urgeStaff } from '../logic/staff'
 import { createShopState, remapShopState, stepShop, toSave } from '../logic/state'
-import type { GameEvent, PlantKind, ProductKind, ShopState, ZoneId } from '../logic/types'
+import type {
+  DrinkKind,
+  GameEvent,
+  PlantKind,
+  ProductKind,
+  ShopState,
+  ZoneId,
+} from '../logic/types'
 import { progressSave } from '../save'
 import { createAnimalTextures } from '../ui/animalArt'
+import { BuffBar } from '../ui/BuffBar'
 import { CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
+import { DevPanel } from '../ui/DevPanel'
+import { DrinkPicker } from '../ui/DrinkPicker'
+import { FacilityOverlay } from '../ui/FacilityOverlay'
+import { FacilityView } from '../ui/FacilityView'
+import { DRINK_CUP_COLORS, drawCup } from '../ui/facilitiesArt'
 import { coinTextureKey } from '../ui/fruitArt'
 import { fullscreenActive, fullscreenSupported, toggleGameFullscreen } from '../ui/fullscreen'
 import { Hud } from '../ui/Hud'
@@ -100,8 +124,15 @@ export class GameScene extends Phaser.Scene {
   private staffStations!: Record<'cashier' | 'picker', StaffStationView>
   private zoneOverlay!: ZoneOverlay
   private coinPile!: CoinPileView
+  private trashView!: FacilityView
+  private vendingView!: FacilityView
+  private facilityOverlay!: FacilityOverlay
+  private buffBar!: BuffBar
   private mapOffers?: MapOffers
   private plantPicker?: PlantPicker
+  private drinkPicker?: DrinkPicker
+  private devPanel?: DevPanel
+  private pendingDrink = false
   private hud!: Hud
   private joystick!: Joystick
   private tutorial!: TutorialOverlay
@@ -224,6 +255,17 @@ export class GameScene extends Phaser.Scene {
     this.zoneOverlay.setDepth(50)
     this.world.add(this.zoneOverlay)
 
+    this.trashView = new FacilityView(this, theme, 'trash', this.layout.map, '')
+    this.vendingView = new FacilityView(
+      this,
+      theme,
+      'vending',
+      this.layout.map,
+      i18n.t('facility.drinks'),
+    )
+    this.world.add(this.trashView)
+    this.world.add(this.vendingView)
+
     this.shelfViews = Object.fromEntries(
       ZONE_ORDER.map((zone) => {
         const view = new ShelfView(this, theme, zone, this.layout.map)
@@ -252,14 +294,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildHudAndInput(): void {
+    const devEnabled = import.meta.env.DEV || this.services.debug
     this.hud = new Hud(this, this.layout, this.services.theme, this.services.i18n, {
       onShop: () => this.openShop(),
       onPause: () => this.pauseGame(),
+      ...(devEnabled ? { onDev: () => this.openDevPanel() } : {}),
     })
     this.joystick = new Joystick(this)
     this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(this, this.layout, this.services.theme)
+    this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
+    this.facilityOverlay = new FacilityOverlay(
+      this,
+      this.layout,
+      this.services.theme,
+      this.services.i18n,
+      { onNudge: () => this.nudgeStaff() },
+    )
     this.hud.update(this.state)
     this.syncCustomers(1, 0)
     this.syncStaff(1, 0)
@@ -273,7 +325,9 @@ export class GameScene extends Phaser.Scene {
       else if (this.mode === 'paused') this.resumeFromPause()
     }
     const escapeKey = (): void => {
-      if (this.mode === 'shop') this.shopPanel?.close()
+      if (this.devPanel !== undefined) this.closeDevPanel()
+      else if (this.drinkPicker !== undefined) this.closeDrinkPicker()
+      else if (this.mode === 'shop') this.shopPanel?.close()
       else toggle()
     }
     keyboard.on('keydown-P', toggle)
@@ -332,19 +386,43 @@ export class GameScene extends Phaser.Scene {
     this.hud.update(this.state)
     this.mapOffers?.update(this.state)
     this.coinPile.updatePile(this.state.pendingCoins)
+    this.buffBar.update(this.state.buffs)
+    this.drinkPicker?.update(this.state)
+    this.devPanel?.update(this.state)
 
     if (this.plantPicker !== undefined && (this.state.player.moving || this.mode !== 'playing')) {
       this.closePlantPicker()
     }
+    if (this.pendingDrink) {
+      if (this.canOpenDrinkPicker()) {
+        this.pendingDrink = false
+        this.openDrinkPicker()
+      } else if (
+        this.mode === 'playing' &&
+        distance(this.state.player.pos, this.state.map.facilities.vendingUse) > DRINK_RADIUS
+      ) {
+        this.pendingDrink = false
+      }
+    }
 
-    const showTutorial = this.mode === 'playing'
+    const showTutorial =
+      this.mode === 'playing' && this.drinkPicker === undefined && this.devPanel === undefined
     this.tutorial.setVisible(showTutorial)
     if (showTutorial) this.tutorial.update(this.state, time)
 
+    const overlayEnabled =
+      this.mode === 'playing' &&
+      this.plantPicker === undefined &&
+      this.drinkPicker === undefined &&
+      this.devPanel === undefined
+    this.facilityOverlay.update(this.state, overlayEnabled)
+
     if (this.mode === 'shop') this.shopPanel?.update(this.state)
 
-    this.joystick.setEnabled(this.mode === 'playing')
-    this.hud.setEnabled(this.mode === 'playing')
+    const inputEnabled =
+      this.mode === 'playing' && this.drinkPicker === undefined && this.devPanel === undefined
+    this.joystick.setEnabled(inputEnabled)
+    this.hud.setEnabled(inputEnabled)
   }
 
   private syncCustomers(alpha: number, time: number): void {
@@ -421,6 +499,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private readInput(): { moveX: number; moveY: number } {
+    if (this.drinkPicker !== undefined || this.devPanel !== undefined) {
+      return { moveX: 0, moveY: 0 }
+    }
     const held = this.heldMoveKeys
     let x = 0
     let y = 0
@@ -554,7 +635,9 @@ export class GameScene extends Phaser.Scene {
           )
           break
         case 'plantPickerReady':
-          if (this.mode === 'playing') this.openPlantPicker(event.zone, event.slot)
+          if (this.mode === 'playing' && this.devPanel === undefined) {
+            this.openPlantPicker(event.zone, event.slot)
+          }
           break
         case 'coinsPending':
           this.sfx('click', 0.35)
@@ -570,6 +653,49 @@ export class GameScene extends Phaser.Scene {
         case 'staffStock':
           this.sfx('turn', 0.18)
           break
+        case 'discard':
+          this.sfx('turn', 0.26)
+          this.trashView.playUse()
+          this.toast.show(
+            this.services.i18n.t('toast.trashed', {
+              name: this.productName(event.product),
+              count: event.amount,
+            }),
+          )
+          break
+        case 'drinkMenuReady':
+          if (this.canOpenDrinkPicker()) this.openDrinkPicker()
+          else this.pendingDrink = true
+          break
+        case 'drinkBought':
+          this.sfx('eat', 0.5)
+          this.toast.show(
+            this.services.i18n.t('toast.drinkBought', {
+              name: this.services.i18n.t(`drink.${event.drink}`),
+              seconds: Math.round(DRINKS[event.drink].durationMs / 1000),
+            }),
+          )
+          break
+        case 'staffLazy':
+          this.sfx('die', 0.22)
+          this.toast.show(
+            this.services.i18n.t('toast.staffLazy', {
+              name: this.services.i18n.t(`staff.${event.kind}`),
+            }),
+          )
+          break
+        case 'staffUrged': {
+          this.sfx('start', 0.3)
+          const member = this.state.staffMembers.find((candidate) => candidate.id === event.staffId)
+          if (member !== undefined) {
+            this.toast.show(
+              this.services.i18n.t('toast.staffUrged', {
+                name: this.services.i18n.t(`staff.${member.kind}`),
+              }),
+            )
+          }
+          break
+        }
         case 'tutorial':
           if (event.step === 'done') {
             this.toast.show(this.services.i18n.t('toast.firstSale'))
@@ -632,6 +758,96 @@ export class GameScene extends Phaser.Scene {
   private closePlantPicker(): void {
     this.plantPicker?.destroy()
     this.plantPicker = undefined
+  }
+
+  private canOpenDrinkPicker(): boolean {
+    return (
+      this.mode === 'playing' &&
+      this.plantPicker === undefined &&
+      this.drinkPicker === undefined &&
+      this.devPanel === undefined &&
+      distance(this.state.player.pos, this.state.map.facilities.vendingUse) <= DRINK_RADIUS
+    )
+  }
+
+  private openDrinkPicker(): void {
+    if (this.drinkPicker !== undefined) return
+    this.closePlantPicker()
+    this.resetMovementInput()
+    this.vendingView.playUse()
+    this.drinkPicker = new DrinkPicker({
+      scene: this,
+      layout: this.layout,
+      theme: this.services.theme,
+      i18n: this.services.i18n,
+      state: this.state,
+      onBuy: (drink) => this.buyDrink(drink),
+      onClose: () => this.closeDrinkPicker(),
+    })
+  }
+
+  private closeDrinkPicker(): void {
+    this.drinkPicker?.destroy()
+    this.drinkPicker = undefined
+    this.resetMovementInput()
+  }
+
+  private openDevPanel(): void {
+    if (this.devPanel !== undefined || this.mode !== 'playing') return
+    this.closePlantPicker()
+    this.closeDrinkPicker()
+    this.resetMovementInput()
+    this.devPanel = new DevPanel({
+      scene: this,
+      layout: this.layout,
+      theme: this.services.theme,
+      i18n: this.services.i18n,
+      state: this.state,
+      onSetCoins: (coins) => {
+        this.state = { ...this.state, coins }
+        this.hud.update(this.state)
+        this.saveGame()
+      },
+      onClose: () => this.closeDevPanel(),
+    })
+  }
+
+  private closeDevPanel(): void {
+    this.devPanel?.destroy()
+    this.devPanel = undefined
+    this.resetMovementInput()
+  }
+
+  private buyDrink(drink: DrinkKind): void {
+    const outcome = purchaseDrink(this.state, drink)
+    if (outcome.result !== 'ok') return
+    this.state = outcome.state
+    this.handleEvents(outcome.events)
+    this.saveGame()
+    this.drinkBurst(drink)
+    this.hud.update(this.state)
+  }
+
+  private nudgeStaff(): void {
+    const target = nearestRestingStaff(this.state)
+    if (target === null) return
+    const result = urgeStaff(this.state, target.id)
+    this.state = result.state
+    this.handleEvents(result.events)
+  }
+
+  private drinkBurst(drink: DrinkKind): void {
+    const point = worldToScreen(this.layout, this.state.player.pos)
+    const cup = this.add.graphics().setDepth(6400)
+    drawCup(cup, point.x + 24, point.y - 52, 0.9, DRINK_CUP_COLORS[drink])
+    this.tweens.add({
+      targets: cup,
+      y: -42,
+      alpha: 0,
+      duration: 700,
+      ease: 'Cubic.easeOut',
+      onComplete: () => cup.destroy(),
+    })
   }
 
   private coinBagSfx(): void {
@@ -741,6 +957,8 @@ export class GameScene extends Phaser.Scene {
     }
     this.resetMovementInput()
     this.closePlantPicker()
+    this.closeDrinkPicker()
+    this.closeDevPanel()
     this.mode = 'shop'
     this.hud.setEnabled(false)
     this.joystick.setEnabled(false)
@@ -796,6 +1014,8 @@ export class GameScene extends Phaser.Scene {
     if (this.mode !== 'playing' && this.mode !== 'shop') return
     this.resetMovementInput()
     this.closePlantPicker()
+    this.closeDrinkPicker()
+    this.closeDevPanel()
     this.shopPanel?.destroy()
     this.shopPanel = undefined
     this.mode = 'paused'
@@ -910,6 +1130,14 @@ export class GameScene extends Phaser.Scene {
     this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(this, this.layout, this.services.theme)
+    this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
+    this.facilityOverlay = new FacilityOverlay(
+      this,
+      this.layout,
+      this.services.theme,
+      this.services.i18n,
+      { onNudge: () => this.nudgeStaff() },
+    )
 
     if (previousMode === 'playing' && mapChanged) {
       this.pauseGame()
@@ -957,8 +1185,12 @@ export class GameScene extends Phaser.Scene {
     this.shopPanel?.destroy()
     this.shopPanel = undefined
     this.closePlantPicker()
+    this.closeDrinkPicker()
+    this.closeDevPanel()
     this.mapOffers?.destroy()
     this.mapOffers = undefined
+    this.facilityOverlay?.destroy()
+    this.buffBar?.destroy()
     this.tutorial?.destroy()
     this.toast?.destroy()
     this.countdownText?.destroy()

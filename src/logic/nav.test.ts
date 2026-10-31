@@ -23,6 +23,9 @@ for (const map of MAPS) {
       ...map.plantAccess.veg,
       ...ANIMAL_ORDER.map((product) => map.animalAccess[product]),
       ...PROCESSED_ORDER.map((product) => map.stationAccess[product]),
+      map.facilities.trashAccess,
+      map.facilities.vendingUse,
+      ...map.facilities.restSpots,
     ]
 
     it('reaches every shelf, producer, queue slot and the door', () => {
@@ -49,7 +52,7 @@ for (const map of MAPS) {
 
     it('has line of sight across the main aisle', () => {
       const from = map.id === 'portrait' ? { x: 320, y: 1120 } : { x: 300, y: 620 }
-      const to = map.id === 'portrait' ? { x: 320, y: 560 } : { x: 1100, y: 620 }
+      const to = map.id === 'portrait' ? { x: 320, y: 560 } : { x: 1000, y: 620 }
       expect(lineWalkable(from, to, CUSTOMER_RADIUS, map)).toBe(true)
     })
 
@@ -83,6 +86,9 @@ for (const map of MAPS) {
           map,
         ),
       ).toBe(true)
+      for (const rect of [map.facilities.trashRect, map.facilities.vendingRect]) {
+        expect(blockedAt(rect.x + rect.w / 2, rect.y + rect.h / 2, CUSTOMER_RADIUS, map)).toBe(true)
+      }
     })
   })
 }

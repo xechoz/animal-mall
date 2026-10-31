@@ -1,6 +1,7 @@
 import type { Rng } from '@mg/core/rng'
 import { distanceSq } from './collision'
-import { producerAccess, STAFF, WANDER, zoneOf } from './config'
+import { producerAccess, REST, STAFF, WANDER, zoneOf } from './config'
+import { findPath } from './nav'
 import { addStock, binReady, collectFromProducer } from './production'
 import type {
   GameEvent,
@@ -18,6 +19,8 @@ import { wanderPath } from './wander'
 
 interface StaffContext {
   readonly map: ShopMap
+  readonly queueLength: number
+  readonly registerBusy: boolean
   producers: readonly ProducerState[]
   shelves: Record<ZoneId, ShelfState>
   events: GameEvent[]
@@ -61,19 +64,22 @@ export function syncStaffMembers(
   return kept
 }
 
+export function activeCashier(members: readonly StaffState[]): boolean {
+  return members.some((member) => member.kind === 'cashier' && member.phase === 'cashier')
+}
+
 export function stepStaff(state: ShopState, dtMs: number, rng: Rng): StepResult {
   const ctx: StaffContext = {
     map: state.map,
+    queueLength: state.queue.length,
+    registerBusy: state.register.customerId !== null,
     producers: state.producers,
     shelves: { ...state.shelves },
     events: [],
   }
+  const dt = Math.max(0, Math.min(dtMs, 50))
   const members = syncStaffMembers(state.staffMembers, state.staff, state.map)
-  const nextMembers = members.map((member) =>
-    member.kind === 'cashier'
-      ? stepCashier(member, state.map)
-      : stepPicker(member, ctx, Math.max(0, Math.min(dtMs, 50)), rng),
-  )
+  const nextMembers = members.map((member) => stepMember(member, ctx, dt, rng))
 
   return {
     state: {
@@ -83,6 +89,22 @@ export function stepStaff(state: ShopState, dtMs: number, rng: Rng): StepResult 
       staffMembers: nextMembers,
     },
     events: ctx.events,
+  }
+}
+
+export function urgeStaff(state: ShopState, staffId: number): StepResult {
+  const member = state.staffMembers.find((candidate) => candidate.id === staffId)
+  if (member === undefined || member.phase !== 'resting') {
+    return { state, events: [] }
+  }
+  return {
+    state: {
+      ...state,
+      staffMembers: state.staffMembers.map((candidate) =>
+        candidate.id === staffId ? startToWork(candidate, state.map) : candidate,
+      ),
+    },
+    events: [{ type: 'staffUrged', staffId }],
   }
 }
 
@@ -97,6 +119,7 @@ function createStaffMember(kind: StaffKind, index: number, map: ShopMap): StaffS
     species: config.species,
     pos: home,
     prevPos: home,
+    home,
     facing: 1,
     moving: false,
     path: [],
@@ -108,15 +131,58 @@ function createStaffMember(kind: StaffKind, index: number, map: ShopMap): StaffS
     carryCount: 0,
     timerMs: 0,
     waitMs: kind === 'picker' ? index * 220 : 0,
+    workMs: 0,
   }
 }
 
-function stepCashier(member: StaffState, map: ShopMap): StaffState {
-  const pos = map.staffStations.cashier.home
+function stepMember(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng): StaffState {
+  let next: StaffState = {
+    ...member,
+    prevPos: member.pos,
+    timerMs: Math.max(0, member.timerMs - dtMs),
+    waitMs: Math.max(0, member.waitMs - dtMs),
+  }
+
+  if (next.phase === 'toDrink' || next.phase === 'toWork') {
+    const moved = advanceStaff(next, dtMs)
+    next = moved.member
+    if (!moved.arrived) return next
+    if (next.phase === 'toDrink') {
+      return {
+        ...next,
+        phase: 'drinking',
+        timerMs: REST.drinkMs,
+        moving: false,
+        path: [],
+        pathIndex: 0,
+      }
+    }
+    return startWorkPhase(next)
+  }
+
+  if (next.phase === 'drinking') {
+    if (next.timerMs > 0) return next
+    if (rng.int(100) < REST.returnPercent) return startToWork(next, ctx.map)
+    ctx.events.push({ type: 'staffLazy', staffId: next.id, kind: next.kind })
+    return { ...next, phase: 'resting', timerMs: 0, moving: false }
+  }
+
+  if (next.phase === 'resting') {
+    return { ...next, moving: false }
+  }
+
+  const working = { ...next, workMs: next.workMs + dtMs }
+  return next.kind === 'cashier' ? stepCashier(working, ctx) : stepPicker(working, ctx, dtMs, rng)
+}
+
+function stepCashier(member: StaffState, ctx: StaffContext): StaffState {
+  if (member.workMs >= restLimit(member) && ctx.queueLength === 0 && !ctx.registerBusy) {
+    return startToDrink(member, ctx.map)
+  }
   return {
     ...member,
-    pos,
-    prevPos: pos,
+    pos: member.home,
+    prevPos: member.home,
     moving: false,
     path: [],
     pathIndex: 0,
@@ -125,12 +191,7 @@ function stepCashier(member: StaffState, map: ShopMap): StaffState {
 }
 
 function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng): StaffState {
-  let next: StaffState = {
-    ...member,
-    prevPos: member.pos,
-    timerMs: Math.max(0, member.timerMs - dtMs),
-    waitMs: Math.max(0, member.waitMs - dtMs),
-  }
+  let next = member
 
   if (next.phase === 'toProducer' || next.phase === 'toShelf') {
     const moved = advanceStaff(next, dtMs)
@@ -151,6 +212,10 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
   }
 
   if (next.waitMs > 0) return next
+
+  if (next.phase === 'idle' && next.carry === null && next.workMs >= restLimit(next)) {
+    return startToDrink(next, ctx.map)
+  }
 
   if (next.carry !== null && next.carryCount > 0) {
     const shelf = ctx.shelves[zoneOf(next.carry)]
@@ -279,6 +344,80 @@ function startToShelf(member: StaffState, map: ShopMap, rng: Rng): StaffState {
   }
 }
 
+function startToDrink(member: StaffState, map: ShopMap): StaffState {
+  const spot = restSpotFor(member, map)
+  return {
+    ...member,
+    phase: 'toDrink',
+    targetProducerId: null,
+    targetShelf: null,
+    carry: null,
+    carryCount: 0,
+    timerMs: 0,
+    waitMs: 0,
+    path: pathTo(member.pos, spot, map),
+    pathIndex: 0,
+    moving: false,
+  }
+}
+
+function startToWork(member: StaffState, map: ShopMap): StaffState {
+  return {
+    ...member,
+    phase: 'toWork',
+    targetProducerId: null,
+    targetShelf: null,
+    carry: null,
+    carryCount: 0,
+    timerMs: 0,
+    waitMs: 0,
+    workMs: 0,
+    path: pathTo(member.pos, member.home, map),
+    pathIndex: 0,
+    moving: false,
+  }
+}
+
+function startWorkPhase(member: StaffState): StaffState {
+  if (member.kind === 'cashier') {
+    return {
+      ...member,
+      phase: 'cashier',
+      pos: member.home,
+      prevPos: member.home,
+      moving: false,
+      path: [],
+      pathIndex: 0,
+      workMs: 0,
+    }
+  }
+  return {
+    ...member,
+    phase: 'idle',
+    moving: false,
+    path: [],
+    pathIndex: 0,
+    workMs: 0,
+    waitMs: 200,
+  }
+}
+
+function restLimit(member: StaffState): number {
+  const index =
+    member.kind === 'cashier' ? 0 : Math.min(2, member.id - staffMemberId('picker', 0) + 1)
+  return REST.workMs + index * REST.workStaggerMs
+}
+
+function restSpotFor(member: StaffState, map: ShopMap): Vec2 {
+  const index =
+    member.kind === 'cashier' ? 0 : Math.min(2, member.id - staffMemberId('picker', 0) + 1)
+  return map.facilities.restSpots[index] ?? map.facilities.restSpots[0] ?? member.home
+}
+
+function pathTo(from: Vec2, to: Vec2, map: ShopMap): readonly Vec2[] {
+  return findPath(from, to, 12, map) ?? [to]
+}
+
 function pickProducer(
   producers: readonly ProducerState[],
   shelves: Readonly<Record<ZoneId, ShelfState>>,
@@ -306,7 +445,8 @@ function advanceStaff(member: StaffState, dtMs: number): { member: StaffState; a
     return { member: { ...member, moving: false }, arrived: true }
   }
 
-  let remaining = (STAFF.picker.speed * dtMs) / 1000
+  const speed = STAFF[member.kind].speed > 0 ? STAFF[member.kind].speed : REST.walkSpeed
+  let remaining = (speed * dtMs) / 1000
   let position = member.pos
   let index = member.pathIndex
   let facing = member.facing

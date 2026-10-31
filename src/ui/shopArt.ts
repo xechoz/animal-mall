@@ -10,6 +10,7 @@ import {
   ZONE_ORDER,
 } from '../logic/config'
 import type { ShopMap, ZoneId } from '../logic/types'
+import { drawRestMat } from './facilitiesArt'
 
 export const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
   fruit: 0xf08a6a,
@@ -86,6 +87,7 @@ function createPortraitShopBackground(
   g.fillRoundedRect(40, 520, width - 80, 60, 18)
 
   drawGhostFacilities(g, map)
+  drawRestMat(g, map.facilities.restMat)
 
   // Top wall and awning.
   g.fillStyle(gameColors.wall, 1)
@@ -157,7 +159,6 @@ function createPortraitShopBackground(
   drawCounter(g, map)
   drawDoorMat(g, 278, 1108)
   drawPlant(g, 60, 1128)
-  drawPlant(g, 620, 1128)
   drawPlant(g, 60, 110)
   drawPlant(g, 620, 110)
 
@@ -226,6 +227,7 @@ function createLandscapeShopBackground(
 
   drawGhostFacilities(g, map)
   drawKitchenCorner(g, map.stationSlots.sweater.x, map.stationSlots.grilledFish.y)
+  drawRestMat(g, map.facilities.restMat)
 
   // Top wall and awning.
   g.fillStyle(gameColors.wall, 1)
@@ -300,7 +302,6 @@ function createLandscapeShopBackground(
   drawCounter(g, map)
   drawDoorMat(g, 278, 596)
   drawPlant(g, 60, 620)
-  drawPlant(g, 1140, 620)
   drawPlant(g, 60, 110)
   drawPlant(g, 1140, 110)
 

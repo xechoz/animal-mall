@@ -54,6 +54,10 @@ for (const map of MAPS) {
       expect(insideMap(map, map.counter.x + map.counter.w, map.counter.y + map.counter.h)).toBe(
         true,
       )
+      for (const rect of [map.facilities.trashRect, map.facilities.vendingRect]) {
+        expect(insideMap(map, rect.x, rect.y)).toBe(true)
+        expect(insideMap(map, rect.x + rect.w, rect.y + rect.h)).toBe(true)
+      }
     })
 
     it('keeps shelves, pens, stations and the counter blocked for customers', () => {

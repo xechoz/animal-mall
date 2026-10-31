@@ -2,6 +2,7 @@ import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { StaffState } from '../logic/types'
 import { animalTextureKey } from './animalArt'
+import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
 
 const APRON = {
@@ -14,7 +15,10 @@ export class StaffView extends Phaser.GameObjects.Container {
   private readonly apron: Phaser.GameObjects.Graphics
   private readonly carrying: Phaser.GameObjects.Image[] = []
   private readonly carryCount: Phaser.GameObjects.Text
+  private readonly mood: Phaser.GameObjects.Graphics
+  private readonly sleep: Phaser.GameObjects.Text
   private carryKey = ''
+  private lastPhase: StaffState['phase'] | '' = ''
 
   constructor(scene: Phaser.Scene, theme: Theme, member: StaffState) {
     super(scene, member.pos.x, member.pos.y)
@@ -49,6 +53,18 @@ export class StaffView extends Phaser.GameObjects.Container {
       .setVisible(false)
     this.add(this.carryCount)
 
+    this.mood = scene.add.graphics()
+    this.add(this.mood)
+
+    this.sleep = scene.add
+      .text(18, -96, 'Zzz', textStyle(theme, 14, theme.text, true))
+      .setOrigin(0.5)
+      .setBackgroundColor('#fff7e8')
+      .setPadding(5, 1, 5, 1)
+      .setAngle(-8)
+      .setVisible(false)
+    this.add(this.sleep)
+
     scene.add.existing(this)
   }
 
@@ -65,6 +81,15 @@ export class StaffView extends Phaser.GameObjects.Container {
     this.apron.fillStyle(0xffffff, 0.35)
     this.apron.fillRoundedRect(-11, -32, 8, 6, 3)
 
+    if (member.phase !== this.lastPhase) {
+      this.lastPhase = member.phase
+      this.drawMood(member.phase)
+    }
+    if (member.phase === 'resting') {
+      this.sleep.setAlpha(0.62 + Math.abs(Math.sin(time * 0.004)) * 0.38)
+      this.sleep.setY(-96 + Math.sin(time * 0.004) * 3)
+    }
+
     const key = `${member.carry}-${member.carryCount}`
     if (key !== this.carryKey) {
       this.carryKey = key
@@ -78,5 +103,18 @@ export class StaffView extends Phaser.GameObjects.Container {
         .setText(overflow ? `×${member.carryCount}` : '')
         .setVisible(overflow && member.carry !== null)
     }
+  }
+
+  private drawMood(phase: StaffState['phase']): void {
+    this.mood.clear()
+    this.mood.setVisible(phase === 'drinking')
+    this.sleep.setVisible(phase === 'resting')
+    if (phase !== 'drinking') return
+
+    drawCup(this.mood, 19, -50, 0.82, DRINK_CUP_COLORS.appleSoda)
+    this.mood.fillStyle(0xffffff, 0.62)
+    this.mood.fillCircle(23, -72, 3)
+    this.mood.fillCircle(28, -81, 2.2)
+    this.mood.fillCircle(20, -87, 2)
   }
 }

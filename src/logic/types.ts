@@ -11,6 +11,7 @@ export type ProducerKind = 'plant' | 'animal' | 'station'
 export type UpgradeKind = 'carry' | 'shelf' | 'speed' | 'scan' | 'fertilizer'
 
 export type StaffKind = 'cashier' | 'picker'
+export type DrinkKind = 'appleSoda' | 'milkTea' | 'lemonTea'
 
 export type SpeciesId = 'bear' | 'cat' | 'rabbit' | 'fox' | 'panda' | 'frog' | 'pig' | 'dog'
 
@@ -51,6 +52,17 @@ export interface StaffSpot {
   readonly home: Vec2
 }
 
+export interface FacilityLayout {
+  readonly trashRect: Rect
+  readonly trashPoint: Vec2
+  readonly trashAccess: Vec2
+  readonly vendingRect: Rect
+  readonly vendingPoint: Vec2
+  readonly vendingUse: Vec2
+  readonly restMat: Rect
+  readonly restSpots: readonly Vec2[]
+}
+
 /**
  * One complete shop floor plan. The simulation only knows this shape, so the
  * same rules run on the portrait and landscape layouts.
@@ -76,6 +88,7 @@ export interface ShopMap {
   readonly stationSlots: Readonly<Record<ProcessedKind, Plot>>
   readonly stationAccess: Readonly<Record<ProcessedKind, Vec2>>
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
+  readonly facilities: FacilityLayout
   readonly obstacles: readonly Rect[]
 }
 
@@ -155,7 +168,17 @@ export interface RegisterState {
   readonly scanMs: number
 }
 
-export type StaffPhase = 'cashier' | 'idle' | 'toProducer' | 'harvest' | 'toShelf' | 'stock'
+export type StaffPhase =
+  | 'cashier'
+  | 'idle'
+  | 'toProducer'
+  | 'harvest'
+  | 'toShelf'
+  | 'stock'
+  | 'toDrink'
+  | 'drinking'
+  | 'resting'
+  | 'toWork'
 
 export interface StaffState {
   readonly id: number
@@ -163,6 +186,7 @@ export interface StaffState {
   readonly species: SpeciesId
   readonly pos: Vec2
   readonly prevPos: Vec2
+  readonly home: Vec2
   readonly facing: -1 | 1
   readonly moving: boolean
   readonly path: readonly Vec2[]
@@ -174,6 +198,15 @@ export interface StaffState {
   readonly carryCount: number
   readonly timerMs: number
   readonly waitMs: number
+  readonly workMs: number
+}
+
+export type BuffTimers = Readonly<Record<DrinkKind, number>>
+
+export interface FacilityState {
+  readonly trashDwellMs: number
+  readonly drinkDwellMs: number
+  readonly drinkArmed: boolean
 }
 
 export interface QuickBuyState {
@@ -203,6 +236,8 @@ export interface ShopState {
   readonly staffMembers: readonly StaffState[]
   readonly deposits: Readonly<Record<string, number>>
   readonly quickBuy: QuickBuyState
+  readonly facility: FacilityState
+  readonly buffs: BuffTimers
   readonly tutorial: TutorialStep
 }
 
@@ -267,6 +302,11 @@ export type GameEvent =
   | { readonly type: 'coinsCollected'; readonly amount: number }
   | { readonly type: 'staffHarvest'; readonly staffId: number; readonly product: ProductKind }
   | { readonly type: 'staffStock'; readonly staffId: number; readonly product: ProductKind }
+  | { readonly type: 'discard'; readonly product: ProductKind; readonly amount: number }
+  | { readonly type: 'drinkMenuReady' }
+  | { readonly type: 'drinkBought'; readonly drink: DrinkKind; readonly price: number }
+  | { readonly type: 'staffLazy'; readonly staffId: number; readonly kind: StaffKind }
+  | { readonly type: 'staffUrged'; readonly staffId: number }
   | { readonly type: 'tutorial'; readonly step: TutorialStep }
 
 export interface StepInput {

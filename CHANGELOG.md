@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Add a bottom-right trash bin: standing near it for half a second with goods in
+  hand discards the whole carried stack, with a progress ring and toast.
+- Add a free drink machine for staff breaks and a paid player menu with three
+  timed buffs: apple soda (speed), milk tea (carry capacity) and lemon tea
+  (scanner speed).
+- Staff now work for roughly a minute before walking to the drink machine. They
+  return automatically 60% of the time; otherwise they lounge until the player
+  walks over and nudges them. Cashiers only leave when the counter is quiet.
+- Add a dev-only `DEV` button to the HUD that opens live tuning for product and
+  drink sell prices and the current coin balance. It appears on the Vite dev
+  server and with `?debug=1`; overrides reset on reload.
+- Add logic tests for facility dwell, drink purchases, buff effects, staff
+  breaks and nudging.
 - Move the mobile landscape HUD into a left vertical rail, freeing the top of
   the screen for the shop; phones and tablets with plenty of vertical space keep
   the existing top bar in portrait and on desktop.

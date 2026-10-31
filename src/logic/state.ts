@@ -5,6 +5,8 @@ import {
   CUSTOMER_SPECIES,
   CUSTOMER_TUNING,
   carryCapacity,
+  DRINK_ORDER,
+  DRINKS,
   fertilizerMultiplier,
   INTERACT,
   isPlantKind,
@@ -18,8 +20,10 @@ import {
   scanIntervalMs,
   shelfCapacity,
   WANDER,
+  zeroBuffs,
   zoneOf,
 } from './config'
+import { stepFacilityDwell } from './facilities'
 import { findPath } from './nav'
 import {
   addStock,
@@ -34,7 +38,7 @@ import {
   stockOf,
 } from './production'
 import { stepQuickBuy } from './quickBuy'
-import { createStaffMembers, stepStaff } from './staff'
+import { activeCashier, createStaffMembers, stepStaff } from './staff'
 import type {
   CustomerPhase,
   CustomerState,
@@ -108,6 +112,8 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
     staffMembers: createStaffMembers(save.staff, map),
     deposits: save.deposits,
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
+    facility: { trashDwellMs: 0, drinkDwellMs: 0, drinkArmed: true },
+    buffs: zeroBuffs(),
     tutorial,
   }
 }
@@ -140,6 +146,7 @@ export function remapShopState(state: ShopState, map: ShopMap): ShopState {
     spawnMs: 1_200,
     staffMembers: createStaffMembers(state.staff, map),
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
+    facility: { trashDwellMs: 0, drinkDwellMs: 0, drinkArmed: true },
   }
 }
 
@@ -163,15 +170,30 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   const dt = Math.max(0, Math.min(dtMs, 50))
   const events: GameEvent[] = []
   const growth = fertilizerMultiplier(state.upgrades.fertilizer)
-  const carryMax = carryCapacity(state.upgrades.carry)
-  const speed = moveSpeed(state.upgrades.speed)
+  const carryMax =
+    carryCapacity(state.upgrades.carry) + (state.buffs.milkTea > 0 ? DRINKS.milkTea.carryBonus : 0)
+  const speed = Math.round(
+    moveSpeed(state.upgrades.speed) *
+      (state.buffs.appleSoda > 0 ? 1 + DRINKS.appleSoda.speedBonus : 1),
+  )
+  const scanInterval = Math.max(
+    180,
+    Math.round(
+      scanIntervalMs(state.upgrades.scan) *
+        (state.buffs.lemonTea > 0 ? 1 - DRINKS.lemonTea.scanBonus : 1),
+    ),
+  )
   const map = state.map
+
+  const buffs = { ...state.buffs }
+  for (const kind of DRINK_ORDER) buffs[kind] = Math.max(0, state.buffs[kind] - dt)
+  let facility = state.facility
 
   let coins = state.coins
   let totalEarned = state.totalEarned
   let served = state.served
   let pendingCoins = state.pendingCoins
-  const hasCashier = state.staff.cashier > 0
+  const hasCashier = activeCashier(state.staffMembers)
   let tutorial = state.tutorial
   let spawnMs = state.spawnMs
   let nextCustomerId = state.nextCustomerId
@@ -249,6 +271,11 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       events.push({ type: 'stock', product, amount: 1 })
     }
   }
+
+  const facilityStep = stepFacilityDwell(player, facility, dt, map)
+  player = facilityStep.player
+  facility = facilityStep.facility
+  events.push(...facilityStep.events)
 
   tutorial = advanceTutorial(tutorial, producers, shelves, player, served)
   if (tutorial === 'checkout') spawnMs = Math.min(spawnMs, 1_200)
@@ -397,11 +424,10 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     if (front !== undefined && front.phase === 'inQueue') {
       let customer = front
       let scanMs = register.customerId === customer.id ? register.scanMs + dt : dt
-      const interval = scanIntervalMs(state.upgrades.scan)
       let basket = customer.basket
       let paid = customer.paid
 
-      while (scanMs >= interval && basket.length > 0) {
+      while (scanMs >= scanInterval && basket.length > 0) {
         const product = basket[0] as ProductKind
         basket = basket.slice(1)
         const price = productPrice(product)
@@ -413,7 +439,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           coins += price
         }
         totalEarned += price
-        scanMs -= interval
+        scanMs -= scanInterval
         events.push({ type: 'scan', product, amount: price })
       }
 
@@ -522,6 +548,8 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     upgrades: state.upgrades,
     staff: state.staff,
     deposits: state.deposits,
+    facility,
+    buffs,
     tutorial,
   }
 

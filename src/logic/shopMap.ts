@@ -1,5 +1,6 @@
 import type {
   AnimalProductKind,
+  FacilityLayout,
   Plot,
   ProcessedKind,
   Rect,
@@ -34,6 +35,7 @@ interface ShopMapInput {
   readonly animalPens: Readonly<Record<AnimalProductKind, Plot>>
   readonly stationSlots: Readonly<Record<ProcessedKind, Plot>>
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
+  readonly facilities: FacilityLayout
 }
 
 function plotAccess(plot: Plot): Vec2 {
@@ -91,6 +93,8 @@ function createShopMap(input: ShopMapInput): ShopMap {
       ...Object.values(input.animalPens).map(penRect),
       ...Object.values(input.stationSlots).map(stationRect),
       input.counter,
+      input.facilities.trashRect,
+      input.facilities.vendingRect,
     ],
   }
 }
@@ -149,6 +153,20 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     cashier: { station: { x: 470, y: 1120 }, home: { x: 470, y: 1120 } },
     picker: { station: { x: 320, y: 560 }, home: { x: 320, y: 560 } },
   },
+  facilities: {
+    trashRect: { x: 580, y: 1104, w: 40, h: 48 },
+    trashPoint: { x: 600, y: 1128 },
+    trashAccess: { x: 600, y: 1070 },
+    vendingRect: { x: 100, y: 1015, w: 62, h: 88 },
+    vendingPoint: { x: 131, y: 1059 },
+    vendingUse: { x: 131, y: 1125 },
+    restMat: { x: 70, y: 952, w: 118, h: 48 },
+    restSpots: [
+      { x: 96, y: 980 },
+      { x: 131, y: 980 },
+      { x: 166, y: 980 },
+    ],
+  },
 })
 
 export const LANDSCAPE_MAP: ShopMap = createShopMap({
@@ -204,6 +222,20 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
   staffStations: {
     cashier: { station: { x: 600, y: 630 }, home: { x: 600, y: 630 } },
     picker: { station: { x: 600, y: 450 }, home: { x: 600, y: 450 } },
+  },
+  facilities: {
+    trashRect: { x: 1100, y: 584, w: 40, h: 48 },
+    trashPoint: { x: 1120, y: 608 },
+    trashAccess: { x: 1120, y: 550 },
+    vendingRect: { x: 100, y: 500, w: 62, h: 88 },
+    vendingPoint: { x: 131, y: 544 },
+    vendingUse: { x: 131, y: 608 },
+    restMat: { x: 70, y: 432, w: 118, h: 48 },
+    restSpots: [
+      { x: 96, y: 460 },
+      { x: 131, y: 460 },
+      { x: 166, y: 460 },
+    ],
   },
 })
 

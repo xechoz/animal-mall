@@ -7,6 +7,7 @@ import {
   isProcessedKind,
   PLANTS,
   producerCost,
+  productPrice,
   RECIPES,
   STAFF,
   STAFF_ORDER,
@@ -911,14 +912,14 @@ export class ShopPanel {
     const { i18n } = this.options
     if (isPlantKind(product)) {
       return i18n.t('shop.stats.plant', {
-        price: PLANTS[product].price,
+        price: productPrice(product),
         grow: Math.round(PLANTS[product].growMs / 1000),
       })
     }
     if (isAnimalProductKind(product)) {
       const config = ANIMALS[product]
       return i18n.t('shop.stats.animal', {
-        price: config.price,
+        price: productPrice(product),
         cycle: Math.round(config.cycleMs / 1000),
         cap: config.capacity,
       })
@@ -926,7 +927,7 @@ export class ShopPanel {
     if (isProcessedKind(product)) {
       const config = RECIPES[product]
       return i18n.t('shop.stats.recipe', {
-        price: config.price,
+        price: productPrice(product),
         craft: Math.round(config.craftMs / 1000),
       })
     }

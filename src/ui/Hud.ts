@@ -1,4 +1,4 @@
-import { type I18n, mixColor, type Theme, textStyle } from '@mg/core'
+import { Button, type I18n, mixColor, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { ZONE_PRODUCTS } from '../logic/config'
 import { type Goal, goalCost, nextGoal } from '../logic/goals'
@@ -13,6 +13,7 @@ import { ZoneStatusRail } from './ZoneStatusRail'
 export interface HudCallbacks {
   readonly onShop: () => void
   readonly onPause: () => void
+  readonly onDev?: () => void
 }
 
 export class Hud {
@@ -29,7 +30,9 @@ export class Hud {
   private readonly goalFill: Phaser.GameObjects.Rectangle
   private readonly shopButton: RoundButton
   private readonly pauseButton: RoundButton
+  private readonly devButton?: Button
   private readonly zoneStatus: ZoneStatusRail
+  private devEnabled = true
   private layout: GameLayout
   private vertical = false
   private coinBaseScale = 0.78
@@ -82,6 +85,16 @@ export class Hud {
       onClick: callbacks.onPause,
     })
     this.pauseButton.setDepth(6100)
+    if (callbacks.onDev !== undefined) {
+      this.devButton = new Button(scene, 0, 0, 'DEV', theme, {
+        width: 64,
+        height: 36,
+        fontSize: 13,
+        variant: 'ghost',
+        onClick: callbacks.onDev,
+      })
+      this.devButton.setDepth(6100)
+    }
     this.zoneStatus = new ZoneStatusRail(scene, layout, theme)
 
     this.relayout(layout)
@@ -142,6 +155,10 @@ export class Hud {
     this.goalBg.setDisplaySize(hud.goalWidth, 6)
     this.shopButton.setPosition(hud.shop.x, hud.shop.y)
     this.pauseButton.setPosition(hud.pause.x, hud.pause.y)
+    this.devButton?.setPosition(
+      hud.vertical ? bar.x + bar.w / 2 : hud.shop.x - 78,
+      hud.vertical ? bar.y + bar.h - 44 : hud.shop.y,
+    )
     this.zoneStatus.relayout(layout)
     this.lastCoins = -1
     this.lastGoal = ''
@@ -247,6 +264,10 @@ export class Hud {
   setEnabled(enabled: boolean): void {
     this.shopButton.setEnabled(enabled)
     this.pauseButton.setEnabled(enabled)
+    if (this.devButton !== undefined && this.devEnabled !== enabled) {
+      this.devEnabled = enabled
+      this.devButton.setEnabled(enabled)
+    }
   }
 
   pulseCoin(): void {
