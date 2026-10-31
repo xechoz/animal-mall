@@ -70,10 +70,12 @@ function createPortraitShopBackground(
     for (let x = seam; x < floorRight; x += 180) g.lineBetween(x, y, x, y + rowHeight)
   }
 
-  // Zone floor tints.
+  // Zone floor tints. The starting fruit and vegetable rows sit next to the
+  // counter; farm and kitchen use the back wall until they unlock.
   for (const zone of ZONE_ORDER) {
-    const top = zone === 'fruit' || zone === 'veg' ? 90 : 590
-    const bottom = zone === 'fruit' || zone === 'veg' ? 510 : 995
+    const backRow = zone === 'farm' || zone === 'kitchen'
+    const top = backRow ? 90 : 590
+    const bottom = backRow ? 510 : 995
     const left = zone === 'fruit' || zone === 'farm' ? 44 : 384
     const right = zone === 'fruit' || zone === 'farm' ? 296 : 636
     g.fillStyle(ZONE_TINTS[zone], 0.1)
@@ -81,7 +83,7 @@ function createPortraitShopBackground(
     g.lineStyle(2, ZONE_TINTS[zone], 0.22)
     g.strokeRoundedRect(left, top, right - left, bottom - top, 18)
     const labelX = zone === 'fruit' || zone === 'farm' ? 70 : 440
-    const labelY = zone === 'fruit' || zone === 'veg' ? 72 : 584
+    const labelY = backRow ? 72 : 584
     container.add(
       scene.add
         .text(labelX, labelY, labels[zone], textStyle(theme, 12 * textScale, theme.textMuted, true))

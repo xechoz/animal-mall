@@ -12,8 +12,9 @@ import {
   zoneOf,
 } from '../logic/config'
 import { feedCount } from '../logic/production'
-import type { ProducerState, ProductKind } from '../logic/types'
-import { FRUIT_COLORS, feedTextureKey } from './fruitArt'
+import type { ProducerState } from '../logic/types'
+import { feedTextureKey } from './fruitArt'
+import { drawPlantCrop, plantGrowthScale } from './plantArt'
 import { productTextureKey } from './productArt'
 
 export class ProducerView extends Phaser.GameObjects.Container {
@@ -71,16 +72,22 @@ export class ProducerView extends Phaser.GameObjects.Container {
 
     this.art.clear()
     this.ring.clear()
+    this.art.setScale(1)
     this.badge.setVisible(false)
     this.status.setVisible(false)
     this.productIcon.setVisible(false)
     this.feedIcon.setVisible(false)
 
-    if (producer.kind === 'plant') drawPlantCrop(this.art, producer)
-    else if (producer.kind === 'animal') {
+    if (producer.kind === 'plant' && isPlantKind(producer.product)) {
+      const ratio = producer.mature
+        ? 1
+        : Math.min(1, producer.progressMs / PLANTS[producer.product].growMs)
+      this.art.setScale(plantGrowthScale(ratio))
+      drawPlantCrop(this.art, producer.product, ratio, producer.mature, producer.ready)
+    } else if (producer.kind === 'animal') {
       drawAnimal(this.art, producer)
       drawTrough(this.art, producer)
-    } else drawStation(this.art, producer)
+    } else if (producer.kind === 'station') drawStation(this.art, producer)
 
     if (producer.kind === 'plant' && !producer.mature) {
       if (isPlantKind(producer.product)) {
@@ -99,7 +106,8 @@ export class ProducerView extends Phaser.GameObjects.Container {
       }
     }
 
-    if (producer.ready > 0) {
+    // Plants show their ripe produce as art on the crop instead of a counter.
+    if (producer.ready > 0 && producer.kind !== 'plant') {
       this.badge
         .setPosition(0, producer.hungry ? -80 : -62)
         .setText(String(producer.ready))
@@ -175,145 +183,6 @@ function drawPlantBed(g: Phaser.GameObjects.Graphics, producer: ProducerState): 
   g.fillStyle(0x6f4b2e, 0.7)
   for (let row = 0; row < 3; row += 1) {
     g.fillRoundedRect(-width / 2 + 8, -height / 2 + 10 + row * 9, width - 16, 3, 1.5)
-  }
-}
-
-function drawPlantCrop(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
-  if (!isPlantKind(producer.product)) return
-  const config = PLANTS[producer.product]
-  const isFruit = zoneOf(producer.product) === 'fruit'
-
-  const ratio = producer.mature ? 1 : Math.min(1, producer.progressMs / config.growMs)
-  if (ratio < 0.38) {
-    g.fillStyle(0x6f4b2e, 1)
-    g.fillRoundedRect(-2, -20, 4, 20, 2)
-    g.fillStyle(gameColors.leaf, 1)
-    g.fillEllipse(-8, -20, 14, 8)
-    g.fillEllipse(8, -23, 13, 7)
-    return
-  }
-
-  const scale = isFruit ? 0.55 + ratio * 0.45 : 0.55 + ratio * 0.45
-  if (isFruit) {
-    g.fillStyle(gameColors.woodDark, 1)
-    g.fillRoundedRect(-6 * scale, -50 * scale, 12 * scale, 50 * scale, 5)
-    g.fillStyle(0x8f5734, 1)
-    g.fillRoundedRect(-4 * scale, -46 * scale, 4 * scale, 36 * scale, 2)
-    const canopyY = -66 * scale
-    const canopyR = 27 * scale
-    g.fillStyle(gameColors.leafDark, 1)
-    g.fillCircle(-17 * scale, canopyY + 6, canopyR * 0.72)
-    g.fillCircle(17 * scale, canopyY + 4, canopyR * 0.68)
-    g.fillCircle(0, canopyY, canopyR)
-    g.fillStyle(gameColors.leaf, 1)
-    g.fillCircle(-15 * scale, canopyY + 2, canopyR * 0.56)
-    g.fillCircle(15 * scale, canopyY - 2, canopyR * 0.52)
-    g.fillCircle(-2, canopyY - 6, canopyR * 0.92)
-    g.fillStyle(gameColors.leafLight, 1)
-    g.fillCircle(-10 * scale, canopyY - 11, canopyR * 0.36)
-    g.fillCircle(9 * scale, canopyY - 14, canopyR * 0.24)
-    if (producer.mature) {
-      for (let index = 0; index < producer.ready; index += 1) {
-        const angle = -2.4 + index * 1.25
-        const distance = 16 * scale
-        const x = Math.cos(angle) * distance
-        const y = canopyY + 4 + Math.sin(angle) * distance * 0.6
-        g.fillStyle(0x3b2f3a, 0.2)
-        g.fillCircle(x, y + 2, 6)
-        g.fillStyle(FRUIT_COLORS[producer.product as keyof typeof FRUIT_COLORS], 1)
-        g.fillCircle(x, y, 5.5)
-        g.fillStyle(0xffffff, 0.55)
-        g.fillCircle(x - 1.5, y - 1.5, 1.6)
-      }
-    }
-    return
-  }
-
-  drawVegetable(g, producer.product, scale)
-  if (producer.mature && producer.ready > 0) {
-    for (let index = 0; index < producer.ready; index += 1) {
-      const x = -16 + index * 14
-      g.fillStyle(0x3b2f3a, 0.18)
-      g.fillCircle(x, 10, 7)
-      g.fillStyle(0xffffff, 0.8)
-      g.fillCircle(x, 8, 6)
-      g.fillStyle(0xe25d5d, 1)
-      g.fillCircle(x, 8, 4)
-    }
-  }
-}
-
-function drawVegetable(g: Phaser.GameObjects.Graphics, product: ProductKind, scale: number): void {
-  if (product === 'carrot') {
-    g.fillStyle(0x5aa96f, 1)
-    g.fillEllipse(-12, -34, 16, 10)
-    g.fillEllipse(12, -38, 16, 10)
-    g.fillEllipse(0, -44, 14, 10)
-    g.fillStyle(0xf08a3c, 1)
-    g.fillTriangle(-7, -18, 7, -18, 0, 8)
-    g.fillStyle(0xffb066, 1)
-    g.fillTriangle(-3, -16, 2, -16, 0, 4)
-  } else if (product === 'tomato') {
-    g.fillStyle(0x4f9b5f, 1)
-    g.fillRoundedRect(-3, -50 * scale, 6, 50 * scale, 3)
-    g.fillEllipse(-16, -34, 24, 16)
-    g.fillEllipse(16, -38, 24, 16)
-    g.fillEllipse(0, -52, 26, 18)
-    g.fillStyle(0xe25d5d, 1)
-    for (let index = 0; index < 3; index += 1) {
-      g.fillCircle(-16 + index * 16, -34 - (index % 2) * 8, 6)
-    }
-  } else if (product === 'corn') {
-    g.fillStyle(0x5aa96f, 1)
-    g.fillRoundedRect(-4, -64, 8, 64, 4)
-    g.fillEllipse(-16, -40, 26, 12)
-    g.fillEllipse(16, -46, 26, 12)
-    g.fillStyle(0xf2c94c, 1)
-    g.fillEllipse(0, -48, 12, 26)
-    g.fillStyle(0xffe08a, 1)
-    for (let row = 0; row < 4; row += 1) {
-      for (let column = 0; column < 2; column += 1) {
-        g.fillCircle(-3 + column * 6, -56 + row * 5, 2)
-      }
-    }
-  } else if (product === 'potato') {
-    g.fillStyle(0x5aa96f, 1)
-    g.fillEllipse(-18, -30, 26, 13)
-    g.fillEllipse(18, -34, 26, 13)
-    g.fillEllipse(0, -46, 24, 14)
-    g.fillStyle(0xa9773f, 1)
-    g.fillEllipse(-8, -8, 24, 16)
-    g.fillEllipse(10, -5, 22, 15)
-    g.fillStyle(0xc79a5f, 1)
-    g.fillEllipse(-8, -9, 19, 12)
-    g.fillEllipse(10, -6, 17, 11)
-    g.fillStyle(0x8a5a2e, 1)
-    g.fillCircle(-12, -6, 1.5)
-    g.fillCircle(14, -4, 1.5)
-  } else if (product === 'eggplant') {
-    g.fillStyle(0x4f8f5f, 1)
-    g.fillRoundedRect(-3, -54 * scale, 6, 54 * scale, 3)
-    g.fillEllipse(-16, -40, 28, 15)
-    g.fillEllipse(16, -44, 28, 15)
-    g.fillStyle(0x5f3f7a, 1)
-    g.fillEllipse(0, -18, 24, 30)
-    g.fillStyle(0x7a4f9c, 1)
-    g.fillEllipse(0, -19, 19, 25)
-    g.fillStyle(0xc9a0e0, 0.55)
-    g.fillEllipse(-6, -24, 4, 10)
-    g.fillStyle(0x5aa96f, 1)
-    g.fillTriangle(-8, -34, 8, -34, 0, -44)
-  } else {
-    g.fillStyle(0x5aa96f, 1)
-    g.fillEllipse(-20, -26, 24, 12)
-    g.fillEllipse(20, -30, 24, 12)
-    g.fillEllipse(0, -44, 28, 14)
-    g.fillStyle(0xe07a2f, 1)
-    g.fillEllipse(0, -16, 30, 20)
-    g.fillStyle(0xf39a4c, 1)
-    g.fillEllipse(0, -17, 22, 16)
-    g.fillStyle(0x5f7a35, 1)
-    g.fillRoundedRect(-2, -30, 4, 8, 2)
   }
 }
 

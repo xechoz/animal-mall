@@ -98,6 +98,21 @@ describe('shop map selection', () => {
   })
 })
 
+describe('portrait zone order', () => {
+  it('keeps the starting crops closer to the counter than the back row', () => {
+    const counter = PORTRAIT_MAP.counter
+    const center = { x: counter.x + counter.w / 2, y: counter.y + counter.h / 2 }
+    const away = (point: { x: number; y: number }): number =>
+      Math.hypot(point.x - center.x, point.y - center.y)
+    const crops = [...PORTRAIT_MAP.plantAccess.fruit, ...PORTRAIT_MAP.plantAccess.veg]
+    const backRow = [
+      ...Object.values(PORTRAIT_MAP.animalAccess),
+      ...Object.values(PORTRAIT_MAP.stationAccess),
+    ]
+    expect(Math.max(...crops.map(away))).toBeLessThan(Math.min(...backRow.map(away)))
+  })
+})
+
 describe('remapping a run', () => {
   it('keeps progress and moves producers onto the new floor plan', () => {
     const state = createShopState(
