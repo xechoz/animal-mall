@@ -18,6 +18,9 @@
 - Move the mobile landscape HUD into a left vertical rail, freeing the top of
   the screen for the shop; phones and tablets with plenty of vertical space keep
   the existing top bar in portrait and on desktop.
+- Shrink mobile edge padding and scale mobile rooms from their walkable bounds,
+  so the decorative outer wall is cropped at the screen edge instead of leaving
+  wide borders around the shop.
 - Enlarge landscape zone headers and dim locked zones with an unlock lock instead
   of leaving only tiny shelf locks. A compact four-zone status strip in the
   mobile rail shows lock state, ready output and hungry producers.

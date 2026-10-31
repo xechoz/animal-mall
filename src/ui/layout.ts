@@ -19,6 +19,8 @@ export interface GameLayout {
   readonly portrait: boolean
   readonly insets: Insets
   readonly map: ShopMap
+  /** Visible play area between the rail/HUD and the screen edges. */
+  readonly content: Rect
   readonly room: Rect
   readonly worldScale: number
   readonly hud: HudLayout
@@ -32,10 +34,12 @@ export interface GameLayoutOptions {
 }
 
 const TOP_GAP = 78
+const MOBILE_TOP_GAP = 76
 const BUTTON_SIZE = 64
-const RAIL_WIDTH = 104
-const RAIL_GAP = 10
-const RAIL_ROOM_GAP = 12
+const RAIL_WIDTH = 100
+const RAIL_GAP = 6
+const RAIL_ROOM_GAP = 6
+const EDGE_GAP = 4
 
 export function computeGameLayout(
   width: number,
@@ -48,12 +52,27 @@ export function computeGameLayout(
   const map = shopMapFor(width, height)
   const contentLeft = vertical ? insets.left + RAIL_GAP + RAIL_WIDTH + RAIL_ROOM_GAP : insets.left
   const contentWidth = Math.max(240, width - contentLeft - insets.right)
-  const top = insets.top + (vertical ? 12 : TOP_GAP)
-  const availableHeight = Math.max(240, height - top - insets.bottom - 12)
+  const top =
+    insets.top + (vertical ? EDGE_GAP : options.mobile === true ? MOBILE_TOP_GAP : TOP_GAP)
+  const availableHeight = Math.max(240, height - top - insets.bottom - EDGE_GAP)
+  const fitScale = Math.min(contentWidth / map.room.w, availableHeight / map.room.h)
+  const walkableWidth = Math.max(1, map.room.w - map.wall * 2)
+  const walkableHeight = Math.max(1, map.room.h - map.wall * 2)
+  // On mobile, scale by the walkable bounds instead of the decorative wall.
+  // The outer wall may be cropped by the screen edge, but the player and every
+  // facility stay visible and the shop uses the whole available side.
   const scale = Math.max(
     0.2,
-    Math.min((contentWidth - 24) / map.room.w, availableHeight / map.room.h),
+    options.mobile === true
+      ? Math.min(contentWidth / walkableWidth, availableHeight / walkableHeight)
+      : fitScale,
   )
+  const content: Rect = {
+    x: contentLeft,
+    y: top,
+    w: contentWidth,
+    h: availableHeight,
+  }
   const room: Rect = {
     x: contentLeft + (contentWidth - map.room.w * scale) / 2,
     y: top + (availableHeight - map.room.h * scale) / 2,
@@ -69,9 +88,9 @@ export function computeGameLayout(
         h: Math.max(300, height - insets.top - insets.bottom - RAIL_GAP * 2),
       }
     : {
-        x: insets.left + 12,
+        x: insets.left + (options.mobile === true ? 6 : 12),
         y: insets.top + 8,
-        w: Math.max(240, contentWidth - 24),
+        w: Math.max(240, contentWidth - (options.mobile === true ? 12 : 24)),
         h: 60,
       }
   const centerY = bar.y + bar.h / 2
@@ -83,6 +102,7 @@ export function computeGameLayout(
     portrait,
     insets,
     map,
+    content,
     room,
     worldScale: scale,
     hud: {

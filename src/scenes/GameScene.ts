@@ -1111,6 +1111,10 @@ export class GameScene extends Phaser.Scene {
       next.width === this.layout.width &&
       next.height === this.layout.height &&
       next.hud.vertical === this.layout.hud.vertical &&
+      next.content.x === this.layout.content.x &&
+      next.content.y === this.layout.content.y &&
+      next.content.w === this.layout.content.w &&
+      next.content.h === this.layout.content.h &&
       next.map.id === this.layout.map.id &&
       next.room.x === this.layout.room.x &&
       next.room.y === this.layout.room.y &&

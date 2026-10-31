@@ -49,17 +49,23 @@ function createPortraitShopBackground(
   g.fillStyle(gameColors.wall, 1)
   g.fillRect(0, 0, width, height)
 
-  // Floor planks.
+  // Floor planks. Keep the walkable floor close to the collision wall so the
+  // room does not lose screen space to a thick decorative border.
+  const floorLeft = 24
+  const floorTop = 64
+  const floorRight = width - 24
+  const floorBottom = height - 24
   g.fillStyle(gameColors.floor, 1)
-  g.fillRect(40, 80, width - 80, height - 120)
-  for (let row = 0; row < 36; row += 1) {
-    const y = 80 + row * 30
+  g.fillRect(floorLeft, floorTop, floorRight - floorLeft, floorBottom - floorTop)
+  for (let y = floorTop; y < floorBottom; y += 30) {
+    const row = Math.floor((y - floorTop) / 30)
+    const rowHeight = Math.min(30, floorBottom - y)
     g.fillStyle(row % 2 === 0 ? 0xf6dfba : 0xf0d3a5, 1)
-    g.fillRect(40, y, width - 80, 30)
+    g.fillRect(floorLeft, y, floorRight - floorLeft, rowHeight)
     g.lineStyle(1, gameColors.floorLine, 0.55)
-    g.lineBetween(40, y, width - 40, y)
-    const seam = row % 2 === 0 ? 40 : 140
-    for (let x = seam; x < width - 40; x += 180) g.lineBetween(x, y, x, y + 30)
+    g.lineBetween(floorLeft, y, floorRight, y)
+    const seam = row % 2 === 0 ? floorLeft : floorLeft + 100
+    for (let x = seam; x < floorRight; x += 180) g.lineBetween(x, y, x, y + rowHeight)
   }
 
   // Zone floor tints.
@@ -91,9 +97,9 @@ function createPortraitShopBackground(
 
   // Top wall and awning.
   g.fillStyle(gameColors.wall, 1)
-  g.fillRect(24, 24, width - 48, 56)
+  g.fillRect(24, 24, width - 48, 40)
   g.fillStyle(gameColors.wallDark, 1)
-  g.fillRect(24, 74, width - 48, 6)
+  g.fillRect(24, 58, width - 48, 6)
   for (let index = 0; index < 26; index += 1) {
     g.fillStyle(index % 2 === 0 ? gameColors.coral : gameColors.cream, 1)
     g.fillRect(28 + index * 24, 24, 24, 22)
@@ -101,16 +107,16 @@ function createPortraitShopBackground(
   g.fillStyle(0x3b2f3a, 0.12)
   g.fillRect(40, 46, width - 80, 4)
 
-  // Side and bottom walls.
+  // Side and bottom wall trim.
   g.fillStyle(gameColors.wall, 1)
-  g.fillRect(24, 80, 16, height - 120)
-  g.fillRect(width - 40, 80, 16, height - 120)
+  g.fillRect(24, 64, 6, height - 88)
+  g.fillRect(width - 30, 64, 6, height - 88)
   g.fillStyle(gameColors.wallDark, 1)
-  g.fillRect(40, height - 40, 220, 16)
-  g.fillRect(340, height - 40, width - 380, 16)
+  g.fillRect(40, height - 32, 220, 8)
+  g.fillRect(340, height - 32, width - 380, 8)
   g.fillStyle(0x3b2f3a, 0.12)
-  g.fillRect(40, height - 42, 220, 3)
-  g.fillRect(340, height - 42, width - 380, 3)
+  g.fillRect(40, height - 34, 220, 2)
+  g.fillRect(340, height - 34, width - 380, 2)
 
   // Window on the top wall.
   g.fillStyle(0x3b2f3a, 0.75)
@@ -184,16 +190,21 @@ function createLandscapeShopBackground(
   g.fillRect(0, 0, width, height)
 
   // Floor planks across the wide room.
+  const floorLeft = 24
+  const floorTop = 64
+  const floorRight = width - 24
+  const floorBottom = height - 24
   g.fillStyle(gameColors.floor, 1)
-  g.fillRect(40, 80, width - 80, height - 120)
-  for (let y = 80; y < height - 40; y += 30) {
-    const row = Math.floor((y - 80) / 30)
+  g.fillRect(floorLeft, floorTop, floorRight - floorLeft, floorBottom - floorTop)
+  for (let y = floorTop; y < floorBottom; y += 30) {
+    const row = Math.floor((y - floorTop) / 30)
+    const rowHeight = Math.min(30, floorBottom - y)
     g.fillStyle(row % 2 === 0 ? 0xf6dfba : 0xf0d3a5, 1)
-    g.fillRect(40, y, width - 80, 30)
+    g.fillRect(floorLeft, y, floorRight - floorLeft, rowHeight)
     g.lineStyle(1, gameColors.floorLine, 0.55)
-    g.lineBetween(40, y, width - 40, y)
-    const seam = row % 2 === 0 ? 40 : 140
-    for (let x = seam; x < width - 40; x += 180) g.lineBetween(x, y, x, y + 30)
+    g.lineBetween(floorLeft, y, floorRight, y)
+    const seam = row % 2 === 0 ? floorLeft : floorLeft + 100
+    for (let x = seam; x < floorRight; x += 180) g.lineBetween(x, y, x, y + rowHeight)
   }
 
   // Four zone strips, each with a readable header pill below its shelf.
@@ -231,9 +242,9 @@ function createLandscapeShopBackground(
 
   // Top wall and awning.
   g.fillStyle(gameColors.wall, 1)
-  g.fillRect(24, 24, width - 48, 56)
+  g.fillRect(24, 24, width - 48, 40)
   g.fillStyle(gameColors.wallDark, 1)
-  g.fillRect(24, 74, width - 48, 6)
+  g.fillRect(24, 58, width - 48, 6)
   for (let x = 28; x + 24 <= width - 28; x += 24) {
     const index = Math.round((x - 28) / 24)
     g.fillStyle(index % 2 === 0 ? gameColors.coral : gameColors.cream, 1)
@@ -242,16 +253,16 @@ function createLandscapeShopBackground(
   g.fillStyle(0x3b2f3a, 0.12)
   g.fillRect(40, 46, width - 80, 4)
 
-  // Side and bottom walls.
+  // Side and bottom wall trim.
   g.fillStyle(gameColors.wall, 1)
-  g.fillRect(24, 80, 16, height - 120)
-  g.fillRect(width - 40, 80, 16, height - 120)
+  g.fillRect(24, 64, 6, height - 88)
+  g.fillRect(width - 30, 64, 6, height - 88)
   g.fillStyle(gameColors.wallDark, 1)
-  g.fillRect(40, height - 40, 192, 16)
-  g.fillRect(328, height - 40, width - 368, 16)
+  g.fillRect(40, height - 32, 192, 8)
+  g.fillRect(328, height - 32, width - 368, 8)
   g.fillStyle(0x3b2f3a, 0.12)
-  g.fillRect(40, height - 42, 192, 3)
-  g.fillRect(328, height - 42, width - 368, 3)
+  g.fillRect(40, height - 34, 192, 2)
+  g.fillRect(328, height - 34, width - 368, 2)
 
   // Window on the top wall.
   g.fillStyle(0x3b2f3a, 0.75)
