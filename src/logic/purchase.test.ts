@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { PORTRAIT_MAP, plantSlotCount, UPGRADES } from './config'
+import { PORTRAIT_MAP, plantSlotCount } from './config'
 import {
   emptyPlantSlot,
   plantedCount,
   purchasePlant,
   purchaseProducer,
-  purchaseUpgrade,
+  purchaseShelfUpgrade,
   purchaseZone,
   removeProducer,
   replacePlantAt,
-  upgradeCost,
+  shelfUpgradeCostFor,
+  shelfUpgradeMaxLevel,
 } from './purchase'
 import { initialSave } from './saveData'
 import { createShopState } from './state'
@@ -54,16 +55,18 @@ describe('purchases', () => {
     expect(state.shelves.fruit.bins.peach).toBe(false)
   })
 
-  it('upgrades once per level and enforces the cap', () => {
+  it('upgrades each shelf zone on its own and enforces the cap', () => {
     let state = createShopState(saveWith(10_000), PORTRAIT_MAP)
-    for (let level = 0; level < UPGRADES.shelf.costs.length; level += 1) {
-      const cost = upgradeCost('shelf', level)
-      expect(cost).not.toBeNull()
-      const outcome = purchaseUpgrade(state, 'shelf')
+    for (let level = 0; level < shelfUpgradeMaxLevel(); level += 1) {
+      expect(shelfUpgradeCostFor(level)).not.toBeNull()
+      const outcome = purchaseShelfUpgrade(state, 'fruit')
       expect(outcome.result).toBe('ok')
       state = outcome.state
     }
-    expect(purchaseUpgrade(state, 'shelf').result).toBe('maxed')
+    expect(purchaseShelfUpgrade(state, 'fruit').result).toBe('maxed')
+    expect(state.shelfLevels.fruit).toBe(3)
+    expect(state.shelfLevels.veg).toBe(0)
+    expect(state.shelves.fruit.capacity).toBeGreaterThan(state.shelves.veg.capacity)
   })
 
   it('refunds half a removed plant and locks its bin', () => {

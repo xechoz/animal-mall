@@ -11,6 +11,7 @@ import {
   fertilizerMultiplier,
   INTERACT,
   isPlantKind,
+  isProcessedKind,
   moveSpeed,
   PLANT_ORDER,
   PLAYER_RADIUS,
@@ -18,9 +19,9 @@ import {
   PRODUCT_WEIGHT,
   producerPosition,
   productPrice,
+  RECIPES,
   REGISTER_RADIUS,
   scanIntervalMs,
-  shelfCapacity,
   WANDER,
   ZONE_ORDER,
   ZONE_PRODUCTS,
@@ -34,12 +35,15 @@ import {
   addFeed,
   addStock,
   binReady,
+  clearanceProducts,
   collectFromProducer,
   createProducer,
   eligibleProducts,
   emptyShelves,
   nearestCollectable,
   nearestTrough,
+  recipeInputAvailable,
+  recipeInputProducts,
   refreshShelves,
   stepProduction,
   stockOf,
@@ -50,6 +54,7 @@ import type {
   CustomerPhase,
   CustomerState,
   GameEvent,
+  PlayerState,
   ProducerState,
   ProductKind,
   SaveData,
@@ -57,6 +62,7 @@ import type {
   ShopMap,
   ShopState,
   SpeciesId,
+  StationLoadState,
   StepInput,
   StepResult,
   TutorialStep,
@@ -73,11 +79,11 @@ interface CustomerMove {
 
 export function createShopState(save: SaveData, map: ShopMap): ShopState {
   const zones = { ...save.zones }
-  const shelves = emptyShelves(zones, shelfCapacity(save.upgrades.shelf))
+  const shelves = emptyShelves(zones, save.shelfLevels)
   const producers = save.producers.map((producer, index) =>
     createProducer(producer.product, producer.slot, index + 1, map),
   )
-  let nextShelves = refreshShelves(shelves, producers, zones, shelfCapacity(save.upgrades.shelf))
+  let nextShelves = refreshShelves(shelves, producers, zones, save.shelfLevels)
   if (save.served > 0) {
     nextShelves = markExistingStocked(nextShelves, producers)
   }
@@ -115,10 +121,12 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
     nextCustomerId: 1,
     nextProducerId: producers.length + 1,
     upgrades: save.upgrades,
+    shelfLevels: save.shelfLevels,
     staff: save.staff,
     staffMembers: createStaffMembers(save.staff, map),
     deposits: save.deposits,
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
+    stationLoad: { producerId: null, dwellMs: 0 },
     fishing: { pondId: null, phase: 'idle', timerMs: 0, armed: true },
     facility: {
       trashDwellMs: 0,
@@ -161,6 +169,7 @@ export function remapShopState(state: ShopState, map: ShopMap): ShopState {
     spawnMs: 1_200,
     staffMembers: createStaffMembers(state.staff, map),
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
+    stationLoad: { producerId: null, dwellMs: 0 },
     fishing: { pondId: null, phase: 'idle', timerMs: 0, armed: true },
     facility: {
       trashDwellMs: 0,
@@ -183,6 +192,7 @@ export function toSave(state: ShopState): SaveData {
       .map((producer) => ({ product: producer.product, slot: producer.slot })),
     zones: state.zones,
     upgrades: state.upgrades,
+    shelfLevels: state.shelfLevels,
     staff: state.staff,
     deposits: state.deposits,
   }
@@ -225,6 +235,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   let shelves: Record<ZoneId, ShelfState> = { ...state.shelves }
   let zones = state.zones
   let producers: readonly ProducerState[] = state.producers
+  let stationLoad = state.stationLoad
 
   let player = {
     ...state.player,
@@ -254,6 +265,12 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     stockMs: Math.max(0, player.stockMs - dt),
     feedMs: Math.max(0, player.feedMs - dt),
   }
+
+  const load = stepStationLoad(producers, shelves, player, stationLoad, dt, moving)
+  producers = load.producers
+  player = load.player
+  stationLoad = load.stationLoad
+  events.push(...load.events)
 
   const production = stepProduction(producers, shelves, dt, growth)
   producers = production.producers
@@ -420,7 +437,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         if (customer.waitMs <= 0) {
           const target = customer.target
           const available =
-            target !== null && binReady(shelves, target) && stockOf(shelves, target) > 0
+            target !== null && shelves[zoneOf(target)].active && stockOf(shelves, target) > 0
           if (target !== null && available) {
             const zone = zoneOf(target)
             const shelf = shelves[zone]
@@ -577,6 +594,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
 
   spawnMs -= dt
   const eligible = eligibleProducts(shelves)
+  const clearance = clearanceProducts(shelves)
   const canSpawn =
     spawnMs <= 0 &&
     customers.length < CUSTOMER_TUNING.maxCustomers &&
@@ -601,7 +619,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       spawnMs = 2_500
     } else if (tutorial === 'done') {
       const count = 1 + rng.int(Math.min(4, 1 + eligible.length))
-      const wanted = Array.from({ length: count }, () => weightedProduct(rng, eligible))
+      const wanted = wantList(rng, eligible, clearance, shelves, count)
       customers = [
         ...customers,
         createCustomer(nextCustomerId, rng, wanted, CUSTOMER_TUNING.patienceMs, radius, map),
@@ -629,12 +647,14 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     spawnMs,
     nextCustomerId,
     upgrades: state.upgrades,
+    shelfLevels: state.shelfLevels,
     staff: state.staff,
     deposits: state.deposits,
     fishing,
     facility,
     buffs,
     tutorial,
+    stationLoad,
   }
 
   const quick = stepQuickBuy(nextState, dt, moving)
@@ -650,6 +670,141 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   }
 
   return { state: nextState, events }
+}
+
+/**
+ * Standing next to a station with matching ingredients pours one batch into its
+ * hopper after the shared half-second dwell. Shelf stock remains the automated
+ * source; the hopper is the hand-fed shortcut for players carrying produce.
+ */
+function stepStationLoad(
+  producers: readonly ProducerState[],
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  player: PlayerState,
+  stationLoad: StationLoadState,
+  dtMs: number,
+  moving: boolean,
+): {
+  producers: readonly ProducerState[]
+  player: PlayerState
+  stationLoad: StationLoadState
+  events: GameEvent[]
+} {
+  const events: GameEvent[] = []
+
+  if (moving) {
+    return {
+      producers,
+      player,
+      stationLoad: { producerId: null, dwellMs: 0 },
+      events,
+    }
+  }
+
+  const station = nearestStationForCarry(producers, shelves, player, player.carry)
+  if (station === null) {
+    return {
+      producers,
+      player,
+      stationLoad: { producerId: null, dwellMs: 0 },
+      events,
+    }
+  }
+
+  if (stationLoad.producerId !== station.id) {
+    return {
+      producers,
+      player,
+      stationLoad: { producerId: station.id, dwellMs: 0 },
+      events,
+    }
+  }
+
+  const dwellMs = stationLoad.dwellMs + dtMs
+  if (dwellMs < INTERACT.loadMs) {
+    return {
+      producers,
+      player,
+      stationLoad: { producerId: station.id, dwellMs },
+      events,
+    }
+  }
+
+  let carry = player.carry
+  let hopper = { ...station.hopper }
+  for (const input of RECIPES[station.product as ProcessedProduct].inputs) {
+    if (recipeInputAvailable({ ...station, hopper }, shelves, input) >= input.count) continue
+    let chosen: ProductKind | null = null
+    let bestCount = 0
+    for (const product of recipeInputProducts(input)) {
+      const count = carryOf(carry, product)
+      if (count > bestCount && (hopper[product] ?? 0) < input.count) {
+        chosen = product
+        bestCount = count
+      }
+    }
+    if (chosen === null) continue
+    const room = Math.max(0, input.count - (hopper[chosen] ?? 0))
+    const taken = takeCarry(carry, chosen, Math.min(bestCount, room))
+    carry = taken.carry
+    if (taken.taken <= 0) continue
+    hopper = { ...hopper, [chosen]: (hopper[chosen] ?? 0) + taken.taken }
+    events.push({
+      type: 'stationLoad',
+      producerId: station.id,
+      product: chosen,
+      amount: taken.taken,
+    })
+  }
+
+  const loaded = events.length > 0
+  const nextProducers = loaded
+    ? producers.map((producer) => (producer.id === station.id ? { ...producer, hopper } : producer))
+    : producers
+
+  return {
+    producers: nextProducers,
+    player: loaded ? { ...player, carry } : player,
+    stationLoad: { producerId: station.id, dwellMs: 0 },
+    events,
+  }
+}
+
+type ProcessedProduct = keyof typeof RECIPES
+
+function nearestStationForCarry(
+  producers: readonly ProducerState[],
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  player: PlayerState,
+  carry: PlayerState['carry'],
+): ProducerState | null {
+  let best: ProducerState | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const producer of producers) {
+    if (producer.kind !== 'station' || !isProcessedKind(producer.product)) continue
+    if (producer.ready >= RECIPES[producer.product].capacity) continue
+    const gap = distance(player.pos, producer.pos)
+    if (gap > INTERACT.loadRadius || gap >= bestDistance) continue
+    if (!stationNeedsCarry(producer, shelves, carry)) continue
+    best = producer
+    bestDistance = gap
+  }
+  return best
+}
+
+function stationNeedsCarry(
+  producer: ProducerState,
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  carry: PlayerState['carry'],
+): boolean {
+  if (!isProcessedKind(producer.product)) return false
+  for (const input of RECIPES[producer.product].inputs) {
+    if (recipeInputAvailable(producer, shelves, input) >= input.count) continue
+    for (const product of recipeInputProducts(input)) {
+      if (carryOf(carry, product) > 0) return true
+    }
+  }
+  return false
 }
 
 export function inRegisterZone(pos: Vec2, map: ShopMap): boolean {
@@ -691,7 +846,7 @@ export function refreshStateShelves(state: ShopState): ShopState {
     { ...state.shelves },
     state.producers,
     state.zones,
-    shelfCapacity(state.upgrades.shelf),
+    state.shelfLevels,
   )
   return { ...state, shelves }
 }
@@ -702,12 +857,7 @@ export function setTutorial(state: ShopState, step: TutorialStep): ShopState {
 
 export function addProducerToState(state: ShopState, producer: ProducerState): ShopState {
   const producers = [...state.producers, producer]
-  const shelves = refreshShelves(
-    { ...state.shelves },
-    producers,
-    state.zones,
-    shelfCapacity(state.upgrades.shelf),
-  )
+  const shelves = refreshShelves({ ...state.shelves }, producers, state.zones, state.shelfLevels)
   return {
     ...state,
     producers,
@@ -725,12 +875,7 @@ export function removeProducerFromState(state: ShopState, id: number): ShopState
   if (!stillHasProduct) {
     player = { ...player, carry: removeCarry(player.carry, removed.product) }
   }
-  const shelves = refreshShelves(
-    { ...state.shelves },
-    producers,
-    state.zones,
-    shelfCapacity(state.upgrades.shelf),
-  )
+  const shelves = refreshShelves({ ...state.shelves }, producers, state.zones, state.shelfLevels)
   return { ...state, producers, shelves, player }
 }
 
@@ -780,11 +925,36 @@ function advanceTutorial(
   return current
 }
 
-function weightedProduct(rng: Rng, eligible: readonly ProductKind[]): ProductKind {
-  const total = eligible.reduce((sum, product) => sum + PRODUCT_WEIGHT[zoneOf(product)], 0)
-  let roll = rng.int(total)
+function wantList(
+  rng: Rng,
+  eligible: readonly ProductKind[],
+  clearance: readonly ProductKind[],
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  count: number,
+): ProductKind[] {
+  const wanted: ProductKind[] = []
+  // Old stock from a swapped crop or machine must not sit forever: every
+  // customer considers at least one clearance item while any remains.
+  if (clearance.length > 0) {
+    wanted.push(weightedProduct(rng, clearance, shelves))
+  }
+  while (wanted.length < count) {
+    wanted.push(weightedProduct(rng, eligible, shelves))
+  }
+  return wanted
+}
+
+function weightedProduct(
+  rng: Rng,
+  eligible: readonly ProductKind[],
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+): ProductKind {
+  const weight = (product: ProductKind): number =>
+    PRODUCT_WEIGHT[zoneOf(product)] * (1 + Math.min(6, shelves[zoneOf(product)].stock[product]))
+  const total = eligible.reduce((sum, product) => sum + weight(product), 0)
+  let roll = rng.int(Math.max(1, total))
   for (const product of eligible) {
-    roll -= PRODUCT_WEIGHT[zoneOf(product)]
+    roll -= weight(product)
     if (roll < 0) return product
   }
   return eligible[0] as ProductKind

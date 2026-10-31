@@ -8,6 +8,8 @@ import {
   producerCost,
   STAFF,
   shelfCapacity,
+  shelfUpgradeCost,
+  shelfUpgradeMax,
   UPGRADE_ORDER,
   UPGRADES,
   ZONES,
@@ -54,6 +56,14 @@ export function upgradeCost(kind: UpgradeKind, level: number): number | null {
 
 export function upgradeMax(kind: UpgradeKind): number {
   return UPGRADES[kind].costs.length
+}
+
+export function shelfUpgradeCostFor(level: number): number | null {
+  return shelfUpgradeCost(level)
+}
+
+export function shelfUpgradeMaxLevel(): number {
+  return shelfUpgradeMax()
 }
 
 export function staffCost(kind: StaffKind, level: number): number | null {
@@ -307,26 +317,40 @@ export function purchaseUpgrade(state: ShopState, kind: UpgradeKind): PurchaseOu
     ...state.upgrades,
     [kind]: level + 1,
   }
-  const capacity = shelfCapacity(upgrades.shelf)
-  const shelves = { ...state.shelves }
-  for (const zone of Object.keys(shelves) as ZoneId[]) {
-    const stock = Object.fromEntries(
-      Object.entries(shelves[zone].stock).map(([product, amount]) => [
-        product,
-        Math.min(amount, capacity),
-      ]),
-    ) as Record<ProductKind, number>
-    shelves[zone] = {
-      ...shelves[zone],
-      capacity,
-      stock,
-    }
-  }
 
   return {
-    state: { ...state, coins: state.coins - cost, upgrades, shelves },
+    state: { ...state, coins: state.coins - cost, upgrades },
     result: 'ok',
     events: [{ type: 'upgradeBought', kind, level: level + 1 }],
+  }
+}
+
+/** Each zone's shelf has its own level and capacity. */
+export function purchaseShelfUpgrade(state: ShopState, zone: ZoneId): PurchaseOutcome {
+  if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
+  const level = state.shelfLevels[zone]
+  const cost = shelfUpgradeCost(level)
+  if (cost === null) return { state, result: 'maxed', events: [] }
+  if (state.coins < cost) return { state, result: 'insufficient', events: [] }
+
+  const capacity = shelfCapacity(level + 1)
+  const shelf = state.shelves[zone]
+  const stock = Object.fromEntries(
+    Object.entries(shelf.stock).map(([product, amount]) => [product, Math.min(amount, capacity)]),
+  ) as Record<ProductKind, number>
+
+  return {
+    state: {
+      ...state,
+      coins: state.coins - cost,
+      shelfLevels: { ...state.shelfLevels, [zone]: level + 1 },
+      shelves: {
+        ...state.shelves,
+        [zone]: { ...shelf, capacity, stock },
+      },
+    },
+    result: 'ok',
+    events: [{ type: 'shelfUpgraded', zone, level: level + 1 }],
   }
 }
 

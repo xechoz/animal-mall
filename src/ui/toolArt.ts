@@ -2,9 +2,11 @@ import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import type { UpgradeKind } from '../logic/types'
 
+export type ToolIconKind = UpgradeKind | 'shelf'
+
 export function drawToolIcon(
   g: Phaser.GameObjects.Graphics,
-  kind: UpgradeKind,
+  kind: ToolIconKind,
   x: number,
   y: number,
   size: number,

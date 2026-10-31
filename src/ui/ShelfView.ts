@@ -1,7 +1,7 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { ZONE_PRODUCTS } from '../logic/config'
+import { INTERACTION, ZONE_PRODUCTS } from '../logic/config'
 import type { ProductKind, ShelfState, ShopMap, ZoneId } from '../logic/types'
 import { productTextureKey } from './productArt'
 
@@ -14,16 +14,31 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private reachOn = false
   private readonly countText: Phaser.GameObjects.Text
   private readonly slotCount: number
+  private readonly upgrade: Phaser.GameObjects.Container
+  private readonly upgradePrice: Phaser.GameObjects.Text
+  private readonly upgradeHit: Phaser.GameObjects.Zone
+  private readonly upgradeBaseY: number
+  private readonly onUpgrade: () => void
+  private upgradeCost: number | null = null
+  private upgradeDownX?: number
+  private upgradeDownY?: number
   private bins: (ProductKind | null)[]
   private lastKey = ''
 
-  constructor(scene: Phaser.Scene, theme: Theme, zone: ZoneId, map: ShopMap, textScale: number) {
+  constructor(
+    scene: Phaser.Scene,
+    theme: Theme,
+    zone: ZoneId,
+    map: ShopMap,
+    textScale: number,
+    onUpgrade: () => void,
+  ) {
     const rect = map.shelves[zone]
     super(scene, rect.x + rect.w / 2, rect.y + rect.h / 2)
     const width = rect.w
     const height = rect.h
     const products = ZONE_PRODUCTS[zone]
-    this.slotCount = zone === 'fruit' || zone === 'veg' ? 4 : products.length
+    this.slotCount = products.length
     this.bins =
       zone === 'fruit' || zone === 'veg'
         ? Array<ProductKind | null>(this.slotCount).fill(null)
@@ -124,7 +139,73 @@ export class ShelfView extends Phaser.GameObjects.Container {
     drawLock(this.lockOverlay, scene)
     this.add(this.lockOverlay)
 
+    this.onUpgrade = onUpgrade
+    this.upgradeBaseY = -height / 2 - 16
+    this.upgrade = scene.add.container(width / 2 - 42, this.upgradeBaseY)
+    const upgradeBg = scene.add.graphics()
+    upgradeBg.fillStyle(0x2f2433, 0.18)
+    upgradeBg.fillRoundedRect(-42, -11, 84, 26, 13)
+    upgradeBg.fillStyle(0xffd166, 1)
+    upgradeBg.fillRoundedRect(-42, -13, 84, 26, 13)
+    upgradeBg.lineStyle(2, 0xfff7e8, 0.85)
+    upgradeBg.strokeRoundedRect(-42, -13, 84, 26, 13)
+    upgradeBg.fillStyle(0x5a3f28, 0.9)
+    upgradeBg.fillTriangle(-25, -6, -17, -6, -21, 1)
+    upgradeBg.fillRoundedRect(-23, -1, 5, 9, 2)
+    this.upgrade.add(upgradeBg)
+    this.upgradePrice = scene.add
+      .text(8, 0, '', textStyle(theme, 12 * textScale, '#4b3828', true))
+      .setOrigin(0.5)
+    this.upgrade.add(this.upgradePrice)
+    this.upgradeHit = scene.add.zone(0, 0, 96, 34)
+    this.upgradeHit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.upgradeDownX = pointer.x
+      this.upgradeDownY = pointer.y
+    })
+    this.upgradeHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      const startX = this.upgradeDownX
+      const startY = this.upgradeDownY
+      this.upgradeDownX = undefined
+      this.upgradeDownY = undefined
+      if (startX === undefined || startY === undefined) return
+      if (Math.hypot(pointer.x - startX, pointer.y - startY) > INTERACTION.tapSlop) return
+      this.onUpgrade()
+    })
+    this.upgradeHit.on('pointerout', () => {
+      this.upgradeDownX = undefined
+      this.upgradeDownY = undefined
+    })
+    this.upgrade.add(this.upgradeHit)
+    this.upgrade.setVisible(false)
+    this.add(this.upgrade)
+
     scene.add.existing(this)
+  }
+
+  /**
+   * Shows a tap-to-buy arrow above this shelf while the next level is
+   * affordable. Each zone owns its own shelf level.
+   */
+  setUpgrade(cost: number | null): void {
+    if (cost === this.upgradeCost) return
+    this.upgradeCost = cost
+    this.scene.tweens.killTweensOf(this.upgrade)
+    if (cost === null) {
+      this.upgrade.setVisible(false)
+      this.upgradeHit.disableInteractive()
+      return
+    }
+    this.upgradePrice.setText(String(cost))
+    this.upgrade.setVisible(true).setY(this.upgradeBaseY)
+    this.upgradeHit.setInteractive({ useHandCursor: true })
+    this.scene.tweens.add({
+      targets: this.upgrade,
+      y: this.upgradeBaseY - 3,
+      duration: 680,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    })
   }
 
   /** Soft outline while the player can stock here. Kept faint on purpose. */
@@ -145,15 +226,17 @@ export class ShelfView extends Phaser.GameObjects.Container {
 
   updateShelf(shelf: ShelfState): void {
     if (shelf.zone === 'fruit' || shelf.zone === 'veg') {
-      const planted = ZONE_PRODUCTS[shelf.zone].filter((product) => shelf.bins[product])
-      this.bins = Array.from({ length: this.slotCount }, (_, index) => planted[index] ?? null)
-    }
-    const stockKey = this.bins
-      .map((product) =>
-        product === null
-          ? '-'
-          : `${product}:${shelf.stock[product]}:${shelf.bins[product] ? 1 : 0}`,
+      const products = ZONE_PRODUCTS[shelf.zone]
+      const planted = products.filter((product) => shelf.bins[product])
+      // Clearance stock from a swapped crop still gets a visible basket.
+      const leftover = products.filter(
+        (product) => !shelf.bins[product] && shelf.stock[product] > 0,
       )
+      const shown = [...planted, ...leftover]
+      this.bins = Array.from({ length: this.slotCount }, (_, index) => shown[index] ?? null)
+    }
+    const stockKey = ZONE_PRODUCTS[shelf.zone]
+      .map((product) => `${product}:${shelf.stock[product]}:${shelf.bins[product] ? 1 : 0}`)
       .join('|')
     const key = `${shelf.active}-${shelf.capacity}-${stockKey}`
     if (key === this.lastKey) return
@@ -168,7 +251,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
         this.counts[index]?.setText('')
         return
       }
-      const unlocked = shelf.active && shelf.bins[product]
+      const unlocked = shelf.active && (shelf.bins[product] || shelf.stock[product] > 0)
       icon
         .setTexture(productTextureKey(product))
         .setVisible(true)
@@ -177,10 +260,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
         unlocked && shelf.stock[product] > 0 ? String(shelf.stock[product]) : '',
       )
     })
-    const total = this.bins.reduce(
-      (sum, product) => sum + (product === null ? 0 : shelf.stock[product]),
-      0,
-    )
+    const total = ZONE_PRODUCTS[shelf.zone].reduce((sum, product) => sum + shelf.stock[product], 0)
     const capacity = this.slotCount * shelf.capacity
     this.countText.setText(shelf.active && total > 0 ? `${total}/${capacity}` : '')
     if (!shelf.active) return

@@ -1,8 +1,8 @@
 import { distance } from './collision'
 import {
   ANIMALS,
-  AUTO_RESERVE,
   FEED_ORDER,
+  FRUIT_ORDER,
   INTERACT,
   isAnimalProductKind,
   isPlantKind,
@@ -13,7 +13,9 @@ import {
   RECIPES,
   type RecipeConfig,
   type RecipeInput,
+  shelfCapacity,
   troughCapacity,
+  VEG_ORDER,
   ZONE_ORDER,
   ZONE_PRODUCTS,
   zoneOf,
@@ -24,6 +26,7 @@ import type {
   PlantKind,
   ProducerState,
   ProductKind,
+  ShelfLevels,
   ShelfState,
   ShopMap,
   Vec2,
@@ -50,12 +53,14 @@ export function createProducer(
     mature: fresh ? false : kind === 'plant',
     hungry: false,
     feed: {},
+    hopper: {},
   }
 }
 
-export function emptyShelves(zones: ZoneUnlocks, capacity: number): Record<ZoneId, ShelfState> {
+export function emptyShelves(zones: ZoneUnlocks, levels: ShelfLevels): Record<ZoneId, ShelfState> {
   return Object.fromEntries(
     ZONE_ORDER.map((zone) => {
+      const capacity = shelfCapacity(levels[zone])
       const stock = Object.fromEntries(PRODUCT_ORDER.map((product) => [product, 0])) as Record<
         ProductKind,
         number
@@ -86,22 +91,22 @@ export function refreshShelves(
   shelves: Record<ZoneId, ShelfState>,
   producers: readonly ProducerState[],
   zones: ZoneUnlocks,
-  capacity: number,
+  levels: ShelfLevels,
 ): Record<ZoneId, ShelfState> {
   const bins = new Set(producers.map((producer) => producer.product))
   return Object.fromEntries(
     ZONE_ORDER.map((zone) => {
       const shelf = shelves[zone]
+      const capacity = shelfCapacity(levels[zone])
       const stock = { ...shelf.stock }
       const everStocked = { ...shelf.everStocked }
       const nextBins = { ...shelf.bins }
       for (const product of ZONE_PRODUCTS[zone]) {
         const exists = bins.has(product)
         nextBins[product] = exists
-        if (!exists) {
-          stock[product] = 0
-          everStocked[product] = false
-        }
+        // Stock produced before a crop or machine was swapped stays on the
+        // shelf and can still be sold. Only an empty, unproduced bin is retired.
+        if (!exists && stock[product] <= 0) everStocked[product] = false
       }
       for (const product of PRODUCT_ORDER) {
         stock[product] = Math.min(stock[product], capacity)
@@ -155,7 +160,7 @@ export function binReady(
   product: ProductKind,
 ): boolean {
   const shelf = shelves[zoneOf(product)]
-  return shelf.active && shelf.bins[product]
+  return shelf.active && (shelf.bins[product] || shelf.stock[product] > 0)
 }
 
 export function eligibleProducts(
@@ -163,7 +168,20 @@ export function eligibleProducts(
 ): readonly ProductKind[] {
   return PRODUCT_ORDER.filter((product) => {
     const shelf = shelves[zoneOf(product)]
-    return shelf.active && shelf.bins[product] && shelf.everStocked[product]
+    return (
+      shelf.active &&
+      (shelf.stock[product] > 0 || (shelf.bins[product] && shelf.everStocked[product]))
+    )
+  })
+}
+
+/** Products that only exist as leftover stock, with no producer behind them. */
+export function clearanceProducts(
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+): readonly ProductKind[] {
+  return PRODUCT_ORDER.filter((product) => {
+    const shelf = shelves[zoneOf(product)]
+    return shelf.active && !shelf.bins[product] && shelf.stock[product] > 0
   })
 }
 
@@ -303,26 +321,135 @@ function advanceStation(
     }
   }
 
-  let progressMs = producer.progressMs
+  let nextProducer = producer
   let nextShelves = shelves
+  let progressMs = producer.progressMs
 
   if (progressMs === 0) {
-    const consumed = consumeRecipe(nextShelves, config)
-    if (consumed === null) return { producer: { ...producer, progressMs: 0 }, shelves }
-    nextShelves = consumed
+    const inputs = resolveRecipeInputs(nextProducer, nextShelves, config)
+    if (inputs === null) return { producer: nextProducer, shelves: nextShelves }
+    const consumed = consumeResolvedInputs(nextProducer, nextShelves, inputs)
+    nextProducer = consumed.producer
+    nextShelves = consumed.shelves
   }
 
   progressMs += dtMs
   if (progressMs >= config.craftMs) {
-    const ready = producer.ready + 1
+    const ready = nextProducer.ready + 1
     events.push({ type: 'producerProduce', producerId: producer.id, product: producer.product })
     return {
-      producer: { ...producer, ready, progressMs: 0 },
+      producer: { ...nextProducer, ready, progressMs: 0 },
       shelves: nextShelves,
     }
   }
 
-  return { producer: { ...producer, progressMs }, shelves: nextShelves }
+  return { producer: { ...nextProducer, progressMs }, shelves: nextShelves }
+}
+
+interface ResolvedInput {
+  readonly product: ProductKind
+  readonly count: number
+}
+
+/** The concrete product kinds that satisfy one recipe input. */
+export function recipeInputProducts(input: RecipeInput): readonly ProductKind[] {
+  if ('product' in input) return [input.product]
+  return input.category === 'fruit' ? FRUIT_ORDER : VEG_ORDER
+}
+
+/** Representative icon for a category input, used by the HUD and shop cards. */
+export function recipeInputIcon(input: RecipeInput): ProductKind {
+  if ('product' in input) return input.product
+  return input.category === 'fruit' ? 'apple' : 'carrot'
+}
+
+function availableCount(
+  producer: ProducerState,
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  product: ProductKind,
+): number {
+  return (producer.hopper[product] ?? 0) + stockOf(shelves, product)
+}
+
+/** Hopper plus shelf stock for an input, used to explain why a station is idle. */
+export function recipeInputAvailable(
+  producer: ProducerState,
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  input: RecipeInput,
+): number {
+  let best = 0
+  for (const product of recipeInputProducts(input)) {
+    best = Math.max(best, availableCount(producer, shelves, product))
+  }
+  return best
+}
+
+function resolveRecipeInputs(
+  producer: ProducerState,
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  recipe: RecipeConfig,
+): readonly ResolvedInput[] | null {
+  const resolved: ResolvedInput[] = []
+  for (const input of recipe.inputs) {
+    let best: ProductKind | null = null
+    let bestCount = -1
+    for (const product of recipeInputProducts(input)) {
+      const available = availableCount(producer, shelves, product)
+      if (available < input.count || available <= bestCount) continue
+      best = product
+      bestCount = available
+    }
+    if (best === null) return null
+    resolved.push({ product: best, count: input.count })
+  }
+  return resolved
+}
+
+function consumeResolvedInputs(
+  producer: ProducerState,
+  shelves: Record<ZoneId, ShelfState>,
+  inputs: readonly ResolvedInput[],
+): { producer: ProducerState; shelves: Record<ZoneId, ShelfState> } {
+  let nextProducer = producer
+  let nextShelves = shelves
+  for (const input of inputs) {
+    let remaining = input.count
+    const hopperCount = nextProducer.hopper[input.product] ?? 0
+    const fromHopper = Math.min(hopperCount, remaining)
+    if (fromHopper > 0) {
+      const hopper = { ...nextProducer.hopper }
+      if (fromHopper >= hopperCount) delete hopper[input.product]
+      else hopper[input.product] = hopperCount - fromHopper
+      nextProducer = { ...nextProducer, hopper }
+      remaining -= fromHopper
+    }
+    if (remaining > 0) {
+      nextShelves = consumeProduct(nextShelves, input.product, remaining)
+    }
+  }
+  return { producer: nextProducer, shelves: nextShelves }
+}
+
+/**
+ * Nearest kitchen station the player can load by hand. Stations whose output
+ * is full are skipped: they would not start another batch yet.
+ */
+export function nearestLoadableStation(
+  producers: readonly ProducerState[],
+  pos: Vec2,
+  radius = INTERACT.loadRadius,
+): ProducerState | null {
+  let best: ProducerState | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const producer of producers) {
+    if (!isProcessedKind(producer.product)) continue
+    if (producer.ready >= RECIPES[producer.product].capacity) continue
+    const distanceToStation = distance(pos, producer.pos)
+    if (distanceToStation > radius || distanceToStation >= bestDistance) continue
+    best = producer
+    bestDistance = distanceToStation
+  }
+  return best
 }
 
 export function feedCount(producer: ProducerState): number {
@@ -384,39 +511,18 @@ export function takeFeed(producer: ProducerState): ProducerState | null {
   return null
 }
 
-function consumeRecipe(
-  shelves: Record<ZoneId, ShelfState>,
-  recipe: RecipeConfig,
-): Record<ZoneId, ShelfState> | null {
-  for (const input of recipe.inputs) {
-    if (!canConsume(shelves, input)) return null
-  }
-  let nextShelves = shelves
-  for (const input of recipe.inputs) {
-    const consumed = consumeProduct(nextShelves, input.product, input.count)
-    if (consumed === null) return null
-    nextShelves = consumed
-  }
-  return nextShelves
-}
-
-function canConsume(shelves: Readonly<Record<ZoneId, ShelfState>>, input: RecipeInput): boolean {
-  return stockOf(shelves, input.product) >= input.count + AUTO_RESERVE
-}
-
 function consumeProduct(
   shelves: Record<ZoneId, ShelfState>,
   product: ProductKind,
   amount: number,
-): Record<ZoneId, ShelfState> | null {
+): Record<ZoneId, ShelfState> {
   const zone = zoneOf(product)
   const shelf = shelves[zone]
-  if (shelf.stock[product] < amount + AUTO_RESERVE) return null
   return {
     ...shelves,
     [zone]: {
       ...shelf,
-      stock: { ...shelf.stock, [product]: shelf.stock[product] - amount },
+      stock: { ...shelf.stock, [product]: Math.max(0, shelf.stock[product] - amount) },
     },
   }
 }

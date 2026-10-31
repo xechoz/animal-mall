@@ -1,19 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { PORTRAIT_MAP, shelfCapacity, troughCapacity } from './config'
+import { PORTRAIT_MAP, troughCapacity } from './config'
 import {
   addFeed,
   addStock,
+  clearanceProducts,
   createProducer,
+  eligibleProducts,
   emptyShelves,
   feedCount,
+  refreshShelves,
   stepProduction,
 } from './production'
 import type { PlantKind, ProductKind, ShelfState, ZoneId } from './types'
 
 const ZONES = { fruit: true, veg: true, farm: true, kitchen: true } as const
+const LEVELS = { fruit: 0, veg: 0, farm: 0, kitchen: 0 } as const
 
 function shelvesWith(stock: Partial<Record<ProductKind, number>>): Record<ZoneId, ShelfState> {
-  let shelves = emptyShelves(ZONES, shelfCapacity(0))
+  let shelves = emptyShelves(ZONES, LEVELS)
   for (const zone of Object.keys(shelves) as ZoneId[]) {
     shelves[zone] = {
       ...shelves[zone],
@@ -109,23 +113,45 @@ describe('production', () => {
     expect(shelves.farm.stock.milk).toBe(1)
   })
 
-  it('does not craft when inputs would leave no customer stock', () => {
+  it('crafts a cake with exactly one batch of inputs', () => {
     const { producer, shelves } = run('cake', { egg: 2, milk: 1 }, 250)
-    expect(producer.ready).toBe(0)
-    expect(producer.progressMs).toBe(0)
-    expect(shelves.farm.stock.egg).toBe(2)
-    expect(shelves.farm.stock.milk).toBe(1)
+    expect(producer.ready).toBe(1)
+    expect(shelves.farm.stock.egg).toBe(0)
+    expect(shelves.farm.stock.milk).toBe(0)
   })
 
-  it('turns fish into grilled fish', () => {
+  it('juices any fruit and any vegetable', () => {
+    const { producer, shelves } = run('juice', { pear: 1, tomato: 1 }, 200)
+    expect(producer.ready).toBe(1)
+    expect(shelves.fruit.stock.pear).toBe(0)
+    expect(shelves.veg.stock.tomato).toBe(0)
+  })
+
+  it('turns fish into grilled fish and immediately starts the next batch', () => {
     const { producer, shelves } = run('grilledFish', { fish: 2 }, 210)
     expect(producer.ready).toBe(1)
-    expect(shelves.farm.stock.fish).toBe(1)
+    expect(shelves.farm.stock.fish).toBe(0)
   })
 
   it('turns yarn into a sweater', () => {
     const { producer, shelves } = run('sweater', { yarn: 3 }, 330)
     expect(producer.ready).toBe(1)
     expect(shelves.farm.stock.yarn).toBe(1)
+  })
+
+  it('keeps leftover stock when its producer is replaced', () => {
+    let shelves = emptyShelves(ZONES, LEVELS)
+    shelves = {
+      ...shelves,
+      fruit: { ...shelves.fruit, bins: { ...shelves.fruit.bins, apple: true } },
+    }
+    shelves = addStock(shelves, 'apple', 3)
+    const pear = createProducer('pear', 0, 1, PORTRAIT_MAP, true)
+    const next = refreshShelves(shelves, [pear], ZONES, LEVELS)
+    expect(next.fruit.stock.apple).toBe(3)
+    expect(next.fruit.bins.apple).toBe(false)
+    expect(eligibleProducts(next)).toContain('apple')
+    expect(clearanceProducts(next)).toContain('apple')
+    expect(clearanceProducts(next)).not.toContain('pear')
   })
 })

@@ -403,4 +403,46 @@ describe('shop simulation', () => {
     expect(reloaded.producers[0]?.ready).toBe(1)
     expect(reloaded.tutorial).toBe('done')
   })
+
+  it('keeps swapped-out stock sellable and puts it in customer demand', () => {
+    let state = createShopState(appleSave({ served: 3 }), PORTRAIT_MAP)
+    state = {
+      ...state,
+      shelves: {
+        ...state.shelves,
+        fruit: {
+          ...state.shelves.fruit,
+          stock: { ...state.shelves.fruit.stock, apple: 3 },
+          everStocked: { ...state.shelves.fruit.everStocked, apple: true },
+        },
+      },
+    }
+    state = removeProducerFromState(state, state.producers[0]?.id as number)
+    expect(state.shelves.fruit.stock.apple).toBe(3)
+    expect(state.shelves.fruit.bins.apple).toBe(false)
+
+    const result = simulate(state, 40)
+    expect(result.state.customers.length).toBeGreaterThan(0)
+    expect(result.state.customers[0]?.wanted).toContain('apple')
+  })
+
+  it('loads a carried batch into a kitchen station by hand', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      producers: [{ product: 'cake', slot: 0 }],
+    }
+    let state = createShopState(save, PORTRAIT_MAP)
+    state = withPlayer(state, PORTRAIT_MAP.stationAccess.cake)
+    state = { ...state, player: { ...state.player, carry: { egg: 2, milk: 1 } } }
+
+    const result = simulate(state, 270)
+    expect(result.events.some((event) => event.type === 'stationLoad')).toBe(true)
+    expect(result.events.some((event) => event.type === 'producerProduce')).toBe(true)
+    expect(result.state.player.carry.egg).toBeUndefined()
+    expect(result.state.player.carry.milk).toBeUndefined()
+    expect(
+      (result.state.producers[0]?.ready ?? 0) + (result.state.player.carry.cake ?? 0),
+    ).toBeGreaterThanOrEqual(1)
+  })
 })

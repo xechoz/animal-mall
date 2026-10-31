@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { gameI18n } from './i18n'
-import { PLANT_ORDER, PRODUCT_ORDER } from './logic/config'
+import { ANIMAL_ORDER, PLANT_ORDER, PROCESSED_ORDER, PRODUCT_ORDER } from './logic/config'
 
 describe('game copy', () => {
   it('names every plant in English and Chinese', () => {
@@ -14,6 +14,13 @@ describe('game copy', () => {
     for (const product of PRODUCT_ORDER) {
       expect(gameI18n.en[`product.${product}`]).toBeTruthy()
       expect(gameI18n.zh[`product.${product}`]).toBeTruthy()
+    }
+  })
+
+  it('names every producer in English and Chinese', () => {
+    for (const product of [...ANIMAL_ORDER, ...PROCESSED_ORDER]) {
+      expect(gameI18n.en[`producer.${product}`]).toBeTruthy()
+      expect(gameI18n.zh[`producer.${product}`]).toBeTruthy()
     }
   })
 

@@ -165,6 +165,20 @@ function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void
       g.arc(20, 21, 5, -0.8, 0.8)
       g.strokePath()
       break
+    case 'juice':
+      g.fillStyle(0xffffff, 0.75)
+      g.fillRoundedRect(12, 8, 16, 26, 4)
+      g.fillStyle(0xffa94d, 1)
+      g.fillRoundedRect(14, 17, 12, 15, 3)
+      g.fillStyle(0xffd08a, 0.8)
+      g.fillEllipse(19, 19, 8, 3)
+      g.lineStyle(2, 0x5fbf9f, 1)
+      g.lineBetween(23, 4, 27, 17)
+      g.fillStyle(0x5aa96f, 1)
+      g.fillEllipse(15, 12, 8, 4)
+      g.fillStyle(0xffffff, 0.45)
+      g.fillRoundedRect(15, 20, 3, 8, 1.5)
+      break
     case 'cake':
       g.fillStyle(0xf2cf9e, 1)
       g.fillRoundedRect(9, 18, 22, 16, 3)

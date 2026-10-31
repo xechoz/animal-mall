@@ -10,6 +10,7 @@ import {
   STAFF,
   STAFF_ORDER,
   STARTING_COINS,
+  shelfUpgradeMax,
   UPGRADE_ORDER,
   UPGRADES,
   ZONE_ORDER,
@@ -36,6 +37,7 @@ export function initialSave(): SaveData {
     producers: [],
     zones: zeroZones(),
     upgrades: zeroUpgrades(),
+    shelfLevels: zeroShelfLevels(),
     staff: zeroStaff(),
     deposits: {},
   }
@@ -43,6 +45,10 @@ export function initialSave(): SaveData {
 
 export function zeroUpgrades(): Record<UpgradeKind, number> {
   return Object.fromEntries(UPGRADE_ORDER.map((kind) => [kind, 0])) as Record<UpgradeKind, number>
+}
+
+export function zeroShelfLevels(): Record<ZoneId, number> {
+  return Object.fromEntries(ZONE_ORDER.map((zone) => [zone, 0])) as Record<ZoneId, number>
 }
 
 export function zeroStaff(): Record<StaffKind, number> {
@@ -60,7 +66,7 @@ export function isStaffKind(value: unknown): value is StaffKind {
   return typeof value === 'string' && (STAFF_ORDER as readonly string[]).includes(value)
 }
 
-export function migrateSave(data: unknown): SaveData {
+export function migrateSave(data: unknown, _version = 0): SaveData {
   if (typeof data !== 'object' || data === null) return initialSave()
   const record = data as Record<string, unknown>
   const producers = parseProducers(record)
@@ -82,6 +88,7 @@ export function migrateSave(data: unknown): SaveData {
   }
 
   const upgrades = zeroUpgrades()
+  let legacyShelfLevel = 0
   if (typeof record.upgrades === 'object' && record.upgrades !== null) {
     const source = record.upgrades as Record<string, unknown>
     for (const kind of UPGRADE_ORDER) {
@@ -90,6 +97,28 @@ export function migrateSave(data: unknown): SaveData {
         upgrades[kind] = Math.max(0, Math.min(UPGRADES[kind].costs.length, Math.floor(level)))
       }
     }
+    const legacyShelf = source.shelf
+    if (typeof legacyShelf === 'number' && Number.isFinite(legacyShelf)) {
+      legacyShelfLevel = Math.max(0, Math.min(shelfUpgradeMax(), Math.floor(legacyShelf)))
+    }
+  }
+
+  const shelfLevels = zeroShelfLevels()
+  let hasShelfLevels = false
+  if (typeof record.shelfLevels === 'object' && record.shelfLevels !== null) {
+    const source = record.shelfLevels as Record<string, unknown>
+    for (const zone of ZONE_ORDER) {
+      const level = source[zone]
+      if (typeof level === 'number' && Number.isFinite(level)) {
+        shelfLevels[zone] = Math.max(0, Math.min(shelfUpgradeMax(), Math.floor(level)))
+        hasShelfLevels = true
+      }
+    }
+  }
+  // Version 4 and earlier had one global shelf level. Preserve its value on
+  // every zone so an upgraded shop never loses capacity.
+  if (!hasShelfLevels && legacyShelfLevel > 0) {
+    for (const zone of ZONE_ORDER) shelfLevels[zone] = legacyShelfLevel
   }
 
   const staff = zeroStaff()
@@ -172,6 +201,7 @@ export function migrateSave(data: unknown): SaveData {
     producers,
     zones,
     upgrades,
+    shelfLevels,
     staff,
     deposits,
   }
@@ -234,6 +264,7 @@ const PROCESSED_SLOTS: Readonly<Record<ProcessedKind, number>> = {
   cake: 0,
   sweater: 1,
   grilledFish: 2,
+  juice: 3,
 }
 
 function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {

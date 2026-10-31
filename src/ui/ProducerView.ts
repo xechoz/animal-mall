@@ -1,4 +1,4 @@
-import { type Theme, textStyle } from '@mg/core'
+import { type I18n, type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { gameColors } from '../colors'
 import {
@@ -11,8 +11,8 @@ import {
   troughCapacity,
   zoneOf,
 } from '../logic/config'
-import { feedCount } from '../logic/production'
-import type { ProducerState } from '../logic/types'
+import { feedCount, recipeInputAvailable, recipeInputIcon } from '../logic/production'
+import type { ProducerState, ShelfState, ZoneId } from '../logic/types'
 import { feedTextureKey } from './fruitArt'
 import { drawPlantCrop, plantGrowthScale } from './plantArt'
 import { productTextureKey } from './productArt'
@@ -26,6 +26,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
   private readonly art: Phaser.GameObjects.Graphics
   private readonly ring: Phaser.GameObjects.Graphics
   private readonly feedRing: Phaser.GameObjects.Graphics
+  private readonly loadRing: Phaser.GameObjects.Graphics
   private readonly feedChoices: Phaser.GameObjects.Container
   private readonly badge: Phaser.GameObjects.Text
   private readonly status: Phaser.GameObjects.Text
@@ -33,16 +34,38 @@ export class ProducerView extends Phaser.GameObjects.Container {
   private readonly feedIcon: Phaser.GameObjects.Image
   private readonly inputIcons: Phaser.GameObjects.Image[] = []
   private readonly inputCounts: Phaser.GameObjects.Text[] = []
+  private readonly i18n: I18n
   private lastKey = ''
+  private animalMode: 'idle' | 'walk' | 'rest' = 'idle'
+  private animalUntil = 0
+  private animalTarget = 0
+  private animalX = 0
+  private animalFacing: -1 | 1 = 1
+  private animalLastTime = 0
+  private animalHungrySince = 0
+  private animalEmoteUntil = 0
+  private animalEmoteNext = 0
+  private animalSeed = 1
+  private readonly emote: Phaser.GameObjects.Container
+  private readonly emoteBg: Phaser.GameObjects.Graphics
+  private readonly emoteText: Phaser.GameObjects.Text
 
-  constructor(scene: Phaser.Scene, theme: Theme, producer: ProducerState, textScale: number) {
+  constructor(
+    scene: Phaser.Scene,
+    theme: Theme,
+    producer: ProducerState,
+    textScale: number,
+    i18n: I18n,
+  ) {
     super(scene, producer.pos.x, producer.pos.y)
+    this.i18n = i18n
     this.ground = scene.add.graphics().setPosition(producer.pos.x, producer.pos.y)
     if (producer.kind === 'plant') drawPlantBed(this.ground, producer)
     this.art = scene.add.graphics()
     this.ring = scene.add.graphics()
     this.feedRing = scene.add.graphics()
-    this.add([this.art, this.ring, this.feedRing])
+    this.loadRing = scene.add.graphics()
+    this.add([this.art, this.ring, this.feedRing, this.loadRing])
 
     const feedBg = scene.add.graphics()
     feedBg.fillStyle(0xfff7e8, 0.96)
@@ -69,6 +92,15 @@ export class ProducerView extends Phaser.GameObjects.Container {
       .setOrigin(0.5)
       .setVisible(false)
     this.add(this.status)
+
+    this.animalSeed = Math.max(1, producer.id * 2654435761)
+    this.emote = scene.add.container(0, -76).setVisible(false)
+    this.emoteBg = scene.add.graphics()
+    this.emoteText = scene.add
+      .text(0, 0, '', textStyle(theme, 12 * textScale, theme.text, true))
+      .setOrigin(0.5)
+    this.emote.add([this.emoteBg, this.emoteText])
+    this.add(this.emote)
 
     this.productIcon = scene.add
       .image(0, -44, productTextureKey(producer.product))
@@ -106,8 +138,20 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.feedRing.strokeCircle(28, 20, 21)
   }
 
-  updateProducer(producer: ProducerState): void {
-    const key = producerKey(producer)
+  /** Half-second hand-load ring around a kitchen station. */
+  setLoad(ratio: number): void {
+    this.loadRing.clear()
+    if (ratio <= 0) return
+    this.loadRing.lineStyle(4, 0x3b2f3a, 0.18)
+    this.loadRing.strokeCircle(0, 0, 36)
+    this.loadRing.lineStyle(4, 0xffd166, 0.95)
+    this.loadRing.beginPath()
+    this.loadRing.arc(0, 0, 36, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio)
+    this.loadRing.strokePath()
+  }
+
+  updateProducer(producer: ProducerState, shelves: Readonly<Record<ZoneId, ShelfState>>): void {
+    const key = producerKey(producer, shelves)
     if (key === this.lastKey) return
     this.lastKey = key
 
@@ -129,21 +173,32 @@ export class ProducerView extends Phaser.GameObjects.Container {
       this.art.setScale(plantGrowthScale(ratio))
       drawPlantCrop(this.art, producer.product, ratio, producer.mature, producer.ready)
     } else if (producer.kind === 'animal') {
-      drawAnimal(this.art, producer)
-      drawTrough(this.art, producer)
+      // The animal layer is redrawn every frame by updateAnimal so it can walk,
+      // rest and react to hunger without touching the simulation.
     } else if (producer.kind === 'station') {
       drawStation(this.art, producer)
       if (isProcessedKind(producer.product)) {
-        RECIPES[producer.product].inputs.forEach((input, index) => {
+        const config = RECIPES[producer.product]
+        const crafting = producer.progressMs > 0
+        config.inputs.forEach((input, index) => {
           const icon = this.inputIcons[index]
           const count = this.inputCounts[index]
           if (icon === undefined || count === undefined) return
+          const available = recipeInputAvailable(producer, shelves, input)
           icon
-            .setTexture(productTextureKey(input.product))
+            .setTexture(productTextureKey(recipeInputIcon(input)))
             .setVisible(true)
-            .setAlpha(producer.progressMs > 0 ? 0.45 : 1)
-          count.setText(`×${input.count}`).setVisible(true)
+            .setAlpha(crafting ? 0.45 : 1)
+          count
+            .setText(
+              crafting ? `×${input.count}` : `${Math.min(available, input.count)}/${input.count}`,
+            )
+            .setColor(!crafting && available < input.count ? '#e25d5d' : '#3b2f3a')
+            .setVisible(true)
         })
+        if (producer.ready >= config.capacity) {
+          this.status.setText(this.i18n.t('station.full')).setColor('#e08a2f').setVisible(true)
+        }
       }
     }
 
@@ -175,7 +230,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
     if (producer.hungry && isAnimalProductKind(producer.product)) {
       this.feedIcon.setTexture(feedTextureKey()).setVisible(true)
       this.status.setText('!').setColor('#e25d5d').setVisible(true)
-      this.feedChoices.setVisible(producer.product !== 'fish')
+      this.feedChoices.setVisible(false)
     } else if (producer.kind !== 'plant') {
       this.productIcon
         .setTexture(productTextureKey(producer.product))
@@ -183,9 +238,157 @@ export class ProducerView extends Phaser.GameObjects.Container {
         .setVisible(true)
     }
   }
+
+  /**
+   * Cosmetic animal behaviour: idle breathing, short patrols inside the pen,
+   * lying down to rest, and a hungry stomp toward the trough. Simulation
+   * coordinates never change.
+   */
+  updateAnimal(producer: ProducerState, time: number, active: boolean): void {
+    if (producer.kind !== 'animal') return
+    const dt = this.animalLastTime === 0 ? 0 : Math.min(50, time - this.animalLastTime)
+    this.animalLastTime = time
+
+    if (producer.product === 'fish') {
+      this.art.clear()
+      drawAnimalFrame(this.art, producer, {
+        dx: 0,
+        dy: 0,
+        facing: 1,
+        rest: false,
+        angry: false,
+        time,
+      })
+      return
+    }
+
+    if (producer.hungry) {
+      if (this.animalHungrySince === 0) this.animalHungrySince = time
+      if (this.animalMode === 'rest') {
+        this.animalMode = 'idle'
+        this.animalUntil = 0
+      }
+    } else {
+      this.animalHungrySince = 0
+      this.animalEmoteUntil = 0
+    }
+
+    if (active && time >= this.animalUntil) this.chooseAnimalMode(time, producer.hungry)
+
+    if (active && this.animalMode === 'walk') {
+      const distance = this.animalTarget - this.animalX
+      const step = (16 * dt) / 1000
+      if (Math.abs(distance) <= step) {
+        this.animalX = this.animalTarget
+        this.animalMode = 'idle'
+        this.animalUntil = time + 800 + this.random() * 1_200
+      } else {
+        this.animalX += Math.sign(distance) * step
+        this.animalFacing = distance < 0 ? -1 : 1
+      }
+    }
+
+    if (active && producer.hungry && time >= this.animalEmoteNext) {
+      this.animalEmoteUntil = time + 1_500
+      this.animalEmoteNext = time + 4_500 + this.random() * 1_800
+    }
+
+    const shake = producer.hungry ? Math.sin(time * 0.035) * 1.6 : 0
+    const rest = this.animalMode === 'rest' && !producer.hungry
+    const bob = this.animalMode === 'idle' ? Math.sin(time * 0.004) * 0.8 : 0
+    this.art.clear()
+    drawAnimalFrame(this.art, producer, {
+      dx: this.animalX + shake,
+      dy: (rest ? 3 : 0) + bob,
+      facing: this.animalFacing,
+      rest,
+      angry: producer.hungry,
+      time,
+    })
+    this.drawEmote(producer, time, rest)
+  }
+
+  private chooseAnimalMode(time: number, hungry: boolean): void {
+    const roll = this.random()
+    if (hungry) {
+      if (roll < 0.6) {
+        this.animalMode = 'walk'
+        this.animalTarget = 18
+        this.animalUntil = time + 1_100 + this.random() * 900
+      } else {
+        this.animalMode = 'idle'
+        this.animalUntil = time + 700 + this.random() * 900
+      }
+      return
+    }
+    if (roll < 0.45) {
+      this.animalMode = 'walk'
+      this.animalTarget = -16 + this.random() * 28
+      this.animalUntil = time + 900 + this.random() * 1_100
+    } else if (roll < 0.67) {
+      this.animalMode = 'rest'
+      this.animalUntil = time + 3_000 + this.random() * 2_500
+    } else {
+      this.animalMode = 'idle'
+      this.animalUntil = time + 1_200 + this.random() * 1_800
+    }
+  }
+
+  private drawEmote(producer: ProducerState, time: number, resting: boolean): void {
+    const hungry = producer.hungry && time < this.animalEmoteUntil
+    if (!hungry && !resting) {
+      this.emote.setVisible(false)
+      return
+    }
+    const key =
+      producer.product === 'egg'
+        ? 'animal.cluck'
+        : producer.product === 'milk'
+          ? 'animal.moo'
+          : producer.product === 'yarn'
+            ? 'animal.baa'
+            : null
+    if (key === null) {
+      this.emote.setVisible(false)
+      return
+    }
+    const text = resting ? 'z z' : this.i18n.t(key)
+    this.emoteText.setText(text)
+    const width = Math.max(42, this.emoteText.width + 18)
+    this.emoteBg.clear()
+    this.emoteBg.fillStyle(0x3b2f3a, 0.16)
+    this.emoteBg.fillRoundedRect(-width / 2, -11, width, 24, 10)
+    this.emoteBg.fillStyle(0xfff7e8, 0.97)
+    this.emoteBg.fillRoundedRect(-width / 2, -13, width, 24, 10)
+    this.emoteBg.lineStyle(2, 0x3b2f3a, 0.28)
+    this.emoteBg.strokeRoundedRect(-width / 2, -13, width, 24, 10)
+    this.emoteBg.fillTriangle(-4, 11, 4, 11, 0, 17)
+    this.emote.setVisible(true).setY(-102 + Math.sin(time * 0.006) * 2)
+  }
+
+  private random(): number {
+    let x = this.animalSeed
+    x ^= x << 13
+    x >>>= 0
+    x ^= x >>> 17
+    x ^= x << 5
+    this.animalSeed = x >>> 0 || 1
+    return this.animalSeed / 4_294_967_296
+  }
 }
 
-function producerKey(producer: ProducerState): string {
+function producerKey(
+  producer: ProducerState,
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+): string {
+  const station =
+    producer.kind === 'station' && isProcessedKind(producer.product)
+      ? RECIPES[producer.product].inputs
+          .map(
+            (input) => `${recipeInputIcon(input)}${recipeInputAvailable(producer, shelves, input)}`,
+          )
+          .join(',')
+      : ''
   return [
     producer.kind,
     producer.product,
@@ -194,7 +397,17 @@ function producerKey(producer: ProducerState): string {
     producer.ready,
     Math.floor(producer.progressMs / 250),
     feedSignature(producer),
+    hopperSignature(producer),
+    station,
   ].join('-')
+}
+
+function hopperSignature(producer: ProducerState): string {
+  return Object.entries(producer.hopper)
+    .filter(([, amount]) => (amount ?? 0) > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([product, amount]) => `${product}${amount}`)
+    .join(',')
 }
 
 function feedSignature(producer: ProducerState): string {
@@ -277,7 +490,20 @@ function drawTrough(g: Phaser.GameObjects.Graphics, producer: ProducerState): vo
   }
 }
 
-function drawAnimal(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
+interface AnimalFrame {
+  readonly dx: number
+  readonly dy: number
+  readonly facing: -1 | 1
+  readonly rest: boolean
+  readonly angry: boolean
+  readonly time: number
+}
+
+function drawAnimalFrame(
+  g: Phaser.GameObjects.Graphics,
+  producer: ProducerState,
+  frame: AnimalFrame,
+): void {
   const width = 80
   const height = 56
   const isPond = producer.product === 'fish'
@@ -292,33 +518,48 @@ function drawAnimal(g: Phaser.GameObjects.Graphics, producer: ProducerState): vo
     g.fillStyle(0x4a8f5d, 1)
     g.fillEllipse(-20, -10, 14, 8)
     g.fillEllipse(20, 8, 12, 7)
-    g.fillStyle(0xffffff, 0.45)
-    g.fillEllipse(10, -14, 10, 4)
+    const ripple = Math.sin(frame.time * 0.003) * 2
+    g.fillStyle(0xffffff, 0.38)
+    g.fillEllipse(10, -14 + ripple, 10, 4)
     for (let index = 0; index < Math.max(2, producer.ready); index += 1) {
+      const bob = Math.sin(frame.time * 0.004 + index) * 1.5
       g.fillStyle(0xf08a3c, 1)
-      g.fillEllipse(-14 + index * 14, 6, 14, 7)
+      g.fillEllipse(-14 + index * 14, 6 + bob, 14, 7)
       g.fillStyle(0xffb066, 1)
-      g.fillEllipse(-16 + index * 14, 5, 8, 4)
+      g.fillEllipse(-16 + index * 14, 5 + bob, 8, 4)
     }
-  } else {
-    g.fillStyle(0x8f5734, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 10)
-    g.fillStyle(0xc98b5c, 1)
-    g.fillRoundedRect(-width / 2 + 5, -height / 2 + 5, width - 10, height - 10, 8)
-    g.lineStyle(3, 0x8f5734, 1)
-    g.lineBetween(-width / 2 + 8, -10, width / 2 - 8, -10)
-    g.lineBetween(-width / 2 + 8, 12, width / 2 - 8, 12)
-    for (let x = -width / 2 + 8; x < width / 2 - 4; x += 16) {
-      g.lineBetween(x, -height / 2 + 5, x, height / 2 - 5)
-    }
-
-    if (producer.product === 'egg') drawChicken(g, producer.ready)
-    else if (producer.product === 'milk') drawCow(g, producer.ready)
-    else drawSheep(g, producer.ready)
+    return
   }
+
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(-width / 2, -height / 2, width, height, 10)
+  g.fillStyle(0xc98b5c, 1)
+  g.fillRoundedRect(-width / 2 + 5, -height / 2 + 5, width - 10, height - 10, 8)
+  g.lineStyle(3, 0x8f5734, 1)
+  g.lineBetween(-width / 2 + 8, -10, width / 2 - 8, -10)
+  g.lineBetween(-width / 2 + 8, 12, width / 2 - 8, 12)
+  for (let x = -width / 2 + 8; x < width / 2 - 4; x += 16) {
+    g.lineBetween(x, -height / 2 + 5, x, height / 2 - 5)
+  }
+
+  g.save()
+  g.translateCanvas(frame.dx, frame.dy)
+  if (frame.facing < 0) g.scaleCanvas(-1, 1)
+  if (frame.rest) g.scaleCanvas(1, 0.82)
+  if (producer.product === 'egg') drawChicken(g, producer.ready, frame.rest, frame.angry)
+  else if (producer.product === 'milk') drawCow(g, producer.ready, frame.rest, frame.angry)
+  else drawSheep(g, producer.ready, frame.rest, frame.angry)
+  g.restore()
+
+  drawTrough(g, producer)
 }
 
-function drawChicken(g: Phaser.GameObjects.Graphics, ready: number): void {
+function drawChicken(
+  g: Phaser.GameObjects.Graphics,
+  ready: number,
+  rest: boolean,
+  angry: boolean,
+): void {
   g.fillStyle(0xe6dccb, 1)
   g.fillEllipse(0, 1, 34, 26)
   g.fillStyle(0xffffff, 1)
@@ -343,6 +584,14 @@ function drawChicken(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.fillTriangle(23, -13, 31, -10, 23, -7)
   g.fillStyle(0x3b2f3a, 1)
   g.fillCircle(17, -17, 1.8)
+  if (rest) {
+    g.lineStyle(1.6, 0x3b2f3a, 0.9)
+    g.lineBetween(14, -17, 20, -17)
+  } else if (angry) {
+    g.lineStyle(1.8, 0x3b2f3a, 0.95)
+    g.lineBetween(12, -21, 18, -19)
+    g.lineBetween(22, -21, 17, -19)
+  }
   g.fillStyle(0xf2a93b, 1)
   g.fillRoundedRect(-8, 10, 5, 8, 2)
   g.fillRoundedRect(6, 10, 5, 8, 2)
@@ -352,7 +601,12 @@ function drawChicken(g: Phaser.GameObjects.Graphics, ready: number): void {
   }
 }
 
-function drawCow(g: Phaser.GameObjects.Graphics, ready: number): void {
+function drawCow(
+  g: Phaser.GameObjects.Graphics,
+  ready: number,
+  rest: boolean,
+  angry: boolean,
+): void {
   g.fillStyle(0xe9e2d6, 1)
   g.fillEllipse(0, 1, 42, 28)
   g.fillStyle(0xffffff, 1)
@@ -375,6 +629,15 @@ function drawCow(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.fillStyle(0x3b2f3a, 1)
   g.fillCircle(15, -17, 1.8)
   g.fillCircle(21, -17, 1.8)
+  if (rest) {
+    g.lineStyle(1.6, 0x3b2f3a, 0.9)
+    g.lineBetween(12, -17, 18, -17)
+    g.lineBetween(18, -17, 24, -17)
+  } else if (angry) {
+    g.lineStyle(1.8, 0x3b2f3a, 0.95)
+    g.lineBetween(10, -21, 16, -19)
+    g.lineBetween(26, -21, 20, -19)
+  }
   g.fillStyle(0xf2cf9e, 1)
   g.fillTriangle(9, -24, 13, -24, 11, -30)
   g.fillTriangle(23, -24, 27, -24, 25, -30)
@@ -389,7 +652,12 @@ function drawCow(g: Phaser.GameObjects.Graphics, ready: number): void {
   }
 }
 
-function drawSheep(g: Phaser.GameObjects.Graphics, ready: number): void {
+function drawSheep(
+  g: Phaser.GameObjects.Graphics,
+  ready: number,
+  rest: boolean,
+  angry: boolean,
+): void {
   g.fillStyle(0xf0e6d4, 1)
   g.fillCircle(-10, -1, 15)
   g.fillCircle(8, -5, 16)
@@ -415,6 +683,15 @@ function drawSheep(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.fillStyle(0x3b2f3a, 1)
   g.fillCircle(15, -15, 1.7)
   g.fillCircle(21, -15, 1.7)
+  if (rest) {
+    g.lineStyle(1.5, 0x3b2f3a, 0.9)
+    g.lineBetween(12, -15, 18, -15)
+    g.lineBetween(18, -15, 24, -15)
+  } else if (angry) {
+    g.lineStyle(1.7, 0x3b2f3a, 0.95)
+    g.lineBetween(10, -19, 16, -17)
+    g.lineBetween(26, -19, 20, -17)
+  }
   g.fillStyle(0xf2a8b4, 1)
   g.fillEllipse(24, -9, 5, 4)
   g.fillStyle(0x3b2f3a, 1)
@@ -464,6 +741,27 @@ function drawStation(g: Phaser.GameObjects.Graphics, producer: ProducerState): v
     }
     g.fillStyle(0x9bc477, 1)
     g.fillRoundedRect(-10, -4, 20, 12, 3)
+  } else if (producer.product === 'juice') {
+    g.fillStyle(0x5a4a4a, 1)
+    g.fillRoundedRect(-24, -14, 48, 30, 6)
+    g.fillStyle(0x7a6666, 1)
+    g.fillRoundedRect(-20, -10, 40, 22, 5)
+    g.fillStyle(0xdff3ef, 1)
+    g.fillRoundedRect(-10, -12, 20, 22, 5)
+    g.fillStyle(0xffa94d, 1)
+    g.fillRoundedRect(-7, -3, 14, 11, 3)
+    g.fillStyle(0xffd08a, 0.8)
+    g.fillEllipse(-3, -1, 6, 2)
+    g.fillStyle(0x5aa96f, 1)
+    g.fillEllipse(-15, -16, 12, 5)
+    g.fillStyle(0xf2a93b, 1)
+    g.fillCircle(-18, -16, 4)
+    g.lineStyle(2, 0x9aa5aa, 1)
+    g.lineBetween(14, -12, 14, 10)
+    g.fillStyle(0x4f5a5f, 1)
+    g.fillCircle(14, 12, 5)
+    g.fillStyle(0xffd166, 1)
+    g.fillCircle(14, 12, 2)
   } else {
     g.fillStyle(0x4f5a5f, 1)
     g.fillRoundedRect(-24, -16, 48, 30, 6)

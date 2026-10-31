@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- Add a juicer station and Fresh Juice to the kitchen. The recipe accepts any
+  one fruit and any one vegetable, and the station pulls them from the matching
+  shelves; the juicer has its own art, product icon and save slot.
+- Let kitchen stations start a batch with exactly the listed ingredients
+  (`AUTO_RESERVE` removed), show live `have/need` counts on every input, and
+  report a full output tray. Standing next to a station with matching goods in
+  the basket now pours one batch into a hand-loaded hopper after the usual
+  500 ms dwell, with a visible ring.
+- Keep shelf stock when a crop or machine is swapped or removed. Customers now
+  order both producible goods and clearance stock, and every customer considers
+  at least one clearance item so old stock cannot sit forever. Fruit and
+  vegetable shelves show all six possible bins, including leftover stock.
+- Replace the single global shelf upgrade with per-zone shelf levels. Each
+  shelf shows a tap-to-buy upgrade arrow only while the next level is
+  affordable, and the shop's zone tab includes the same upgrade as a redundant
+  path. Save version 5 copies the old global level onto every zone.
+- Give pen animals idle, walking and lying-down behaviour inside their pens,
+  plus a hungry stomp toward the trough, species calls, angry brows and
+  periodic speech bubbles. The cow, chicken and sheep calls are trimmed from
+  free Mixkit recordings (see the adjacent `*.LICENSE.txt` files). All of it is
+  cosmetic and leaves simulation positions untouched.
+
 - Upgrade the platform submodule to v4.3.0, whose `AudioManager` accepts
   game-specific sound keys instead of only the eight built-in `SfxName` values.
   Animal Mall registers two dedicated fishing sounds: `fishCast` and

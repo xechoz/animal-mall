@@ -11,6 +11,7 @@ describe('save data', () => {
     expect(save.served).toBe(0)
     expect(save.pendingCoins).toBe(0)
     expect(save.staff).toEqual({ cashier: 0, picker: 0 })
+    expect(save.shelfLevels).toEqual({ fruit: 0, veg: 0, farm: 0, kitchen: 0 })
     expect(save.deposits).toEqual({})
   })
 
@@ -32,7 +33,7 @@ describe('save data', () => {
     expect(save.zones.fruit).toBe(true)
     expect(save.zones.veg).toBe(true)
     expect(save.upgrades.carry).toBe(2)
-    expect(save.upgrades.shelf).toBe(3)
+    expect(save.shelfLevels).toEqual({ fruit: 3, veg: 3, farm: 3, kitchen: 3 })
     expect(save.upgrades.scan).toBe(0)
     expect(save.upgrades.speed).toBe(0)
   })

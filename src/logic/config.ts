@@ -36,7 +36,7 @@ export const VEG_ORDER: readonly VegKind[] = [
   'eggplant',
 ]
 export const ANIMAL_ORDER: readonly AnimalProductKind[] = ['egg', 'milk', 'yarn', 'fish']
-export const PROCESSED_ORDER: readonly ProcessedKind[] = ['cake', 'sweater', 'grilledFish']
+export const PROCESSED_ORDER: readonly ProcessedKind[] = ['cake', 'sweater', 'grilledFish', 'juice']
 export const PLANT_ORDER: readonly PlantKind[] = [...FRUIT_ORDER, ...VEG_ORDER]
 export const PRODUCT_ORDER: readonly ProductKind[] = [
   ...FRUIT_ORDER,
@@ -136,10 +136,16 @@ export function troughCapacity(product: AnimalProductKind): number {
   return ANIMALS[product].capacity
 }
 
-export interface RecipeInput {
-  readonly product: AnimalProductKind
-  readonly count: number
-}
+export type RecipeInput =
+  | {
+      readonly product: ProductKind
+      readonly count: number
+    }
+  | {
+      /** Any product of this plant category satisfies the input. */
+      readonly category: 'fruit' | 'veg'
+      readonly count: number
+    }
 
 export interface RecipeConfig {
   readonly cost: number
@@ -174,6 +180,16 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
     capacity: 3,
     inputs: [{ product: 'fish', count: 1 }],
   },
+  juice: {
+    cost: 320,
+    price: 45,
+    craftMs: 9_000,
+    capacity: 3,
+    inputs: [
+      { category: 'fruit', count: 1 },
+      { category: 'veg', count: 1 },
+    ],
+  },
 }
 
 /** Dev-only overrides. Empty in normal play; the dev panel edits these live. */
@@ -201,13 +217,7 @@ export function producerCost(product: ProductKind): number {
   return RECIPES[product].cost
 }
 
-export const UPGRADE_ORDER: readonly UpgradeKind[] = [
-  'carry',
-  'shelf',
-  'speed',
-  'scan',
-  'fertilizer',
-]
+export const UPGRADE_ORDER: readonly UpgradeKind[] = ['carry', 'speed', 'scan', 'fertilizer']
 
 export interface UpgradeConfig {
   readonly costs: readonly number[]
@@ -215,7 +225,6 @@ export interface UpgradeConfig {
 
 export const UPGRADES: Readonly<Record<UpgradeKind, UpgradeConfig>> = {
   carry: { costs: [50, 140, 300] },
-  shelf: { costs: [40, 120, 260] },
   speed: { costs: [40, 130, 280] },
   scan: { costs: [40, 130, 280] },
   fertilizer: { costs: [80, 200, 420] },
@@ -223,11 +232,13 @@ export const UPGRADES: Readonly<Record<UpgradeKind, UpgradeConfig>> = {
 
 export const UPGRADE_EFFECT: Readonly<Record<UpgradeKind, number>> = {
   carry: 2,
-  shelf: 2,
   speed: 8,
   scan: 12,
   fertilizer: 10,
 }
+
+/** Every shelf zone is upgraded on its own. */
+export const SHELF_UPGRADE_COSTS: readonly number[] = [40, 120, 260]
 
 export const STAFF_ORDER: readonly StaffKind[] = ['cashier', 'picker']
 
@@ -361,6 +372,14 @@ export function shelfCapacity(level: number): number {
   return 8 + level * 2
 }
 
+export function shelfUpgradeCost(level: number): number | null {
+  return SHELF_UPGRADE_COSTS[level] ?? null
+}
+
+export function shelfUpgradeMax(): number {
+  return SHELF_UPGRADE_COSTS.length
+}
+
 export function moveSpeed(level: number): number {
   return Math.round(170 * (1 + level * 0.08))
 }
@@ -454,13 +473,15 @@ export const INTERACT = {
   /** How close the player must be to a shelf edge to stock it, not to a point. */
   stockMargin: 70,
   feedRadius: 60,
+  /** How close the player must stand to pour ingredients into a station. */
+  loadRadius: 80,
   harvestMs: 240,
   stockMs: 90,
   feedMs: 200,
+  loadMs: 500,
   trayCapacity: 999,
 } as const
 
-export const AUTO_RESERVE = 1
 export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   fruit: 3,
   veg: 3,
@@ -468,5 +489,5 @@ export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   kitchen: 2,
 }
 
-export const SAVE_VERSION = 4
+export const SAVE_VERSION = 5
 export const STARTING_COINS = 100

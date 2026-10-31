@@ -11,6 +11,7 @@ import {
 } from '@mg/core'
 import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
+import { animalSfxName, playAnimalSfx } from '../audio/animalSfx'
 import { playDrinkSfx } from '../audio/drinkSfx'
 import { startMusic } from '../audio/music'
 import { gameColors } from '../colors'
@@ -28,6 +29,7 @@ import {
   PLOT_SIZE,
   producerCost,
   REST,
+  shelfUpgradeCost,
   ZONE_ORDER,
   zoneOf,
 } from '../logic/config'
@@ -40,6 +42,7 @@ import {
   purchasePlant,
   purchasePlantAt,
   purchaseProducer,
+  purchaseShelfUpgrade,
   purchaseStaff,
   purchaseUpgrade,
   purchaseZone,
@@ -185,6 +188,7 @@ export class GameScene extends Phaser.Scene {
   private inputCleanup?: () => void
   private readonly announcedProducts = new Set<ProductKind>()
   private readonly hungryNotified = new Set<number>()
+  private readonly hungryCueAt = new Map<number, number>()
 
   constructor() {
     super('Game')
@@ -317,7 +321,9 @@ export class GameScene extends Phaser.Scene {
 
     this.shelfViews = Object.fromEntries(
       ZONE_ORDER.map((zone) => {
-        const view = new ShelfView(this, theme, zone, this.layout.map, this.layout.worldText)
+        const view = new ShelfView(this, theme, zone, this.layout.map, this.layout.worldText, () =>
+          this.buyShelfUpgrade(zone),
+        )
         const rect = this.layout.map.shelves[zone]
         view.setDepth(rect.y + rect.h)
         this.world.add(view)
@@ -550,6 +556,7 @@ export class GameScene extends Phaser.Scene {
     this.syncCustomers(alpha, time)
     this.syncStaff(alpha, time)
     this.updateWorldViews()
+    this.updateHungryCues(this.time.now)
     this.fishingView.updateFishing(this.state, time)
     // Container children ignore depth, so sort by the depth values refreshed
     // above to keep actors and scenery layered by their footprint.
@@ -645,6 +652,14 @@ export class GameScene extends Phaser.Scene {
     for (const zone of ZONE_ORDER) {
       this.shelfViews[zone].updateShelf(this.state.shelves[zone])
       this.shelfViews[zone].setReach(reach.includes(zone))
+      const level = this.state.shelfLevels[zone]
+      const cost = shelfUpgradeCost(level)
+      const canUpgrade =
+        this.mode === 'playing' &&
+        this.state.zones[zone] &&
+        cost !== null &&
+        this.state.coins >= cost
+      this.shelfViews[zone].setUpgrade(canUpgrade ? cost : null)
     }
 
     const alive = new Set<number>()
@@ -652,7 +667,13 @@ export class GameScene extends Phaser.Scene {
       alive.add(producer.id)
       let view = this.producerViews.get(producer.id)
       if (view === undefined) {
-        view = new ProducerView(this, this.services.theme, producer, this.layout.worldText)
+        view = new ProducerView(
+          this,
+          this.services.theme,
+          producer,
+          this.layout.worldText,
+          this.services.i18n,
+        )
         this.world.add(view)
         // The soil bed is a separate ground layer so actors stand on top of it
         // while the crop art still draws over them.
@@ -660,7 +681,14 @@ export class GameScene extends Phaser.Scene {
         this.world.add(view.ground)
         this.producerViews.set(producer.id, view)
       }
-      view.updateProducer(producer)
+      view.updateProducer(producer, this.state.shelves)
+      view.updateAnimal(producer, this.time.now, this.mode === 'playing')
+      const load = this.state.stationLoad
+      view.setLoad(
+        load.producerId === producer.id && load.dwellMs > 0
+          ? Math.min(1, load.dwellMs / INTERACT.loadMs)
+          : 0,
+      )
       const feedReady =
         producer.kind === 'animal' &&
         isAnimalProductKind(producer.product) &&
@@ -756,6 +784,8 @@ export class GameScene extends Phaser.Scene {
               }),
             )
           }
+          playAnimalSfx(this.services, event.product, 0.62)
+          this.hungryCueAt.set(event.producerId, this.time.now + 4_500)
           break
         case 'customerEnter':
           this.sfx('turn', 0.18)
@@ -825,6 +855,15 @@ export class GameScene extends Phaser.Scene {
             }),
           )
           break
+        case 'shelfUpgraded':
+          this.saveGame()
+          this.sfx('start', 0.35)
+          this.toast.show(
+            this.services.i18n.t('toast.shelfUpgraded', {
+              zone: this.services.i18n.t(`zone.${event.zone}`),
+            }),
+          )
+          break
         case 'staffBought':
           this.saveGame()
           this.sfx('start', 0.4)
@@ -870,6 +909,10 @@ export class GameScene extends Phaser.Scene {
           break
         case 'feed':
           this.sfx('eat', 0.3)
+          this.hungryNotified.delete(event.producerId)
+          break
+        case 'stationLoad':
+          this.sfx('click', 0.35)
           break
         case 'staffFeed':
           this.sfx('eat', 0.18)
@@ -1232,6 +1275,31 @@ export class GameScene extends Phaser.Scene {
     this.services.audio.play(name, { gain })
   }
 
+  /**
+   * Repeats a quiet species call while an animal stays hungry. Cues are
+   * staggered per producer and never run while the shop, pause card or an
+   * overlay owns the screen.
+   */
+  private updateHungryCues(time: number): void {
+    if (this.mode !== 'playing') return
+    const hungry = new Set<number>()
+    for (const producer of this.state.producers) {
+      if (!producer.hungry) continue
+      hungry.add(producer.id)
+      if (producer.product === 'fish') continue
+      if (animalSfxName(producer.product) === null) continue
+      if (time < (this.hungryCueAt.get(producer.id) ?? 0)) continue
+      playAnimalSfx(this.services, producer.product, 0.5, 0.96 + (producer.id % 4) * 0.025)
+      this.hungryCueAt.set(producer.id, time + 4_600 + (producer.id % 5) * 700)
+    }
+    for (const id of this.hungryCueAt.keys()) {
+      if (!hungry.has(id)) this.hungryCueAt.delete(id)
+    }
+    for (const id of this.hungryNotified) {
+      if (!hungry.has(id)) this.hungryNotified.delete(id)
+    }
+  }
+
   private showContextHints(): void {
     if (this.mode !== 'playing') return
     if (!this.hintSwap && nearestOffer(this.state, this.state.player.pos)?.type === 'swap') {
@@ -1282,6 +1350,7 @@ export class GameScene extends Phaser.Scene {
       onPurchaseProducer: (product) => this.applyPurchase(purchaseProducer(this.state, product)),
       onUnlockZone: (zone) => this.applyPurchase(purchaseZone(this.state, zone)),
       onUpgrade: (kind) => this.applyPurchase(purchaseUpgrade(this.state, kind)),
+      onShelfUpgrade: (zone) => this.applyPurchase(purchaseShelfUpgrade(this.state, zone)),
       onStaff: (kind) => this.applyPurchase(purchaseStaff(this.state, kind, false)),
       onRemove: (id) => this.applyPurchase(removeProducer(this.state, id)),
       onClose: () => {
@@ -1302,6 +1371,11 @@ export class GameScene extends Phaser.Scene {
     this.updateWorldViews()
     this.hud.update(this.state)
     return this.state
+  }
+
+  private buyShelfUpgrade(zone: ZoneId): void {
+    if (this.mode !== 'playing') return
+    this.applyPurchase(purchaseShelfUpgrade(this.state, zone))
   }
 
   private showPurchaseFailure(result: PurchaseResult): void {

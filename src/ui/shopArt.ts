@@ -263,7 +263,7 @@ function createLandscapeShopBackground(
   g.fillRoundedRect(40, 400, width - 80, 110, 18)
 
   drawGhostFacilities(g, map)
-  drawKitchenCorner(g, map.stationSlots.sweater.x, map.stationSlots.grilledFish.y)
+
   drawRestMat(g, map.facilities.restMat)
 
   // Top wall and awning.
@@ -392,19 +392,6 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void
     g.lineStyle(1, 0x6f89b0, 0.2)
     g.lineBetween(left + 10, top + 14, left + STATION_SIZE.w - 10, top + 14)
   }
-}
-
-function drawKitchenCorner(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-  g.fillStyle(0x3b2f3a, 0.06)
-  g.fillEllipse(x, y + 18, 78, 16)
-  g.fillStyle(0x8fa6c9, 0.16)
-  g.fillEllipse(x, y, 82, 52)
-  g.lineStyle(2, 0x6f89b0, 0.3)
-  g.strokeEllipse(x, y, 72, 42)
-  g.lineStyle(1, 0x6f89b0, 0.22)
-  g.strokeEllipse(x, y, 52, 28)
-  g.fillStyle(0x6f89b0, 0.18)
-  g.fillEllipse(x, y, 18, 8)
 }
 
 function drawCounter(g: Phaser.GameObjects.Graphics, map: ShopMap): void {

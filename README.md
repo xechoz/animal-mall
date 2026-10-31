@@ -98,15 +98,16 @@ kitchen zone for half a second to buy it, or unlock it in the shop.
 
 ## Save and language
 
-- Progress is stored as `mg:animal-mall:progress`, save version `4`.
+- Progress is stored as `mg:animal-mall:progress`, save version `5`.
 - Coins, pending counter coins, earned coins, served customers, zones, planted
-  crops, animals, stations, tool levels, staff levels and non-refundable
-  deposits persist. Shelf stock, trough contents, fishing state, station
-  progress, customers, staff break state and temporary drink buffs reset on
-  reload.
-- Version 2 and 3 saves migrate automatically: old trees become producers,
+  crops, animals, stations, tool levels, per-zone shelf levels, staff levels and
+  non-refundable deposits persist. Shelf stock, station hoppers, trough contents,
+  fishing state, station progress, customers, staff break state and temporary
+  drink buffs reset on reload.
+- Version 2–4 saves migrate automatically: old trees become producers,
   vegetables unlock if the save has served customers, stranded deposits are
-  returned to coins, and the expanded planting slots start empty.
+  returned to coins, and the expanded planting slots start empty. Version 5
+  copies the old global shelf level onto every zone.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
 - All art is drawn procedurally with Phaser Graphics; the soundtrack, drink

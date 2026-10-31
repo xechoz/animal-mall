@@ -196,6 +196,7 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     cake: { index: 0, x: 455, y: 255 },
     sweater: { index: 1, x: 565, y: 255 },
     grilledFish: { index: 2, x: 455, y: 385 },
+    juice: { index: 3, x: 565, y: 385 },
   },
   staffStations: {
     // `station` is the hire sign and quick-buy trigger; `home` is where the
@@ -265,6 +266,7 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
     cake: { index: 0, x: 985, y: 200 },
     sweater: { index: 1, x: 1115, y: 200 },
     grilledFish: { index: 2, x: 985, y: 340 },
+    juice: { index: 3, x: 1115, y: 340 },
   },
   staffStations: {
     cashier: { station: { x: 730, y: 600 }, home: { x: 600, y: 630 } },

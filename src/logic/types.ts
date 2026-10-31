@@ -1,7 +1,7 @@
 export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry' | 'strawberry' | 'grape'
 export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin' | 'potato' | 'eggplant'
 export type AnimalProductKind = 'egg' | 'milk' | 'yarn' | 'fish'
-export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish'
+export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish' | 'juice'
 export type PlantKind = FruitKind | VegKind
 export type ProductKind = PlantKind | AnimalProductKind | ProcessedKind
 
@@ -11,7 +11,7 @@ export type Carry = Readonly<Partial<Record<ProductKind, number>>>
 export type ZoneId = 'fruit' | 'veg' | 'farm' | 'kitchen'
 export type ProducerKind = 'plant' | 'animal' | 'station'
 
-export type UpgradeKind = 'carry' | 'shelf' | 'speed' | 'scan' | 'fertilizer'
+export type UpgradeKind = 'carry' | 'speed' | 'scan' | 'fertilizer'
 
 export type StaffKind = 'cashier' | 'picker'
 export type DrinkKind = 'appleSoda' | 'milkTea' | 'lemonTea'
@@ -113,6 +113,7 @@ export interface SaveProducer {
 }
 
 export type ZoneUnlocks = Readonly<Record<ZoneId, boolean>>
+export type ShelfLevels = Readonly<Record<ZoneId, number>>
 
 export interface SaveData {
   readonly coins: number
@@ -122,6 +123,8 @@ export interface SaveData {
   readonly producers: readonly SaveProducer[]
   readonly zones: ZoneUnlocks
   readonly upgrades: Readonly<Record<UpgradeKind, number>>
+  /** One shelf size upgrade level per zone. */
+  readonly shelfLevels: ShelfLevels
   readonly staff: Readonly<Record<StaffKind, number>>
   readonly deposits: Readonly<Record<string, number>>
 }
@@ -137,6 +140,8 @@ export interface ProducerState {
   readonly mature: boolean
   readonly hungry: boolean
   readonly feed: Readonly<Partial<Record<PlantKind, number>>>
+  /** Ingredients the player loaded by hand, consumed before shelf stock. */
+  readonly hopper: Readonly<Partial<Record<ProductKind, number>>>
 }
 
 export interface ShelfState {
@@ -238,6 +243,12 @@ export interface QuickBuyState {
   readonly armed: boolean
 }
 
+/** Half-second dwell that pours carried ingredients into a kitchen station. */
+export interface StationLoadState {
+  readonly producerId: number | null
+  readonly dwellMs: number
+}
+
 export interface FishingState {
   readonly pondId: number | null
   /** idle casts, waiting holds the line, rest is the gap before re-casting. */
@@ -264,10 +275,12 @@ export interface ShopState {
   readonly nextCustomerId: number
   readonly nextProducerId: number
   readonly upgrades: Readonly<Record<UpgradeKind, number>>
+  readonly shelfLevels: ShelfLevels
   readonly staff: Readonly<Record<StaffKind, number>>
   readonly staffMembers: readonly StaffState[]
   readonly deposits: Readonly<Record<string, number>>
   readonly quickBuy: QuickBuyState
+  readonly stationLoad: StationLoadState
   readonly fishing: FishingState
   readonly facility: FacilityState
   readonly buffs: BuffTimers
@@ -318,7 +331,14 @@ export type GameEvent =
     }
   | { readonly type: 'zoneUnlocked'; readonly zone: ZoneId }
   | { readonly type: 'upgradeBought'; readonly kind: UpgradeKind; readonly level: number }
+  | { readonly type: 'shelfUpgraded'; readonly zone: ZoneId; readonly level: number }
   | { readonly type: 'staffBought'; readonly kind: StaffKind; readonly level: number }
+  | {
+      readonly type: 'stationLoad'
+      readonly producerId: number
+      readonly product: ProductKind
+      readonly amount: number
+    }
   | {
       readonly type: 'deposit'
       readonly target: 'plant'

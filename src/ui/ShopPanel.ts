@@ -12,6 +12,9 @@ import {
   RECIPES,
   STAFF,
   STAFF_ORDER,
+  shelfCapacity,
+  shelfUpgradeCost,
+  shelfUpgradeMax,
   UPGRADE_EFFECT,
   UPGRADE_ORDER,
   ZONE_ORDER,
@@ -48,6 +51,7 @@ export interface ShopPanelOptions {
   readonly onUnlockZone: (zone: ZoneId) => ShopState
   readonly onRemove: (id: number) => ShopState
   readonly onUpgrade: (kind: UpgradeKind) => ShopState
+  readonly onShelfUpgrade: (zone: ZoneId) => ShopState
   readonly onStaff: (kind: StaffKind) => ShopState
   readonly onClose: () => void
 }
@@ -474,17 +478,18 @@ export class ShopPanel {
   ): void {
     const ui = this.options.layout.ui
     const gap = 10 * ui
+    const gridTop = bottom - top >= 360 * ui ? this.renderShelfRow(parent, zone, w, top) : top
     const products = PLANT_SHOP_ORDER.filter((product) => zoneOf(product) === zone)
-    const columns = w > 1000 ? 3 : 2
+    const columns = w > 700 ? 3 : 2
     const rows = Math.ceil(products.length / columns)
     const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
-    const cardH = Math.min((bottom - top - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
-    const gridTop = top + (bottom - top - (rows * cardH + gap * (rows - 1))) / 2
+    const cardH = Math.min((bottom - gridTop - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
+    const topOffset = gridTop + (bottom - gridTop - (rows * cardH + gap * (rows - 1))) / 2
     products.forEach((product, index) => {
       const column = index % columns
       const row = Math.floor(index / columns)
       const x = 30 * ui + column * (cardW + gap) + cardW / 2
-      const y = gridTop + row * (cardH + gap) + cardH / 2
+      const y = topOffset + row * (cardH + gap) + cardH / 2
       parent.add(this.plantCard(product, x, y, cardW, cardH))
     })
   }
@@ -600,13 +605,14 @@ export class ShopPanel {
     bottom: number,
   ): void {
     const ui = this.options.layout.ui
-    const products = ZONE_PRODUCTS[zone]
     const gap = 10 * ui
-    const columns = w > 1000 ? 3 : 1
+    const gridTop = bottom - top >= 360 * ui ? this.renderShelfRow(parent, zone, w, top) : top
+    const products = ZONE_PRODUCTS[zone]
+    const columns = w > 700 ? 3 : 2
     const rows = Math.ceil(products.length / columns)
     const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
-    const cardH = Math.min((bottom - top - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
-    const gridTop = top + (bottom - top - (rows * cardH + gap * (rows - 1))) / 2
+    const cardH = Math.min((bottom - gridTop - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
+    const topOffset = gridTop + (bottom - gridTop - (rows * cardH + gap * (rows - 1))) / 2
     products.forEach((product, index) => {
       const column = index % columns
       const row = Math.floor(index / columns)
@@ -614,12 +620,92 @@ export class ShopPanel {
         this.producerCard(
           product,
           30 * ui + column * (cardW + gap) + cardW / 2,
-          gridTop + row * (cardH + gap) + cardH / 2,
+          topOffset + row * (cardH + gap) + cardH / 2,
           cardW,
           cardH,
         ),
       )
     })
+  }
+
+  /** Compact per-zone shelf upgrade above the product grid. */
+  private renderShelfRow(
+    parent: Phaser.GameObjects.Container,
+    zone: ZoneId,
+    w: number,
+    top: number,
+  ): number {
+    const { scene, theme, i18n } = this.options
+    const ui = this.options.layout.ui
+    const height = 52 * ui
+    const width = w - 60 * ui
+    const card = scene.add.container(30 * ui + width / 2, top + height / 2)
+    const g = scene.add.graphics()
+    g.fillStyle(theme.surface, 1)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 14 * ui)
+    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 14 * ui)
+    card.add(g)
+
+    const icon = scene.add.graphics()
+    drawToolIcon(icon, 'shelf', -width / 2 + 30 * ui, 0, 20 * ui)
+    card.add(icon)
+
+    const level = this.state.shelfLevels[zone]
+    const max = shelfUpgradeMax()
+    const capacity = shelfCapacity(level)
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 52 * ui,
+          -height / 2 + 16 * ui,
+          `${i18n.t('shelf.name', { zone: i18n.t(`zone.${zone}`) })} · ${i18n.t('shop.level', {
+            level,
+            max,
+          })}`,
+          textStyle(theme, 14 * ui, theme.text, true),
+        )
+        .setOrigin(0, 0.5),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 52 * ui,
+          -height / 2 + 34 * ui,
+          i18n.t('shelf.capacity', { capacity }),
+          textStyle(theme, 11 * ui, theme.textMuted, true),
+        )
+        .setOrigin(0, 0.5),
+    )
+
+    const cost = shelfUpgradeCost(level)
+    const buttonWidth = Math.min(176 * ui, width * 0.36)
+    const buy = new Button(
+      scene,
+      width / 2 - buttonWidth / 2 - 12 * ui,
+      0,
+      cost === null ? i18n.t('shop.max') : i18n.t('shelf.upgrade', { cost }),
+      theme,
+      {
+        width: buttonWidth,
+        height: 36 * ui,
+        fontSize: 12 * ui,
+        minHitSize: 56,
+        variant: cost === null ? 'soft' : 'primary',
+        onClick: () => {
+          const next = this.options.onShelfUpgrade(zone)
+          this.setState(next)
+        },
+      },
+    )
+    if (cost === null) {
+      buy.setEnabled(false)
+    } else {
+      this.track(buy, cost, 0, (remaining) => i18n.t('shelf.upgrade', { cost: remaining }))
+    }
+    card.add(buy)
+    parent.add(card)
+    return top + height + 8 * ui
   }
 
   private producerCard(
@@ -968,8 +1054,9 @@ export class ShopPanel {
       .sort()
       .join(',')
     const upgrades = UPGRADE_ORDER.map((kind) => state.upgrades[kind]).join('')
+    const shelves = ZONE_ORDER.map((zone) => state.shelfLevels[zone]).join('')
     const staff = STAFF_ORDER.map((kind) => state.staff[kind]).join('')
-    return [zones, producers, upgrades, staff, state.served > 0 ? 1 : 0].join('|')
+    return [zones, producers, upgrades, shelves, staff, state.served > 0 ? 1 : 0].join('|')
   }
 
   private productName(product: ProductKind): string {
@@ -1018,7 +1105,11 @@ export class ShopPanel {
     }
     if (isProcessedKind(product)) {
       const inputs = RECIPES[product].inputs
-        .map((input) => `${input.count}× ${this.productName(input.product)}`)
+        .map((input) =>
+          'product' in input
+            ? `${input.count}× ${this.productName(input.product)}`
+            : `${input.count}× ${i18n.t(input.category === 'fruit' ? 'shop.anyFruit' : 'shop.anyVeg')}`,
+        )
         .join(', ')
       return i18n.t('shop.recipe', { items: inputs })
     }
