@@ -11,7 +11,8 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private readonly lockOverlay: Phaser.GameObjects.Container
   private readonly showLock: boolean
   private readonly countText: Phaser.GameObjects.Text
-  private readonly bins: readonly ProductKind[]
+  private readonly slotCount: number
+  private bins: (ProductKind | null)[]
   private lastKey = ''
 
   constructor(scene: Phaser.Scene, theme: Theme, zone: ZoneId, map: ShopMap) {
@@ -20,11 +21,15 @@ export class ShelfView extends Phaser.GameObjects.Container {
     const width = rect.w
     const height = rect.h
     const products = ZONE_PRODUCTS[zone]
-    this.bins = products
+    this.slotCount = zone === 'fruit' || zone === 'veg' ? 4 : products.length
+    this.bins =
+      zone === 'fruit' || zone === 'veg'
+        ? Array<ProductKind | null>(this.slotCount).fill(null)
+        : [...products]
     this.showLock = map.id !== 'landscape'
     const gap = 5
     const pad = 8
-    const binWidth = (width - pad * 2 - gap * (products.length - 1)) / products.length
+    const binWidth = (width - pad * 2 - gap * (this.slotCount - 1)) / this.slotCount
 
     const g = scene.add.graphics()
     g.fillStyle(0x3b2f3a, 0.16)
@@ -37,7 +42,8 @@ export class ShelfView extends Phaser.GameObjects.Container {
     g.fillRoundedRect(-width / 2 + 7, -height / 2 + 24, width - 14, 4, 2)
     this.add(g)
 
-    products.forEach((product, index) => {
+    for (let index = 0; index < this.slotCount; index += 1) {
+      const product = this.bins[index]
       const x = -width / 2 + pad + index * (binWidth + gap) + binWidth / 2
       const bin = scene.add.graphics()
       bin.fillStyle(0xfff7e8, 0.18)
@@ -45,8 +51,13 @@ export class ShelfView extends Phaser.GameObjects.Container {
       this.add(bin)
 
       const icon = scene.add
-        .image(x - binWidth / 2 + 14, -height / 2 + 15, productTextureKey(product))
+        .image(
+          x - binWidth / 2 + 14,
+          -height / 2 + 15,
+          productTextureKey(product ?? (products[0] as ProductKind)),
+        )
         .setScale(0.42)
+        .setVisible(product !== null)
       this.add(icon)
       this.icons.push(icon)
 
@@ -55,7 +66,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
         .setOrigin(1, 0.5)
       this.add(count)
       this.counts.push(count)
-    })
+    }
 
     this.countText = scene.add
       .text(width / 2 - 7, height / 2 - 10, '', textStyle(theme, 9, '#fff7e8', true))
@@ -76,8 +87,16 @@ export class ShelfView extends Phaser.GameObjects.Container {
   }
 
   updateShelf(shelf: ShelfState): void {
+    if (shelf.zone === 'fruit' || shelf.zone === 'veg') {
+      const planted = ZONE_PRODUCTS[shelf.zone].filter((product) => shelf.bins[product])
+      this.bins = Array.from({ length: this.slotCount }, (_, index) => planted[index] ?? null)
+    }
     const stockKey = this.bins
-      .map((product) => `${product}:${shelf.stock[product]}:${shelf.bins[product] ? 1 : 0}`)
+      .map((product) =>
+        product === null
+          ? '-'
+          : `${product}:${shelf.stock[product]}:${shelf.bins[product] ? 1 : 0}`,
+      )
       .join('|')
     const key = `${shelf.active}-${shelf.capacity}-${stockKey}`
     if (key === this.lastKey) return
@@ -87,15 +106,25 @@ export class ShelfView extends Phaser.GameObjects.Container {
     this.lockOverlay.setVisible(this.showLock && !shelf.active)
     this.icons.forEach((icon, index) => {
       const product = this.bins[index]
-      if (product === undefined) return
+      if (product === null || product === undefined) {
+        icon.setVisible(false)
+        this.counts[index]?.setText('')
+        return
+      }
       const unlocked = shelf.active && shelf.bins[product]
-      icon.setVisible(true).setAlpha(unlocked ? 1 : 0.35)
+      icon
+        .setTexture(productTextureKey(product))
+        .setVisible(true)
+        .setAlpha(unlocked ? 1 : 0.35)
       this.counts[index]?.setText(
         unlocked && shelf.stock[product] > 0 ? String(shelf.stock[product]) : '',
       )
     })
-    const total = this.bins.reduce((sum, product) => sum + shelf.stock[product], 0)
-    const capacity = this.bins.length * shelf.capacity
+    const total = this.bins.reduce(
+      (sum, product) => sum + (product === null ? 0 : shelf.stock[product]),
+      0,
+    )
+    const capacity = this.slotCount * shelf.capacity
     this.countText.setText(shelf.active && total > 0 ? `${total}/${capacity}` : '')
     if (!shelf.active) return
 

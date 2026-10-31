@@ -5,6 +5,7 @@ import {
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
+  PLANT_SHOP_ORDER,
   PLANTS,
   producerCost,
   productPrice,
@@ -16,6 +17,7 @@ import {
   ZONE_ORDER,
   ZONE_PRODUCTS,
   ZONES,
+  zoneOf,
 } from '../logic/config'
 import { plantedCount, staffCost, staffMax, upgradeCost, upgradeMax } from '../logic/purchase'
 import type {
@@ -434,12 +436,14 @@ export class ShopPanel {
     bottom: number,
   ): void {
     const gap = 10
-    const cardW = (w - 60 - gap) / 2
-    const cardH = (bottom - top - gap) / 2
-    ZONE_PRODUCTS[zone].forEach((product, index) => {
-      if (!isPlantKind(product)) return
-      const column = index % 2
-      const row = Math.floor(index / 2)
+    const products = PLANT_SHOP_ORDER.filter((product) => zoneOf(product) === zone)
+    const columns = 2
+    const rows = Math.ceil(products.length / columns)
+    const cardW = (w - 60 - gap * (columns - 1)) / columns
+    const cardH = (bottom - top - gap * (rows - 1)) / rows
+    products.forEach((product, index) => {
+      const column = index % columns
+      const row = Math.floor(index / columns)
       const x = 30 + column * (cardW + gap) + cardW / 2
       const y = top + row * (cardH + gap) + cardH / 2
       parent.add(this.plantCard(product, x, y, cardW, cardH))
@@ -602,7 +606,7 @@ export class ShopPanel {
     )
     card.add(
       scene.add
-        .text(-width / 2 + 20, -height / 2 + 74, this.producerDetail(product), {
+        .text(-width / 2 + 20, -height / 2 + 64, this.producerDetail(product), {
           ...textStyle(theme, 12, theme.textMuted),
           wordWrap: { width: width - 40 },
         })
@@ -937,8 +941,7 @@ export class ShopPanel {
   private producerDetail(product: ProductKind): string {
     const { i18n } = this.options
     if (isAnimalProductKind(product)) {
-      const diet = ANIMALS[product].diet.map((item) => this.productName(item)).join(', ')
-      return i18n.t('shop.diet', { items: diet })
+      return i18n.t('shop.dietAny')
     }
     if (isProcessedKind(product)) {
       const inputs = RECIPES[product].inputs

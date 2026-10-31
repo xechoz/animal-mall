@@ -26,6 +26,7 @@ import {
 import { stepFacilityDwell } from './facilities'
 import { findPath } from './nav'
 import {
+  addFeed,
   addStock,
   binReady,
   collectFromProducer,
@@ -33,6 +34,7 @@ import {
   eligibleProducts,
   emptyShelves,
   nearestCollectable,
+  nearestTrough,
   refreshShelves,
   stepProduction,
   stockOf,
@@ -97,6 +99,7 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
       carryCount: 0,
       harvestMs: 0,
       stockMs: 0,
+      feedMs: 0,
     },
     zones,
     producers,
@@ -135,6 +138,7 @@ export function remapShopState(state: ShopState, map: ShopMap): ShopState {
       moving: false,
       harvestMs: 0,
       stockMs: 0,
+      feedMs: 0,
     },
     producers: state.producers.map((producer) => ({
       ...producer,
@@ -230,6 +234,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     ...player,
     harvestMs: Math.max(0, player.harvestMs - dt),
     stockMs: Math.max(0, player.stockMs - dt),
+    feedMs: Math.max(0, player.feedMs - dt),
   }
 
   const production = stepProduction(producers, shelves, dt, growth)
@@ -269,6 +274,42 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         stockMs: INTERACT.stockMs,
       }
       events.push({ type: 'stock', product, amount: 1 })
+    }
+  }
+
+  /**
+   * Feeding is deliberate: the player must stand at the trough with produce in
+   * hand. Walking past it never dumps the basket.
+   */
+  const carried = player.carry
+  if (
+    player.feedMs <= 0 &&
+    carried !== null &&
+    isPlantKind(carried) &&
+    player.carryCount > 0 &&
+    distance(player.pos, player.prevPos) <= 0.5
+  ) {
+    const trough = nearestTrough(producers, player.pos, map, INTERACT.feedRadius)
+    if (trough !== null) {
+      const fed = addFeed(trough, carried, 1)
+      if (fed.accepted > 0) {
+        producers = producers.map((producer) =>
+          producer.id === trough.id ? fed.producer : producer,
+        )
+        const nextCount = player.carryCount - fed.accepted
+        player = {
+          ...player,
+          carryCount: nextCount,
+          carry: nextCount > 0 ? carried : null,
+          feedMs: INTERACT.feedMs,
+        }
+        events.push({
+          type: 'feed',
+          producerId: trough.id,
+          product: carried,
+          amount: fed.accepted,
+        })
+      }
     }
   }
 

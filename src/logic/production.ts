@@ -2,6 +2,7 @@ import { distance } from './collision'
 import {
   ANIMALS,
   AUTO_RESERVE,
+  FEED_ORDER,
   INTERACT,
   isAnimalProductKind,
   isPlantKind,
@@ -12,6 +13,7 @@ import {
   RECIPES,
   type RecipeConfig,
   type RecipeInput,
+  troughCapacity,
   ZONE_ORDER,
   ZONE_PRODUCTS,
   zoneOf,
@@ -47,6 +49,7 @@ export function createProducer(
     ready: fresh ? 0 : kind === 'plant' ? 1 : 0,
     mature: fresh ? false : kind === 'plant',
     hungry: false,
+    feed: {},
   }
 }
 
@@ -132,11 +135,7 @@ export function stepProduction(
   const events: GameEvent[] = []
   const nextProducers = producers.map((producer) => {
     if (producer.kind === 'plant') return advancePlant(producer, dtMs, growthMultiplier, events)
-    if (producer.kind === 'animal') {
-      const result = advanceAnimal(producer, nextShelves, dtMs, events)
-      nextShelves = result.shelves
-      return result.producer
-    }
+    if (producer.kind === 'animal') return advanceAnimal(producer, dtMs, events)
     const result = advanceStation(producer, nextShelves, dtMs, events)
     nextShelves = result.shelves
     return result.producer
@@ -251,57 +250,37 @@ function advancePlant(
   return { ...producer, ready, progressMs }
 }
 
-function advanceAnimal(
-  producer: ProducerState,
-  shelves: Record<ZoneId, ShelfState>,
-  dtMs: number,
-  events: GameEvent[],
-): { producer: ProducerState; shelves: Record<ZoneId, ShelfState> } {
-  if (!isAnimalProductKind(producer.product)) return { producer, shelves }
+function advanceAnimal(producer: ProducerState, dtMs: number, events: GameEvent[]): ProducerState {
+  if (!isAnimalProductKind(producer.product)) return producer
   const config = ANIMALS[producer.product]
   if (producer.ready >= config.capacity) {
-    return {
-      producer: producer.progressMs === 0 ? producer : { ...producer, progressMs: 0 },
-      shelves,
-    }
+    return producer.progressMs === 0 ? producer : { ...producer, progressMs: 0 }
   }
 
-  let progressMs = producer.progressMs
-  let nextShelves = shelves
-  let hungry = producer.hungry
-
-  if (progressMs === 0) {
-    const eaten = consumeFeed(nextShelves, config.diet)
-    if (eaten === null) {
-      if (!hungry) {
-        events.push({ type: 'producerHungry', producerId: producer.id, product: producer.product })
+  let current = producer
+  if (current.progressMs === 0) {
+    const fed = takeFeed(current)
+    if (fed === null) {
+      if (!current.hungry) {
+        events.push({ type: 'producerHungry', producerId: current.id, product: current.product })
       }
-      return { producer: { ...producer, hungry: true, progressMs: 0 }, shelves }
+      return { ...current, hungry: true, progressMs: 0 }
     }
-    nextShelves = eaten.shelves
-    hungry = false
-    progressMs = 0
+    current = { ...fed, hungry: false }
   }
 
-  progressMs += dtMs
+  const progressMs = current.progressMs + dtMs
   if (progressMs >= config.cycleMs) {
-    const ready = producer.ready + 1
-    events.push({ type: 'producerProduce', producerId: producer.id, product: producer.product })
+    events.push({ type: 'producerProduce', producerId: current.id, product: current.product })
     return {
-      producer: {
-        ...producer,
-        ready,
-        progressMs: 0,
-        hungry: false,
-      },
-      shelves: nextShelves,
+      ...current,
+      ready: current.ready + 1,
+      progressMs: 0,
+      hungry: false,
     }
   }
 
-  return {
-    producer: { ...producer, progressMs, hungry },
-    shelves: nextShelves,
-  }
+  return { ...current, progressMs }
 }
 
 function advanceStation(
@@ -341,13 +320,61 @@ function advanceStation(
   return { producer: { ...producer, progressMs }, shelves: nextShelves }
 }
 
-function consumeFeed(
-  shelves: Record<ZoneId, ShelfState>,
-  diet: readonly PlantKind[],
-): { shelves: Record<ZoneId, ShelfState> } | null {
-  for (const product of diet) {
-    const consumed = consumeProduct(shelves, product, 1)
-    if (consumed !== null) return { shelves: consumed }
+export function feedCount(producer: ProducerState): number {
+  return Object.values(producer.feed).reduce((sum, amount) => sum + (amount ?? 0), 0)
+}
+
+export function feedSpace(producer: ProducerState): number {
+  if (!isAnimalProductKind(producer.product)) return 0
+  return Math.max(0, troughCapacity(producer.product) - feedCount(producer))
+}
+
+export function addFeed(
+  producer: ProducerState,
+  product: PlantKind,
+  amount: number,
+): { producer: ProducerState; accepted: number } {
+  const accepted = Math.min(amount, feedSpace(producer))
+  if (accepted <= 0) return { producer, accepted: 0 }
+  return {
+    producer: {
+      ...producer,
+      feed: {
+        ...producer.feed,
+        [product]: (producer.feed[product] ?? 0) + accepted,
+      },
+    },
+    accepted,
+  }
+}
+
+export function nearestTrough(
+  producers: readonly ProducerState[],
+  pos: Vec2,
+  map: ShopMap,
+  radius = Number.POSITIVE_INFINITY,
+): ProducerState | null {
+  let best: ProducerState | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const producer of producers) {
+    if (!isAnimalProductKind(producer.product)) continue
+    if (feedSpace(producer) <= 0) continue
+    const distanceToTrough = distance(pos, map.animalAccess[producer.product])
+    if (distanceToTrough > radius || distanceToTrough >= bestDistance) continue
+    best = producer
+    bestDistance = distanceToTrough
+  }
+  return best
+}
+
+export function takeFeed(producer: ProducerState): ProducerState | null {
+  for (const product of FEED_ORDER) {
+    const amount = producer.feed[product] ?? 0
+    if (amount <= 0) continue
+    const feed = { ...producer.feed }
+    if (amount <= 1) delete feed[product]
+    else feed[product] = amount - 1
+    return { ...producer, feed }
   }
   return null
 }

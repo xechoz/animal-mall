@@ -1,8 +1,16 @@
 import type { Rng } from '@mg/core/rng'
 import { distanceSq } from './collision'
-import { producerAccess, REST, STAFF, WANDER, zoneOf } from './config'
+import {
+  isAnimalProductKind,
+  isPlantKind,
+  producerAccess,
+  REST,
+  STAFF,
+  WANDER,
+  zoneOf,
+} from './config'
 import { findPath } from './nav'
-import { addStock, binReady, collectFromProducer } from './production'
+import { addFeed, addStock, binReady, collectFromProducer, feedSpace } from './production'
 import type {
   GameEvent,
   ProducerState,
@@ -127,6 +135,7 @@ function createStaffMember(kind: StaffKind, index: number, map: ShopMap): StaffS
     phase: kind === 'cashier' ? 'cashier' : 'idle',
     targetProducerId: null,
     targetShelf: null,
+    targetTroughId: null,
     carry: null,
     carryCount: 0,
     timerMs: 0,
@@ -193,7 +202,7 @@ function stepCashier(member: StaffState, ctx: StaffContext): StaffState {
 function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng): StaffState {
   let next = member
 
-  if (next.phase === 'toProducer' || next.phase === 'toShelf') {
+  if (next.phase === 'toProducer' || next.phase === 'toShelf' || next.phase === 'toTrough') {
     const moved = advanceStaff(next, dtMs)
     next = moved.member
     if (moved.arrived) {
@@ -211,6 +220,11 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
     return finishStock(next, ctx)
   }
 
+  if (next.phase === 'feed') {
+    if (next.timerMs > 0) return next
+    return finishFeed(next, ctx, rng)
+  }
+
   if (next.waitMs > 0) return next
 
   if (next.phase === 'idle' && next.carry === null && next.workMs >= restLimit(next)) {
@@ -218,6 +232,10 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
   }
 
   if (next.carry !== null && next.carryCount > 0) {
+    if (isPlantKind(next.carry)) {
+      const trough = pickTrough(ctx.producers, next.pos)
+      if (trough !== null) return startToTrough(next, trough, ctx.map, rng)
+    }
     const shelf = ctx.shelves[zoneOf(next.carry)]
     if (!binReady(ctx.shelves, next.carry)) {
       return { ...next, carry: null, carryCount: 0, phase: 'idle', waitMs: 300 }
@@ -226,7 +244,7 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
     return { ...next, waitMs: 500 }
   }
 
-  const producer = pickProducer(ctx.producers, ctx.shelves, next.pos)
+  const producer = pickProducer(ctx.producers, ctx.shelves, next.pos, hasTroughSpace(ctx.producers))
   if (producer === null) return { ...next, waitMs: 500 }
   return startToProducer(next, producer, ctx.map, rng)
 }
@@ -248,9 +266,9 @@ function arrivedAtTarget(member: StaffState, ctx: StaffContext, rng: Rng): Staff
       carryCount,
       moving: false,
     }
-    if (carryCount >= STAFF.picker.carry) return startToShelf(next, ctx.map, rng)
-    const more = pickProducer(ctx.producers, ctx.shelves, next.pos)
-    if (more === null) return startToShelf(next, ctx.map, rng)
+    if (carryCount >= STAFF.picker.carry) return startToCarryDestination(next, ctx, rng)
+    const more = pickProducer(ctx.producers, ctx.shelves, next.pos, hasTroughSpace(ctx.producers))
+    if (more === null) return startToCarryDestination(next, ctx, rng)
     return startToProducer(next, more, ctx.map, rng)
   }
 
@@ -262,6 +280,19 @@ function arrivedAtTarget(member: StaffState, ctx: StaffContext, rng: Rng): Staff
       ...member,
       phase: 'stock',
       timerMs: STAFF.picker.stockMs,
+      moving: false,
+    }
+  }
+
+  if (member.phase === 'toTrough') {
+    const trough = ctx.producers.find((producer) => producer.id === member.targetTroughId)
+    if (trough === undefined || feedSpace(trough) <= 0) {
+      return startToCarryDestination({ ...member, phase: 'idle', targetTroughId: null }, ctx, rng)
+    }
+    return {
+      ...member,
+      phase: 'feed',
+      timerMs: STAFF.picker.feedMs,
       moving: false,
     }
   }
@@ -307,6 +338,82 @@ function finishStock(member: StaffState, ctx: StaffContext): StaffState {
   }
 }
 
+function finishFeed(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
+  const product = member.carry
+  if (product === null || member.carryCount <= 0 || !isPlantKind(product)) {
+    return { ...member, phase: 'idle', targetTroughId: null, waitMs: 240 }
+  }
+
+  const trough = ctx.producers.find((producer) => producer.id === member.targetTroughId)
+  if (trough === undefined || feedSpace(trough) <= 0) {
+    return startToCarryDestination({ ...member, phase: 'idle', targetTroughId: null }, ctx, rng)
+  }
+
+  const fed = addFeed(trough, product, 1)
+  if (fed.accepted <= 0) {
+    return startToCarryDestination({ ...member, phase: 'idle', targetTroughId: null }, ctx, rng)
+  }
+
+  ctx.producers = ctx.producers.map((producer) =>
+    producer.id === trough.id ? fed.producer : producer,
+  )
+  ctx.events.push({ type: 'staffFeed', staffId: member.id, product })
+
+  const carryCount = member.carryCount - 1
+  if (carryCount <= 0) {
+    return {
+      ...member,
+      phase: 'idle',
+      targetTroughId: null,
+      carry: null,
+      carryCount: 0,
+      timerMs: 0,
+      waitMs: 180,
+    }
+  }
+
+  const next: StaffState = {
+    ...member,
+    phase: 'feed',
+    carryCount,
+    timerMs: STAFF.picker.feedMs,
+  }
+  if (feedSpace(fed.producer) > 0) return next
+  return startToCarryDestination({ ...next, phase: 'idle', targetTroughId: null }, ctx, rng)
+}
+
+function startToCarryDestination(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
+  if (member.carry !== null && isPlantKind(member.carry)) {
+    const trough = pickTrough(ctx.producers, member.pos)
+    if (trough !== null) return startToTrough(member, trough, ctx.map, rng)
+  }
+  return startToShelf(member, ctx.map, rng)
+}
+
+function startToTrough(
+  member: StaffState,
+  trough: ProducerState,
+  map: ShopMap,
+  rng: Rng,
+): StaffState {
+  return {
+    ...member,
+    phase: 'toTrough',
+    targetTroughId: trough.id,
+    targetProducerId: null,
+    targetShelf: null,
+    path: wanderPath(
+      member.pos,
+      producerAccess(map, trough.product, trough.slot),
+      12,
+      map,
+      rng,
+      WANDER.staff,
+    ),
+    pathIndex: 0,
+  }
+}
+
 function startToProducer(
   member: StaffState,
   producer: ProducerState,
@@ -318,6 +425,7 @@ function startToProducer(
     phase: 'toProducer',
     targetProducerId: producer.id,
     targetShelf: null,
+    targetTroughId: null,
     path: wanderPath(
       member.pos,
       producerAccess(map, producer.product, producer.slot),
@@ -339,6 +447,7 @@ function startToShelf(member: StaffState, map: ShopMap, rng: Rng): StaffState {
     phase: 'toShelf',
     targetShelf: zone,
     targetProducerId: null,
+    targetTroughId: null,
     path: wanderPath(member.pos, map.shelfAccess[zone], 12, map, rng, WANDER.staff),
     pathIndex: 0,
   }
@@ -351,6 +460,7 @@ function startToDrink(member: StaffState, map: ShopMap): StaffState {
     phase: 'toDrink',
     targetProducerId: null,
     targetShelf: null,
+    targetTroughId: null,
     carry: null,
     carryCount: 0,
     timerMs: 0,
@@ -367,6 +477,7 @@ function startToWork(member: StaffState, map: ShopMap): StaffState {
     phase: 'toWork',
     targetProducerId: null,
     targetShelf: null,
+    targetTroughId: null,
     carry: null,
     carryCount: 0,
     timerMs: 0,
@@ -418,10 +529,32 @@ function pathTo(from: Vec2, to: Vec2, map: ShopMap): readonly Vec2[] {
   return findPath(from, to, 12, map) ?? [to]
 }
 
+function pickTrough(producers: readonly ProducerState[], pos: Vec2): ProducerState | null {
+  let best: ProducerState | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const producer of producers) {
+    if (!isAnimalProductKind(producer.product)) continue
+    if (feedSpace(producer) <= 0) continue
+    const distanceToTrough = distanceSq(pos, producer.pos)
+    if (distanceToTrough < bestDistance) {
+      best = producer
+      bestDistance = distanceToTrough
+    }
+  }
+  return best
+}
+
+function hasTroughSpace(producers: readonly ProducerState[]): boolean {
+  return producers.some(
+    (producer) => isAnimalProductKind(producer.product) && feedSpace(producer) > 0,
+  )
+}
+
 function pickProducer(
   producers: readonly ProducerState[],
   shelves: Readonly<Record<ZoneId, ShelfState>>,
   pos: Vec2,
+  feedNeeded: boolean,
 ): ProducerState | null {
   let best: ProducerState | null = null
   let bestDistance = Number.POSITIVE_INFINITY
@@ -430,7 +563,8 @@ function pickProducer(
     if (producer.ready <= 0) continue
     if (!binReady(shelves, producer.product)) continue
     const shelf = shelves[zoneOf(producer.product)]
-    if (shelf.stock[producer.product] >= shelf.capacity) continue
+    const shelfFull = shelf.stock[producer.product] >= shelf.capacity
+    if (shelfFull && !(feedNeeded && isPlantKind(producer.product))) continue
     const distanceToProducer = distanceSq(pos, producer.pos)
     if (distanceToProducer < bestDistance) {
       best = producer

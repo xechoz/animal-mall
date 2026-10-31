@@ -55,6 +55,38 @@ function pickerState(count = 1): ShopState {
   )
 }
 
+function farmPickerState(): ShopState {
+  return createShopState(
+    {
+      ...initialSave(),
+      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      producers: [{ product: 'egg', slot: 0 }],
+      staff: { cashier: 0, picker: 1 },
+    },
+    PORTRAIT_MAP,
+  )
+}
+
+describe('staff feeding', () => {
+  it('carries harvested produce to an empty trough before stocking shelves', () => {
+    let state = farmPickerState()
+    const picker = member(state, 'picker')
+    state = withStaffState(state, picker.id, {
+      workMs: 0,
+      phase: 'idle',
+      carry: 'apple',
+      carryCount: 2,
+      waitMs: 0,
+      pos: PORTRAIT_MAP.staffStations.picker.home,
+      prevPos: PORTRAIT_MAP.staffStations.picker.home,
+    })
+
+    const result = simulate(state, 320, fixedRng(0))
+    expect(result.events.some((event) => event.type === 'staffFeed')).toBe(true)
+    expect(result.state.producers[0]?.feed.apple).toBe(2)
+  })
+})
+
 describe('staff breaks', () => {
   it('sends a picker to the vending machine after working long enough', () => {
     let state = pickerState()

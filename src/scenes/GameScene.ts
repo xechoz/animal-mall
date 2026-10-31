@@ -653,6 +653,12 @@ export class GameScene extends Phaser.Scene {
         case 'staffStock':
           this.sfx('turn', 0.18)
           break
+        case 'feed':
+          this.sfx('eat', 0.3)
+          break
+        case 'staffFeed':
+          this.sfx('eat', 0.18)
+          break
         case 'discard':
           this.sfx('turn', 0.26)
           this.trashView.playUse()

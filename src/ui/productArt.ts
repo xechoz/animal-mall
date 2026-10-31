@@ -90,6 +90,32 @@ function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void
       g.fillStyle(0x6f9a3f, 1)
       g.fillEllipse(24, 11, 8, 4)
       break
+    case 'potato':
+      g.fillStyle(0xa9773f, 1)
+      g.fillEllipse(20, 24, 28, 20)
+      g.fillStyle(0xc79a5f, 1)
+      g.fillEllipse(20, 22, 24, 17)
+      g.fillStyle(0xffe0b0, 0.45)
+      g.fillEllipse(15, 18, 7, 5)
+      g.fillStyle(0x8a5a2e, 1)
+      g.fillCircle(16, 26, 1.4)
+      g.fillCircle(24, 20, 1.3)
+      g.fillCircle(26, 27, 1.5)
+      break
+    case 'eggplant':
+      g.fillStyle(0x5f3f7a, 1)
+      g.fillEllipse(20, 24, 20, 28)
+      g.fillStyle(0x7a4f9c, 1)
+      g.fillEllipse(20, 23, 16, 24)
+      g.fillStyle(0xc9a0e0, 0.55)
+      g.fillEllipse(15, 18, 4, 9)
+      g.fillStyle(0x5aa96f, 1)
+      g.fillTriangle(13, 11, 27, 11, 20, 4)
+      g.fillTriangle(20, 8, 30, 7, 24, 13)
+      g.fillTriangle(20, 8, 10, 7, 16, 13)
+      g.lineStyle(2, 0x4f8f5f, 1)
+      g.lineBetween(20, 8, 20, 2)
+      break
     case 'egg':
       g.fillStyle(0xfff3dd, 1)
       g.fillEllipse(20, 22, 18, 24)

@@ -3,13 +3,14 @@
 A cozy endless management game built with Phaser 4 on
 [`xechoz/mg-platform`](https://github.com/xechoz/mg-platform).
 
-Grow fruit and vegetables, raise chickens, cows, sheep and pond fish, then turn
-their produce into cakes, sweaters and grilled fish. Stock four zone shelves and
-serve the neighborhood animals at the counter. Animals eat fruit or vegetables
-from the shelves, so the four production chains feed each other. Hire a cashier
-and pickers to keep the shop running, or use the in-world quick-buy signs to buy
-without opening the shop. There is no timer or failure state: customers keep
-arriving, and a missed sale only costs that sale.
+Grow six fruits and six vegetables, raise chickens, cows, sheep and pond fish,
+then turn their produce into cakes, sweaters and grilled fish. Stock four zone
+shelves and serve the neighborhood animals at the counter. Each animal has a
+trough: put produce in it yourself or let a picker fill it, and the animal eats
+the cheapest item first. Hire a cashier and pickers to keep the shop running, or
+use the in-world quick-buy signs to buy without opening the shop. There is no
+timer or failure state: customers keep arriving, and a missed sale only costs
+that sale.
 
 ## Play
 
@@ -24,9 +25,12 @@ arriving, and a missed sale only costs that sale.
   The counter has a wide service area.
 - Walk to an empty plot and stop to open the plant chooser. Fruit trees and
   vegetable crops grow on their own; harvested goods go to the matching shelf.
-- Animals eat fruit or vegetables from the shelves. Each animal keeps one unit
-  for customers, so a shelf needs more than one unit before it can feed a
-  producer. A hungry animal waits and shows a feed icon until you restock.
+- Every animal has a trough in front of its pen. Carry fruit or vegetables to
+  the trough and stand still to drop them in one by one; pickers also fill
+  troughs with produce they harvest. Animals eat the cheapest item in the
+  trough, one whole item per production cycle. An empty trough shows a feed
+  icon and the animal waits until you or a picker fills it. Trough contents are
+  not saved and reset on reload.
 - Kitchen stations pull eggs, milk, yarn or fish from the farm shelf and leave
   one of each for customers. Finished cakes, sweaters and grilled fish wait on
   the station tray; walk up to collect them and stock the kitchen shelf.
@@ -48,16 +52,17 @@ arriving, and a missed sale only costs that sale.
   replant. Customers only order products that have been stocked at least once.
 
 The game starts with 100 coins and an in-world guide for the first apple tree.
-Vegetables unlock automatically after the first sale; the farm and kitchen are
-bought in the shop.
+Fruits are apple, pear, peach, cherry, strawberry and grape; vegetables are
+carrot, tomato, corn, pumpkin, potato and eggplant. Vegetables unlock
+automatically after the first sale; the farm and kitchen are bought in the shop.
 
 ## Save and language
 
 - Progress is stored as `mg:animal-mall:progress`, save version `3`.
 - Coins, pending counter coins, earned coins, served customers, zones, planted
   crops, animals, stations, tool levels, staff levels and non-refundable
-  deposits persist. Shelf stock, station progress, customers, staff break state
-  and temporary drink buffs reset on reload.
+  deposits persist. Shelf stock, trough contents, station progress, customers,
+  staff break state and temporary drink buffs reset on reload.
 - Version 2 fruit-tree saves migrate automatically: old trees become producers,
   vegetables unlock if the save has served customers, and stranded deposits are
   returned to coins.

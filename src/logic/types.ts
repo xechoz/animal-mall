@@ -1,5 +1,5 @@
-export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry'
-export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin'
+export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry' | 'strawberry' | 'grape'
+export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin' | 'potato' | 'eggplant'
 export type AnimalProductKind = 'egg' | 'milk' | 'yarn' | 'fish'
 export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish'
 export type PlantKind = FruitKind | VegKind
@@ -121,6 +121,7 @@ export interface ProducerState {
   readonly ready: number
   readonly mature: boolean
   readonly hungry: boolean
+  readonly feed: Readonly<Partial<Record<PlantKind, number>>>
 }
 
 export interface ShelfState {
@@ -141,6 +142,7 @@ export interface PlayerState {
   readonly carryCount: number
   readonly harvestMs: number
   readonly stockMs: number
+  readonly feedMs: number
 }
 
 export interface CustomerState {
@@ -175,6 +177,8 @@ export type StaffPhase =
   | 'harvest'
   | 'toShelf'
   | 'stock'
+  | 'toTrough'
+  | 'feed'
   | 'toDrink'
   | 'drinking'
   | 'resting'
@@ -194,6 +198,7 @@ export interface StaffState {
   readonly phase: StaffPhase
   readonly targetProducerId: number | null
   readonly targetShelf: ZoneId | null
+  readonly targetTroughId: number | null
   readonly carry: ProductKind | null
   readonly carryCount: number
   readonly timerMs: number
@@ -302,6 +307,13 @@ export type GameEvent =
   | { readonly type: 'coinsCollected'; readonly amount: number }
   | { readonly type: 'staffHarvest'; readonly staffId: number; readonly product: ProductKind }
   | { readonly type: 'staffStock'; readonly staffId: number; readonly product: ProductKind }
+  | {
+      readonly type: 'feed'
+      readonly producerId: number
+      readonly product: PlantKind
+      readonly amount: number
+    }
+  | { readonly type: 'staffFeed'; readonly staffId: number; readonly product: PlantKind }
   | { readonly type: 'discard'; readonly product: ProductKind; readonly amount: number }
   | { readonly type: 'drinkMenuReady' }
   | { readonly type: 'drinkBought'; readonly drink: DrinkKind; readonly price: number }

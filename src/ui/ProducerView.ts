@@ -8,10 +8,12 @@ import {
   isProcessedKind,
   PLANTS,
   RECIPES,
+  troughCapacity,
   zoneOf,
 } from '../logic/config'
+import { feedCount } from '../logic/production'
 import type { ProducerState, ProductKind } from '../logic/types'
-import { FRUIT_COLORS } from './fruitArt'
+import { FRUIT_COLORS, feedTextureKey } from './fruitArt'
 import { productTextureKey } from './productArt'
 
 export class ProducerView extends Phaser.GameObjects.Container {
@@ -56,10 +58,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
       .setVisible(false)
     this.add(this.productIcon)
 
-    this.feedIcon = scene.add
-      .image(0, -58, productTextureKey('apple'))
-      .setScale(0.38)
-      .setVisible(false)
+    this.feedIcon = scene.add.image(0, -58, feedTextureKey()).setScale(0.38).setVisible(false)
     this.add(this.feedIcon)
 
     scene.add.existing(this)
@@ -78,8 +77,10 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.feedIcon.setVisible(false)
 
     if (producer.kind === 'plant') drawPlantCrop(this.art, producer)
-    else if (producer.kind === 'animal') drawAnimal(this.art, producer)
-    else drawStation(this.art, producer)
+    else if (producer.kind === 'animal') {
+      drawAnimal(this.art, producer)
+      drawTrough(this.art, producer)
+    } else drawStation(this.art, producer)
 
     if (producer.kind === 'plant' && !producer.mature) {
       if (isPlantKind(producer.product)) {
@@ -106,11 +107,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
     }
 
     if (producer.hungry && isAnimalProductKind(producer.product)) {
-      const config = ANIMALS[producer.product]
-      const feed = config.diet[0]
-      if (feed !== undefined) {
-        this.feedIcon.setTexture(productTextureKey(feed)).setVisible(true)
-      }
+      this.feedIcon.setTexture(feedTextureKey()).setVisible(true)
       this.status.setText('!').setColor('#e25d5d').setVisible(true)
     } else if (producer.kind !== 'plant') {
       this.productIcon
@@ -129,7 +126,16 @@ function producerKey(producer: ProducerState): string {
     producer.hungry,
     producer.ready,
     Math.floor(producer.progressMs / 250),
+    feedSignature(producer),
   ].join('-')
+}
+
+function feedSignature(producer: ProducerState): string {
+  return Object.entries(producer.feed)
+    .filter(([, amount]) => (amount ?? 0) > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([product, amount]) => `${product}${amount}`)
+    .join(',')
 }
 
 function drawProgress(g: Phaser.GameObjects.Graphics, ratio: number, y: number): void {
@@ -270,6 +276,33 @@ function drawVegetable(g: Phaser.GameObjects.Graphics, product: ProductKind, sca
         g.fillCircle(-3 + column * 6, -56 + row * 5, 2)
       }
     }
+  } else if (product === 'potato') {
+    g.fillStyle(0x5aa96f, 1)
+    g.fillEllipse(-18, -30, 26, 13)
+    g.fillEllipse(18, -34, 26, 13)
+    g.fillEllipse(0, -46, 24, 14)
+    g.fillStyle(0xa9773f, 1)
+    g.fillEllipse(-8, -8, 24, 16)
+    g.fillEllipse(10, -5, 22, 15)
+    g.fillStyle(0xc79a5f, 1)
+    g.fillEllipse(-8, -9, 19, 12)
+    g.fillEllipse(10, -6, 17, 11)
+    g.fillStyle(0x8a5a2e, 1)
+    g.fillCircle(-12, -6, 1.5)
+    g.fillCircle(14, -4, 1.5)
+  } else if (product === 'eggplant') {
+    g.fillStyle(0x4f8f5f, 1)
+    g.fillRoundedRect(-3, -54 * scale, 6, 54 * scale, 3)
+    g.fillEllipse(-16, -40, 28, 15)
+    g.fillEllipse(16, -44, 28, 15)
+    g.fillStyle(0x5f3f7a, 1)
+    g.fillEllipse(0, -18, 24, 30)
+    g.fillStyle(0x7a4f9c, 1)
+    g.fillEllipse(0, -19, 19, 25)
+    g.fillStyle(0xc9a0e0, 0.55)
+    g.fillEllipse(-6, -24, 4, 10)
+    g.fillStyle(0x5aa96f, 1)
+    g.fillTriangle(-8, -34, 8, -34, 0, -44)
   } else {
     g.fillStyle(0x5aa96f, 1)
     g.fillEllipse(-20, -26, 24, 12)
@@ -281,6 +314,33 @@ function drawVegetable(g: Phaser.GameObjects.Graphics, product: ProductKind, sca
     g.fillEllipse(0, -17, 22, 16)
     g.fillStyle(0x5f7a35, 1)
     g.fillRoundedRect(-2, -30, 4, 8, 2)
+  }
+}
+
+function drawTrough(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
+  if (!isAnimalProductKind(producer.product)) return
+  const capacity = troughCapacity(producer.product)
+  const count = feedCount(producer)
+  const spacing = 6
+  const centerX = 28
+  const left = centerX - ((capacity - 1) * spacing) / 2
+
+  g.fillStyle(0x3b2f3a, 0.16)
+  g.fillEllipse(centerX, 26, 28, 5)
+  g.fillStyle(0x6f4b2e, 1)
+  g.fillRoundedRect(centerX - 12, 15, 24, 10, 3)
+  g.fillStyle(0x9c6b42, 1)
+  g.fillRoundedRect(centerX - 10, 17, 20, 6, 2)
+
+  for (let index = 0; index < capacity; index += 1) {
+    const x = left + index * spacing
+    const filled = index < count
+    g.fillStyle(filled ? 0xffd166 : 0x5a3f28, 1)
+    g.fillCircle(x, 20, 3.2)
+    if (filled) {
+      g.fillStyle(0xfff3b0, 0.85)
+      g.fillCircle(x - 1, 19, 1.1)
+    }
   }
 }
 

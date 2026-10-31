@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { PORTRAIT_MAP, shelfCapacity } from './config'
-import { addStock, createProducer, emptyShelves, stepProduction } from './production'
-import type { ProductKind, ShelfState, ZoneId } from './types'
+import { PORTRAIT_MAP, shelfCapacity, troughCapacity } from './config'
+import {
+  addFeed,
+  addStock,
+  createProducer,
+  emptyShelves,
+  feedCount,
+  stepProduction,
+} from './production'
+import type { PlantKind, ProductKind, ShelfState, ZoneId } from './types'
 
 const ZONES = { fruit: true, veg: true, farm: true, kitchen: true } as const
 
@@ -23,14 +30,24 @@ function shelvesWith(stock: Partial<Record<ProductKind, number>>): Record<ZoneId
   return shelves
 }
 
+function withFeed(producerProduct: ProductKind, feed: Partial<Record<PlantKind, number>>) {
+  let producer = createProducer(producerProduct, 0, 1, PORTRAIT_MAP)
+  for (const [product, amount] of Object.entries(feed)) {
+    for (let index = 0; index < (amount ?? 0); index += 1) {
+      producer = addFeed(producer, product as PlantKind, 1).producer
+    }
+  }
+  return producer
+}
+
 function run(
   producerProduct: ProductKind,
   stock: Partial<Record<ProductKind, number>>,
   ticks: number,
+  feed: Partial<Record<PlantKind, number>> = {},
 ) {
-  const producer = createProducer(producerProduct, 0, 1, PORTRAIT_MAP)
   let shelves = shelvesWith(stock)
-  let state = producer
+  let state = withFeed(producerProduct, feed)
   for (let tick = 0; tick < ticks; tick += 1) {
     const result = stepProduction([state], shelves, 50, 1)
     state = result.producers[0] as typeof state
@@ -53,23 +70,36 @@ describe('production', () => {
     expect(state.ready).toBeGreaterThanOrEqual(1)
   })
 
-  it('leaves a chicken hungry with no feed', () => {
-    const { producer } = run('egg', {}, 2)
+  it('leaves a chicken hungry with an empty trough and never eats shelf stock', () => {
+    const { producer, shelves } = run('egg', { apple: 5 }, 2)
     expect(producer.hungry).toBe(true)
     expect(producer.ready).toBe(0)
+    expect(shelves.fruit.stock.apple).toBe(5)
   })
 
-  it('eats the first available diet item and produces', () => {
-    const { producer, shelves } = run('egg', { apple: 0, corn: 5 }, 200)
+  it('eats a whole item from the trough and produces', () => {
+    const { producer } = run('egg', {}, 200, { apple: 1 })
     expect(producer.hungry).toBe(false)
     expect(producer.ready).toBe(1)
-    expect(shelves.veg.stock.corn).toBe(4)
+    expect(feedCount(producer)).toBe(0)
   })
 
-  it('reserves one unit of feed for customers', () => {
-    const { producer, shelves } = run('egg', { apple: 1 }, 2)
-    expect(producer.hungry).toBe(true)
-    expect(shelves.fruit.stock.apple).toBe(1)
+  it('eats the cheapest trough item first', () => {
+    const { producer } = run('egg', {}, 2, { pear: 1, pumpkin: 2 })
+    expect(producer.hungry).toBe(false)
+    expect(producer.feed.pear ?? 0).toBe(0)
+    expect(producer.feed.pumpkin ?? 0).toBe(2)
+  })
+
+  it('consumes the whole item even when it is worth more than the product', () => {
+    const { producer } = run('egg', {}, 2, { eggplant: 1 })
+    expect(producer.hungry).toBe(false)
+    expect(producer.feed.eggplant ?? 0).toBe(0)
+  })
+
+  it('caps the trough at the animal capacity', () => {
+    const producer = withFeed('egg', { apple: 5 })
+    expect(feedCount(producer)).toBe(troughCapacity('egg'))
   })
 
   it('turns milk and eggs into cake while keeping one of each', () => {

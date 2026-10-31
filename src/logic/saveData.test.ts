@@ -63,6 +63,25 @@ describe('save data', () => {
     expect(save.zones.veg).toBe(true)
   })
 
+  it('restores the newer fruit and vegetable kinds', () => {
+    const save = migrateSave({
+      coins: 100,
+      producers: [
+        { product: 'strawberry', slot: 2 },
+        { product: 'grape', slot: 3 },
+        { product: 'potato', slot: 0 },
+        { product: 'eggplant', slot: 1 },
+      ],
+      zones: { farm: true },
+    })
+    expect(save.producers).toEqual([
+      { product: 'strawberry', slot: 2 },
+      { product: 'grape', slot: 3 },
+      { product: 'potato', slot: 0 },
+      { product: 'eggplant', slot: 1 },
+    ])
+  })
+
   it('converts old tree deposits to plant deposits', () => {
     const save = migrateSave({
       coins: 0,

@@ -19,8 +19,22 @@ export const PLAYER_RADIUS = 15
 export const CUSTOMER_RADIUS = 12
 export const NAV_CELL = 20
 
-export const FRUIT_ORDER: readonly FruitKind[] = ['apple', 'pear', 'peach', 'cherry']
-export const VEG_ORDER: readonly VegKind[] = ['carrot', 'tomato', 'corn', 'pumpkin']
+export const FRUIT_ORDER: readonly FruitKind[] = [
+  'apple',
+  'pear',
+  'peach',
+  'cherry',
+  'strawberry',
+  'grape',
+]
+export const VEG_ORDER: readonly VegKind[] = [
+  'carrot',
+  'tomato',
+  'corn',
+  'pumpkin',
+  'potato',
+  'eggplant',
+]
 export const ANIMAL_ORDER: readonly AnimalProductKind[] = ['egg', 'milk', 'yarn', 'fish']
 export const PROCESSED_ORDER: readonly ProcessedKind[] = ['cake', 'sweater', 'grilledFish']
 export const PLANT_ORDER: readonly PlantKind[] = [...FRUIT_ORDER, ...VEG_ORDER]
@@ -83,25 +97,43 @@ export const PLANTS: Readonly<Record<PlantKind, PlantConfig>> = {
   pear: { cost: 180, price: 6, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
   peach: { cost: 320, price: 8, growMs: 16_000, fruitMs: 9_000, maxFruit: 4 },
   cherry: { cost: 520, price: 10, growMs: 20_000, fruitMs: 11_000, maxFruit: 4 },
+  strawberry: { cost: 260, price: 7, growMs: 14_000, fruitMs: 8_000, maxFruit: 4 },
+  grape: { cost: 820, price: 15, growMs: 24_000, fruitMs: 12_000, maxFruit: 3 },
   carrot: { cost: 70, price: 4, growMs: 5_000, fruitMs: 4_000, maxFruit: 3 },
   tomato: { cost: 110, price: 6, growMs: 7_000, fruitMs: 5_000, maxFruit: 3 },
   corn: { cost: 190, price: 9, growMs: 10_000, fruitMs: 6_500, maxFruit: 3 },
   pumpkin: { cost: 380, price: 16, growMs: 14_000, fruitMs: 8_000, maxFruit: 2 },
+  potato: { cost: 280, price: 12, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
+  eggplant: { cost: 620, price: 22, growMs: 16_000, fruitMs: 10_000, maxFruit: 3 },
 }
+
+/** Shop and chooser order: cheapest first, independent of the demand order. */
+export const PLANT_SHOP_ORDER: readonly PlantKind[] = [...PLANT_ORDER].sort(
+  (a, b) => PLANTS[a].cost - PLANTS[b].cost,
+)
+
+/** Feed priority for trough consumption: cheapest whole item first. */
+export const FEED_ORDER: readonly PlantKind[] = [...PLANT_ORDER].sort(
+  (a, b) => PLANTS[a].price - PLANTS[b].price,
+)
 
 export interface AnimalConfig {
   readonly cost: number
   readonly price: number
   readonly cycleMs: number
   readonly capacity: number
-  readonly diet: readonly PlantKind[]
 }
 
 export const ANIMALS: Readonly<Record<AnimalProductKind, AnimalConfig>> = {
-  egg: { cost: 0, price: 8, cycleMs: 10_000, capacity: 3, diet: ['apple', 'corn'] },
-  milk: { cost: 600, price: 14, cycleMs: 16_000, capacity: 2, diet: ['pear', 'pumpkin'] },
-  yarn: { cost: 900, price: 18, cycleMs: 20_000, capacity: 2, diet: ['carrot', 'peach'] },
-  fish: { cost: 400, price: 12, cycleMs: 14_000, capacity: 3, diet: ['tomato'] },
+  egg: { cost: 0, price: 8, cycleMs: 10_000, capacity: 3 },
+  milk: { cost: 600, price: 14, cycleMs: 16_000, capacity: 2 },
+  yarn: { cost: 900, price: 18, cycleMs: 20_000, capacity: 2 },
+  fish: { cost: 400, price: 12, cycleMs: 14_000, capacity: 3 },
+}
+
+/** A trough holds one full production batch of whole produce items. */
+export function troughCapacity(product: AnimalProductKind): number {
+  return ANIMALS[product].capacity
 }
 
 export interface RecipeInput {
@@ -206,6 +238,7 @@ export interface StaffConfig {
   readonly carry: number
   readonly harvestMs: number
   readonly stockMs: number
+  readonly feedMs: number
 }
 
 export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
@@ -216,6 +249,7 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
     carry: 0,
     harvestMs: 0,
     stockMs: 0,
+    feedMs: 0,
   },
   picker: {
     costs: [260, 680],
@@ -224,6 +258,7 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
     carry: 4,
     harvestMs: 520,
     stockMs: 320,
+    feedMs: 260,
   },
 }
 
@@ -390,8 +425,10 @@ export const WANDER: Readonly<Record<'customer' | 'staff', WanderTuning>> = {
 export const INTERACT = {
   harvestRadius: 84,
   stockRadius: 66,
+  feedRadius: 60,
   harvestMs: 240,
   stockMs: 90,
+  feedMs: 200,
   trayCapacity: 999,
 } as const
 

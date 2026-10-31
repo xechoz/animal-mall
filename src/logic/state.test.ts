@@ -1,6 +1,7 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
 import { INTERACT, PORTRAIT_MAP } from './config'
+import { feedCount } from './production'
 import { purchasePlant, purchaseUpgrade } from './purchase'
 import { initialSave } from './saveData'
 import { createShopState, inRegisterZone, stepShop, toSave } from './state'
@@ -37,6 +38,14 @@ function appleSave(overrides: Partial<SaveData> = {}): SaveData {
     ...initialSave(),
     producers: [{ product: 'apple', slot: 0 }],
     ...overrides,
+  }
+}
+
+function eggSave(): SaveData {
+  return {
+    ...initialSave(),
+    zones: { fruit: true, veg: true, farm: true, kitchen: true },
+    producers: [{ product: 'egg', slot: 0 }],
   }
 }
 
@@ -156,6 +165,48 @@ describe('shop simulation', () => {
     const a = simulate(start, 400, { rng: createRng(1234) })
     const b = simulate(start, 400, { rng: createRng(1234) })
     expect(JSON.stringify(a.state)).toBe(JSON.stringify(b.state))
+  })
+
+  it('feeds a trough when the player stands at it with produce', () => {
+    const base = createShopState(eggSave(), PORTRAIT_MAP)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    state = {
+      ...state,
+      player: { ...state.player, carry: 'apple', carryCount: 3 },
+    }
+
+    const result = simulate(state, 1)
+    expect(result.state.producers[0]?.feed.apple).toBe(1)
+    expect(result.state.player.carryCount).toBe(2)
+    expect(result.events.some((event) => event.type === 'feed')).toBe(true)
+  })
+
+  it('does not feed while walking past a trough', () => {
+    const base = createShopState(eggSave(), PORTRAIT_MAP)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    state = {
+      ...state,
+      player: { ...state.player, carry: 'apple', carryCount: 3 },
+    }
+
+    const result = simulate(state, 1, { input: { moveX: 1, moveY: 0 } })
+    expect(result.state.producers[0]?.feed.apple ?? 0).toBe(0)
+    expect(result.state.player.carryCount).toBe(3)
+  })
+
+  it('does not put a non-plant product in a trough', () => {
+    const base = createShopState(eggSave(), PORTRAIT_MAP)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    state = {
+      ...state,
+      player: { ...state.player, carry: 'milk', carryCount: 2 },
+    }
+
+    const result = simulate(state, 1)
+    expect(
+      feedCount(result.state.producers[0] as NonNullable<ShopState['producers'][number]>),
+    ).toBe(0)
+    expect(result.state.player.carryCount).toBe(2)
   })
 
   it('persists producers, coins and upgrades through a save projection', () => {

@@ -1,6 +1,6 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { producerCost, ZONE_PRODUCTS } from '../logic/config'
+import { PLANT_SHOP_ORDER, producerCost, zoneOf } from '../logic/config'
 import { plantDepositKey } from '../logic/purchase'
 import type { PlantKind, ShopState } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
@@ -18,8 +18,8 @@ export interface PlantPickerOptions {
   readonly onClose: () => void
 }
 
-const WIDTH = 214
-const HEIGHT = 126
+const PADDING = 11
+const COLUMNS = 2
 const BUTTON_W = 92
 const BUTTON_H = 48
 const GAP = 8
@@ -31,13 +31,17 @@ export class PlantPicker {
 
   constructor(options: PlantPickerOptions) {
     const { scene, layout, theme, state, zone, slot } = options
+    const products = PLANT_SHOP_ORDER.filter((product) => zoneOf(product) === zone)
+    const rows = Math.ceil(products.length / COLUMNS)
+    const width = PADDING * 2 + COLUMNS * BUTTON_W + (COLUMNS - 1) * GAP
+    const height = PADDING * 2 + rows * BUTTON_H + (rows - 1) * GAP
     const point = layout.map.plantSlots[zone][slot] ?? layout.map.playerStart
     const screen = worldToScreen(layout, point)
-    const x = Math.max(WIDTH / 2 + 10, Math.min(layout.width - WIDTH / 2 - 10, screen.x))
+    const x = Math.max(width / 2 + 10, Math.min(layout.width - width / 2 - 10, screen.x))
     const bottom = Math.max(150, screen.y - 38 * layout.worldScale)
     const y = Math.max(
-      HEIGHT / 2 + 84,
-      Math.min(layout.height - HEIGHT / 2 - 20, bottom - HEIGHT / 2),
+      height / 2 + 84,
+      Math.min(layout.height - height / 2 - 20, bottom - height / 2),
     )
 
     this.root = scene.add.container(0, 0).setDepth(6900)
@@ -53,27 +57,21 @@ export class PlantPicker {
 
     const g = scene.add.graphics()
     g.fillStyle(theme.shadow, 0.2)
-    g.fillRoundedRect(-WIDTH / 2, -HEIGHT / 2 + 5, WIDTH, HEIGHT, 18)
+    g.fillRoundedRect(-width / 2, -height / 2 + 5, width, height, 18)
     g.fillStyle(theme.panel, 0.98)
-    g.fillRoundedRect(-WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT, 18)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 18)
     g.lineStyle(3, theme.accent, 0.9)
-    g.strokeRoundedRect(-WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT, 18)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 18)
     g.fillStyle(theme.accent, 0.9)
-    g.fillTriangle(-10, HEIGHT / 2 - 1, 10, HEIGHT / 2 - 1, 0, HEIGHT / 2 + 13)
+    g.fillTriangle(-10, height / 2 - 1, 10, height / 2 - 1, 0, height / 2 + 13)
     panel.add(g)
 
     const noProducers = state.producers.length === 0
-    const products = ZONE_PRODUCTS[zone]
-    products.forEach((product, index) => {
-      if (product === 'egg' || product === 'milk' || product === 'yarn' || product === 'fish') {
-        return
-      }
-      if (product === 'cake' || product === 'sweater' || product === 'grilledFish') return
-      const plant = product
-      const column = index % 2
-      const row = Math.floor(index / 2)
-      const bx = -WIDTH / 2 + 11 + column * (BUTTON_W + GAP) + BUTTON_W / 2
-      const by = -HEIGHT / 2 + 11 + row * (BUTTON_H + GAP) + BUTTON_H / 2
+    products.forEach((plant, index) => {
+      const column = index % COLUMNS
+      const row = Math.floor(index / COLUMNS)
+      const bx = -width / 2 + PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2
+      const by = -height / 2 + PADDING + row * (BUTTON_H + GAP) + BUTTON_H / 2
       const cost = producerCost(plant)
       const deposit = state.deposits[plantDepositKey(plant)] ?? 0
       const remaining = Math.max(0, cost - deposit)

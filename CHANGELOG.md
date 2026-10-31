@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add strawberry, grape, potato and eggplant, bringing each production zone to
+  six plantable crops. The shop and plant chooser lay out six cards per zone.
+- Animals no longer eat directly from shelves. Each animal has a trough that the
+  player fills by standing near it with produce, or that pickers fill with what
+  they harvest. The animal eats the cheapest whole item in the trough each
+  production cycle.
 - Add a bottom-right trash bin: standing near it for half a second with goods in
   hand discards the whole carried stack, with a progress ring and toast.
 - Add a free drink machine for staff breaks and a paid player menu with three
