@@ -508,7 +508,7 @@ export class GameScene extends Phaser.Scene {
       onPause: () => this.pauseGame(),
       ...(devEnabled ? { onDev: () => this.openDevPanel() } : {}),
     })
-    this.joystick = new Joystick(this)
+    this.joystick = new Joystick(this, this.services.theme)
     this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(this, this.layout, this.services.theme, (zone, slot) =>

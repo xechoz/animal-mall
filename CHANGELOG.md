@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Touch presses on the play field now draw a floating joystick ring and knob
+  under the finger; mouse drags stay invisible on desktop.
 - Rework the orchard and vegetable plots: rectangular tilled beds, seed holes
   and a small seed-packet marker on every empty slot, a proper grass lawn with
   tufts around planted fruit trees, and a darker, mostly bare vegetable field
