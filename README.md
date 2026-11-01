@@ -37,7 +37,7 @@ that sale.
   field; both grids are configuration in `src/logic/shopMap.ts`, so the counts
   can be tuned without touching save or UI code. Fruit trees and vegetable crops
   grow on their own; harvested goods go to the matching shelf.
-- Hold a finger on a planted bed, or tap its round swap badge, to open the crop
+- Hold a finger on a planted bed, or tap its round shovel badge, to open the crop
   chooser and swap it. Standing next to it never does: a harvest empties the bed
   under your feet, so a proximity chooser would fire on every pick. Every planted
   bed shows the badge just above its base; it fades in after you stop and only
@@ -90,7 +90,7 @@ that sale.
   after 500 ms (open a bed, unlock a zone, fish, open the drink menu, nudge
   staff, discard goods); paid purchases keep the longer one-second dwell so a
   passing tap cannot spend coins. Crop swapping is the exception: it is explicit
-  only, via a long press or its swap tag, because a harvest empties the bed under
+  only, via a long press or its shovel badge, because a harvest empties the bed under
   the player. Walking always cancels the ring.
 - Beds and offer labels are tappable as well. A short tap plants, a
   `INTERACTION.holdMs` long press swaps crops with a "Hold to swap" cue, and

@@ -4,15 +4,15 @@
 
 - Crop swapping is explicit only. Standing next to a planted bed no longer opens
   the chooser after 500 ms: a harvest empties the bed under the player, so the
-  old dwell fired on almost every pick. Hold the bed or tap its swap tag
+  old dwell fired on almost every pick. Hold the bed or tap its shovel badge
   instead.
 - The crop chooser is a real modal now: movement is locked while it is open,
   `×`, the backdrop and Esc close it, tapping the panel padding no longer closes
   it, and it shows the current crop, its refund and a check on the planted one.
   Long presses show a "Hold to swap" cue, bed touch areas stop at half the row
-  gap instead of overlapping the next vegetable row, and the swap tag pulses
+  gap instead of overlapping the next vegetable row, and the shovel badge pulses
   when the player is close.
-- Swap tags are now a single round ↻ badge at the base of every planted bed,
+- Swap tags are now a single round shovel badge at the base of every planted bed,
   including mature crops. It fades in only after the player stops, uses a
   badge-only touch target, and sits just above the soil instead of over the
   canopy, so walking past or tapping the crop no longer opens the chooser.

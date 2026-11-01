@@ -30,6 +30,8 @@ const WIDTH = 70
 const HEIGHT = 30
 const SWAP_TAG = 34
 const SWAP_HIT = 44
+/** Tilt the shovel like a digging stroke instead of standing straight up. */
+const SHOVEL_TILT = Math.PI / 4
 
 export class MapOffers {
   private readonly scene: Phaser.Scene
@@ -156,7 +158,7 @@ export class MapOffers {
             : WIDTH) * ui
     const height = (offer.type === 'swap' ? SWAP_TAG : compact ? 20 : HEIGHT) * ui
     // Crop labels sit above the canopy, not inside it. Animal and station
-    // labels stay lower so they do not collide with the top HUD. The swap tag
+    // labels stay lower so they do not collide with the top HUD. The shovel tag
     // hugs the bed's base instead of floating over the canopy.
     const compactLift = offer.type === 'plant' && offer.zone === 'fruit' ? 10 : 4
     const lift =
@@ -182,8 +184,8 @@ export class MapOffers {
     )
     label.container.setPosition(x, y)
     label.container.setAlpha(fade)
-    // Only the swap badge is a target, never the whole card; the chip body sits
-    // over the crop and a stray tap there must not open a paid chooser.
+    // Only the shovel badge is a target, never the whole card; the chip body
+    // sits over the crop and a stray tap there must not open a paid chooser.
     if (offer.type === 'swap') {
       label.hit.setSize(SWAP_HIT * ui, SWAP_HIT * ui)
     } else {
@@ -236,6 +238,7 @@ export class MapOffers {
         offer.type === 'swap',
     )
     label.badge.clear()
+    label.badge.setRotation(offer.type === 'swap' ? SHOVEL_TILT : 0)
     if (offer.type === 'plant' && offer.requiresChoice) {
       drawSeedPacket(label.badge, -22 * ui, 0, ui)
     }
@@ -243,10 +246,10 @@ export class MapOffers {
       drawLockBadge(label.badge, -22 * ui, 0, ui)
     }
     if (offer.type === 'swap') {
-      drawSwapBadge(label.badge, 0, 0, 1 * ui)
+      drawShovelBadge(label.badge, 0, 0, 1 * ui)
     }
-    // A soft pulse marks the swap tag as the actionable part of a planted bed,
-    // without adding another text label over the crop.
+    // A soft pulse marks the shovel badge as the actionable part of a planted
+    // bed, without adding another text label over the crop.
     const pulse =
       offer.type === 'swap' && near
         ? 0.72 + 0.28 * (0.5 + 0.5 * Math.sin(this.scene.time.now / 240))
@@ -309,18 +312,41 @@ export class MapOffers {
   }
 }
 
-function drawSwapBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+function drawShovelBadge(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  scale: number,
+): void {
   const s = scale
-  g.lineStyle(2.4 * s, 0x5fbf9f, 1)
+  const ink = 0x3b2f3a
+  const blade = 0x5fbf9f
+  // Handle and T-grip.
+  g.lineStyle(3 * s, ink, 1)
   g.beginPath()
-  g.arc(x, y, 7 * s, -Math.PI * 0.15, Math.PI * 0.85)
+  g.moveTo(x, y - 11 * s)
+  g.lineTo(x, y + s)
   g.strokePath()
   g.beginPath()
-  g.arc(x, y, 7 * s, Math.PI * 0.85, Math.PI * 1.85)
+  g.moveTo(x - 5 * s, y - 11 * s)
+  g.lineTo(x + 5 * s, y - 11 * s)
   g.strokePath()
-  g.fillStyle(0x5fbf9f, 1)
-  g.fillTriangle(x + 5 * s, y - 8 * s, x + 10 * s, y - 3 * s, x + 3 * s, y - 2 * s)
-  g.fillTriangle(x - 5 * s, y + 8 * s, x - 10 * s, y + 3 * s, x - 3 * s, y + 2 * s)
+  // Spade blade: a flat top with a rounded point, so it reads as a shovel and
+  // not as an arrow at 34 px.
+  g.fillStyle(blade, 1)
+  g.beginPath()
+  g.moveTo(x - 5.5 * s, y + 1 * s)
+  g.lineTo(x + 5.5 * s, y + 1 * s)
+  g.lineTo(x + 4.5 * s, y + 7 * s)
+  g.lineTo(x, y + 11.5 * s)
+  g.lineTo(x - 4.5 * s, y + 7 * s)
+  g.closePath()
+  g.fillPath()
+  g.lineStyle(1.4 * s, ink, 0.85)
+  g.beginPath()
+  g.moveTo(x - 5.5 * s, y + 1 * s)
+  g.lineTo(x + 5.5 * s, y + 1 * s)
+  g.strokePath()
 }
 
 function drawLockBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, ui: number): void {

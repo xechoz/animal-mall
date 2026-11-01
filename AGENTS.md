@@ -98,10 +98,10 @@ submodule. Do not copy platform source into this repo.
   (or 500 ms dwell) opens the plant chooser. The chip shrinks to a small sticker
   sitting on the soil until the player is near.
 - Crop swapping is explicit only: a long press on the bed (`INTERACTION.holdMs`)
-  or a tap on its round swap badge opens the chooser. Standing next to a bed never
+  or a tap on its round shovel badge opens the chooser. Standing next to a bed never
   swaps, because a harvest empties the bed under the player's feet and an
   automatic chooser would fire on every pick. Every planted bed advertises a small
-  round swap badge just above its base: it fades in after the player stops for
+  round shovel badge just above its base: it fades in after the player stops for
   ~250 ms, only appears within ~130 units, and only the badge itself is tappable.
   The chooser is modal: movement input is locked until it closes through `×`, the
   backdrop or `Esc`, and it shows the planted crop and its refund. The old crop
