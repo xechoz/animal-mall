@@ -5,15 +5,18 @@ import {
   CUSTOMER_RADIUS,
   INTERACT,
   LANDSCAPE_MAP,
+  PEN_SIZE,
   PLAYER_RADIUS,
+  PLOT_SIZE,
   PORTRAIT_MAP,
   producerPosition,
+  STATION_SIZE,
   shopMapFor,
   ZONE_ORDER,
 } from './config'
 import { initialSave } from './saveData'
 import { createShopState, remapShopState, stepShop } from './state'
-import type { ShopMap } from './types'
+import type { Rect, ShopMap } from './types'
 
 const MAPS: readonly ShopMap[] = [PORTRAIT_MAP, LANDSCAPE_MAP]
 
@@ -138,7 +141,98 @@ for (const map of MAPS) {
         expect(blockedAt(plot.x, plot.y, CUSTOMER_RADIUS, map)).toBe(false)
       }
     })
+
+    it('keeps the four zones apart and out of the aisles', () => {
+      const areas = ZONE_ORDER.map((zone) => ({ zone, area: map.zoneAreas[zone] }))
+      for (const [index, left] of areas.entries()) {
+        for (const right of areas.slice(index + 1)) {
+          expect(overlaps(left.area, right.area), `${map.id} ${left.zone}/${right.zone}`).toBe(
+            false,
+          )
+        }
+      }
+      for (const { zone, area } of areas) {
+        for (const aisle of map.aisles) {
+          expect(overlaps(area, aisle.rect), `${map.id} ${zone}`).toBe(false)
+        }
+      }
+    })
+
+    it('keeps the service furniture and dining nook out of the zones', () => {
+      const props: ReadonlyArray<readonly [string, Rect]> = [
+        ['counter', map.counter],
+        ['vending', map.facilities.vendingRect],
+        ['trash', map.facilities.trashRect],
+        ['restMat', map.facilities.restMat],
+        ['diningRug', map.dining.rug],
+        ['diningTable', map.dining.table],
+      ]
+      for (const zone of ZONE_ORDER) {
+        for (const [name, rect] of props) {
+          expect(overlaps(map.zoneAreas[zone], rect), `${map.id} ${zone} ${name}`).toBe(false)
+        }
+      }
+    })
+
+    it('keeps beds, pens and stations inside their zone', () => {
+      for (const plot of map.plots) {
+        expect(contains(map.zoneAreas.fruit, plotRect(plot))).toBe(true)
+      }
+      for (const plot of map.cropPlots) {
+        expect(contains(map.zoneAreas.veg, plotRect(plot))).toBe(true)
+      }
+      for (const pen of map.animalPens) {
+        expect(contains(map.zoneAreas.farm, sizedRect(pen, PEN_SIZE))).toBe(true)
+      }
+      for (const station of map.stationSlots) {
+        expect(contains(map.zoneAreas.kitchen, sizedRect(station, STATION_SIZE))).toBe(true)
+      }
+    })
+
+    it('keeps the dining table inside its rug', () => {
+      expect(contains(map.dining.rug, map.dining.table)).toBe(true)
+    })
+
+    it('keeps every aisle wide enough for two navigation cells', () => {
+      for (const aisle of map.aisles) {
+        expect(Math.min(aisle.rect.w, aisle.rect.h)).toBeGreaterThanOrEqual(48)
+      }
+    })
   })
+}
+
+function overlaps(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+}
+
+function contains(outer: Rect, inner: Rect): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.w <= outer.x + outer.w &&
+    inner.y + inner.h <= outer.y + outer.h
+  )
+}
+
+function plotRect(plot: { readonly x: number; readonly y: number }): Rect {
+  return {
+    x: plot.x - PLOT_SIZE.w / 2,
+    y: plot.y - PLOT_SIZE.h / 2,
+    w: PLOT_SIZE.w,
+    h: PLOT_SIZE.h,
+  }
+}
+
+function sizedRect(
+  plot: { readonly x: number; readonly y: number },
+  size: { readonly w: number; readonly h: number },
+): Rect {
+  return {
+    x: plot.x - size.w / 2,
+    y: plot.y - size.h / 2,
+    w: size.w,
+    h: size.h,
+  }
 }
 
 describe('shop map selection', () => {

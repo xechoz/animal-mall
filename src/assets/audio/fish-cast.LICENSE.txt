@@ -9,4 +9,5 @@ License: CC0 1.0 Universal (public domain dedication)
          https://creativecommons.org/publicdomain/zero/1.0/
 No third-party recording or sample was used.
 
-Format: 44.1 kHz mono 16-bit PCM WAV, 0.34 s.
+Format: 44.1 kHz mono MP3, 128 kbps, 0.34 s (encoded from the 16-bit PCM
+source for the web build).

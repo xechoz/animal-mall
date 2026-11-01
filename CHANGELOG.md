@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Compress the bundled audio: the music is now a 48 kbps stereo MP3 and the
+  four WAV effects are 128 kbps mono MP3. The web package drops from about
+  2.1 MB to 1.6 MB, below the 2 MB target, with the same sound keys and
+  licences.
+- Rebalance the shop floor plan: the four product zones are wider and taller,
+  the dirt aisles and service band are narrower, and the dining/rest nook now
+  sits fully in the service area instead of overlapping the orchard. Aisles are
+  part of the map data, so the floor art and the walkable gaps cannot drift.
 - Add a free dining area: a four-seat table in the landscape bottom-right and a
   two-seat nook replacing the portrait rest corner. Tap a chair or stand still
   for half a second while carrying goods to sit, then eat any carried product

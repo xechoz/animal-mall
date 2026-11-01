@@ -6,12 +6,12 @@ import { MenuScene } from './scenes/MenuScene'
 
 const music = new URL('./assets/audio/joyful-jungle.mp3', import.meta.url).href
 const eatSamples = [
-  new URL('./assets/audio/eat-1.wav', import.meta.url).href,
-  new URL('./assets/audio/eat-2.wav', import.meta.url).href,
+  new URL('./assets/audio/eat-1.mp3', import.meta.url).href,
+  new URL('./assets/audio/eat-2.mp3', import.meta.url).href,
 ]
 const drinkGulp = new URL('./assets/audio/drink-gulp.mp3', import.meta.url).href
-const fishCast = new URL('./assets/audio/fish-cast.wav', import.meta.url).href
-const fishSplash = new URL('./assets/audio/fish-splash.wav', import.meta.url).href
+const fishCast = new URL('./assets/audio/fish-cast.mp3', import.meta.url).href
+const fishSplash = new URL('./assets/audio/fish-splash.mp3', import.meta.url).href
 const cowMoo = new URL('./assets/audio/cow-moo.mp3', import.meta.url).href
 const chickenCluck = new URL('./assets/audio/chicken-cluck.mp3', import.meta.url).href
 const sheepBaa = new URL('./assets/audio/sheep-baa.mp3', import.meta.url).href

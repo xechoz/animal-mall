@@ -245,7 +245,12 @@ function drawFarmGround(
   g.lineBetween(hay.x + 1, hay.y - 3, hay.x + 1, hay.y + 7)
   g.lineBetween(hay.x + 7, hay.y - 3, hay.x + 7, hay.y + 7)
 
-  drawWell(g, area.x + area.w / 2, area.y + area.h / 2, 0.75)
+  // Keep the well in the clearing between the two pen rows instead of on the
+  // centreline of the whole zone, which moves when the floor plan grows.
+  const penRows = map.animalPens.map((pen) => pen.y)
+  const wellY =
+    penRows.length > 0 ? (Math.min(...penRows) + Math.max(...penRows)) / 2 : area.y + area.h / 2
+  drawWell(g, area.x + area.w / 2, wellY, 0.75)
   drawFern(g, area.x + 22, area.y + area.h - 42, 1.05, 1)
   drawFern(g, area.x + area.w - 26, area.y + 54, 0.85, -1)
   drawMushroomCluster(g, area.x + 30, area.y + area.h - 62, 0.9)

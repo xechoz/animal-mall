@@ -49,8 +49,8 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
 
       const area = this.map.zoneAreas[zone]
       const centerX = area.x + area.w / 2
-      const lockY = area.y + 148
-      const priceY = area.y + 198
+      const lockY = area.y + area.h * 0.42
+      const priceY = area.y + area.h * 0.56
       const patch = zonePatchPoints(area)
       fillPolygon(this.graphics, patch, gameColors.canopy, 0.4)
       strokePolygon(this.graphics, patch, gameColors.mossDark, 0.85, 2)

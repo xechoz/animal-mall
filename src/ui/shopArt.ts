@@ -59,17 +59,15 @@ function createPortraitShopBackground(
 
   drawOuterBand(g, width, height)
   drawFloor(g, map)
-  drawAisles(g, map, true)
+  drawAisles(g, map)
   drawIndoorScenery(g, map)
   drawGhostFacilities(g, map)
   drawTopBand(g, theme, title, width, container, scene, 1)
   drawSideFences(g, map)
-  drawCentralRug(g, 282, 520, 108, 52)
+  drawCentralRug(g, 282, 506, 108, 52)
   drawQueueMarkers(g, map)
   drawCounter(g, map)
-  drawDoorMat(g, 278, 1108)
-  drawPlant(g, 60, 110)
-  drawPlant(g, 620, 110)
+  drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
   drawZoneLabels(g, theme, labels, map, true, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
@@ -93,7 +91,7 @@ function createLandscapeShopBackground(
 
   drawOuterBand(g, width, height)
   drawFloor(g, map)
-  drawAisles(g, map, false)
+  drawAisles(g, map)
   drawIndoorScenery(g, map)
   drawGhostFacilities(g, map)
   drawRestMat(g, map.facilities.restMat)
@@ -101,9 +99,7 @@ function createLandscapeShopBackground(
   drawSideFences(g, map)
   drawQueueMarkers(g, map)
   drawCounter(g, map)
-  drawDoorMat(g, 278, 596)
-  drawPlant(g, 60, 110)
-  drawPlant(g, 1140, 110)
+  drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
   drawZoneLabels(g, theme, labels, map, false, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
@@ -158,19 +154,24 @@ function drawFloor(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   )
 }
 
-function drawAisles(g: Phaser.GameObjects.Graphics, map: ShopMap, portrait: boolean): void {
-  if (portrait) {
-    drawDirtPath(g, 300, 144, 80, 956, true, 11)
-    drawDirtPath(g, 40, 522, map.room.w - 80, 48, false, 23)
-    drawDirtPath(g, 246, 1000, 108, 108, true, 91)
-    drawLeafLitter(g, { x: 290, y: 160, w: 100, h: 920 }, 16, 41)
-    drawAntTrail(g, 328, 760, 0.9)
-  } else {
-    for (const x of [260, 560, 860]) drawDirtPath(g, x, 88, 80, 300, true, 51 + x)
-    drawDirtPath(g, 40, 408, map.room.w - 80, 76, false, 71)
-    drawDirtPath(g, 246, 510, 108, 130, true, 93)
-    drawLeafLitter(g, { x: 40, y: 416, w: map.room.w - 80, h: 60 }, 18, 83)
-    drawAntTrail(g, 616, 456, 0.9)
+function drawAisles(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
+  for (const aisle of map.aisles) {
+    const rect = aisle.rect
+    drawDirtPath(g, rect.x, rect.y, rect.w, rect.h, aisle.vertical, Math.round(rect.x * 3 + rect.y))
+  }
+
+  const main = map.aisles.find((aisle) => aisle.vertical)
+  if (main !== undefined) {
+    const rect = main.rect
+    drawLeafLitter(g, { x: rect.x - 4, y: rect.y + 12, w: rect.w + 8, h: rect.h - 24 }, 14, 41)
+    drawAntTrail(g, rect.x + rect.w / 2, rect.y + rect.h * 0.72, 0.9)
+  }
+
+  const cross = map.aisles.find((aisle) => !aisle.vertical)
+  if (cross !== undefined) {
+    const rect = cross.rect
+    drawLeafLitter(g, { x: rect.x + 4, y: rect.y - 4, w: rect.w - 8, h: rect.h + 8 }, 18, 83)
+    drawAntTrail(g, rect.x + rect.w * 0.55, rect.y + rect.h / 2, 0.9)
   }
 }
 
@@ -370,8 +371,8 @@ function drawZoneLabels(
   for (const zone of ZONE_ORDER) {
     const area = map.zoneAreas[zone]
     if (portrait) {
-      const labelX = zone === 'fruit' || zone === 'farm' ? 70 : 440
-      const labelY = area.y < 200 ? 74 : 580
+      const labelX = area.x + 12
+      const labelY = area.y - 14
       const label = scene.add
         .text(labelX, labelY, labels[zone], textStyle(theme, 12 * textScale, theme.text, true))
         .setOrigin(0, 0.5)
@@ -386,7 +387,7 @@ function drawZoneLabels(
     const shelf = map.shelves[zone]
     const headerScale = Math.min(textScale, 1.3)
     const centerX = shelf.x + shelf.w / 2
-    const centerY = 157
+    const centerY = shelf.y + shelf.h + 15
     const label = scene.add
       .text(centerX, centerY, labels[zone], textStyle(theme, 18 * headerScale, theme.text, true))
       .setOrigin(0.5)
@@ -498,23 +499,6 @@ function drawDoorMat(g: Phaser.GameObjects.Graphics, centerX: number, top: numbe
   g.fillStyle(gameColors.moss, 0.8)
   g.fillEllipse(left + 20, top + 23, 10, 5)
   g.fillEllipse(left + 72, top + 23, 10, 5)
-}
-
-function drawPlant(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-  g.fillStyle(0x1a120c, 0.12)
-  g.fillEllipse(x, y + 14, 30, 8)
-  g.fillStyle(gameColors.woodDark, 1)
-  g.fillRoundedRect(x - 13, y, 26, 16, 5)
-  g.fillStyle(gameColors.dirt, 1)
-  g.fillEllipse(x, y + 2, 20, 6)
-  g.fillStyle(gameColors.leafDark, 1)
-  g.fillEllipse(x - 8, y - 10, 16, 9)
-  g.fillEllipse(x + 8, y - 12, 15, 9)
-  g.fillStyle(gameColors.moss, 1)
-  g.fillEllipse(x, y - 18, 17, 10)
-  g.fillEllipse(x - 11, y - 14, 13, 8)
-  g.fillStyle(gameColors.leafLight, 1)
-  g.fillEllipse(x + 2, y - 20, 8, 5)
 }
 
 function drawDappledLight(g: Phaser.GameObjects.Graphics, map: ShopMap): void {

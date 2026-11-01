@@ -6,8 +6,8 @@ License: CC0 1.0 Universal (public domain dedication)
          https://creativecommons.org/publicdomain/zero/1.0/
 CC0 requires no attribution; the author is credited voluntarily.
 
-Two takes (eat-1.wav, eat-2.wav) are copied from the xechoz/snake game
-assets. They are registered as the dedicated `diningEat` key: only table meals
-use them, while harvesting and feeding keep the platform synth `eat` cue. The
-platform audio manager picks one take at random for each bite, so repeated
-meals do not sound identical.
+Two takes (eat-1.mp3, eat-2.mp3) are encoded at 128 kbps mono from the
+xechoz/snake WAV sources. They are registered as the dedicated `diningEat` key:
+only table meals use them, while harvesting and feeding keep the platform synth
+`eat` cue. The platform audio manager picks one take at random for each bite, so
+repeated meals do not sound identical.

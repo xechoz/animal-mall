@@ -7,6 +7,10 @@ Original: joyful_jungle_bpm140.ogg, 140 BPM, 85.714 s (200 beats / 50 bars),
 loopable. sha256 cb51965c9f2ee728cf30d6dce3d9b43e88921ed93f8e82782d94f695a02ae21c
 Downloaded 2026-10-31.
 
+Bundled file: 48 kbps stereo MP3, 185.14 s, transcoded from the supplied
+64 kbps MP3 to keep the web package small. The CC0 source remains the original
+OGG above; this is a delivery-format transcode only.
+
 CC0 requires no attribution; the composer is credited voluntarily.
 
 Edits (2026-10-31, second pass): the 85.7 s loop was too short for a session, so

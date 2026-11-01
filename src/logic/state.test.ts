@@ -245,10 +245,12 @@ describe('shop simulation', () => {
       ],
     }
     const base = createShopState(save, PORTRAIT_MAP)
+    const shelf = PORTRAIT_MAP.shelves.fruit
+    const shelfY = shelf.y + shelf.h + 18
     const spots = [
-      { x: 75, y: 660 },
-      { x: 265, y: 660 },
-      { x: 170, y: 660 },
+      { x: shelf.x + 8, y: shelfY },
+      { x: shelf.x + shelf.w - 8, y: shelfY },
+      { x: shelf.x + shelf.w / 2, y: shelfY },
     ]
     for (const pos of spots) {
       const state = withPlayer(
@@ -304,7 +306,7 @@ describe('shop simulation', () => {
     const base = createShopState(save, PORTRAIT_MAP)
     let state = withPlayer(
       { ...base, player: { ...base.player, carry: { apple: 1 } } },
-      { x: 90, y: 665 },
+      { x: PORTRAIT_MAP.shelves.fruit.x + 8, y: PORTRAIT_MAP.shelves.fruit.y + 68 },
     )
     expect(stockReach(state)).toEqual(['fruit'])
 
@@ -320,7 +322,10 @@ describe('shop simulation', () => {
     }
     expect(stockReach(full)).toEqual([])
 
-    state = withPlayer(state, { x: 170, y: 900 })
+    state = withPlayer(state, {
+      x: PORTRAIT_MAP.zoneAreas.fruit.x + PORTRAIT_MAP.zoneAreas.fruit.w / 2,
+      y: PORTRAIT_MAP.zoneAreas.fruit.y + PORTRAIT_MAP.zoneAreas.fruit.h - 20,
+    })
     expect(stockReach(state)).toEqual([])
   })
 

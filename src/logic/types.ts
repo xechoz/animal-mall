@@ -82,6 +82,15 @@ export interface DiningLayout {
 }
 
 /**
+ * A walkable dirt aisle. The map owns the rect so the floor art, the walkable
+ * gap between zones and any future navigation hints cannot drift apart.
+ */
+export interface Aisle {
+  readonly rect: Rect
+  readonly vertical: boolean
+}
+
+/**
  * One complete shop floor plan. The simulation only knows this shape, so the
  * same rules run on the portrait and landscape layouts.
  */
@@ -119,6 +128,8 @@ export interface ShopMap {
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
   readonly facilities: FacilityLayout
   readonly dining: DiningLayout
+  /** Dirt paths between the zones and down to the door. */
+  readonly aisles: readonly Aisle[]
   /** Solid props for every walker: shelves, counter, pens and stations. */
   readonly obstacles: readonly Rect[]
   /**
