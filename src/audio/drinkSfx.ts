@@ -13,6 +13,10 @@ const DRINK_PITCH: Readonly<Record<DrinkKind, number>> = {
   lemonTea: 1.05,
 }
 
+export function playGulpSfx(services: GameServices, pitch = 1): void {
+  services.audio.play(DRINK_EFFECT, { gain: 0.65, pitch })
+}
+
 export function playDrinkSfx(services: GameServices, drink: DrinkKind): void {
-  services.audio.play(DRINK_EFFECT, { gain: 0.65, pitch: DRINK_PITCH[drink] })
+  playGulpSfx(services, DRINK_PITCH[drink])
 }

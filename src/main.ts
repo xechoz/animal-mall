@@ -5,6 +5,10 @@ import { GameScene } from './scenes/GameScene'
 import { MenuScene } from './scenes/MenuScene'
 
 const music = new URL('./assets/audio/joyful-jungle.mp3', import.meta.url).href
+const eatSamples = [
+  new URL('./assets/audio/eat-1.wav', import.meta.url).href,
+  new URL('./assets/audio/eat-2.wav', import.meta.url).href,
+]
 const drinkGulp = new URL('./assets/audio/drink-gulp.mp3', import.meta.url).href
 const fishCast = new URL('./assets/audio/fish-cast.wav', import.meta.url).href
 const fishSplash = new URL('./assets/audio/fish-splash.wav', import.meta.url).href
@@ -23,7 +27,17 @@ createGame({
     audio: [{ key: 'music', urls: music }],
   },
   // Built-in slots can be overridden and games may register their own sound
-  // names; the two fishing effects are sample-only keys.
-  audioSamples: { slow: drinkGulp, fishCast, fishSplash, cowMoo, chickenCluck, sheepBaa },
+  // names; the fishing and animal effects are sample-only keys. `diningEat`
+  // keeps the snake crunches scoped to table meals, while harvest, feed and
+  // customer pickups keep the platform's synth `eat` cue.
+  audioSamples: {
+    slow: drinkGulp,
+    diningEat: eatSamples,
+    fishCast,
+    fishSplash,
+    cowMoo,
+    chickenCluck,
+    sheepBaa,
+  },
   scenes: [MenuScene, GameScene],
 })

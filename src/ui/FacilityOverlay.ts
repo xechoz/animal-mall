@@ -1,6 +1,6 @@
 import { Button, type I18n, type Theme } from '@mg/core'
 import type Phaser from 'phaser'
-import { FACILITY_DWELL_MS } from '../logic/config'
+import { DINING, FACILITY_DWELL_MS } from '../logic/config'
 import { nearestRestingStaff } from '../logic/facilities'
 import type { ShopState, Vec2 } from '../logic/types'
 import { type GameLayout, worldToScreen } from './layout'
@@ -100,6 +100,12 @@ export class FacilityOverlay {
         state.facility.drinkDwellMs / FACILITY_DWELL_MS,
         this.theme.accentAlt,
       )
+    }
+    if (state.dining.playerSeat === null && state.dining.targetSeat !== null) {
+      const seat = state.map.dining.seats[state.dining.targetSeat]
+      if (seat !== undefined) {
+        this.drawProgress(seat.seat, state.dining.dwellMs / DINING.dwellMs, this.theme.accentAlt)
+      }
     }
     if (resting !== null) {
       const point = worldToScreen(this.layout, resting.pos)

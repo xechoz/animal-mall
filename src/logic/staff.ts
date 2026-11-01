@@ -1,10 +1,12 @@
 import type { Rng } from '@mg/core/rng'
 import { distanceSq } from './collision'
 import {
+  DINING,
   FACILITY_DWELL_MS,
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
+  PRODUCT_ORDER,
   producerAccess,
   RECIPES,
   REST,
@@ -13,6 +15,7 @@ import {
   WANDER,
   zoneOf,
 } from './config'
+import { claimedDiningSeats, freeDiningSeat } from './dining'
 import { findPath } from './nav'
 import {
   addFeed,
@@ -26,6 +29,7 @@ import {
   takeStock,
 } from './production'
 import type {
+  DiningSeat,
   GameEvent,
   ProducerState,
   ProductKind,
@@ -48,6 +52,8 @@ interface StaffContext {
   shelves: Record<ZoneId, ShelfState>
   /** Stations a chef already committed to this tick, shared by every chef. */
   readonly claims: Set<number>
+  /** Seats owned by the player or already reserved by another staff member. */
+  readonly claimedSeats: Set<number>
   events: GameEvent[]
 }
 
@@ -107,6 +113,8 @@ export function activeCashier(members: readonly StaffState[]): boolean {
 }
 
 export function stepStaff(state: ShopState, dtMs: number, rng: Rng): StepResult {
+  const dt = Math.max(0, Math.min(dtMs, 50))
+  const members = syncStaffMembers(state.staffMembers, state.staff, state.map)
   const ctx: StaffContext = {
     map: state.map,
     queueLength: state.queue.length,
@@ -114,10 +122,9 @@ export function stepStaff(state: ShopState, dtMs: number, rng: Rng): StepResult 
     producers: state.producers,
     shelves: { ...state.shelves },
     claims: new Set<number>(),
+    claimedSeats: claimedDiningSeats(state.dining.playerSeat, members),
     events: [],
   }
-  const dt = Math.max(0, Math.min(dtMs, 50))
-  const members = syncStaffMembers(state.staffMembers, state.staff, state.map)
   const nextMembers = members.map((member) => stepMember(member, ctx, dt, rng))
   const urged = stepUrgeDwell(state, nextMembers, dt, ctx.events)
 
@@ -145,7 +152,10 @@ function stepUrgeDwell(
   events: GameEvent[],
 ): { members: readonly StaffState[]; facility: ShopState['facility'] } {
   const player = state.player
-  const still = !player.moving && distanceSq(player.pos, player.prevPos) <= 0.25
+  const still =
+    state.dining.playerSeat === null &&
+    !player.moving &&
+    distanceSq(player.pos, player.prevPos) <= 0.25
   let target: StaffState | null = null
   let best = Number.POSITIVE_INFINITY
   if (still) {
@@ -226,6 +236,7 @@ function createStaffMember(kind: StaffKind, index: number, map: ShopMap): StaffS
     timerMs: 0,
     waitMs: kind === 'cashier' ? 0 : index * 220,
     workMs: 0,
+    seatIndex: null,
   }
 }
 
@@ -237,11 +248,19 @@ function stepMember(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
     waitMs: Math.max(0, member.waitMs - dtMs),
   }
 
-  if (next.phase === 'toDrink' || next.phase === 'toWork') {
+  if (
+    next.phase === 'toDrink' ||
+    next.phase === 'toWork' ||
+    next.phase === 'toMeal' ||
+    next.phase === 'toDining'
+  ) {
     const moved = advanceStaff(next, dtMs)
     next = moved.member
     if (!moved.arrived) return next
+    if (next.phase === 'toMeal') return arriveAtMeal(next, ctx, rng)
+    if (next.phase === 'toDining') return sitDownToEat(next, ctx.map)
     if (next.phase === 'toDrink') {
+      ctx.events.push({ type: 'staffDrink', staffId: next.id })
       return {
         ...next,
         phase: 'drinking',
@@ -261,19 +280,38 @@ function stepMember(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
     return { ...next, phase: 'resting', timerMs: 0, moving: false }
   }
 
+  if (next.phase === 'dining') {
+    if (next.timerMs > 0) return next
+    return finishDining(next, ctx, rng)
+  }
+
   if (next.phase === 'resting') {
     return { ...next, moving: false }
   }
 
+  if (
+    next.kind !== 'cashier' &&
+    next.waitMs <= 0 &&
+    next.carry !== null &&
+    next.carryCount > 0 &&
+    next.workMs >= restLimit(next) &&
+    (next.phase === 'idle' ||
+      next.phase === 'toShelf' ||
+      next.phase === 'toProducer' ||
+      next.phase === 'toTrough')
+  ) {
+    return startMealBreak(next, ctx, rng)
+  }
+
   const working = { ...next, workMs: next.workMs + dtMs }
-  if (next.kind === 'cashier') return stepCashier(working, ctx)
+  if (next.kind === 'cashier') return stepCashier(working, ctx, rng)
   if (next.kind === 'picker') return stepPicker(working, ctx, dtMs, rng)
   return stepChef(working, ctx, dtMs, rng)
 }
 
-function stepCashier(member: StaffState, ctx: StaffContext): StaffState {
+function stepCashier(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
   if (member.workMs >= restLimit(member) && ctx.queueLength === 0 && !ctx.registerBusy) {
-    return startToDrink(member, ctx.map)
+    return startMealBreak(member, ctx, rng)
   }
   return {
     ...member,
@@ -315,7 +353,7 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
   if (next.waitMs > 0) return next
 
   if (next.phase === 'idle' && next.carry === null && next.workMs >= restLimit(next)) {
-    return startToDrink(next, ctx.map)
+    return startMealBreak(next, ctx, rng)
   }
 
   if (next.carry !== null && next.carryCount > 0) {
@@ -377,7 +415,7 @@ function stepChef(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng)
   if (member.waitMs > 0) return member
 
   if (member.phase === 'idle' && member.carry === null && member.workMs >= restLimit(member)) {
-    return startToDrink(member, ctx.map)
+    return startMealBreak(member, ctx, rng)
   }
 
   if (member.carry !== null && member.carryCount > 0) {
@@ -825,6 +863,179 @@ function finishFeed(member: StaffState, ctx: StaffContext, rng: Rng): StaffState
   return startToCarryDestination({ ...next, phase: 'idle', targetTroughId: null }, ctx, rng)
 }
 
+function startMealBreak(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
+  const seat = freeDiningSeat(ctx.map, null, ctx.claimedSeats, member.pos)
+  if (seat === null) {
+    // A carrying worker must not drop the load just because the table is full.
+    if (member.carry !== null && member.carryCount > 0) {
+      if (member.kind === 'chef') return startToShelf(member, ctx.map, rng)
+      return startToCarryDestination(member, ctx, rng)
+    }
+    return startToDrink(member, ctx.map)
+  }
+
+  if (member.carry !== null && member.carryCount > 0) {
+    ctx.claimedSeats.add(seat.index)
+    return startToDiningSeat(member, seat, ctx.map, rng)
+  }
+
+  const product = pickMealProduct(ctx.shelves)
+  if (product === null) return startToDrink(member, ctx.map)
+  ctx.claimedSeats.add(seat.index)
+  return startToMealFetch(member, seat, product, ctx.map, rng)
+}
+
+function pickMealProduct(shelves: Readonly<Record<ZoneId, ShelfState>>): ProductKind | null {
+  let best: ProductKind | null = null
+  let bestStock = 0
+  for (const product of PRODUCT_ORDER) {
+    if (!binReady(shelves, product)) continue
+    const stock = shelves[zoneOf(product)].stock[product]
+    if (stock > bestStock) {
+      best = product
+      bestStock = stock
+    }
+  }
+  return best
+}
+
+function startToMealFetch(
+  member: StaffState,
+  seat: DiningSeat,
+  product: ProductKind,
+  map: ShopMap,
+  rng: Rng,
+): StaffState {
+  return {
+    ...member,
+    phase: 'toMeal',
+    seatIndex: seat.index,
+    fetchProduct: product,
+    targetShelf: zoneOf(product),
+    targetProducerId: null,
+    targetTroughId: null,
+    timerMs: 0,
+    waitMs: 0,
+    path: wanderPath(member.pos, map.shelfAccess[zoneOf(product)], 12, map, rng, WANDER.staff),
+    pathIndex: 0,
+  }
+}
+
+function arriveAtMeal(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
+  const seat = member.seatIndex === null ? undefined : ctx.map.dining.seats[member.seatIndex]
+  if (seat === undefined) return releaseMealSeatAndDrink(member, ctx)
+
+  const product = member.fetchProduct
+  if (product === null) return releaseMealSeatAndDrink(member, ctx)
+
+  const taken = takeStock(ctx.shelves, product, 1)
+  if (taken.taken <= 0) {
+    const fallback = pickMealProduct(ctx.shelves)
+    if (fallback !== null) return startToMealFetch(member, seat, fallback, ctx.map, rng)
+    return releaseMealSeatAndDrink(member, ctx)
+  }
+
+  ctx.shelves = taken.shelves
+  return startToDiningSeat(
+    {
+      ...member,
+      carry: product,
+      carryCount: 1,
+      fetchProduct: null,
+      targetShelf: null,
+    },
+    seat,
+    ctx.map,
+    rng,
+  )
+}
+
+function releaseMealSeatAndDrink(member: StaffState, ctx: StaffContext): StaffState {
+  if (member.seatIndex !== null) ctx.claimedSeats.delete(member.seatIndex)
+  return startToDrink(
+    {
+      ...member,
+      seatIndex: null,
+      fetchProduct: null,
+      targetShelf: null,
+    },
+    ctx.map,
+  )
+}
+
+function startToDiningSeat(
+  member: StaffState,
+  seat: DiningSeat,
+  map: ShopMap,
+  rng: Rng,
+): StaffState {
+  return {
+    ...member,
+    phase: 'toDining',
+    seatIndex: seat.index,
+    targetProducerId: null,
+    targetShelf: null,
+    targetTroughId: null,
+    fetchProduct: null,
+    timerMs: 0,
+    waitMs: 0,
+    path: wanderPath(member.pos, seat.stand, 12, map, rng, WANDER.staff),
+    pathIndex: 0,
+  }
+}
+
+function sitDownToEat(member: StaffState, map: ShopMap): StaffState {
+  const seat = member.seatIndex === null ? undefined : map.dining.seats[member.seatIndex]
+  if (seat === undefined) {
+    return { ...member, phase: 'idle', seatIndex: null, waitMs: 200, moving: false }
+  }
+  return {
+    ...member,
+    pos: seat.seat,
+    prevPos: seat.seat,
+    facing: seat.facing,
+    moving: false,
+    path: [],
+    pathIndex: 0,
+    phase: 'dining',
+    timerMs: DINING.staffMealMs,
+  }
+}
+
+function finishDining(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
+  if (member.seatIndex !== null) ctx.claimedSeats.delete(member.seatIndex)
+
+  const product = member.carry
+  let carry = product
+  let carryCount = member.carryCount
+  if (product !== null && carryCount > 0) {
+    carryCount -= 1
+    ctx.events.push({ type: 'staffMeal', staffId: member.id, product })
+    if (carryCount <= 0) {
+      carry = null
+      carryCount = 0
+    }
+  }
+
+  const base: StaffState = {
+    ...member,
+    seatIndex: null,
+    carry,
+    carryCount,
+    timerMs: 0,
+    waitMs: 0,
+    workMs: 0,
+    moving: false,
+    path: [],
+    pathIndex: 0,
+  }
+  if (carry !== null && carryCount > 0) {
+    if (member.kind === 'chef') return startToShelf(base, ctx.map, rng)
+    return startToCarryDestination(base, ctx, rng)
+  }
+  return startToWork(base, ctx.map)
+}
+
 function startToCarryDestination(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
   if (member.carry !== null && isPlantKind(member.carry)) {
     const trough = pickTrough(ctx.producers, member.pos)
@@ -904,6 +1115,8 @@ function startToDrink(member: StaffState, map: ShopMap): StaffState {
     targetProducerId: null,
     targetShelf: null,
     targetTroughId: null,
+    fetchProduct: null,
+    seatIndex: null,
     carry: null,
     carryCount: 0,
     timerMs: 0,
@@ -921,6 +1134,8 @@ function startToWork(member: StaffState, map: ShopMap): StaffState {
     targetProducerId: null,
     targetShelf: null,
     targetTroughId: null,
+    fetchProduct: null,
+    seatIndex: null,
     carry: null,
     carryCount: 0,
     timerMs: 0,

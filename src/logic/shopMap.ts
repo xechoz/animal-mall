@@ -1,4 +1,5 @@
 import type {
+  DiningLayout,
   FacilityLayout,
   Plot,
   Rect,
@@ -77,6 +78,7 @@ interface ShopMapInput {
   readonly stationSlots: readonly Plot[]
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
   readonly facilities: FacilityLayout
+  readonly dining: DiningLayout
 }
 
 function plotAccess(plot: Plot): Vec2 {
@@ -120,6 +122,7 @@ function createShopMap(input: ShopMapInput): ShopMap {
     input.counter,
     input.facilities.trashRect,
     input.facilities.vendingRect,
+    input.dining.table,
   ]
 
   return {
@@ -201,12 +204,22 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     vendingPoint: { x: 131, y: 1059 },
     vendingUse: { x: 131, y: 1125 },
     restMat: { x: 70, y: 952, w: 186, h: 48 },
+    // The old five stools become standing spots around the dining nook:
+    // staff can still drink here while both chairs are taken.
     restSpots: [
-      { x: 96, y: 980 },
-      { x: 131, y: 980 },
-      { x: 166, y: 980 },
-      { x: 201, y: 980 },
-      { x: 236, y: 980 },
+      { x: 82, y: 1000 },
+      { x: 122, y: 1000 },
+      { x: 163, y: 1000 },
+      { x: 204, y: 1000 },
+      { x: 244, y: 1000 },
+    ],
+  },
+  dining: {
+    rug: { x: 70, y: 948, w: 186, h: 56 },
+    table: { x: 138, y: 956, w: 66, h: 28 },
+    seats: [
+      { index: 0, seat: { x: 104, y: 976 }, stand: { x: 86, y: 976 }, facing: 1 },
+      { index: 1, seat: { x: 238, y: 976 }, stand: { x: 256, y: 976 }, facing: -1 },
     ],
   },
 })
@@ -277,6 +290,16 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
       { x: 166, y: 460 },
       { x: 201, y: 460 },
       { x: 236, y: 460 },
+    ],
+  },
+  dining: {
+    rug: { x: 786, y: 456, w: 268, h: 140 },
+    table: { x: 850, y: 484, w: 140, h: 72 },
+    seats: [
+      { index: 0, seat: { x: 815, y: 500 }, stand: { x: 792, y: 500 }, facing: 1 },
+      { index: 1, seat: { x: 815, y: 540 }, stand: { x: 792, y: 540 }, facing: 1 },
+      { index: 2, seat: { x: 1025, y: 500 }, stand: { x: 1048, y: 500 }, facing: -1 },
+      { index: 3, seat: { x: 1025, y: 540 }, stand: { x: 1048, y: 540 }, facing: -1 },
     ],
   },
 })

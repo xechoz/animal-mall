@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Add a free dining area: a four-seat table in the landscape bottom-right and a
+  two-seat nook replacing the portrait rest corner. Tap a chair or stand still
+  for half a second while carrying goods to sit, then eat any carried product
+  from the food panel with no limit. Fruit extends the speed buff, vegetables
+  the carry buff, farm goods the scanning buff, and processed food all three.
+  Staff due for a break dine too: carrying pickers and chefs eat one of their
+  goods, while empty-handed staff and the cashier fetch one item from a stocked
+  shelf. Meals reset the staff break timer; carrying staff with no free chair
+  finish their delivery first, and empty-handed staff with no shelf food still
+  drink. Dining is transient and leaves the save version unchanged.
+- Give table meals the snake game's two CC0 eating-crunch samples under a
+  dedicated `diningEat` key; harvest, feed and customer pickups keep the
+  original synth cue. Staff drink breaks now play the same gulp sample as the
+  vending machine.
 - Carried goods now stack up from the player's and staff's hand instead of
   floating above their heads, and the pile flips sides with the character.
 - Restyle the game as a sunlit forest market: a lighter layered forest

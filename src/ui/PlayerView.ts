@@ -11,6 +11,7 @@ const CUP_SCALE = 0.95
 const DRINK_MS = 1350
 const RAISE_MS = 140
 const LOWER_MS = 1080
+const EAT_MS = 650
 /** Carried goods sit in the hand, then stack upward from there. */
 const CARRY_HAND_X = 18
 const CARRY_HAND_Y = -24
@@ -27,6 +28,11 @@ const SIP_BEATS: readonly { readonly start: number; readonly duration: number }[
 const FIZZ_DELAYS_MS: readonly number[] = [200, 320, 440, 860]
 
 interface DrinkState {
+  readonly start: number
+}
+
+interface EatState {
+  readonly product: ProductKind
   readonly start: number
 }
 
@@ -51,6 +57,7 @@ function gulpPulse(elapsed: number): number {
 export class PlayerView extends Phaser.GameObjects.Container {
   private readonly bodyImage: Phaser.GameObjects.Image
   private readonly cup: Phaser.GameObjects.Graphics
+  private readonly food: Phaser.GameObjects.Image
   private readonly carrying: Phaser.GameObjects.Image[] = []
   private readonly carryCount: Phaser.GameObjects.Text
   private readonly theme: Theme
@@ -58,6 +65,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
   private carryFacing: -1 | 1 = 1
   private facing: -1 | 1 = 1
   private drink: DrinkState | null = null
+  private eat: EatState | null = null
 
   constructor(scene: Phaser.Scene, theme: Theme) {
     super(scene, 0, 0)
@@ -83,6 +91,8 @@ export class PlayerView extends Phaser.GameObjects.Container {
     }
     // The cup sits in front of the carried pile so a sip stays readable.
     this.add(this.cup)
+    this.food = scene.add.image(0, 0, productTextureKey('apple')).setScale(0.5).setVisible(false)
+    this.add(this.food)
 
     this.carryCount = scene.add
       .text(
@@ -118,10 +128,18 @@ export class PlayerView extends Phaser.GameObjects.Container {
     }
   }
 
-  updatePlayer(player: PlayerState, alpha: number, time: number): void {
+  /** A short chew while the food icon rises to the mouth. */
+  playEat(product: ProductKind): void {
+    this.eat = { product, start: this.scene.time.now }
+    this.food.setTexture(productTextureKey(product)).setVisible(true).setAlpha(0).setScale(0.5)
+  }
+
+  updatePlayer(player: PlayerState, alpha: number, time: number, seated = false): void {
     const x = player.prevPos.x + (player.pos.x - player.prevPos.x) * alpha
     const y = player.prevPos.y + (player.pos.y - player.prevPos.y) * alpha
-    const bob = player.moving ? Math.abs(Math.sin(time * 0.012)) * 3 : Math.sin(time * 0.003) * 1
+    const bob = player.moving
+      ? Math.abs(Math.sin(time * 0.012)) * 3
+      : Math.sin(time * 0.003) * (seated ? 0.5 : 1)
     this.setPosition(x, y - bob)
     this.facing = player.facing
     if (player.facing !== this.carryFacing) {
@@ -132,6 +150,34 @@ export class PlayerView extends Phaser.GameObjects.Container {
     let bodyScaleX = BODY_SCALE
     let bodyScaleY = BODY_SCALE
     let bodyRotation = 0
+    let bodyY = 0
+    if (seated) {
+      bodyY = 4
+      bodyScaleX = BODY_SCALE * 0.92
+      bodyScaleY = BODY_SCALE * 0.9
+    }
+
+    const eat = this.eat
+    if (eat !== null) {
+      const elapsed = time - eat.start
+      if (elapsed >= EAT_MS) {
+        this.eat = null
+        this.food.setVisible(false)
+      } else {
+        const raise = smoothstep(clamp01(elapsed / 120))
+        const lower = smoothstep(clamp01((elapsed - 450) / (EAT_MS - 450)))
+        const chew = Math.abs(Math.sin(elapsed * 0.045))
+        bodyScaleY *= 1 - 0.035 * chew
+        this.food.setPosition(
+          player.facing * (8 + 2 * raise),
+          -27 - 4 * raise + 5 * lower - 2 * chew,
+        )
+        this.food.setScale(player.facing * (0.5 + 0.08 * raise), 0.5 + 0.08 * raise)
+        this.food.setRotation(-player.facing * 0.18 * raise * (1 - lower))
+        this.food.setAlpha(raise * (1 - lower))
+      }
+    }
+
     const drink = this.drink
     if (drink !== null) {
       const elapsed = time - drink.start
@@ -157,6 +203,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
         this.cup.setAlpha(raise * (1 - lower))
       }
     }
+    this.bodyImage.setPosition(0, bodyY)
     this.bodyImage.setScale(player.facing * bodyScaleX, bodyScaleY)
     this.bodyImage.setRotation(bodyRotation)
 

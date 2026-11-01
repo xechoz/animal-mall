@@ -83,17 +83,32 @@ state: customers keep arriving, and a missed sale only costs that sale.
   automatically; pickers harvest fruit, vegetables and land-animal products, but
   not station output or the pond. Chefs only work once the kitchen is unlocked.
   Cashier income waits as a coin pile on the counter.
-- Staff take breaks at the free drink machine in the bottom-left corner. After
-  roughly a minute they walk over, drink for a few seconds and then either
-  return on their own or lounge on a stool until you walk up and nudge them.
-  Tap a resting character or stand next to them for half a second; the HUD
-  button remains as a fallback. A cashier only leaves when the counter is quiet.
+- Staff take breaks at the dining table or the free drink machine in the
+  bottom-left corner. After roughly a minute they eat when a chair is free and
+  they have food (their carried load, or one item fetched from a stocked shelf);
+  otherwise they drink. A meal returns them to work, while a drink break can end
+  with them lounging on a stool until you walk up and nudge them. Tap a resting
+  character or stand next to them for half a second; the HUD button remains as a
+  fallback. A cashier only leaves when the counter is quiet.
 - Stand in front of the drink machine for half a second to open the paid drink
   menu: apple soda (+15% move speed), milk tea (+3 carry capacity) or lemon tea
   (+25% scanning speed), each for 45 seconds. Drinks are free for staff; player
   drinks cost coins and refresh their timer when bought again. Buying one makes
   the bear raise a cup, take a sip and swallow, with a fizz bubble burst for the
   apple soda.
+- The dining table is free and always available. Landscape puts a four-seat
+  table in the bottom-right; portrait reuses the bottom-left rest nook with a
+  smaller two-seat table. Tap a free chair, or stand still for half a second
+  while carrying goods, to sit. The panel lists every carried product — fruit,
+  vegetables, animal goods, cakes, even sweaters and yarn — and each tap eats
+  one with no limit. Food adds the matching drink buff: fruit speed, vegetables
+  carry capacity, farm goods scanning, processed food all three. Stand up with
+  the button, `×`, the backdrop or `Esc`, or press a movement key.
+- Staff who are due for a break eat at the table. Pickers and chefs eat one of
+  the goods they are already carrying and keep the rest; empty-handed staff,
+  including the cashier, walk to a stocked shelf, fetch one item and eat it. A
+  meal resets their break timer and returns them to work. If the table is full
+  or the shelves are empty they still use the drink machine.
 - The trash bin is in the bottom-right corner. Stand near it with goods in hand
   for half a second and the whole carried stack is discarded automatically.
 - The shop stays live while open. Removing a plant refunds half its cost; the

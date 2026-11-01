@@ -104,7 +104,29 @@ describe('staff breaks', () => {
     expect(member(next, 'picker').path.length).toBeGreaterThan(0)
   })
 
-  it('finishes carrying goods before taking a break', () => {
+  it('carries goods to the shelf while the break timer is still low', () => {
+    let state = createShopState(
+      {
+        ...initialSave(),
+        producers: [{ product: 'apple', slot: 0 }],
+        staff: { cashier: 0, picker: 1, chef: 0 },
+      },
+      PORTRAIT_MAP,
+    )
+    const picker = member(state, 'picker')
+    state = withStaffState(state, picker.id, {
+      workMs: 0,
+      phase: 'idle',
+      carry: 'apple',
+      carryCount: 1,
+      waitMs: 0,
+    })
+
+    const next = stepStaff(state, 50, fixedRng(0)).state
+    expect(member(next, 'picker').phase).toBe('toShelf')
+  })
+
+  it('eats one carried item at the dining table when due for a break', () => {
     let state = createShopState(
       {
         ...initialSave(),
@@ -118,12 +140,89 @@ describe('staff breaks', () => {
       workMs: 999_999,
       phase: 'idle',
       carry: 'apple',
-      carryCount: 1,
+      carryCount: 2,
+      waitMs: 0,
+    })
+
+    let current = state
+    let meal: GameEvent | undefined
+    for (let tick = 0; tick < 800 && meal === undefined; tick += 1) {
+      const result = stepStaff(current, 50, fixedRng(0))
+      current = result.state
+      meal = result.events.find((event) => event.type === 'staffMeal')
+    }
+
+    expect(meal?.type).toBe('staffMeal')
+    if (meal?.type === 'staffMeal') expect(meal.product).toBe('apple')
+    const after = member(current, 'picker')
+    expect(after.carry).toBe('apple')
+    expect(after.carryCount).toBe(1)
+    expect(after.seatIndex).toBeNull()
+  })
+
+  it('keeps carrying instead of dropping goods when every seat is taken', () => {
+    let state = createShopState(
+      {
+        ...initialSave(),
+        producers: [{ product: 'apple', slot: 0 }],
+        staff: { cashier: 0, picker: 2, chef: 0 },
+      },
+      PORTRAIT_MAP,
+    )
+    state = {
+      ...state,
+      dining: { ...state.dining, playerSeat: 0 },
+      staffMembers: state.staffMembers.map((candidate, index) =>
+        index === 0 ? { ...candidate, seatIndex: 1 } : candidate,
+      ),
+    }
+    const second = member(state, 'picker', 1)
+    state = withStaffState(state, second.id, {
+      workMs: 999_999,
+      phase: 'idle',
+      carry: 'apple',
+      carryCount: 2,
       waitMs: 0,
     })
 
     const next = stepStaff(state, 50, fixedRng(0)).state
-    expect(member(next, 'picker').phase).toBe('toShelf')
+    const after = member(next, 'picker', 1)
+    expect(after.phase).toBe('toShelf')
+    expect(after.carry).toBe('apple')
+    expect(after.carryCount).toBe(2)
+  })
+
+  it('sends a cashier to fetch and eat one shelf item', () => {
+    let state = createShopState(
+      {
+        ...initialSave(),
+        producers: [{ product: 'apple', slot: 0 }],
+        staff: { cashier: 1, picker: 0, chef: 0 },
+      },
+      PORTRAIT_MAP,
+    )
+    state = withShelfStock(state, 'fruit', 'apple', 2)
+    const cashier = member(state, 'cashier')
+    state = withStaffState(state, cashier.id, {
+      workMs: 999_999,
+      phase: 'cashier',
+      pos: PORTRAIT_MAP.shelfAccess.fruit,
+      prevPos: PORTRAIT_MAP.shelfAccess.fruit,
+      waitMs: 0,
+    })
+
+    let current = state
+    let meal: GameEvent | undefined
+    for (let tick = 0; tick < 1_200 && meal === undefined; tick += 1) {
+      const result = stepStaff(current, 50, fixedRng(0))
+      current = result.state
+      meal = result.events.find((event) => event.type === 'staffMeal')
+    }
+
+    expect(meal?.type).toBe('staffMeal')
+    if (meal?.type === 'staffMeal') expect(meal.product).toBe('apple')
+    expect(current.shelves.fruit.stock.apple).toBe(1)
+    expect(member(current, 'cashier').carry).toBeNull()
   })
 
   it('staggering lets the second picker work longer', () => {
@@ -156,7 +255,9 @@ describe('staff breaks', () => {
       carryCount: 0,
       waitMs: 0,
     })
-    state = simulate(state, 300, fixedRng(0)).state
+    const walked = simulate(state, 300, fixedRng(0))
+    state = walked.state
+    expect(walked.events.some((event) => event.type === 'staffDrink')).toBe(true)
     expect(['toDrink', 'drinking', 'toWork', 'idle']).toContain(member(state, 'picker').phase)
     expect(member(state, 'picker').phase).not.toBe('resting')
 

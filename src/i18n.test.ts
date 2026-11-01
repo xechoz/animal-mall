@@ -30,4 +30,11 @@ describe('game copy', () => {
     expect(gameI18n.en['toast.hungry']).toContain('trough')
     expect(gameI18n.zh['toast.hungry']).toContain('食槽')
   })
+
+  it('explains the dining table in both languages', () => {
+    for (const key of ['facility.dining', 'dining.title', 'dining.empty', 'dining.stand']) {
+      expect(gameI18n.en[key as keyof typeof gameI18n.en]).toBeTruthy()
+      expect(gameI18n.zh[key as keyof typeof gameI18n.zh]).toBeTruthy()
+    }
+  })
 })

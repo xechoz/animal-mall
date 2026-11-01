@@ -388,6 +388,26 @@ export function zeroBuffs(): Record<DrinkKind, number> {
   return Object.fromEntries(DRINK_ORDER.map((kind) => [kind, 0])) as Record<DrinkKind, number>
 }
 
+export interface FoodBuff {
+  readonly drink: DrinkKind
+  readonly ms: number
+}
+
+/**
+ * Every carried product is edible. The category decides which existing drink
+ * timer it extends, so food and drinks share one buff bar with no extra state.
+ */
+export const FOOD_BUFF: Readonly<Record<ZoneId, readonly FoodBuff[]>> = {
+  fruit: [{ drink: 'appleSoda', ms: 10_000 }],
+  veg: [{ drink: 'milkTea', ms: 10_000 }],
+  farm: [{ drink: 'lemonTea', ms: 10_000 }],
+  kitchen: [
+    { drink: 'appleSoda', ms: 8_000 },
+    { drink: 'milkTea', ms: 8_000 },
+    { drink: 'lemonTea', ms: 8_000 },
+  ],
+}
+
 export const REST = {
   workMs: 60_000,
   workStaggerMs: 8_000,
@@ -400,6 +420,15 @@ export const REST = {
 export const FACILITY_DWELL_MS = 500
 export const TRASH_RADIUS = 58
 export const DRINK_RADIUS = 48
+
+export const DINING = {
+  /** Standing still this long next to a free chair sits the player down. */
+  dwellMs: 500,
+  /** How far the player may be from a chair's stand point to use it. */
+  sitRadius: 84,
+  /** Time a staff member spends eating at the table. */
+  staffMealMs: 4_200,
+} as const
 
 export const FISHING = {
   /** How far outside the pond rectangle still counts as standing at it. */

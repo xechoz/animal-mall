@@ -19,6 +19,7 @@ for (const map of MAPS) {
       map.facilities.trashAccess,
       map.facilities.vendingUse,
       ...map.facilities.restSpots,
+      ...map.dining.seats.map((seat) => seat.stand),
     ]
 
     it('reaches every shelf, producer, queue slot and the door', () => {

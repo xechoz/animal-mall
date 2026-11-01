@@ -28,6 +28,7 @@ import {
   zeroBuffs,
   zoneOf,
 } from './config'
+import { initialDiningState, stepDining } from './dining'
 import { stepFacilityDwell } from './facilities'
 import { stepFishing } from './fishing'
 import { findPath } from './nav'
@@ -134,6 +135,7 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
       urgeTargetId: null,
       urgeDwellMs: 0,
     },
+    dining: initialDiningState(),
     buffs: zeroBuffs(),
     tutorial,
   }
@@ -176,6 +178,7 @@ export function remapShopState(state: ShopState, map: ShopMap): ShopState {
       urgeTargetId: null,
       urgeDwellMs: 0,
     },
+    dining: initialDiningState(),
   }
 }
 
@@ -218,6 +221,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   const buffs = { ...state.buffs }
   for (const kind of DRINK_ORDER) buffs[kind] = Math.max(0, state.buffs[kind] - dt)
   let facility = state.facility
+  let dining = state.dining
 
   let coins = state.coins
   let totalEarned = state.totalEarned
@@ -263,101 +267,114 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     feedMs: Math.max(0, player.feedMs - dt),
   }
 
-  const load = stepStationLoad(producers, player)
-  producers = load.producers
-  player = load.player
-  events.push(...load.events)
+  const diningStep = stepDining(
+    player,
+    dining,
+    state.staffMembers,
+    player.carry,
+    dt,
+    map,
+    input.allowAutoSit ?? true,
+  )
+  player = diningStep.player
+  dining = diningStep.dining
+  events.push(...diningStep.events)
+  const seated = dining.playerSeat !== null
 
   const production = stepProduction(producers, shelves, dt, growth)
   producers = production.producers
   shelves = production.shelves
   events.push(...production.events)
 
-  if (player.harvestMs <= 0) {
-    const room = carryMax - carryTotal(player.carry)
-    if (room > 0) {
-      const producer = nearestCollectable(producers, player.pos, map)
-      if (producer !== null) {
-        const amount = Math.min(producer.ready, room)
-        producers = collectFromProducer(producers, producer.id, amount)
-        player = {
-          ...player,
-          carry: addCarry(player.carry, producer.product, amount),
-          harvestMs: INTERACT.harvestMs,
+  if (!seated) {
+    const load = stepStationLoad(producers, player)
+    producers = load.producers
+    player = load.player
+    events.push(...load.events)
+
+    if (player.harvestMs <= 0) {
+      const room = carryMax - carryTotal(player.carry)
+      if (room > 0) {
+        const producer = nearestCollectable(producers, player.pos, map)
+        if (producer !== null) {
+          const amount = Math.min(producer.ready, room)
+          producers = collectFromProducer(producers, producer.id, amount)
+          player = {
+            ...player,
+            carry: addCarry(player.carry, producer.product, amount),
+            harvestMs: INTERACT.harvestMs,
+          }
+          events.push({ type: 'harvest', product: producer.product, amount })
         }
-        events.push({ type: 'harvest', product: producer.product, amount })
       }
     }
-  }
 
-  if (player.stockMs <= 0) {
-    const zones = shelvesInReach(player.pos, map)
-    if (zones.length > 0) {
-      let carry = player.carry
-      let stocked = false
-      for (const product of PRODUCT_ORDER) {
-        const amount = carryOf(carry, product)
-        const zone = zoneOf(product)
-        if (amount <= 0 || !zones.includes(zone)) continue
-        if (!binReady(shelves, product)) continue
-        const room = shelves[zone].capacity - shelves[zone].stock[product]
-        if (room <= 0) continue
-        const moved = Math.min(amount, room)
-        shelves = addStock(shelves, product, moved)
-        carry = takeCarry(carry, product, moved).carry
-        events.push({ type: 'stock', product, amount: moved })
-        stocked = true
-      }
-      if (stocked) player = { ...player, carry, stockMs: INTERACT.stockMs }
-    }
-  }
-
-  /**
-   * Feeding is a contact action like harvesting and stocking: walking past a
-   * trough with produce pours it in. Cheapest crops go first so a passing
-   * player does not automatically waste the most valuable stock.
-   */
-  if (player.feedMs <= 0) {
-    const trough = nearestTrough(producers, player.pos, map, INTERACT.feedRadius)
-    if (trough !== null) {
-      let carry = player.carry
-      let troughState = trough
-      let fedAny = false
-      for (const product of FEED_ORDER) {
-        const amount = carryOf(carry, product)
-        if (amount <= 0) continue
-        const fed = addFeed(troughState, product, amount)
-        if (fed.accepted <= 0) continue
-        troughState = fed.producer
-        carry = takeCarry(carry, product, fed.accepted).carry
-        events.push({
-          type: 'feed',
-          producerId: trough.id,
-          product,
-          amount: fed.accepted,
-        })
-        fedAny = true
-      }
-      if (fedAny) {
-        producers = producers.map((producer) =>
-          producer.id === trough.id ? troughState : producer,
-        )
-        player = { ...player, carry, feedMs: INTERACT.feedMs }
+    if (player.stockMs <= 0) {
+      const zones = shelvesInReach(player.pos, map)
+      if (zones.length > 0) {
+        let carry = player.carry
+        let stocked = false
+        for (const product of PRODUCT_ORDER) {
+          const amount = carryOf(carry, product)
+          const zone = zoneOf(product)
+          if (amount <= 0 || !zones.includes(zone)) continue
+          if (!binReady(shelves, product)) continue
+          const room = shelves[zone].capacity - shelves[zone].stock[product]
+          if (room <= 0) continue
+          const moved = Math.min(amount, room)
+          shelves = addStock(shelves, product, moved)
+          carry = takeCarry(carry, product, moved).carry
+          events.push({ type: 'stock', product, amount: moved })
+          stocked = true
+        }
+        if (stocked) player = { ...player, carry, stockMs: INTERACT.stockMs }
       }
     }
+
+    /**
+     * Feeding is a contact action like harvesting and stocking: walking past a
+     * trough with produce pours it in. Cheapest crops go first so a passing
+     * player does not automatically waste the most valuable stock.
+     */
+    if (player.feedMs <= 0) {
+      const trough = nearestTrough(producers, player.pos, map, INTERACT.feedRadius)
+      if (trough !== null) {
+        let carry = player.carry
+        let troughState = trough
+        let fedAny = false
+        for (const product of FEED_ORDER) {
+          const amount = carryOf(carry, product)
+          if (amount <= 0) continue
+          const fed = addFeed(troughState, product, amount)
+          if (fed.accepted <= 0) continue
+          troughState = fed.producer
+          carry = takeCarry(carry, product, fed.accepted).carry
+          events.push({
+            type: 'feed',
+            producerId: trough.id,
+            product,
+            amount: fed.accepted,
+          })
+          fedAny = true
+        }
+        if (fedAny) {
+          producers = producers.map((producer) =>
+            producer.id === trough.id ? troughState : producer,
+          )
+          player = { ...player, carry, feedMs: INTERACT.feedMs }
+        }
+      }
+    }
+
+    const facilityStep = stepFacilityDwell(player, facility, dt, map)
+    player = facilityStep.player
+    facility = facilityStep.facility
+    events.push(...facilityStep.events)
   }
 
-  const facilityStep = stepFacilityDwell(player, facility, dt, map)
-  player = facilityStep.player
-  facility = facilityStep.facility
-  events.push(...facilityStep.events)
-
-  const fishingStep = stepFishing(
-    { ...state, player, producers, fishing: state.fishing },
-    dt,
-    moving,
-    carryMax,
-  )
+  const fishingStep = seated
+    ? { state: { ...state, player, producers, fishing: state.fishing }, events: [] }
+    : stepFishing({ ...state, player, producers, fishing: state.fishing }, dt, moving, carryMax)
   player = fishingStep.state.player
   const fishing = fishingStep.state.fishing
   events.push(...fishingStep.events)
@@ -649,11 +666,12 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     deposits: state.deposits,
     fishing,
     facility,
+    dining,
     buffs,
     tutorial,
   }
 
-  const quick = stepQuickBuy(nextState, dt, moving)
+  const quick = stepQuickBuy(nextState, dt, moving || seated)
   nextState = quick.state
   events.push(...quick.events)
 

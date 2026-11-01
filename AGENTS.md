@@ -86,14 +86,30 @@ submodule. Do not copy platform source into this repo.
   kitchen station) fire while walking, with short cooldowns in `INTERACT`.
   They must never require the player to stop.
 - Dwell interactions are reserved for purchases, menus and irreversible choices:
-  quick buys, zone unlocks, plant chooser, staff nudges and the drink menu.
-  Free/contextual dwells use 500 ms; paid purchases use the one-second dwell.
+  quick buys, zone unlocks, plant chooser, staff nudges, the drink menu and the
+  dining table. Free/contextual dwells use 500 ms; paid purchases use the
+  one-second dwell.
   Every dwell must cancel on movement and show a visible ring. A dwell must never
   fire because the world changed under a stationary player, and it must never
   replace an existing crop: proximity advertises, it does not destroy.
 - Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
   slot. Walking past a machine pours matching carried goods in until the buffer
   is full; the output tray is collected on contact.
+- The dining table is free and always unlocked: landscape uses the bottom-right
+  four-seat table, portrait reuses the rest nook with a two-seat table. Tap a
+  free chair, or stand still for `DINING.dwellMs` while carrying goods, to sit.
+  The food panel lists every carried `ProductKind`; all 24 products are edible,
+  each bite consumes one and stacks the `FOOD_BUFF` category time onto the shared
+  drink timers (processed food adds all three). There is no per-visit limit.
+  Seats are exclusive, and a seated player skips harvest, stock, feed, facility,
+  fishing and quick-buy triggers until standing. Closing the panel stands up.
+- Staff due for a break eat at the table. A carrying picker or chef eats one
+  carried unit and keeps the rest; empty-handed staff, including the cashier,
+  fetch one item from a stocked shelf and eat it. A meal resets their work timer
+  and returns them to work. A carrying worker with no free seat keeps its load
+  and finishes the delivery first; an empty-handed worker with no seat or no
+  shelf food still drinks at the rest corner. Dining state is transient; it must
+  not change the save version or shelf stock except for the fetched meal.
 - Empty beds always show a compact coin price chip and are tappable: a short tap
   (or 500 ms dwell) opens the plant chooser. The chip shrinks to a small sticker
   sitting on the soil until the player is near.
@@ -131,7 +147,11 @@ submodule. Do not copy platform source into this repo.
   hit area never grows past the midpoint of the real row gap.
 - Game-specific audio keys are registered through `audioSamples` and are not
   limited to the platform `SfxName` union; use `SoundName` for helper
-  signatures. Fishing currently uses `fishCast` and `fishSplash`.
+  signatures. Fishing uses `fishCast` and `fishSplash`. Table meals use the
+  dedicated `diningEat` key with two CC0 crunches copied from `xechoz/snake`
+  (see `src/assets/audio/eat-crunches.LICENSE.txt`); harvest, feed and customer
+  pickups keep the platform's synth `eat` cue. Staff drink breaks reuse the
+  vending machine's gulp sample.
 - Mobile defaults to landscape: the menu's Start button requests fullscreen and
   a best-effort `screen.orientation.lock('landscape')`. The lock stays optional:
   iOS Safari, browsers without the Screen Orientation API and embedded portals

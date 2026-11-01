@@ -14,7 +14,8 @@ import {
 import { createRng, type Rng, randomSeed } from '@mg/core/rng'
 import Phaser from 'phaser'
 import { animalSfxName, playAnimalSfx } from '../audio/animalSfx'
-import { playDrinkSfx } from '../audio/drinkSfx'
+import { playDiningEatSfx } from '../audio/diningSfx'
+import { playDrinkSfx, playGulpSfx } from '../audio/drinkSfx'
 import { startMusic } from '../audio/music'
 import { gameColors } from '../colors'
 import { carriedKinds } from '../logic/carry'
@@ -39,6 +40,7 @@ import {
   ZONE_ORDER,
   zoneOf,
 } from '../logic/config'
+import { eatCarried, sitAtSeat, standUp } from '../logic/dining'
 import { nearestRestingStaff, purchaseDrink } from '../logic/facilities'
 import { feedSpace } from '../logic/production'
 import {
@@ -77,10 +79,12 @@ import { BuffBar } from '../ui/BuffBar'
 import { CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
 import { DevPanel } from '../ui/DevPanel'
+import { DiningView } from '../ui/DiningView'
 import { DrinkPicker } from '../ui/DrinkPicker'
 import { FacilityOverlay } from '../ui/FacilityOverlay'
 import { FacilityView } from '../ui/FacilityView'
 import { FishingView } from '../ui/FishingView'
+import { FoodPicker } from '../ui/FoodPicker'
 import {
   drawCanopyBand,
   drawFern,
@@ -183,6 +187,7 @@ export class GameScene extends Phaser.Scene {
   private bedPressLabel?: Phaser.GameObjects.Text
   private slotPicker?: SlotPicker
   private drinkPicker?: DrinkPicker
+  private foodPicker?: FoodPicker
   private devPanel?: DevPanel
   private pendingDrink = false
   private hud!: Hud
@@ -198,6 +203,7 @@ export class GameScene extends Phaser.Scene {
   private hintAnimalSwap = false
   private hintMachineSwap = false
   private hintFish = false
+  private hintDining = false
   private countdownMs = 0
   private countdownShown = 0
   private accumulator = 0
@@ -257,7 +263,17 @@ export class GameScene extends Phaser.Scene {
     if (this.mode === 'playing' || this.mode === 'shop') {
       this.accumulator += Math.min(delta, 100)
       while (this.accumulator >= STEP_MS) {
-        const result = stepShop(this.state, this.readInput(), this.rng, STEP_MS)
+        const allowAutoSit =
+          this.mode === 'playing' &&
+          this.slotPicker === undefined &&
+          this.drinkPicker === undefined &&
+          this.devPanel === undefined
+        const result = stepShop(
+          this.state,
+          { ...this.readInput(), allowAutoSit },
+          this.rng,
+          STEP_MS,
+        )
         this.state = result.state
         this.handleEvents(result.events)
         this.accumulator -= STEP_MS
@@ -376,6 +392,16 @@ export class GameScene extends Phaser.Scene {
     )
     this.world.add(this.trashView)
     this.world.add(this.vendingView)
+
+    const diningView = new DiningView(
+      this,
+      theme,
+      this.layout.map,
+      i18n.t('facility.dining'),
+      this.layout.worldText,
+      (seat) => this.trySit(seat),
+    )
+    diningView.addTo(this.world)
 
     this.shelfViews = Object.fromEntries(
       ZONE_ORDER.map((zone) => {
@@ -591,8 +617,15 @@ export class GameScene extends Phaser.Scene {
 
   private tryOpenSlot(zone: ZoneId, slot: number): void {
     if (this.mode !== 'playing' && this.mode !== 'shop') return
-    if (this.slotPicker !== undefined || this.drinkPicker !== undefined) return
+    if (
+      this.slotPicker !== undefined ||
+      this.drinkPicker !== undefined ||
+      this.foodPicker !== undefined
+    ) {
+      return
+    }
     if (this.devPanel !== undefined) return
+    if (this.state.dining.playerSeat !== null) return
     if (!this.state.zones[zone]) return
     const current = this.producerAt(zone, slot)
     // A bed that already holds a partial payment keeps its dwell-to-pay flow;
@@ -643,6 +676,7 @@ export class GameScene extends Phaser.Scene {
     const escapeKey = (): void => {
       if (this.devPanel !== undefined) this.closeDevPanel()
       else if (this.slotPicker !== undefined) this.closeSlotPicker()
+      else if (this.foodPicker !== undefined) this.closeFoodPicker()
       else if (this.drinkPicker !== undefined) this.closeDrinkPicker()
       else if (this.mode === 'shop') this.shopPanel?.close()
       else toggle()
@@ -653,7 +687,9 @@ export class GameScene extends Phaser.Scene {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.ctrlKey || event.metaKey || event.altKey) return
       const code = moveKeyCode(event)
-      if (code !== null) this.heldMoveKeys.add(code)
+      if (code === null) return
+      if (this.foodPicker !== undefined) this.closeFoodPicker()
+      this.heldMoveKeys.add(code)
     }
     const onKeyUp = (event: KeyboardEvent): void => {
       const code = moveKeyCode(event)
@@ -693,7 +729,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private render(alpha: number, time: number): void {
-    this.playerView.updatePlayer(this.state.player, alpha, time)
+    this.playerView.updatePlayer(
+      this.state.player,
+      alpha,
+      time,
+      this.state.dining.playerSeat !== null,
+    )
     this.playerView.setDepth(this.state.player.pos.y + 1)
     this.syncCustomers(alpha, time)
     this.syncStaff(alpha, time)
@@ -711,10 +752,14 @@ export class GameScene extends Phaser.Scene {
     this.coinPile.updatePile(this.state.pendingCoins)
     this.buffBar.update(this.state.buffs)
     this.drinkPicker?.update(this.state)
+    this.foodPicker?.update(this.state)
     this.devPanel?.update(this.state)
 
     if (this.slotPicker !== undefined && this.mode !== 'playing' && this.mode !== 'shop') {
       this.closeSlotPicker()
+    }
+    if (this.foodPicker !== undefined && this.mode !== 'playing') {
+      this.closeFoodPicker()
     }
     if (this.pendingDrink) {
       if (this.canOpenDrinkPicker()) {
@@ -727,11 +772,13 @@ export class GameScene extends Phaser.Scene {
         this.pendingDrink = false
       }
     }
+    if (this.state.dining.playerSeat !== null) this.openFoodPickerIfPossible()
 
     const showTutorial =
       this.mode === 'playing' &&
       this.slotPicker === undefined &&
       this.drinkPicker === undefined &&
+      this.foodPicker === undefined &&
       this.devPanel === undefined
     this.tutorial.setVisible(showTutorial)
     if (showTutorial) this.tutorial.update(this.state, time)
@@ -740,6 +787,7 @@ export class GameScene extends Phaser.Scene {
       this.mode === 'playing' &&
       this.slotPicker === undefined &&
       this.drinkPicker === undefined &&
+      this.foodPicker === undefined &&
       this.devPanel === undefined
     this.facilityOverlay.update(this.state, overlayEnabled)
 
@@ -749,6 +797,7 @@ export class GameScene extends Phaser.Scene {
       this.mode === 'playing' &&
       this.slotPicker === undefined &&
       this.drinkPicker === undefined &&
+      this.foodPicker === undefined &&
       this.devPanel === undefined
     this.joystick.setEnabled(inputEnabled)
     this.hud.setEnabled(inputEnabled)
@@ -862,6 +911,7 @@ export class GameScene extends Phaser.Scene {
     if (
       this.slotPicker !== undefined ||
       this.drinkPicker !== undefined ||
+      this.foodPicker !== undefined ||
       this.devPanel !== undefined
     ) {
       return { moveX: 0, moveY: 0 }
@@ -1112,6 +1162,22 @@ export class GameScene extends Phaser.Scene {
             }),
           )
           break
+        case 'diningReady':
+          this.openFoodPickerIfPossible()
+          break
+        case 'ate':
+          playDiningEatSfx(this.services, 0.55)
+          this.playerView.playEat(event.product)
+          this.toast.show(
+            this.services.i18n.t('toast.ate', { name: this.productName(event.product) }),
+          )
+          break
+        case 'staffMeal':
+          playDiningEatSfx(this.services, 0.35, 0.98 + (event.staffId % 4) * 0.02)
+          break
+        case 'staffDrink':
+          playGulpSfx(this.services, 0.97 + (event.staffId % 4) * 0.02)
+          break
         case 'staffLazy':
           this.sfx('die', 0.22)
           this.toast.show(
@@ -1227,8 +1293,10 @@ export class GameScene extends Phaser.Scene {
   private canOpenDrinkPicker(): boolean {
     return (
       this.mode === 'playing' &&
+      this.state.dining.playerSeat === null &&
       this.slotPicker === undefined &&
       this.drinkPicker === undefined &&
+      this.foodPicker === undefined &&
       this.devPanel === undefined &&
       distance(this.state.player.pos, this.state.map.facilities.vendingUse) <= DRINK_RADIUS
     )
@@ -1256,10 +1324,85 @@ export class GameScene extends Phaser.Scene {
     this.resetMovementInput()
   }
 
+  private trySit(seatIndex: number): void {
+    if (this.mode !== 'playing') return
+    if (
+      this.slotPicker !== undefined ||
+      this.drinkPicker !== undefined ||
+      this.foodPicker !== undefined ||
+      this.devPanel !== undefined
+    ) {
+      return
+    }
+    const outcome = sitAtSeat(this.state, seatIndex)
+    if (outcome.result === 'ok') {
+      this.state = outcome.state
+      this.openFoodPicker()
+      return
+    }
+    if (outcome.result === 'taken') {
+      this.toast.show(this.services.i18n.t('toast.diningTaken'))
+    } else if (outcome.result === 'far') {
+      this.toast.show(this.services.i18n.t('toast.diningFar'))
+    }
+  }
+
+  private openFoodPickerIfPossible(): void {
+    if (this.mode !== 'playing' || this.state.dining.playerSeat === null) return
+    if (this.foodPicker !== undefined) return
+    if (
+      this.slotPicker !== undefined ||
+      this.drinkPicker !== undefined ||
+      this.devPanel !== undefined ||
+      this.shopPanel !== undefined ||
+      this.pauseOverlay !== undefined
+    ) {
+      return
+    }
+    this.openFoodPicker()
+  }
+
+  private openFoodPicker(): void {
+    if (this.foodPicker !== undefined) return
+    this.closeSlotPicker()
+    this.closeDrinkPicker()
+    this.closeDevPanel()
+    this.resetMovementInput()
+    this.foodPicker = new FoodPicker({
+      scene: this,
+      layout: this.layout,
+      theme: this.services.theme,
+      i18n: this.services.i18n,
+      state: this.state,
+      onEat: (product) => this.eat(product),
+      onClose: () => this.closeFoodPicker(),
+    })
+  }
+
+  private closeFoodPicker(): void {
+    this.foodPicker?.destroy()
+    this.foodPicker = undefined
+    if (this.state.dining.playerSeat !== null) {
+      this.state = standUp(this.state)
+      this.hud.update(this.state)
+    }
+    this.resetMovementInput()
+  }
+
+  private eat(product: ProductKind): void {
+    const outcome = eatCarried(this.state, product)
+    if (outcome.events.length === 0) return
+    this.state = outcome.state
+    this.handleEvents(outcome.events)
+    this.hud.update(this.state)
+    this.foodPicker?.update(this.state)
+  }
+
   private openDevPanel(): void {
     if (this.devPanel !== undefined || this.mode !== 'playing') return
     this.closeSlotPicker()
     this.closeDrinkPicker()
+    this.closeFoodPicker()
     this.resetMovementInput()
     this.devPanel = new DevPanel({
       scene: this,
@@ -1558,7 +1701,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showContextHints(): void {
-    if (this.mode !== 'playing' || this.slotPicker !== undefined) return
+    if (this.mode !== 'playing' || this.slotPicker !== undefined || this.foodPicker !== undefined) {
+      return
+    }
+    if (!this.hintDining && this.state.dining.targetSeat !== null) {
+      this.hintDining = true
+      this.toast.show(this.services.i18n.t('toast.diningHint'))
+    }
     const offer = nearestOffer(this.state, this.state.player.pos)
     if (!this.hintSwap && offer?.type === 'swap') {
       this.hintSwap = true
@@ -1595,6 +1744,7 @@ export class GameScene extends Phaser.Scene {
     this.resetMovementInput()
     this.closeSlotPicker()
     this.closeDrinkPicker()
+    this.closeFoodPicker()
     this.closeDevPanel()
     this.mode = 'shop'
     this.hud.setEnabled(false)
@@ -1658,6 +1808,7 @@ export class GameScene extends Phaser.Scene {
     this.resetMovementInput()
     this.closeSlotPicker()
     this.closeDrinkPicker()
+    this.closeFoodPicker()
     this.closeDevPanel()
     this.shopPanel?.destroy()
     this.shopPanel = undefined
@@ -1824,6 +1975,7 @@ export class GameScene extends Phaser.Scene {
     this.shopPanel = undefined
     this.closeSlotPicker()
     this.closeDrinkPicker()
+    this.closeFoodPicker()
     this.closeDevPanel()
     this.mapOffers?.destroy()
     this.mapOffers = undefined

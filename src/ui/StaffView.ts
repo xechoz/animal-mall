@@ -26,6 +26,7 @@ export class StaffView extends Phaser.GameObjects.Container {
   private readonly carrying: Phaser.GameObjects.Image[] = []
   private readonly carryCount: Phaser.GameObjects.Text
   private readonly mood: Phaser.GameObjects.Graphics
+  private readonly food: Phaser.GameObjects.Image
   private readonly sleep: Phaser.GameObjects.Text
   private carryKey = ''
   private carryFacing: -1 | 1 = 1
@@ -72,6 +73,8 @@ export class StaffView extends Phaser.GameObjects.Container {
 
     this.mood = scene.add.graphics()
     this.add(this.mood)
+    this.food = scene.add.image(0, 0, productTextureKey('apple')).setScale(0.42).setVisible(false)
+    this.add(this.food)
 
     this.sleep = scene.add
       .text(18, -96, 'Zzz', textStyle(theme, 14 * textScale, theme.text, true))
@@ -91,12 +94,28 @@ export class StaffView extends Phaser.GameObjects.Container {
   updateStaff(member: StaffState, alpha: number, time: number): void {
     const x = member.prevPos.x + (member.pos.x - member.prevPos.x) * alpha
     const y = member.prevPos.y + (member.pos.y - member.prevPos.y) * alpha
-    const bob = member.moving ? Math.abs(Math.sin(time * 0.012)) * 3 : Math.sin(time * 0.003) * 1
+    const dining = member.phase === 'dining'
+    const bob = member.moving
+      ? Math.abs(Math.sin(time * 0.012)) * 3
+      : Math.sin(time * 0.003) * (dining ? 0.5 : 1)
     this.setPosition(x, y - bob)
-    this.bodyImage.setScale(member.facing * 0.78, 0.78)
+    this.bodyImage.setPosition(0, dining ? 4 : 0)
+    this.bodyImage.setScale(member.facing * (dining ? 0.72 : 0.78), dining ? 0.72 : 0.78)
     if (member.facing !== this.carryFacing) {
       this.carryFacing = member.facing
       this.layoutCarry(member.facing)
+    }
+
+    if (dining && member.carry !== null) {
+      const chew = Math.abs(Math.sin(time * 0.018))
+      this.food
+        .setTexture(productTextureKey(member.carry))
+        .setVisible(true)
+        .setPosition(member.facing * 16, -24 - chew * 2)
+        .setScale(member.facing * 0.42, 0.42)
+        .setRotation(-member.facing * 0.2)
+    } else {
+      this.food.setVisible(false)
     }
 
     this.apron.clear()

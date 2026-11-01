@@ -66,6 +66,21 @@ export interface FacilityLayout {
   readonly restSpots: readonly Vec2[]
 }
 
+export interface DiningSeat {
+  readonly index: number
+  /** Where the body sits while the chair is occupied. */
+  readonly seat: Vec2
+  /** Walkable point used to reach the chair and to stand up onto. */
+  readonly stand: Vec2
+  readonly facing: -1 | 1
+}
+
+export interface DiningLayout {
+  readonly rug: Rect
+  readonly table: Rect
+  readonly seats: readonly DiningSeat[]
+}
+
 /**
  * One complete shop floor plan. The simulation only knows this shape, so the
  * same rules run on the portrait and landscape layouts.
@@ -103,6 +118,7 @@ export interface ShopMap {
   readonly stationAccess: readonly Vec2[]
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
   readonly facilities: FacilityLayout
+  readonly dining: DiningLayout
   /** Solid props for every walker: shelves, counter, pens and stations. */
   readonly obstacles: readonly Rect[]
   /**
@@ -211,6 +227,9 @@ export type StaffPhase =
   | 'load'
   | 'toDrink'
   | 'drinking'
+  | 'toMeal'
+  | 'toDining'
+  | 'dining'
   | 'resting'
   | 'toWork'
 
@@ -236,9 +255,19 @@ export interface StaffState {
   readonly timerMs: number
   readonly waitMs: number
   readonly workMs: number
+  /** Dining seat reserved while walking to the table or eating. */
+  readonly seatIndex: number | null
 }
 
 export type BuffTimers = Readonly<Record<DrinkKind, number>>
+
+export interface DiningState {
+  readonly playerSeat: number | null
+  readonly dwellMs: number
+  readonly targetSeat: number | null
+  /** False after standing until the player leaves the table, avoiding a loop. */
+  readonly armed: boolean
+}
 
 export interface FacilityState {
   readonly trashDwellMs: number
@@ -287,6 +316,7 @@ export interface ShopState {
   readonly quickBuy: QuickBuyState
   readonly fishing: FishingState
   readonly facility: FacilityState
+  readonly dining: DiningState
   readonly buffs: BuffTimers
   readonly tutorial: TutorialStep
 }
@@ -389,6 +419,14 @@ export type GameEvent =
   | { readonly type: 'discard'; readonly product: ProductKind; readonly amount: number }
   | { readonly type: 'drinkMenuReady' }
   | { readonly type: 'drinkBought'; readonly drink: DrinkKind; readonly price: number }
+  | { readonly type: 'diningReady'; readonly seat: number }
+  | {
+      readonly type: 'ate'
+      readonly product: ProductKind
+      readonly buffs: readonly DrinkKind[]
+    }
+  | { readonly type: 'staffMeal'; readonly staffId: number; readonly product: ProductKind }
+  | { readonly type: 'staffDrink'; readonly staffId: number }
   | { readonly type: 'staffLazy'; readonly staffId: number; readonly kind: StaffKind }
   | { readonly type: 'staffUrged'; readonly staffId: number }
   | { readonly type: 'tutorial'; readonly step: TutorialStep }
@@ -396,6 +434,8 @@ export type GameEvent =
 export interface StepInput {
   readonly moveX: number
   readonly moveY: number
+  /** Scene modals set this false so standing near a table cannot auto-sit. */
+  readonly allowAutoSit?: boolean
 }
 
 export interface StepResult {

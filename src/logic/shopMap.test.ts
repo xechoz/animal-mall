@@ -32,6 +32,7 @@ for (const map of MAPS) {
         ...map.plantAccess.veg,
         ...Object.values(map.animalAccess),
         ...Object.values(map.stationAccess),
+        ...map.dining.seats.flatMap((seat) => [seat.seat, seat.stand]),
         ...map.queueSlots,
       ]
       for (const point of points) {
@@ -56,7 +57,12 @@ for (const map of MAPS) {
       expect(insideMap(map, map.counter.x + map.counter.w, map.counter.y + map.counter.h)).toBe(
         true,
       )
-      for (const rect of [map.facilities.trashRect, map.facilities.vendingRect]) {
+      for (const rect of [
+        map.facilities.trashRect,
+        map.facilities.vendingRect,
+        map.dining.rug,
+        map.dining.table,
+      ]) {
         expect(insideMap(map, rect.x, rect.y)).toBe(true)
         expect(insideMap(map, rect.x + rect.w, rect.y + rect.h)).toBe(true)
       }
@@ -101,6 +107,14 @@ for (const map of MAPS) {
         blockedAt(
           map.counter.x + map.counter.w / 2,
           map.counter.y + map.counter.h / 2,
+          CUSTOMER_RADIUS,
+          map,
+        ),
+      ).toBe(true)
+      expect(
+        blockedAt(
+          map.dining.table.x + map.dining.table.w / 2,
+          map.dining.table.y + map.dining.table.h / 2,
           CUSTOMER_RADIUS,
           map,
         ),
