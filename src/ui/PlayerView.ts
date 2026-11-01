@@ -11,6 +11,13 @@ const CUP_SCALE = 0.95
 const DRINK_MS = 1350
 const RAISE_MS = 140
 const LOWER_MS = 1080
+/** Carried goods sit in the hand, then stack upward from there. */
+const CARRY_HAND_X = 18
+const CARRY_HAND_Y = -24
+const CARRY_STEP = 12
+const CARRY_LEAN = 1.5
+const CARRY_BADGE_X = 12
+const CARRY_BADGE_Y = -4
 /** Sip and swallow beats baked into drink-gulp.mp3, in milliseconds. */
 const SIP_BEATS: readonly { readonly start: number; readonly duration: number }[] = [
   { start: 185, duration: 355 },
@@ -48,6 +55,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
   private readonly carryCount: Phaser.GameObjects.Text
   private readonly theme: Theme
   private carryKey = ''
+  private carryFacing: -1 | 1 = 1
   private facing: -1 | 1 = 1
   private drink: DrinkState | null = null
 
@@ -64,24 +72,31 @@ export class PlayerView extends Phaser.GameObjects.Container {
     this.add(this.bodyImage)
 
     this.cup = scene.add.graphics().setVisible(false)
-    this.add(this.cup)
 
     for (let index = 0; index < 5; index += 1) {
       const icon = scene.add
-        .image(0, -80 - index * 15, productTextureKey('apple'))
+        .image(CARRY_HAND_X, CARRY_HAND_Y, productTextureKey('apple'))
         .setScale(0.46)
         .setVisible(false)
       this.carrying.push(icon)
       this.add(icon)
     }
+    // The cup sits in front of the carried pile so a sip stays readable.
+    this.add(this.cup)
 
     this.carryCount = scene.add
-      .text(20, -120, '', textStyle(theme, 13, theme.text, true))
+      .text(
+        CARRY_HAND_X + CARRY_BADGE_X,
+        CARRY_HAND_Y + CARRY_BADGE_Y,
+        '',
+        textStyle(theme, 13, theme.text, true),
+      )
       .setOrigin(0, 0.5)
       .setBackgroundColor('#fff7e8')
       .setPadding(4, 0, 4, 0)
       .setVisible(false)
     this.add(this.carryCount)
+    this.layoutCarry(1)
 
     scene.add.existing(this)
   }
@@ -109,6 +124,10 @@ export class PlayerView extends Phaser.GameObjects.Container {
     const bob = player.moving ? Math.abs(Math.sin(time * 0.012)) * 3 : Math.sin(time * 0.003) * 1
     this.setPosition(x, y - bob)
     this.facing = player.facing
+    if (player.facing !== this.carryFacing) {
+      this.carryFacing = player.facing
+      this.layoutCarry(player.facing)
+    }
 
     let bodyScaleX = BODY_SCALE
     let bodyScaleY = BODY_SCALE
@@ -162,6 +181,19 @@ export class PlayerView extends Phaser.GameObjects.Container {
       this.carryCount.setText(overflow ? `×${total}` : '').setVisible(overflow)
     }
     this.carryCount.setColor(this.theme.text)
+  }
+
+  /** Anchors the carried pile to the hand and flips it with the body. */
+  private layoutCarry(facing: -1 | 1): void {
+    this.carrying.forEach((icon, index) => {
+      icon.setPosition(
+        facing * (CARRY_HAND_X + index * CARRY_LEAN),
+        CARRY_HAND_Y - index * CARRY_STEP,
+      )
+    })
+    this.carryCount
+      .setOrigin(facing > 0 ? 0 : 1, 0.5)
+      .setPosition(facing * (CARRY_HAND_X + CARRY_BADGE_X), CARRY_HAND_Y + CARRY_BADGE_Y)
   }
 
   private spawnFizz(index: number): void {

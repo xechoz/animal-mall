@@ -11,6 +11,14 @@ const APRON = {
   chef: 0xf3ebe0,
 } as const
 
+/** Staff carry goods in the hand too, so the pile matches the player's. */
+const CARRY_HAND_X = 15
+const CARRY_HAND_Y = -22
+const CARRY_STEP = 11
+const CARRY_LEAN = 1.2
+const CARRY_BADGE_X = 10
+const CARRY_BADGE_Y = -3
+
 export class StaffView extends Phaser.GameObjects.Container {
   readonly hit: Phaser.GameObjects.Zone
   private readonly bodyImage: Phaser.GameObjects.Image
@@ -20,6 +28,7 @@ export class StaffView extends Phaser.GameObjects.Container {
   private readonly mood: Phaser.GameObjects.Graphics
   private readonly sleep: Phaser.GameObjects.Text
   private carryKey = ''
+  private carryFacing: -1 | 1 = 1
   private lastPhase: StaffState['phase'] | '' = ''
 
   constructor(scene: Phaser.Scene, theme: Theme, member: StaffState, textScale: number) {
@@ -40,7 +49,7 @@ export class StaffView extends Phaser.GameObjects.Container {
 
     for (let index = 0; index < 4; index += 1) {
       const icon = scene.add
-        .image(0, -74 - index * 14, productTextureKey('apple'))
+        .image(CARRY_HAND_X, CARRY_HAND_Y, productTextureKey('apple'))
         .setScale(0.42)
         .setVisible(false)
       this.carrying.push(icon)
@@ -48,12 +57,18 @@ export class StaffView extends Phaser.GameObjects.Container {
     }
 
     this.carryCount = scene.add
-      .text(18, -112, '', textStyle(theme, 12 * textScale, theme.text, true))
+      .text(
+        CARRY_HAND_X + CARRY_BADGE_X,
+        CARRY_HAND_Y + CARRY_BADGE_Y,
+        '',
+        textStyle(theme, 12 * textScale, theme.text, true),
+      )
       .setOrigin(0, 0.5)
       .setBackgroundColor('#fff7e8')
       .setPadding(3, 0, 3, 0)
       .setVisible(false)
     this.add(this.carryCount)
+    this.layoutCarry(1)
 
     this.mood = scene.add.graphics()
     this.add(this.mood)
@@ -79,6 +94,10 @@ export class StaffView extends Phaser.GameObjects.Container {
     const bob = member.moving ? Math.abs(Math.sin(time * 0.012)) * 3 : Math.sin(time * 0.003) * 1
     this.setPosition(x, y - bob)
     this.bodyImage.setScale(member.facing * 0.78, 0.78)
+    if (member.facing !== this.carryFacing) {
+      this.carryFacing = member.facing
+      this.layoutCarry(member.facing)
+    }
 
     this.apron.clear()
     this.apron.fillStyle(APRON[member.kind], 0.9)
@@ -109,6 +128,19 @@ export class StaffView extends Phaser.GameObjects.Container {
         .setText(overflow ? `×${member.carryCount}` : '')
         .setVisible(overflow && member.carry !== null)
     }
+  }
+
+  /** Anchors the carried pile to the hand and flips it with the body. */
+  private layoutCarry(facing: -1 | 1): void {
+    this.carrying.forEach((icon, index) => {
+      icon.setPosition(
+        facing * (CARRY_HAND_X + index * CARRY_LEAN),
+        CARRY_HAND_Y - index * CARRY_STEP,
+      )
+    })
+    this.carryCount
+      .setOrigin(facing > 0 ? 0 : 1, 0.5)
+      .setPosition(facing * (CARRY_HAND_X + CARRY_BADGE_X), CARRY_HAND_Y + CARRY_BADGE_Y)
   }
 
   private drawChefHat(): void {

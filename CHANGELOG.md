@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Carried goods now stack up from the player's and staff's hand instead of
+  floating above their heads, and the pile flips sides with the character.
 - Restyle the game as a sunlit forest market: a lighter layered forest
   backdrop, split-rail fences around the shop and pens, dirt paths, mossy
   organic zone clearings, colourful trees with varied fruit, wildlife such as
