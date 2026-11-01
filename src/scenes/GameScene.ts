@@ -1,4 +1,5 @@
 import {
+  cssColor,
   displayTextStyle,
   type GameServices,
   getServices,
@@ -27,6 +28,7 @@ import {
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
+  PLANT_FIELDS,
   PLOT_SIZE,
   producerCost,
   REST,
@@ -164,6 +166,7 @@ export class GameScene extends Phaser.Scene {
     fired: boolean
   }
   private bedPressRing?: Phaser.GameObjects.Graphics
+  private bedPressLabel?: Phaser.GameObjects.Text
   private plantPicker?: PlantPicker
   private drinkPicker?: DrinkPicker
   private devPanel?: DevPanel
@@ -399,9 +402,10 @@ export class GameScene extends Phaser.Scene {
    */
   private buildBedHits(): void {
     for (const zone of ['fruit', 'veg'] as const) {
+      const height = this.bedHitHeight(zone)
       for (const plot of this.layout.map.plantSlots[zone]) {
         const hit = this.add
-          .zone(plot.x, plot.y, PLOT_SIZE.w, PLOT_SIZE.h + INTERACTION.plotHitPadding)
+          .zone(plot.x, plot.y, PLOT_SIZE.w, height)
           .setInteractive({ useHandCursor: true })
         hit.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
           this.beginBedPress(zone, plot.index, pointer),
@@ -414,6 +418,23 @@ export class GameScene extends Phaser.Scene {
         this.world.add(hit)
       }
     }
+  }
+
+  /**
+   * A fixed padding overlaps the next row on the tight vegetable grid, so the
+   * touch area grows only as far as the real row gap allows.
+   */
+  private bedHitHeight(zone: 'fruit' | 'veg'): number {
+    const plots = this.layout.map.plantSlots[zone]
+    const first = plots[0]
+    const below = plots[PLANT_FIELDS[zone].cols]
+    if (first === undefined || below === undefined) return PLOT_SIZE.h
+    const rowGap = Math.abs(below.y - first.y)
+    const padding = Math.max(
+      0,
+      Math.min(INTERACTION.plotHitPadding, (rowGap - PLOT_SIZE.h) / 2 - 1),
+    )
+    return PLOT_SIZE.h + padding * 2
   }
 
   private beginBedPress(zone: 'fruit' | 'veg', slot: number, pointer: Phaser.Input.Pointer): void {
@@ -434,6 +455,15 @@ export class GameScene extends Phaser.Scene {
       fired: false,
     }
     this.bedPressRing ??= this.add.graphics().setDepth(6500)
+    if (this.bedPressLabel === undefined) {
+      const ui = Math.min(this.layout.ui, 1.2)
+      this.bedPressLabel = this.add
+        .text(0, 0, '', textStyle(this.services.theme, 12 * ui, this.services.theme.text, true))
+        .setOrigin(0.5, 1)
+        .setDepth(6500)
+        .setStroke(cssColor(this.services.theme.panel), 3 * ui)
+        .setVisible(false)
+    }
   }
 
   private endBedPress(zone: 'fruit' | 'veg', slot: number, pointer: Phaser.Input.Pointer): void {
@@ -460,6 +490,8 @@ export class GameScene extends Phaser.Scene {
   private destroyBedPressRing(): void {
     this.bedPressRing?.destroy()
     this.bedPressRing = undefined
+    this.bedPressLabel?.destroy()
+    this.bedPressLabel = undefined
   }
 
   private drawBedPressRing(time: number): void {
@@ -479,6 +511,17 @@ export class GameScene extends Phaser.Scene {
     ring.beginPath()
     ring.arc(point.x, point.y - 4 * ui, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio)
     ring.strokePath()
+
+    const label = this.bedPressLabel
+    if (label !== undefined) {
+      const show = time - press.startedAt >= INTERACTION.holdMs * 0.25
+      label.setVisible(show)
+      if (show) {
+        label.setFontSize(12 * ui)
+        label.setPosition(point.x, point.y - radius - 6 * ui)
+        label.setText(this.services.i18n.t('bed.holdSwap'))
+      }
+    }
   }
 
   private bedProducer(zone: 'fruit' | 'veg', slot: number): ProducerState | undefined {
@@ -537,6 +580,7 @@ export class GameScene extends Phaser.Scene {
     }
     const escapeKey = (): void => {
       if (this.devPanel !== undefined) this.closeDevPanel()
+      else if (this.plantPicker !== undefined) this.closePlantPicker()
       else if (this.drinkPicker !== undefined) this.closeDrinkPicker()
       else if (this.mode === 'shop') this.shopPanel?.close()
       else toggle()
@@ -607,7 +651,7 @@ export class GameScene extends Phaser.Scene {
     this.drinkPicker?.update(this.state)
     this.devPanel?.update(this.state)
 
-    if (this.plantPicker !== undefined && (this.state.player.moving || this.mode !== 'playing')) {
+    if (this.plantPicker !== undefined && this.mode !== 'playing') {
       this.closePlantPicker()
     }
     if (this.pendingDrink) {
@@ -637,7 +681,10 @@ export class GameScene extends Phaser.Scene {
     if (this.mode === 'shop') this.shopPanel?.update(this.state)
 
     const inputEnabled =
-      this.mode === 'playing' && this.drinkPicker === undefined && this.devPanel === undefined
+      this.mode === 'playing' &&
+      this.plantPicker === undefined &&
+      this.drinkPicker === undefined &&
+      this.devPanel === undefined
     this.joystick.setEnabled(inputEnabled)
     this.hud.setEnabled(inputEnabled)
   }
@@ -745,7 +792,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private readInput(): { moveX: number; moveY: number } {
-    if (this.drinkPicker !== undefined || this.devPanel !== undefined) {
+    if (
+      this.plantPicker !== undefined ||
+      this.drinkPicker !== undefined ||
+      this.devPanel !== undefined
+    ) {
       return { moveX: 0, moveY: 0 }
     }
     const held = this.heldMoveKeys
@@ -859,6 +910,16 @@ export class GameScene extends Phaser.Scene {
               refund: event.refund,
             }),
           )
+          if (isPlantKind(event.previous)) {
+            const zone = zoneOf(event.previous)
+            if (zone === 'fruit' || zone === 'veg') {
+              const at = this.state.map.plantSlots[zone][event.slot]
+              if (at !== undefined) {
+                this.floatOldCrop(event.previous, at)
+                this.floatRefund(at, event.refund)
+              }
+            }
+          }
           break
         case 'zoneUnlocked':
           this.saveGame()
@@ -917,14 +978,10 @@ export class GameScene extends Phaser.Scene {
           )
           break
         case 'plantPickerReady':
-          if (this.mode === 'playing' && this.devPanel === undefined) {
-            this.openPlantPicker(event.zone, event.slot)
-          }
-          break
         case 'plantSwapReady':
-          if (this.mode === 'playing' && this.devPanel === undefined) {
-            this.openPlantPicker(event.zone, event.slot)
-          }
+          // Always go through the bed guard so a second dwell cannot replace an
+          // already open chooser while the shop keeps simulating behind it.
+          this.tryOpenBed(event.zone, event.slot)
           break
         case 'coinsPending':
           this.sfx('click', 0.35)
@@ -1040,6 +1097,11 @@ export class GameScene extends Phaser.Scene {
 
   private openPlantPicker(zone: 'fruit' | 'veg', slot: number): void {
     this.closePlantPicker()
+    this.resetMovementInput()
+    // A hold that opened the chooser must not leave its ring under the modal.
+    this.bedPress?.timer.remove()
+    this.bedPress = undefined
+    this.destroyBedPressRing()
     const current = this.state.producers.find(
       (producer) =>
         isPlantKind(producer.product) &&
@@ -1050,6 +1112,7 @@ export class GameScene extends Phaser.Scene {
       scene: this,
       layout: this.layout,
       theme: this.services.theme,
+      i18n: this.services.i18n,
       state: this.state,
       zone,
       slot,
@@ -1090,8 +1153,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private closePlantPicker(): void {
-    this.plantPicker?.destroy()
+    if (this.plantPicker === undefined) return
+    this.plantPicker.destroy()
     this.plantPicker = undefined
+    this.resetMovementInput()
   }
 
   private canOpenDrinkPicker(): boolean {
@@ -1286,6 +1351,55 @@ export class GameScene extends Phaser.Scene {
       ease: 'Quad.out',
       onComplete: () => {
         icon.destroy()
+        label.destroy()
+      },
+    })
+  }
+
+  /** The replaced crop lifts off the bed before the new sapling takes its place. */
+  private floatOldCrop(product: ProductKind, at: Vec2): void {
+    const screen = worldToScreen(this.layout, at)
+    const icon = this.add
+      .image(screen.x, screen.y - 34, productTextureKey(product))
+      .setScale(0.55)
+      .setDepth(6500)
+    this.tweens.add({
+      targets: icon,
+      y: '-=22',
+      alpha: 0,
+      angle: 14,
+      scale: 0.4,
+      duration: 480,
+      ease: 'Quad.out',
+      onComplete: () => icon.destroy(),
+    })
+  }
+
+  /** Half of the old crop's cost comes back, so show the refund on the bed. */
+  private floatRefund(at: Vec2, refund: number): void {
+    if (refund <= 0) return
+    const screen = worldToScreen(this.layout, at)
+    const coin = this.add
+      .image(screen.x - 14, screen.y - 14, coinTextureKey())
+      .setScale(0.4)
+      .setDepth(6500)
+    const label = this.add
+      .text(
+        screen.x + 6,
+        screen.y - 14,
+        `+${refund}`,
+        textStyle(this.services.theme, 13, cssColor(this.services.theme.accentAlt), true),
+      )
+      .setOrigin(0.5)
+      .setDepth(6500)
+    this.tweens.add({
+      targets: [coin, label],
+      y: '-=28',
+      alpha: 0,
+      duration: 800,
+      ease: 'Quad.out',
+      onComplete: () => {
+        coin.destroy()
         label.destroy()
       },
     })

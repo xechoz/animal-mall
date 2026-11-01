@@ -1,7 +1,7 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { distance } from '../logic/collision'
-import { INTERACTION, STAFF } from '../logic/config'
+import { INTERACTION, PLOT_SIZE, STAFF } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState } from '../logic/types'
 import { animalTextureKey } from './animalArt'
@@ -23,10 +23,13 @@ interface OfferLabel {
   action?: () => void
   downX?: number
   downY?: number
+  interactive?: boolean
 }
 
 const WIDTH = 70
 const HEIGHT = 30
+const SWAP_TAG = 34
+const SWAP_HIT = 44
 
 export class MapOffers {
   private readonly scene: Phaser.Scene
@@ -34,6 +37,8 @@ export class MapOffers {
   private readonly theme: Theme
   private readonly onBedTap: (zone: 'fruit' | 'veg', slot: number) => void
   private readonly labels = new Map<string, OfferLabel>()
+  private stillSince = 0
+  private swapAlpha = 0
 
   constructor(
     scene: Phaser.Scene,
@@ -48,6 +53,13 @@ export class MapOffers {
   }
 
   update(state: ShopState): void {
+    // Swap tags are a low-frequency action, so they only appear after the
+    // player has stopped: walking through the fields never flashes a chip.
+    const now = this.scene.time.now
+    if (state.player.moving) this.stillSince = 0
+    else if (this.stillSince === 0) this.stillSince = now
+    const stillFor = this.stillSince === 0 ? 0 : now - this.stillSince
+    this.swapAlpha = Math.max(0, Math.min(1, (stillFor - 250) / 150))
     // Empty beds always advertise their starting price: otherwise a new player
     // sees bare soil and never learns the field is plantable. Everything else
     // stays distance-gated so six beds plus animals and staff do not turn the
@@ -56,7 +68,8 @@ export class MapOffers {
       (offer) =>
         offer.type === 'zone' ||
         (offer.type === 'plant' && offer.requiresChoice) ||
-        distance(state.player.pos, offer.pos) <= (offer.type === 'staff' ? 210 : 165),
+        distance(state.player.pos, offer.pos) <=
+          (offer.type === 'staff' ? 210 : offer.type === 'swap' ? 130 : 165),
     )
     const alive = new Set<string>()
     for (const offer of offers) {
@@ -122,24 +135,35 @@ export class MapOffers {
   private apply(label: OfferLabel, offer: PurchaseOffer, state: ShopState): void {
     const point = worldToScreen(this.layout, offer.pos)
     const ui = Math.min(this.layout.ui, 1.2)
-    const near = distance(state.player.pos, offer.pos) <= 165
+    const gap = distance(state.player.pos, offer.pos)
+    const near = gap <= 165
+    // Swap tags fade over the last 35 units instead of popping over the crop
+    // when the player walks past. The list filter stops creating them at 130.
+    const distanceFade = offer.type === 'swap' ? Math.max(0, Math.min(1, (130 - gap) / 35)) : 1
+    const fade = offer.type === 'swap' ? distanceFade * this.swapAlpha : 1
     // Far-away empty beds shrink to a price sticker sitting on the soil, so a
     // new player still sees "plantable" without six full chips fighting the
     // zone header. Selecting one expands it into the normal label.
     const compact = offer.type === 'plant' && offer.requiresChoice && !near
     // Four-digit zone prices need a little more room than product offers.
-    const width = (offer.type === 'zone' ? WIDTH + 14 : compact ? 44 : WIDTH) * ui
-    const height = (compact ? 20 : HEIGHT) * ui
+    const width =
+      (offer.type === 'swap'
+        ? SWAP_TAG
+        : offer.type === 'zone'
+          ? WIDTH + 14
+          : compact
+            ? 44
+            : WIDTH) * ui
+    const height = (offer.type === 'swap' ? SWAP_TAG : compact ? 20 : HEIGHT) * ui
     // Crop labels sit above the canopy, not inside it. Animal and station
-    // labels stay lower so they do not collide with the top HUD.
+    // labels stay lower so they do not collide with the top HUD. The swap tag
+    // hugs the bed's base instead of floating over the canopy.
     const compactLift = offer.type === 'plant' && offer.zone === 'fruit' ? 10 : 4
     const lift =
       (compact
         ? compactLift
         : offer.type === 'swap'
-          ? this.layout.portrait
-            ? 108
-            : 82
+          ? PLOT_SIZE.h / 2 + 6
           : offer.type === 'plant'
             ? 22
             : this.layout.portrait
@@ -157,10 +181,25 @@ export class MapOffers {
       Math.min(content.y + content.h - height / 2 - 8 * ui, point.y - lift - 16 * ui),
     )
     label.container.setPosition(x, y)
-    label.hit.setSize(
-      width + INTERACTION.labelHitPadding * 2 * ui,
-      height + INTERACTION.labelHitPadding * 2 * ui,
-    )
+    label.container.setAlpha(fade)
+    // Only the swap badge is a target, never the whole card; the chip body sits
+    // over the crop and a stray tap there must not open a paid chooser.
+    if (offer.type === 'swap') {
+      label.hit.setSize(SWAP_HIT * ui, SWAP_HIT * ui)
+    } else {
+      label.hit.setSize(
+        width + INTERACTION.labelHitPadding * 2 * ui,
+        height + INTERACTION.labelHitPadding * 2 * ui,
+      )
+    }
+    if (offer.type === 'swap') {
+      const interactive = fade >= 0.35
+      if (label.interactive !== interactive) {
+        label.interactive = interactive
+        if (interactive) label.hit.setInteractive({ useHandCursor: true })
+        else label.hit.disableInteractive()
+      }
+    }
     label.action =
       offer.type === 'swap' || (offer.type === 'plant' && offer.requiresChoice)
         ? () => this.onBedTap(offer.zone, offer.slot)
@@ -168,18 +207,28 @@ export class MapOffers {
 
     const affordable = offer.type === 'swap' ? true : state.coins >= offer.remaining
     label.bg.clear()
-    label.bg.fillStyle(this.theme.shadow, 0.16)
-    label.bg.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, 11 * ui)
-    label.bg.fillStyle(this.theme.panel, 0.96)
-    label.bg.fillRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
-    label.bg.lineStyle(2 * ui, affordable ? this.theme.accent : this.theme.borderSoft, 0.9)
-    label.bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+    if (offer.type === 'swap') {
+      // A single round badge: the crop is already visible on the bed, so a full
+      // chip would only repeat it and compete with the crop art.
+      label.bg.fillStyle(this.theme.shadow, 0.16)
+      label.bg.fillCircle(0, 3 * ui, (SWAP_TAG / 2) * ui)
+      label.bg.fillStyle(this.theme.panel, 0.96)
+      label.bg.fillCircle(0, 0, (SWAP_TAG / 2) * ui)
+      label.bg.lineStyle(2 * ui, this.theme.borderSoft, 0.9)
+      label.bg.strokeCircle(0, 0, (SWAP_TAG / 2) * ui)
+    } else {
+      label.bg.fillStyle(this.theme.shadow, 0.16)
+      label.bg.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, 11 * ui)
+      label.bg.fillStyle(this.theme.panel, 0.96)
+      label.bg.fillRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+      label.bg.lineStyle(2 * ui, affordable ? this.theme.accent : this.theme.borderSoft, 0.9)
+      label.bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+    }
 
     label.icon.setVisible(
       (offer.type === 'plant' && !offer.requiresChoice) ||
         offer.type === 'producer' ||
-        offer.type === 'staff' ||
-        offer.type === 'swap',
+        offer.type === 'staff',
     )
     label.badge.setVisible(
       (offer.type === 'plant' && offer.requiresChoice && !compact) ||
@@ -194,8 +243,15 @@ export class MapOffers {
       drawLockBadge(label.badge, -22 * ui, 0, ui)
     }
     if (offer.type === 'swap') {
-      drawSwapBadge(label.badge, 20 * ui, 0, ui)
+      drawSwapBadge(label.badge, 0, 0, 1 * ui)
     }
+    // A soft pulse marks the swap tag as the actionable part of a planted bed,
+    // without adding another text label over the crop.
+    const pulse =
+      offer.type === 'swap' && near
+        ? 0.72 + 0.28 * (0.5 + 0.5 * Math.sin(this.scene.time.now / 240))
+        : 1
+    label.badge.setAlpha(pulse)
     if (offer.type === 'plant' && !offer.requiresChoice) {
       label.icon
         .setTexture(productTextureKey(offer.product))
@@ -215,13 +271,6 @@ export class MapOffers {
         .setTexture(animalTextureKey(STAFF[offer.kind].species))
         .setPosition(-22 * ui, 1 * ui)
         .setScale(0.21 * ui)
-    }
-    if (offer.type === 'swap') {
-      label.icon
-        .setVisible(true)
-        .setTexture(productTextureKey(offer.product))
-        .setPosition(-18 * ui, 0)
-        .setScale(0.58 * ui)
     }
 
     const showPrice = offer.type !== 'swap'
@@ -260,8 +309,8 @@ export class MapOffers {
   }
 }
 
-function drawSwapBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, ui: number): void {
-  const s = 0.7 * ui
+function drawSwapBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  const s = scale
   g.lineStyle(2.4 * s, 0x5fbf9f, 1)
   g.beginPath()
   g.arc(x, y, 7 * s, -Math.PI * 0.15, Math.PI * 0.85)

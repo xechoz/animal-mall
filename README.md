@@ -37,12 +37,17 @@ that sale.
   field; both grids are configuration in `src/logic/shopMap.ts`, so the counts
   can be tuned without touching save or UI code. Fruit trees and vegetable crops
   grow on their own; harvested goods go to the matching shelf.
-- Stand on a planted bed for half a second once it has nothing left to pick, or
-  hold a finger on it, to open the crop chooser and swap it. The old crop refunds
-  half its cost and the new one costs full price. The shop's production tab still
-  has the remove button as a fallback. Partial payments stay on the bed where
-  they were paid; other beds keep their normal price instead of all showing the
-  same deposit ring.
+- Hold a finger on a planted bed, or tap its round swap badge, to open the crop
+  chooser and swap it. Standing next to it never does: a harvest empties the bed
+  under your feet, so a proximity chooser would fire on every pick. Every planted
+  bed shows the badge just above its base; it fades in after you stop and only
+  the badge itself is tappable, so walking past or tapping the crop does nothing.
+  The old crop refunds half its cost and the new one costs full price. The
+  chooser is modal: movement is locked until you close it with `×`, the backdrop
+  or Esc, and it shows the current crop and its refund. The shop's production tab
+  still has the remove button as a fallback. Partial payments stay on the bed
+  where they were paid; other beds keep their normal price instead of all showing
+  the same deposit ring.
 - Land animals have a trough in front of their pen. Walking close with fruit or
   vegetables fills it automatically, cheapest produce first; pickers also fill
   troughs with produce they harvest. The trough shows each item currently
@@ -84,11 +89,14 @@ that sale.
 - Standing still is the main interaction verb. Free/contextual actions resolve
   after 500 ms (open a bed, unlock a zone, fish, open the drink menu, nudge
   staff, discard goods); paid purchases keep the longer one-second dwell so a
-  passing tap cannot spend coins. Walking always cancels the ring.
+  passing tap cannot spend coins. Crop swapping is the exception: it is explicit
+  only, via a long press or its swap tag, because a harvest empties the bed under
+  the player. Walking always cancels the ring.
 - Beds and offer labels are tappable as well. A short tap plants, a
-  `INTERACTION.holdMs` long press swaps crops, and dragging farther than
-  `INTERACTION.tapSlop` cancels both. Empty-bed price stickers and labels get
-  extra touch padding from `INTERACTION`.
+  `INTERACTION.holdMs` long press swaps crops with a "Hold to swap" cue, and
+  dragging farther than `INTERACTION.tapSlop` cancels both. Empty-bed price
+  stickers and labels get extra touch padding from `INTERACTION`; the bed touch
+  area stops at half the row gap so neighbouring plots never overlap.
 - Unhappy customers show it: a missing product, a long queue or a slow checkout
   turns the patience bar red, adds angry brows and cheeks, a comic anger vein on
   the temple and flickering flames over the head with rising embers. The thought

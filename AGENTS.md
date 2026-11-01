@@ -88,23 +88,32 @@ submodule. Do not copy platform source into this repo.
 - Dwell interactions are reserved for purchases, menus and irreversible choices:
   quick buys, zone unlocks, plant chooser, staff nudges and the drink menu.
   Free/contextual dwells use 500 ms; paid purchases use the one-second dwell.
-  Every dwell must cancel on movement and show a visible ring.
+  Every dwell must cancel on movement and show a visible ring. A dwell must never
+  fire because the world changed under a stationary player, and it must never
+  replace an existing crop: proximity advertises, it does not destroy.
 - Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
   slot. Walking past a machine pours matching carried goods in until the buffer
   is full; the output tray is collected on contact.
 - Empty beds always show a compact coin price chip and are tappable: a short tap
   (or 500 ms dwell) opens the plant chooser. The chip shrinks to a small sticker
   sitting on the soil until the player is near.
-- Crop swapping uses the same 500 ms dwell once the bed has nothing left to
-  harvest, or a long press on the bed. Holding the finger for `BED_HOLD_MS`
-  opens the chooser directly. The old crop refunds half, and the new crop costs
-  full price.
+- Crop swapping is explicit only: a long press on the bed (`INTERACTION.holdMs`)
+  or a tap on its round swap badge opens the chooser. Standing next to a bed never
+  swaps, because a harvest empties the bed under the player's feet and an
+  automatic chooser would fire on every pick. Every planted bed advertises a small
+  round swap badge just above its base: it fades in after the player stops for
+  ~250 ms, only appears within ~130 units, and only the badge itself is tappable.
+  The chooser is modal: movement input is locked until it closes through `×`, the
+  backdrop or `Esc`, and it shows the planted crop and its refund. The old crop
+  refunds half, and the new crop costs full price.
 - Plant deposits are per bed (`plant:<kind>:<slot>`). Never use one global
   deposit key for every slot; legacy `plant:<kind>` keys are read only on the
   first empty bed.
 - Tap/long-press thresholds live in `INTERACTION` (`src/logic/config.ts`):
   `tapSlop`, `holdMs`, `plotHitPadding`, `labelHitPadding`. Drags beyond
   `tapSlop` must cancel a tap or long press. Do not hard-code these in scenes.
+  A hold shows the `bed.holdSwap` cue after a quarter of `holdMs`, and the bed
+  hit area never grows past the midpoint of the real row gap.
 - Game-specific audio keys are registered through `audioSamples` and are not
   limited to the platform `SfxName` union; use `SoundName` for helper
   signatures. Fishing currently uses `fishCast` and `fishSplash`.

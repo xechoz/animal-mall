@@ -1,4 +1,4 @@
-import { type Theme, textStyle } from '@mg/core'
+import { cssColor, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { PLANT_SHOP_ORDER, producerCost, zoneOf } from '../logic/config'
 import { plantDepositKey } from '../logic/purchase'
@@ -11,6 +11,7 @@ export interface PlantPickerOptions {
   readonly scene: Phaser.Scene
   readonly layout: GameLayout
   readonly theme: Theme
+  readonly i18n: I18n
   readonly state: ShopState
   readonly zone: 'fruit' | 'veg'
   readonly slot: number
@@ -21,6 +22,7 @@ export interface PlantPickerOptions {
 }
 
 const PADDING = 11
+const HEADER_H = 50
 const COLUMNS = 2
 const BUTTON_W = 92
 const BUTTON_H = 48
@@ -32,12 +34,12 @@ export class PlantPicker {
   private destroyed = false
 
   constructor(options: PlantPickerOptions) {
-    const { scene, layout, theme, state, zone, slot } = options
+    const { scene, layout, theme, state, zone, slot, i18n } = options
     const ui = layout.ui
     const products = PLANT_SHOP_ORDER.filter((product) => zoneOf(product) === zone)
     const rows = Math.ceil(products.length / COLUMNS)
     const width = (PADDING * 2 + COLUMNS * BUTTON_W + (COLUMNS - 1) * GAP) * ui
-    const height = (PADDING * 2 + rows * BUTTON_H + (rows - 1) * GAP) * ui
+    const height = (PADDING * 2 + HEADER_H + rows * BUTTON_H + (rows - 1) * GAP) * ui
     const point = layout.map.plantSlots[zone][slot] ?? layout.map.playerStart
     const screen = worldToScreen(layout, point)
     const x = Math.max(width / 2 + 10 * ui, Math.min(layout.width - width / 2 - 10 * ui, screen.x))
@@ -46,6 +48,13 @@ export class PlantPicker {
       height / 2 + 84 * ui,
       Math.min(layout.height - height / 2 - 20 * ui, bottom - height / 2),
     )
+
+    const current = options.current
+    const refund = current === undefined ? 0 : Math.floor(producerCost(current) * 0.5)
+    const subtitle =
+      current === undefined
+        ? i18n.t('picker.balance', { coins: state.coins })
+        : `${i18n.t('picker.balance', { coins: state.coins })} · ${i18n.t('picker.refund', { refund })}`
 
     this.root = scene.add.container(0, 0).setDepth(6900)
     this.blocker = scene.add
@@ -69,19 +78,51 @@ export class PlantPicker {
     g.fillTriangle(-10 * ui, height / 2 - ui, 10 * ui, height / 2 - ui, 0, height / 2 + 13 * ui)
     panel.add(g)
 
-    const noProducers = state.producers.length === 0
+    // The panel swallows taps on its own padding; without it the full-screen
+    // blocker behind the panel would close the chooser from a harmless tap.
+    const swallow = scene.add.zone(0, 0, width, height).setInteractive()
+    panel.add(swallow)
+
+    const title = scene.add
+      .text(
+        0,
+        -height / 2 + 21 * ui,
+        i18n.t(current === undefined ? 'picker.plantTitle' : 'picker.swapTitle'),
+        textStyle(theme, 18 * ui, theme.text, true),
+      )
+      .setOrigin(0.5)
+    panel.add(title)
+
+    const sub = scene.add
+      .text(0, -height / 2 + 41 * ui, subtitle, textStyle(theme, 13 * ui, theme.textMuted, false))
+      .setOrigin(0.5)
+    panel.add(sub)
+
+    const close = scene.add
+      .text(
+        width / 2 - 17 * ui,
+        -height / 2 + 17 * ui,
+        '×',
+        textStyle(theme, 22 * ui, theme.textMuted, true),
+      )
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+    close.on('pointerdown', () => options.onClose())
+    panel.add(close)
+
     products.forEach((plant, index) => {
       const column = index % COLUMNS
       const row = Math.floor(index / COLUMNS)
       const bx = -width / 2 + (PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2) * ui
-      const by = -height / 2 + (PADDING + row * (BUTTON_H + GAP) + BUTTON_H / 2) * ui
+      const by = -height / 2 + (PADDING + HEADER_H + row * (BUTTON_H + GAP) + BUTTON_H / 2) * ui
       const cost = producerCost(plant)
-      const deposit = state.deposits[plantDepositKey(plant, options.slot)] ?? 0
-      const remaining = Math.max(0, cost - deposit)
-      const enabled = state.coins > 0 && (!noProducers || state.coins >= remaining)
-      panel.add(
-        this.choiceButton(options, plant, bx, by, remaining, enabled, options.current === plant),
-      )
+      const deposit =
+        current === undefined ? (state.deposits[plantDepositKey(plant, slot)] ?? 0) : 0
+      // A swap refunds half of the old crop in the same transaction, so the
+      // button shows what the player actually pays now: cost minus refund.
+      const price = current === undefined ? Math.max(0, cost - deposit) : Math.max(0, cost - refund)
+      const affordable = current === plant || state.coins >= price
+      panel.add(this.choiceButton(options, plant, bx, by, price, affordable, current === plant))
     })
   }
 
@@ -128,6 +169,17 @@ export class PlantPicker {
       )
       .setOrigin(0, 0.5)
     button.add(label)
+
+    if (current) {
+      // The planted crop is a "keep this" choice, not a purchase, so the check
+      // replaces the price instead of crowding it in the corner.
+      coin.setVisible(false)
+      label.setVisible(false)
+      const mark = scene.add
+        .text(12 * ui, 0, '✓', textStyle(theme, 18 * ui, cssColor(theme.accentAlt), true))
+        .setOrigin(0, 0.5)
+      button.add(mark)
+    }
 
     const zone = scene.add.zone(0, 0, buttonW, buttonH).setInteractive({ useHandCursor: true })
     zone.on('pointerdown', () => {

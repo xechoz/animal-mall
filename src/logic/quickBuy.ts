@@ -191,9 +191,9 @@ export function swapOfferForSlot(
       candidate.slot === slot,
   )
   if (producer === undefined || !isPlantKind(producer.product)) return null
-  // Swapping while fruit is still on the tree would fight the automatic
-  // harvest, so the dwell chooser waits until the bed has nothing left.
-  if (producer.ready > 0) return null
+  // The tag is shown on every planted bed. Opening it is explicit (tap or long
+  // press), never a dwell, so it no longer has to wait for an empty bed before
+  // it can advertise the swap; the automatic harvest keeps running regardless.
   return {
     type: 'swap',
     id: `swap-${zone}-${slot}`,
@@ -326,9 +326,9 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
 
 export function quickBuyThreshold(offer: PurchaseOffer): number {
   if (offer.type === 'zone') return QUICK_BUY.zoneMs
-  // Swapping only opens the chooser; the actual purchase happens inside it, so
-  // it uses the same half-second as opening an empty bed.
-  if (offer.type === 'swap') return QUICK_BUY.openMs
+  // Swapping never arms from proximity: a long press or the swap label owns it,
+  // so there is no dwell to complete. See `stepQuickBuy`.
+  if (offer.type === 'swap') return Number.POSITIVE_INFINITY
   return offer.type === 'plant' && offer.requiresChoice ? QUICK_BUY.openMs : QUICK_BUY.buyMs
 }
 
@@ -355,6 +355,18 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
     return { state, events }
   }
 
+  // Replacing a crop is destructive and paid, so proximity only advertises it:
+  // the chooser opens from a long press or a tap on the swap label, never from
+  // standing still. Keeping the swap as the active offer also stops an empty
+  // neighbour bed from starting a purchase while the player stands at a planted
+  // one.
+  if (offer.type === 'swap') {
+    return {
+      state: { ...state, quickBuy: { ...current, dwellMs: 0, armed: false } },
+      events,
+    }
+  }
+
   if (moving) {
     return {
       state: { ...state, quickBuy: { ...current, dwellMs: 0 } },
@@ -378,16 +390,6 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
         quickBuy: { ...current, dwellMs: 0, armed: false },
       },
       events: [{ type: 'plantPickerReady', zone: offer.zone, slot: offer.slot }],
-    }
-  }
-
-  if (offer.type === 'swap') {
-    return {
-      state: {
-        ...state,
-        quickBuy: { ...current, dwellMs: 0, armed: false },
-      },
-      events: [{ type: 'plantSwapReady', zone: offer.zone, slot: offer.slot }],
     }
   }
 

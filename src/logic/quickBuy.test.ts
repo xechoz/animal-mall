@@ -102,7 +102,7 @@ describe('quick buy', () => {
     expect(offers.find((offer) => offer.slot === 2)?.deposit).toBe(0)
   })
 
-  it('opens the swap chooser after half a second on a planted bed', () => {
+  it('never opens the swap chooser from proximity, even right after a harvest', () => {
     const state = createShopState(
       {
         ...initialSave(),
@@ -112,10 +112,49 @@ describe('quick buy', () => {
       PORTRAIT_MAP,
     )
     const plot = PORTRAIT_MAP.plots[0] as Vec2
-    const result = simulate(withPlayer(state, plot), 11)
-    expect(result.events.some((event) => event.type === 'plantSwapReady')).toBe(true)
+    // The pick happens on the first tick, so the bed is already empty while the
+    // player keeps standing on it for four seconds.
+    const result = simulate(withPlayer(state, plot), 80)
+    expect(result.events.some((event) => event.type === 'harvest')).toBe(true)
+    expect(result.events.some((event) => event.type === 'plantSwapReady')).toBe(false)
     expect(result.events.some((event) => event.type === 'producerReplaced')).toBe(false)
     expect(result.state.coins).toBe(1_000)
+  })
+
+  it('shows the swap target while the bed still has fruit', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 1_000,
+        producers: [{ product: 'apple', slot: 0 }],
+      },
+      PORTRAIT_MAP,
+    )
+    // A plant loaded from a save is already mature and ready to harvest.
+    expect(state.producers[0]?.ready).toBeGreaterThan(0)
+    const swaps = mapOffers(state).filter(
+      (offer): offer is Extract<PurchaseOffer, { type: 'swap' }> => offer.type === 'swap',
+    )
+    expect(swaps).toHaveLength(1)
+    expect(swaps[0]?.slot).toBe(0)
+  })
+
+  it('still offers the swap target for its label and long press', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 1_000,
+        producers: [{ product: 'apple', slot: 0 }],
+      },
+      PORTRAIT_MAP,
+    )
+    const plot = PORTRAIT_MAP.plots[0] as Vec2
+    const harvested = simulate(withPlayer(state, plot), 1).state
+    const swaps = mapOffers(harvested).filter(
+      (offer): offer is Extract<PurchaseOffer, { type: 'swap' }> => offer.type === 'swap',
+    )
+    expect(swaps).toHaveLength(1)
+    expect(swaps[0]?.slot).toBe(0)
   })
 
   it('opens a bed while standing between two rows, not just at its centre', () => {
