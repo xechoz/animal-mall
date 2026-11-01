@@ -1,16 +1,11 @@
 import { displayTextStyle, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
-import {
-  ANIMAL_ORDER,
-  PEN_SIZE,
-  PLOT_SIZE,
-  PROCESSED_ORDER,
-  STATION_SIZE,
-  ZONE_ORDER,
-} from '../logic/config'
+import { ANIMAL_ORDER, PEN_SIZE, PLOT_SIZE, PROCESSED_ORDER, ZONE_ORDER } from '../logic/config'
 import type { ShopMap, ZoneId } from '../logic/types'
 import { drawRestMat } from './facilitiesArt'
+import { drawIndoorScenery } from './scenery'
+import { drawStationPad } from './stationArt'
 
 export const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
   fruit: 0xf08a6a,
@@ -93,6 +88,7 @@ function createPortraitShopBackground(
   g.fillRoundedRect(300, 144, 80, 856, 18)
   g.fillRoundedRect(40, 520, width - 80, 60, 18)
 
+  drawIndoorScenery(g, map)
   drawGhostFacilities(g, map)
   drawRestMat(g, map.facilities.restMat)
 
@@ -165,7 +161,6 @@ function createPortraitShopBackground(
   drawQueueMarkers(g, map)
   drawCounter(g, map)
   drawDoorMat(g, 278, 1108)
-  drawPlant(g, 60, 1128)
   drawPlant(g, 60, 110)
   drawPlant(g, 620, 110)
 
@@ -262,6 +257,7 @@ function createLandscapeShopBackground(
   for (const x of [260, 560, 860]) g.fillRoundedRect(x, 88, 80, 300, 18)
   g.fillRoundedRect(40, 400, width - 80, 110, 18)
 
+  drawIndoorScenery(g, map)
   drawGhostFacilities(g, map)
 
   drawRestMat(g, map.facilities.restMat)
@@ -338,7 +334,6 @@ function createLandscapeShopBackground(
   drawQueueMarkers(g, map)
   drawCounter(g, map)
   drawDoorMat(g, 278, 596)
-  drawPlant(g, 60, 620)
   drawPlant(g, 60, 110)
   drawPlant(g, 1140, 110)
 
@@ -383,14 +378,7 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void
 
   for (const product of PROCESSED_ORDER) {
     const station = map.stationSlots[product]
-    const left = station.x - STATION_SIZE.w / 2
-    const top = station.y - STATION_SIZE.h / 2
-    g.fillStyle(0x8fa6c9, 0.14)
-    g.fillRoundedRect(left, top, STATION_SIZE.w, STATION_SIZE.h, 9)
-    g.lineStyle(2, 0x6f89b0, 0.28)
-    g.strokeRoundedRect(left, top, STATION_SIZE.w, STATION_SIZE.h, 9)
-    g.lineStyle(1, 0x6f89b0, 0.2)
-    g.lineBetween(left + 10, top + 14, left + STATION_SIZE.w - 10, top + 14)
+    drawStationPad(g, product, station.x, station.y)
   }
 }
 

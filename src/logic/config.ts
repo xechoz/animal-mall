@@ -136,6 +136,13 @@ export function troughCapacity(product: AnimalProductKind): number {
   return ANIMALS[product].capacity
 }
 
+/**
+ * Kitchen stations accept several production batches of ingredients at once.
+ * The buffer is per input slot: cake keeps 3 × (2 eggs, 1 milk), juice keeps
+ * 3 × (1 fruit, 1 vegetable).
+ */
+export const STATION_BUFFER_BATCHES = 3
+
 export type RecipeInput =
   | {
       readonly product: ProductKind
@@ -478,7 +485,6 @@ export const INTERACT = {
   harvestMs: 240,
   stockMs: 90,
   feedMs: 200,
-  loadMs: 500,
   trayCapacity: 999,
 } as const
 

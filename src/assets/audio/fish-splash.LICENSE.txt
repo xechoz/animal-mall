@@ -1,11 +1,13 @@
 Fish splash — Animal Mall original asset
 
 Generated procedurally for this project with Python's standard library
-(`wave`, `math`, `random`) on 2026-11-01: a descending plop tone, a filtered
-noise water burst and three small bubble tones.
+(`wave`, `math`, `random`) on 2026-11-01, reworked on 2026-11-01 with a soft
+18 ms attack, a low-passed water burst, a descending plop and quieter bubbles.
+The old version began at almost full amplitude, which made every catch sound
+like a hard impact.
 
 License: CC0 1.0 Universal (public domain dedication)
          https://creativecommons.org/publicdomain/zero/1.0/
 No third-party recording or sample was used.
 
-Format: 44.1 kHz mono 16-bit PCM WAV, 0.55 s, peak normalised.
+Format: 44.1 kHz mono 16-bit PCM WAV, 0.62 s.

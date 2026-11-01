@@ -1,11 +1,12 @@
 Fish cast — Animal Mall original asset
 
 Generated procedurally for this project with Python's standard library
-(`wave`, `math`, `random`) on 2026-11-01: white noise through a time-varying
-one-pole low-pass filter, arranged as two short line-cast flicks.
+(`wave`, `math`, `random`) on 2026-11-01, reworked on 2026-11-01 with a soft
+22 ms fade-in, a longer 100 ms tail and a gentler low-passed whoosh so the
+sample no longer starts with a hard transient.
 
 License: CC0 1.0 Universal (public domain dedication)
          https://creativecommons.org/publicdomain/zero/1.0/
 No third-party recording or sample was used.
 
-Format: 44.1 kHz mono 16-bit PCM WAV, 0.30 s, peak normalised.
+Format: 44.1 kHz mono 16-bit PCM WAV, 0.34 s.

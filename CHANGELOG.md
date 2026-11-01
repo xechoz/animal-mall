@@ -2,14 +2,32 @@
 
 ## Unreleased
 
+- Kitchen stations now load carried ingredients on contact while walking, with
+  no dwell, and buffer three production batches per input slot. Output is still
+  collected on contact, and the input chips show `have/capacity`.
+- Feeding is also a contact transfer now: walking past a trough fills it with
+  the cheapest carried produce, and standing at the trough collects the animal's
+  finished egg, milk or yarn.
+- Give each kitchen station its own three-quarter-view machine and work mat:
+  brick oven, wooden loom, stone grill and metal juicer, with small animated
+  glow, smoke, shuttle and bubble details.
+- Add indoor farm-market scenery: grass and tilled soil in the growing zones,
+  stone kitchen tiles, a garden strip, flowers, pebbles, mushrooms, potted trees,
+  ladybug/snail details and animated butterflies, bees and a dragonfly. The
+  outdoor backdrop gains a soft sky, grass lip and distant trees without
+  changing the shop footprint.
+- Show the actual contents of every trough with produce icons, pulse an empty
+  trough while an animal is hungry, and replace the ambiguous `!` with a local
+  `Feed me!` bubble. Input chips now show the multi-batch hopper capacity.
+- Rework the fishing samples with soft fade-ins and tails, lower playback gain
+  and slight pitch variation so repeated casts and catches are less abrupt.
 - Add a juicer station and Fresh Juice to the kitchen. The recipe accepts any
   one fruit and any one vegetable, and the station pulls them from the matching
   shelves; the juicer has its own art, product icon and save slot.
 - Let kitchen stations start a batch with exactly the listed ingredients
   (`AUTO_RESERVE` removed), show live `have/need` counts on every input, and
-  report a full output tray. Standing next to a station with matching goods in
-  the basket now pours one batch into a hand-loaded hopper after the usual
-  500 ms dwell, with a visible ring.
+  report a full output tray. The hand-loaded hopper is filled on contact instead
+  of after a dwell, and now holds several batches.
 - Keep shelf stock when a crop or machine is swapped or removed. Customers now
   order both producible goods and clearance stock, and every customer considers
   at least one clearance item so old stock cannot sit forever. Fruit and

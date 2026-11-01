@@ -82,11 +82,16 @@ submodule. Do not copy platform source into this repo.
   re-arms itself and keeps fishing while the player stays; only movement,
   leaving the rectangle or a full basket stops it. Fish never eat trough feed
   and pickers must skip them.
-- Standing still is the shared interaction verb. Free/contextual actions use
-  500 ms; paid purchases keep the longer one-second dwell to prevent accidental
-  spending. Every dwell must cancel on movement and show a visible ring.
-- Resting staff can be woken by tapping their character or standing next to them
-  for 500 ms. Keep the HUD nudge button as an accessibility fallback.
+- Contact transfers (harvesting, stocking, feeding a trough and loading a
+  kitchen station) fire while walking, with short cooldowns in `INTERACT`.
+  They must never require the player to stop.
+- Dwell interactions are reserved for purchases, menus and irreversible choices:
+  quick buys, zone unlocks, plant chooser, staff nudges and the drink menu.
+  Free/contextual dwells use 500 ms; paid purchases use the one-second dwell.
+  Every dwell must cancel on movement and show a visible ring.
+- Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
+  slot. Walking past a machine pours matching carried goods in until the buffer
+  is full; the output tray is collected on contact.
 - Empty beds always show a compact coin price chip and are tappable: a short tap
   (or 500 ms dwell) opens the plant chooser. The chip shrinks to a small sticker
   sitting on the soil until the player is near.

@@ -40,12 +40,12 @@ that sale.
   has the remove button as a fallback. Partial payments stay on the bed where
   they were paid; other beds keep their normal price instead of all showing the
   same deposit ring.
-- Land animals have a trough in front of their pen. Carry fruit or vegetables to
-  the trough and stand still to drop them in one by one; pickers also fill
-  troughs with produce they harvest. Animals eat the cheapest item in the
-  trough, one whole item per production cycle. An empty trough shows a feed
-  icon with fruit/vegetable choices, and the trough highlights when you carry
-  something it accepts. Trough contents are not saved and reset on reload.
+- Land animals have a trough in front of their pen. Walking close with fruit or
+  vegetables fills it automatically, cheapest produce first; pickers also fill
+  troughs with produce they harvest. The trough shows each item currently
+  inside, and a hungry animal asks for food with a local bubble. Animals eat
+  the cheapest item in the trough, one whole item per production cycle. Trough
+  contents are not saved and reset on reload.
 - The pond is not an animal pen. Stand anywhere around it without moving for
   half a second to cast; half a second later the line bites and one fish goes
   into your basket. Keep standing and the loop repeats automatically (cast,
@@ -53,8 +53,10 @@ that sale.
   basket stops it; freeing basket space resumes it without walking away. Pickers
   do not fish and the pond has no trough.
 - Kitchen stations pull eggs, milk, yarn or fish from the farm shelf and leave
-  one of each for customers. Finished cakes, sweaters and grilled fish wait on
-  the station tray; walk up to collect them and stock the kitchen shelf.
+  one of each for customers. Walking past a machine with matching goods loads
+  its hopper automatically, up to three production batches; finished cakes,
+  sweaters, grilled fish and juice wait on the station tray and are collected
+  on contact, ready to stock the kitchen shelf.
 - Staff signs use the same quick-buy flow and disappear once their station is
   fully staffed. A cashier serves customers
   automatically; pickers harvest fruit, vegetables and land-animal products, but

@@ -13,6 +13,7 @@ import {
   RECIPES,
   type RecipeConfig,
   type RecipeInput,
+  STATION_BUFFER_BATCHES,
   shelfCapacity,
   troughCapacity,
   VEG_ORDER,
@@ -188,12 +189,21 @@ export function clearanceProducts(
 export function nearestCollectable(
   producers: readonly ProducerState[],
   pos: Vec2,
+  map: ShopMap,
 ): ProducerState | null {
   let best: ProducerState | null = null
   let bestDistance = Number.POSITIVE_INFINITY
   for (const producer of producers) {
     if (producer.ready <= 0) continue
-    const distanceToProducer = distance(pos, producer.pos)
+    // Pen animals are collected from the front access point, so standing at the
+    // trough also picks up the egg/milk/yarn the animal just finished.
+    const anchor =
+      producer.kind === 'animal' &&
+      isAnimalProductKind(producer.product) &&
+      producer.product !== 'fish'
+        ? map.animalAccess[producer.product]
+        : producer.pos
+    const distanceToProducer = distance(pos, anchor)
     if (distanceToProducer <= INTERACT.harvestRadius && distanceToProducer < bestDistance) {
       best = producer
       bestDistance = distanceToProducer
@@ -371,6 +381,19 @@ function availableCount(
   return (producer.hopper[product] ?? 0) + stockOf(shelves, product)
 }
 
+/** How many units of one input slot a station can buffer. */
+export function inputCapacity(input: RecipeInput): number {
+  return input.count * STATION_BUFFER_BATCHES
+}
+
+/** Ingredients of one input slot currently resting in the hand-loaded hopper. */
+export function hopperInputTotal(producer: ProducerState, input: RecipeInput): number {
+  return recipeInputProducts(input).reduce(
+    (sum, product) => sum + (producer.hopper[product] ?? 0),
+    0,
+  )
+}
+
 /** Hopper plus shelf stock for an input, used to explain why a station is idle. */
 export function recipeInputAvailable(
   producer: ProducerState,
@@ -382,6 +405,18 @@ export function recipeInputAvailable(
     best = Math.max(best, availableCount(producer, shelves, product))
   }
   return best
+}
+
+/** Total hopper plus shelf stock across every product that satisfies an input. */
+export function recipeInputTotal(
+  producer: ProducerState,
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  input: RecipeInput,
+): number {
+  return recipeInputProducts(input).reduce(
+    (sum, product) => sum + availableCount(producer, shelves, product),
+    0,
+  )
 }
 
 function resolveRecipeInputs(

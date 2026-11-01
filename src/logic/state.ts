@@ -8,12 +8,12 @@ import {
   carryCapacity,
   DRINK_ORDER,
   DRINKS,
+  FEED_ORDER,
   fertilizerMultiplier,
   INTERACT,
   isPlantKind,
   isProcessedKind,
   moveSpeed,
-  PLANT_ORDER,
   PLAYER_RADIUS,
   PRODUCT_ORDER,
   PRODUCT_WEIGHT,
@@ -40,9 +40,10 @@ import {
   createProducer,
   eligibleProducts,
   emptyShelves,
+  hopperInputTotal,
+  inputCapacity,
   nearestCollectable,
   nearestTrough,
-  recipeInputAvailable,
   recipeInputProducts,
   refreshShelves,
   stepProduction,
@@ -62,7 +63,6 @@ import type {
   ShopMap,
   ShopState,
   SpeciesId,
-  StationLoadState,
   StepInput,
   StepResult,
   TutorialStep,
@@ -126,7 +126,6 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
     staffMembers: createStaffMembers(save.staff, map),
     deposits: save.deposits,
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
-    stationLoad: { producerId: null, dwellMs: 0 },
     fishing: { pondId: null, phase: 'idle', timerMs: 0, armed: true },
     facility: {
       trashDwellMs: 0,
@@ -169,7 +168,6 @@ export function remapShopState(state: ShopState, map: ShopMap): ShopState {
     spawnMs: 1_200,
     staffMembers: createStaffMembers(state.staff, map),
     quickBuy: { targetKey: null, dwellMs: 0, armed: true },
-    stationLoad: { producerId: null, dwellMs: 0 },
     fishing: { pondId: null, phase: 'idle', timerMs: 0, armed: true },
     facility: {
       trashDwellMs: 0,
@@ -235,7 +233,6 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   let shelves: Record<ZoneId, ShelfState> = { ...state.shelves }
   let zones = state.zones
   let producers: readonly ProducerState[] = state.producers
-  let stationLoad = state.stationLoad
 
   let player = {
     ...state.player,
@@ -266,10 +263,9 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     feedMs: Math.max(0, player.feedMs - dt),
   }
 
-  const load = stepStationLoad(producers, shelves, player, stationLoad, dt, moving)
+  const load = stepStationLoad(producers, player)
   producers = load.producers
   player = load.player
-  stationLoad = load.stationLoad
   events.push(...load.events)
 
   const production = stepProduction(producers, shelves, dt, growth)
@@ -280,7 +276,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   if (player.harvestMs <= 0) {
     const room = carryMax - carryTotal(player.carry)
     if (room > 0) {
-      const producer = nearestCollectable(producers, player.pos)
+      const producer = nearestCollectable(producers, player.pos, map)
       if (producer !== null) {
         const amount = Math.min(producer.ready, room)
         producers = collectFromProducer(producers, producer.id, amount)
@@ -317,16 +313,17 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   }
 
   /**
-   * Feeding is deliberate: the player must stand at the trough. Walking past it
-   * never dumps the basket, and every carried plant is poured in at once.
+   * Feeding is a contact action like harvesting and stocking: walking past a
+   * trough with produce pours it in. Cheapest crops go first so a passing
+   * player does not automatically waste the most valuable stock.
    */
-  if (player.feedMs <= 0 && distance(player.pos, player.prevPos) <= 0.5) {
+  if (player.feedMs <= 0) {
     const trough = nearestTrough(producers, player.pos, map, INTERACT.feedRadius)
     if (trough !== null) {
       let carry = player.carry
       let troughState = trough
       let fedAny = false
-      for (const product of PLANT_ORDER) {
+      for (const product of FEED_ORDER) {
         const amount = carryOf(carry, product)
         if (amount <= 0) continue
         const fed = addFeed(troughState, product, amount)
@@ -654,7 +651,6 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     facility,
     buffs,
     tutorial,
-    stationLoad,
   }
 
   const quick = stepQuickBuy(nextState, dt, moving)
@@ -673,88 +669,44 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
 }
 
 /**
- * Standing next to a station with matching ingredients pours one batch into its
- * hopper after the shared half-second dwell. Shelf stock remains the automated
- * source; the hopper is the hand-fed shortcut for players carrying produce.
+ * Walking next to a kitchen station pours every matching ingredient into its
+ * hopper until the per-input buffer is full. There is no dwell: the same contact
+ * rule that harvests and stocks also loads machines. Shelf stock stays the
+ * automated source; the hopper is the hand-fed buffer.
  */
 function stepStationLoad(
   producers: readonly ProducerState[],
-  shelves: Readonly<Record<ZoneId, ShelfState>>,
   player: PlayerState,
-  stationLoad: StationLoadState,
-  dtMs: number,
-  moving: boolean,
 ): {
   producers: readonly ProducerState[]
   player: PlayerState
-  stationLoad: StationLoadState
   events: GameEvent[]
 } {
   const events: GameEvent[] = []
-
-  if (moving) {
-    return {
-      producers,
-      player,
-      stationLoad: { producerId: null, dwellMs: 0 },
-      events,
-    }
-  }
-
-  const station = nearestStationForCarry(producers, shelves, player, player.carry)
-  if (station === null) {
-    return {
-      producers,
-      player,
-      stationLoad: { producerId: null, dwellMs: 0 },
-      events,
-    }
-  }
-
-  if (stationLoad.producerId !== station.id) {
-    return {
-      producers,
-      player,
-      stationLoad: { producerId: station.id, dwellMs: 0 },
-      events,
-    }
-  }
-
-  const dwellMs = stationLoad.dwellMs + dtMs
-  if (dwellMs < INTERACT.loadMs) {
-    return {
-      producers,
-      player,
-      stationLoad: { producerId: station.id, dwellMs },
-      events,
-    }
-  }
+  const station = nearestStationForCarry(producers, player, player.carry)
+  if (station === null) return { producers, player, events }
 
   let carry = player.carry
   let hopper = { ...station.hopper }
   for (const input of RECIPES[station.product as ProcessedProduct].inputs) {
-    if (recipeInputAvailable({ ...station, hopper }, shelves, input) >= input.count) continue
-    let chosen: ProductKind | null = null
-    let bestCount = 0
+    let room = inputCapacity(input) - hopperInputTotal({ ...station, hopper }, input)
+    if (room <= 0) continue
     for (const product of recipeInputProducts(input)) {
-      const count = carryOf(carry, product)
-      if (count > bestCount && (hopper[product] ?? 0) < input.count) {
-        chosen = product
-        bestCount = count
-      }
+      if (room <= 0) break
+      const carried = carryOf(carry, product)
+      if (carried <= 0) continue
+      const taken = takeCarry(carry, product, Math.min(carried, room))
+      carry = taken.carry
+      if (taken.taken <= 0) continue
+      hopper = { ...hopper, [product]: (hopper[product] ?? 0) + taken.taken }
+      room -= taken.taken
+      events.push({
+        type: 'stationLoad',
+        producerId: station.id,
+        product,
+        amount: taken.taken,
+      })
     }
-    if (chosen === null) continue
-    const room = Math.max(0, input.count - (hopper[chosen] ?? 0))
-    const taken = takeCarry(carry, chosen, Math.min(bestCount, room))
-    carry = taken.carry
-    if (taken.taken <= 0) continue
-    hopper = { ...hopper, [chosen]: (hopper[chosen] ?? 0) + taken.taken }
-    events.push({
-      type: 'stationLoad',
-      producerId: station.id,
-      product: chosen,
-      amount: taken.taken,
-    })
   }
 
   const loaded = events.length > 0
@@ -765,7 +717,6 @@ function stepStationLoad(
   return {
     producers: nextProducers,
     player: loaded ? { ...player, carry } : player,
-    stationLoad: { producerId: station.id, dwellMs: 0 },
     events,
   }
 }
@@ -774,7 +725,6 @@ type ProcessedProduct = keyof typeof RECIPES
 
 function nearestStationForCarry(
   producers: readonly ProducerState[],
-  shelves: Readonly<Record<ZoneId, ShelfState>>,
   player: PlayerState,
   carry: PlayerState['carry'],
 ): ProducerState | null {
@@ -785,24 +735,18 @@ function nearestStationForCarry(
     if (producer.ready >= RECIPES[producer.product].capacity) continue
     const gap = distance(player.pos, producer.pos)
     if (gap > INTERACT.loadRadius || gap >= bestDistance) continue
-    if (!stationNeedsCarry(producer, shelves, carry)) continue
+    if (!stationNeedsCarry(producer, carry)) continue
     best = producer
     bestDistance = gap
   }
   return best
 }
 
-function stationNeedsCarry(
-  producer: ProducerState,
-  shelves: Readonly<Record<ZoneId, ShelfState>>,
-  carry: PlayerState['carry'],
-): boolean {
+function stationNeedsCarry(producer: ProducerState, carry: PlayerState['carry']): boolean {
   if (!isProcessedKind(producer.product)) return false
   for (const input of RECIPES[producer.product].inputs) {
-    if (recipeInputAvailable(producer, shelves, input) >= input.count) continue
-    for (const product of recipeInputProducts(input)) {
-      if (carryOf(carry, product) > 0) return true
-    }
+    if (hopperInputTotal(producer, input) >= inputCapacity(input)) continue
+    if (recipeInputProducts(input).some((product) => carryOf(carry, product) > 0)) return true
   }
   return false
 }

@@ -7,6 +7,7 @@ import {
   onLayoutChange,
   readViewport,
   type SoundName,
+  textStyle,
   type Viewport,
 } from '@mg/core'
 import { createRng, type Rng, randomSeed } from '@mg/core/rng'
@@ -60,6 +61,7 @@ import type {
   ProducerState,
   ProductKind,
   ShopState,
+  Vec2,
   ZoneId,
 } from '../logic/types'
 import { progressSave } from '../save'
@@ -87,6 +89,7 @@ import { ShopPanel } from '../ui/ShopPanel'
 import { StaffStationView } from '../ui/StaffStationView'
 import { StaffView } from '../ui/StaffView'
 import { readCssShortSide } from '../ui/scale'
+import { SceneryView } from '../ui/scenery'
 import { createShopBackground } from '../ui/shopArt'
 import { Toast } from '../ui/Toast'
 import { TutorialOverlay } from '../ui/TutorialOverlay'
@@ -140,6 +143,7 @@ export class GameScene extends Phaser.Scene {
   private staffViews = new Map<number, StaffView>()
   private staffStations!: Record<'cashier' | 'picker', StaffStationView>
   private zoneOverlay!: ZoneOverlay
+  private sceneryView!: SceneryView
   private coinPile!: CoinPileView
   private fishingView!: FishingView
   private trashView!: FacilityView
@@ -257,17 +261,38 @@ export class GameScene extends Phaser.Scene {
 
   private drawBackdrop(): void {
     const g = this.add.graphics().setDepth(-100)
+    const { width, height } = this.layout
+    const room = this.layout.room
     g.fillStyle(this.services.theme.bg, 1)
-    g.fillRect(0, 0, this.layout.width, this.layout.height)
+    g.fillRect(0, 0, width, height)
     g.fillStyle(this.services.theme.bgAlt, 1)
-    g.fillRect(0, this.layout.height * 0.72, this.layout.width, this.layout.height * 0.28)
+    g.fillRect(0, height * 0.72, width, height * 0.28)
+
+    // Soft sky band and sun sit outside the shop walls; the room itself keeps
+    // exactly the same footprint and world scale.
+    g.fillStyle(0xbfe8ef, 0.32)
+    g.fillRect(0, 0, width, Math.max(0, room.y + 24))
+    g.fillStyle(0xffd166, 0.4)
+    g.fillCircle(width * 0.9, Math.max(26, room.y - 18), 20)
     g.fillStyle(0xffffff, 0.18)
-    g.fillEllipse(this.layout.width * 0.12, this.layout.height * 0.12, 180, 48)
-    g.fillEllipse(this.layout.width * 0.88, this.layout.height * 0.18, 220, 54)
+    g.fillEllipse(width * 0.12, Math.max(28, room.y - 10), 180, 44)
+    g.fillEllipse(width * 0.78, Math.max(20, room.y - 22), 150, 34)
+
+    // A grassy lip behind the shop, visible only in the screen margins.
+    g.fillStyle(0x7fb069, 0.45)
+    g.fillRoundedRect(room.x - 10, room.y - 10, room.w + 20, room.h + 20, 20)
+    g.fillStyle(0x8cd08b, 0.3)
+    g.fillRoundedRect(room.x - 4, room.y - 4, room.w + 8, room.h + 8, 16)
     g.fillStyle(this.services.theme.accentAlt, 0.08)
     for (let index = 0; index < 7; index += 1) {
-      g.fillCircle(this.layout.width * (0.08 + index * 0.14), this.layout.height * 0.9, 40)
+      g.fillCircle(width * (0.08 + index * 0.14), height * 0.9, 40)
     }
+
+    // Small distant trees when the viewport leaves room beside the shop.
+    const leftTree = room.x - 26
+    if (leftTree > 16) drawBackdropTree(g, leftTree, room.y + room.h * 0.34, 0.8)
+    const rightTree = room.x + room.w + 26
+    if (rightTree < width - 16) drawBackdropTree(g, rightTree, room.y + room.h * 0.5, 0.9)
     this.backdrop = g
   }
 
@@ -295,6 +320,10 @@ export class GameScene extends Phaser.Scene {
     )
     background.setDepth(0)
     this.world.add(background)
+
+    this.sceneryView = new SceneryView(this, this.layout.map)
+    this.sceneryView.setDepth(2)
+    this.world.add(this.sceneryView)
 
     this.zoneOverlay = new ZoneOverlay(this, theme, this.layout.map)
     this.zoneOverlay.setDepth(50)
@@ -557,6 +586,7 @@ export class GameScene extends Phaser.Scene {
     this.syncStaff(alpha, time)
     this.updateWorldViews()
     this.updateHungryCues(this.time.now)
+    this.sceneryView.updateScenery(time)
     this.fishingView.updateFishing(this.state, time)
     // Container children ignore depth, so sort by the depth values refreshed
     // above to keep actors and scenery layered by their footprint.
@@ -683,12 +713,7 @@ export class GameScene extends Phaser.Scene {
       }
       view.updateProducer(producer, this.state.shelves)
       view.updateAnimal(producer, this.time.now, this.mode === 'playing')
-      const load = this.state.stationLoad
-      view.setLoad(
-        load.producerId === producer.id && load.dwellMs > 0
-          ? Math.min(1, load.dwellMs / INTERACT.loadMs)
-          : 0,
-      )
+      view.updateStation(producer, this.time.now, this.mode === 'playing')
       const feedReady =
         producer.kind === 'animal' &&
         isAnimalProductKind(producer.product) &&
@@ -908,20 +933,22 @@ export class GameScene extends Phaser.Scene {
           this.sfx('turn', 0.18)
           break
         case 'feed':
-          this.sfx('eat', 0.3)
+          this.sfx('eat', 0.34, 0.96 + (event.producerId % 5) * 0.02)
           this.hungryNotified.delete(event.producerId)
+          this.floatGoods(event.product, this.producerFloatAnchor(event.producerId), event.amount)
           break
         case 'stationLoad':
-          this.sfx('click', 0.35)
+          this.sfx('click', 0.24, 0.98 + (event.producerId % 4) * 0.02)
+          this.floatGoods(event.product, this.producerFloatAnchor(event.producerId), event.amount)
           break
         case 'staffFeed':
           this.sfx('eat', 0.18)
           break
         case 'fishCast':
-          this.sfx('fishCast', 0.7)
+          this.sfx('fishCast', 0.42, 0.97 + ((this.time.now % 300) / 300) * 0.06)
           break
         case 'fishCaught':
-          this.sfx('fishSplash', 0.85)
+          this.sfx('fishSplash', 0.52, 0.98 + ((this.time.now % 240) / 240) * 0.05)
           this.fishCatchBurst(event.pondId)
           break
         case 'fishFull':
@@ -1213,6 +1240,49 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** World-space anchor used by floating transfer feedback. */
+  private producerFloatAnchor(producerId: number): Vec2 {
+    const producer = this.state.producers.find((candidate) => candidate.id === producerId)
+    if (producer === undefined) return this.state.player.pos
+    if (
+      producer.kind === 'animal' &&
+      isAnimalProductKind(producer.product) &&
+      producer.product !== 'fish'
+    ) {
+      return this.state.map.animalAccess[producer.product]
+    }
+    return producer.pos
+  }
+
+  /** Small "+1" that confirms an automatic feed or station load. */
+  private floatGoods(product: ProductKind, at: Vec2, amount: number): void {
+    const screen = worldToScreen(this.layout, at)
+    const icon = this.add
+      .image(screen.x - 12, screen.y - 34, productTextureKey(product))
+      .setScale(0.42)
+      .setDepth(6500)
+    const label = this.add
+      .text(
+        screen.x + 8,
+        screen.y - 34,
+        `+${amount}`,
+        textStyle(this.services.theme, 12, this.services.theme.text, true),
+      )
+      .setOrigin(0.5)
+      .setDepth(6500)
+    this.tweens.add({
+      targets: [icon, label],
+      y: '-=24',
+      alpha: 0,
+      duration: 700,
+      ease: 'Quad.out',
+      onComplete: () => {
+        icon.destroy()
+        label.destroy()
+      },
+    })
+  }
+
   private fishCatchBurst(pondId: number): void {
     const pond = this.state.producers.find((producer) => producer.id === pondId)
     if (pond === undefined) return
@@ -1271,8 +1341,8 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private sfx(name: SoundName, gain = 1): void {
-    this.services.audio.play(name, { gain })
+  private sfx(name: SoundName, gain = 1, pitch = 1): void {
+    this.services.audio.play(name, { gain, pitch })
   }
 
   /**
@@ -1576,4 +1646,24 @@ export class GameScene extends Phaser.Scene {
     this.joystick?.destroy()
     this.destroyFloatingUi()
   }
+}
+
+function drawBackdropTree(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  scale: number,
+): void {
+  g.fillStyle(0x3b2f3a, 0.1)
+  g.fillEllipse(x, y + 34 * scale, 38 * scale, 10 * scale)
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(x - 3 * scale, y, 6 * scale, 34 * scale, 2 * scale)
+  g.fillStyle(0x3f8454, 0.75)
+  g.fillCircle(x - 12 * scale, y - 4 * scale, 14 * scale)
+  g.fillCircle(x + 12 * scale, y - 2 * scale, 15 * scale)
+  g.fillStyle(0x5aa96f, 0.85)
+  g.fillCircle(x, y - 14 * scale, 17 * scale)
+  g.fillCircle(x - 10 * scale, y - 8 * scale, 11 * scale)
+  g.fillStyle(0x8cd08b, 0.55)
+  g.fillCircle(x + 3 * scale, y - 18 * scale, 8 * scale)
 }

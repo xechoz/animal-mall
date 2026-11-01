@@ -364,7 +364,7 @@ describe('shop simulation', () => {
     expect(result.events.some((event) => event.type === 'feed')).toBe(true)
   })
 
-  it('does not feed while walking past a trough', () => {
+  it('feeds while walking past a trough', () => {
     const base = createShopState(eggSave(), PORTRAIT_MAP)
     let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
     state = {
@@ -373,8 +373,18 @@ describe('shop simulation', () => {
     }
 
     const result = simulate(state, 1, { input: { moveX: 1, moveY: 0 } })
-    expect(result.state.producers[0]?.feed.apple ?? 0).toBe(0)
-    expect(result.state.player.carry).toEqual({ apple: 3 })
+    expect(result.state.producers[0]?.feed.apple ?? 0).toBeGreaterThan(0)
+    expect(result.state.player.carry.apple ?? 0).toBeLessThan(3)
+  })
+
+  it('collects an animal product while standing at its trough', () => {
+    const base = createShopState(eggSave(), PORTRAIT_MAP)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    state = { ...state, player: { ...state.player, carry: { apple: 3 } } }
+
+    const result = simulate(state, 260)
+    expect(result.state.player.carry.egg ?? 0).toBeGreaterThan(0)
+    expect(result.events.some((event) => event.type === 'harvest')).toBe(true)
   })
 
   it('does not put a non-plant product in a trough', () => {
@@ -444,5 +454,27 @@ describe('shop simulation', () => {
     expect(
       (result.state.producers[0]?.ready ?? 0) + (result.state.player.carry.cake ?? 0),
     ).toBeGreaterThanOrEqual(1)
+  })
+
+  it('buffers several kitchen batches while walking past a station', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      producers: [{ product: 'cake', slot: 0 }],
+    }
+    let state = createShopState(save, PORTRAIT_MAP)
+    state = withPlayer(state, PORTRAIT_MAP.stationAccess.cake)
+    state = { ...state, player: { ...state.player, carry: { egg: 6, milk: 3 } } }
+
+    const result = simulate(state, 1, { input: { moveX: 1, moveY: 0 } })
+    const loaded = result.events.filter((event) => event.type === 'stationLoad')
+    expect(loaded.some((event) => event.type === 'stationLoad' && event.product === 'egg')).toBe(
+      true,
+    )
+    expect(loaded.some((event) => event.type === 'stationLoad' && event.product === 'milk')).toBe(
+      true,
+    )
+    expect(result.state.player.carry.egg).toBeUndefined()
+    expect(result.state.player.carry.milk).toBeUndefined()
   })
 })

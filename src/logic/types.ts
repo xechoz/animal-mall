@@ -243,12 +243,6 @@ export interface QuickBuyState {
   readonly armed: boolean
 }
 
-/** Half-second dwell that pours carried ingredients into a kitchen station. */
-export interface StationLoadState {
-  readonly producerId: number | null
-  readonly dwellMs: number
-}
-
 export interface FishingState {
   readonly pondId: number | null
   /** idle casts, waiting holds the line, rest is the gap before re-casting. */
@@ -280,7 +274,6 @@ export interface ShopState {
   readonly staffMembers: readonly StaffState[]
   readonly deposits: Readonly<Record<string, number>>
   readonly quickBuy: QuickBuyState
-  readonly stationLoad: StationLoadState
   readonly fishing: FishingState
   readonly facility: FacilityState
   readonly buffs: BuffTimers
