@@ -3,7 +3,8 @@ import type Phaser from 'phaser'
 import { DINING, FACILITY_DWELL_MS } from '../logic/config'
 import { nearestRestingStaff } from '../logic/facilities'
 import type { ShopState, Vec2 } from '../logic/types'
-import { type GameLayout, worldToScreen } from './layout'
+import type { GameLayout } from './layout'
+import { type WorldCamera, worldToScreen } from './worldCamera'
 
 export interface FacilityOverlayCallbacks {
   readonly onNudge: () => void
@@ -12,6 +13,7 @@ export interface FacilityOverlayCallbacks {
 export class FacilityOverlay {
   private readonly scene: Phaser.Scene
   private readonly layout: GameLayout
+  private readonly camera: WorldCamera
   private readonly theme: Theme
   private readonly i18n: I18n
   private readonly ring: Phaser.GameObjects.Graphics
@@ -22,12 +24,14 @@ export class FacilityOverlay {
   constructor(
     scene: Phaser.Scene,
     layout: GameLayout,
+    camera: WorldCamera,
     theme: Theme,
     i18n: I18n,
     callbacks: FacilityOverlayCallbacks,
   ) {
     this.scene = scene
     this.layout = layout
+    this.camera = camera
     this.theme = theme
     this.i18n = i18n
     this.ring = scene.add.graphics().setDepth(3999)
@@ -108,10 +112,10 @@ export class FacilityOverlay {
       }
     }
     if (resting !== null) {
-      const point = worldToScreen(this.layout, resting.pos)
+      const point = worldToScreen(this.camera, resting.pos)
       const pulse = 1 + Math.sin(this.scene.time.now * 0.006) * 0.12
       const ui = this.layout.ui
-      const radius = 24 * this.layout.worldScale * pulse * ui
+      const radius = 24 * this.camera.scale * pulse
       this.ring.lineStyle(3 * ui, this.theme.accentAlt, 0.9)
       this.ring.strokeCircle(point.x, point.y - 18 * ui, radius)
       this.ring.lineStyle(2 * ui, this.theme.panel, 0.7)
@@ -132,9 +136,9 @@ export class FacilityOverlay {
   }
 
   private drawProgress(point: Vec2, ratio: number, color: number): void {
-    const screen = worldToScreen(this.layout, point)
+    const screen = worldToScreen(this.camera, point)
     const ui = this.layout.ui
-    const radius = Math.max(14 * ui, 26 * this.layout.worldScale * ui)
+    const radius = Math.max(14 * ui, 26 * this.camera.scale)
     const progress = Math.max(0, Math.min(1, ratio))
     this.ring.lineStyle(4 * ui, this.theme.ink, 0.18)
     this.ring.strokeCircle(screen.x, screen.y, radius)

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Zoom the shop on phones. The world renders at up to 1.45x and the camera
+  follows the player with a central dead zone, so characters, beds, pens and
+  price tags stay readable on a 390px screen. Tablets and desktops keep the
+  full-map 1:1 view. Camera-aware overlays keep price chips, swap tags,
+  tutorial markers and world effects attached to their objects; the tutorial
+  marker clamps to the play area when its target is off-screen, and rotating or
+  resizing snaps the camera instead of panning across the shop.
+
 - Simplify the top HUD: the full-width parchment bar is gone, leaving a floating
   coin pill on the left and the shop and pause circles on the right with their
   own shadow and ring. The middle "next purchase" hint, its item icon, price and

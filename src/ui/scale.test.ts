@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeUiScale, computeWorldTextScale } from './scale'
+import { computeUiScale, computeWorldTextScale, computeWorldZoom } from './scale'
 
 describe('computeUiScale', () => {
   it('leaves tablets and desktops alone', () => {
@@ -17,6 +17,30 @@ describe('computeUiScale', () => {
   it('falls back to 1 before the viewport is known', () => {
     expect(computeUiScale(0)).toBe(1)
     expect(computeUiScale(Number.NaN)).toBe(1)
+  })
+})
+
+describe('computeWorldZoom', () => {
+  it('zooms phones to a comfortable physical world size', () => {
+    expect(computeWorldZoom(1.139, 390)).toBeCloseTo(1.45, 5)
+    expect(computeWorldZoom(1.139, 430)).toBeCloseTo(1.32, 1)
+  })
+
+  it('never zooms past the cap', () => {
+    expect(computeWorldZoom(0.7, 360)).toBe(1.45)
+    expect(computeWorldZoom(0.7, 600)).toBe(1.45)
+  })
+
+  it('leaves tablets and desktops at 1:1', () => {
+    expect(computeWorldZoom(1.14, 600)).toBe(1)
+    expect(computeWorldZoom(1.14, 720)).toBe(1)
+    expect(computeWorldZoom(1.1, 1280)).toBe(1)
+  })
+
+  it('falls back to 1 before the viewport is known', () => {
+    expect(computeWorldZoom(0, 390)).toBe(1)
+    expect(computeWorldZoom(1.14, 0)).toBe(1)
+    expect(computeWorldZoom(1.14, Number.NaN)).toBe(1)
   })
 })
 

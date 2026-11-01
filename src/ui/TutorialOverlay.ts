@@ -4,10 +4,12 @@ import { carriedKinds } from '../logic/carry'
 import { PLAYER_RADIUS, zoneOf } from '../logic/config'
 import { findPath } from '../logic/nav'
 import type { ShopState, TutorialStep, Vec2 } from '../logic/types'
-import { type GameLayout, worldToScreen } from './layout'
+import type { GameLayout } from './layout'
+import { type WorldCamera, worldToScreen } from './worldCamera'
 
 export class TutorialOverlay {
   private readonly layout: GameLayout
+  private readonly camera: WorldCamera
   private readonly theme: Theme
   private readonly i18n: I18n
   private readonly ring: Phaser.GameObjects.Graphics
@@ -18,15 +20,21 @@ export class TutorialOverlay {
   private readonly finger: Phaser.GameObjects.Graphics
   private step: TutorialStep = 'done'
   private target: Vec2 = { x: 0, y: 0 }
-  private targetInScreen = false
   private hidden = false
   private initialized = false
   private pathPoints: readonly Vec2[] = []
   private pathTime = -Infinity
   private pathKey = ''
 
-  constructor(scene: Phaser.Scene, layout: GameLayout, theme: Theme, i18n: I18n) {
+  constructor(
+    scene: Phaser.Scene,
+    layout: GameLayout,
+    camera: WorldCamera,
+    theme: Theme,
+    i18n: I18n,
+  ) {
     this.layout = layout
+    this.camera = camera
     this.theme = theme
     this.i18n = i18n
     this.targetDot = scene.add.graphics().setDepth(3998)
@@ -84,7 +92,6 @@ export class TutorialOverlay {
   }
 
   private updateTarget(state: ShopState): void {
-    this.targetInScreen = false
     switch (state.tutorial) {
       case 'buyTree': {
         const used = new Set(
@@ -161,15 +168,19 @@ export class TutorialOverlay {
   }
 
   private draw(state: ShopState, time: number): void {
-    let x = this.target.x
-    let y = this.target.y
-    if (!this.targetInScreen) {
-      const screen = worldToScreen(this.layout, this.target)
-      x = screen.x
-      y = screen.y
-    }
+    const screen = worldToScreen(this.camera, this.target)
     const pulse = 1 + Math.sin(time * 0.005) * 0.12
     const ui = this.layout.ui
+    const content = this.layout.content
+    const margin = Math.min(52 * ui, content.w / 2, content.h / 2)
+    const minX = content.x + margin
+    const maxX = content.x + content.w - margin
+    const minY = content.y + margin
+    const maxY = content.y + content.h - margin
+    const offscreen = screen.x < minX || screen.x > maxX || screen.y < minY || screen.y > maxY
+    const x = Math.min(maxX, Math.max(minX, screen.x))
+    const y = Math.min(maxY, Math.max(minY, screen.y))
+
     this.ring.clear()
     this.ring.lineStyle(4 * ui, this.theme.accent, 0.9)
     this.ring.strokeCircle(x, y, 28 * ui * pulse)
@@ -178,6 +189,19 @@ export class TutorialOverlay {
     this.targetDot.clear()
     this.targetDot.fillStyle(this.theme.accent, 0.18)
     this.targetDot.fillCircle(x, y, 28 * ui * pulse)
+    if (offscreen) {
+      // Keep the marker on the play area and point at the off-screen target.
+      const angle = Math.atan2(screen.y - y, screen.x - x)
+      this.targetDot.fillStyle(this.theme.accent, 0.95)
+      this.targetDot.fillTriangle(
+        x + Math.cos(angle) * 46 * ui,
+        y + Math.sin(angle) * 46 * ui,
+        x + Math.cos(angle + 2.48) * 16 * ui,
+        y + Math.sin(angle + 2.48) * 16 * ui,
+        x + Math.cos(angle - 2.48) * 16 * ui,
+        y + Math.sin(angle - 2.48) * 16 * ui,
+      )
+    }
 
     const pathKey = `${Math.round(this.target.x)},${Math.round(this.target.y)},${Math.round(
       state.player.pos.x / 20,
@@ -190,7 +214,7 @@ export class TutorialOverlay {
         this.target,
       ]
     }
-    const points = this.pathPoints.map((point) => worldToScreen(this.layout, point))
+    const points = this.pathPoints.map((point) => worldToScreen(this.camera, point))
     this.path.clear()
     if (points.length >= 2) {
       drawDashedPath(this.path, points, time, this.theme.accent, 3 * ui)

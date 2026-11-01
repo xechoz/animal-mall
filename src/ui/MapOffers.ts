@@ -4,12 +4,13 @@ import { gameColors } from '../colors'
 import { distance } from '../logic/collision'
 import { INTERACTION, PEN_SIZE, PLOT_SIZE, STAFF, STATION_SIZE } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
-import type { ShopState, ZoneId } from '../logic/types'
+import type { ShopState, Vec2, ZoneId } from '../logic/types'
 import { animalTextureKey } from './animalArt'
 import { coinTextureKey } from './fruitArt'
 import { drawSeedPacket } from './groundArt'
-import { type GameLayout, worldToScreen } from './layout'
+import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
+import { type WorldCamera, worldToScreen } from './worldCamera'
 
 interface OfferLabel {
   readonly container: Phaser.GameObjects.Container
@@ -49,6 +50,7 @@ function isSlotTag(
 export class MapOffers {
   private readonly scene: Phaser.Scene
   private readonly layout: GameLayout
+  private readonly camera: WorldCamera
   private readonly theme: Theme
   private readonly onSlotTap: (zone: ZoneId, slot: number) => void
   private readonly labels = new Map<string, OfferLabel>()
@@ -58,11 +60,13 @@ export class MapOffers {
   constructor(
     scene: Phaser.Scene,
     layout: GameLayout,
+    camera: WorldCamera,
     theme: Theme,
     onSlotTap: (zone: ZoneId, slot: number) => void,
   ) {
     this.scene = scene
     this.layout = layout
+    this.camera = camera
     this.theme = theme
     this.onSlotTap = onSlotTap
   }
@@ -78,12 +82,14 @@ export class MapOffers {
     // Empty beds always advertise their starting price: otherwise a new player
     // sees bare soil and never learns the field is plantable. Everything else
     // stays distance-gated so the shop does not turn into confetti.
-    const offers = mapOffers(state).filter((offer) => {
-      if (offer.type === 'zone') return true
-      if (offer.type === 'plant' && offer.requiresChoice) return true
-      const range = offer.type === 'staff' ? 210 : isSwapTag(offer) ? 130 : 165
-      return distance(state.player.pos, offer.pos) <= range
-    })
+    const offers = mapOffers(state)
+      .filter((offer) => {
+        if (offer.type === 'zone') return true
+        if (offer.type === 'plant' && offer.requiresChoice) return true
+        const range = offer.type === 'staff' ? 210 : isSwapTag(offer) ? 130 : 165
+        return distance(state.player.pos, offer.pos) <= range
+      })
+      .filter((offer) => this.onScreen(offer.pos))
     const alive = new Set<string>()
     for (const offer of offers) {
       alive.add(offer.id)
@@ -101,15 +107,33 @@ export class MapOffers {
     }
   }
 
+  /**
+   * The zoomed camera can push a zone or bed label past the screen edge.
+   * Clamping those chips to the border leaves ghost prices floating over the
+   * world, so only offers whose anchor is near the viewport are drawn.
+   */
+  private onScreen(point: Vec2): boolean {
+    const screen = worldToScreen(this.camera, point)
+    const content = this.layout.content
+    const margin = 48 * this.layout.ui
+    return (
+      screen.x >= content.x - margin &&
+      screen.x <= content.x + content.w + margin &&
+      screen.y >= content.y - margin &&
+      screen.y <= content.y + content.h + margin
+    )
+  }
+
   destroy(): void {
     for (const label of this.labels.values()) label.container.destroy(true)
     this.labels.clear()
   }
 
   private createLabel(): OfferLabel {
-    // Offers sit on top of world objects, so they scale far less than HUD chrome:
-    // otherwise neighbouring chips overlap the shelves they belong to.
-    const ui = Math.min(this.layout.ui, 1.2)
+    // Offers are screen-space chips anchored to world points, so they follow
+    // the camera zoom. Without that, price tags would shrink relative to the
+    // enlarged beds and become too small to tap.
+    const ui = this.layout.worldUi
     const container = this.scene.add.container(0, 0).setDepth(5200)
     const bg = this.scene.add.graphics()
     const dwell = this.scene.add.graphics()
@@ -146,8 +170,8 @@ export class MapOffers {
   }
 
   private apply(label: OfferLabel, offer: PurchaseOffer, state: ShopState): void {
-    const point = worldToScreen(this.layout, offer.pos)
-    const ui = Math.min(this.layout.ui, 1.2)
+    const point = worldToScreen(this.camera, offer.pos)
+    const ui = this.layout.worldUi
     const gap = distance(state.player.pos, offer.pos)
     const near = gap <= 165
     const tag = isSwapTag(offer)
@@ -178,14 +202,10 @@ export class MapOffers {
               ? 22
               : this.layout.portrait
                 ? 58
-                : 24) *
-      this.layout.worldScale *
-      ui
+                : 24) * this.camera.scale
     const content = this.layout.content
     const tagX = isSlotTag(offer)
-      ? ((offer.zone === 'farm' ? PEN_SIZE.w : STATION_SIZE.w) / 2 - 10) *
-        this.layout.worldScale *
-        ui
+      ? ((offer.zone === 'farm' ? PEN_SIZE.w : STATION_SIZE.w) / 2 - 10) * this.camera.scale
       : 0
     const x = Math.max(
       content.x + width / 2 + 8 * ui,

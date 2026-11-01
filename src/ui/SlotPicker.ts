@@ -15,13 +15,15 @@ import { goalCost, nextGoal } from '../logic/goals'
 import { plantDepositKey } from '../logic/purchase'
 import type { ProductKind, ShopState, ZoneId } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
-import { type GameLayout, worldToScreen } from './layout'
+import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
 import { productTextureKey } from './productArt'
+import { type WorldCamera, worldToScreen } from './worldCamera'
 
 export interface SlotPickerOptions {
   readonly scene: Phaser.Scene
   readonly layout: GameLayout
+  readonly camera: WorldCamera
   readonly theme: Theme
   readonly i18n: I18n
   readonly state: ShopState
@@ -54,7 +56,7 @@ export class SlotPicker {
   private destroyed = false
 
   constructor(options: SlotPickerOptions) {
-    const { scene, layout, theme, state, zone, slot, i18n } = options
+    const { scene, layout, camera, theme, state, zone, slot, i18n } = options
     const ui = layout.ui
     const products = pickerProducts(zone)
     // Recommend the same purchase the shop cards do, so the pill and the
@@ -70,11 +72,11 @@ export class SlotPicker {
     const width = (PADDING * 2 + COLUMNS * BUTTON_W + (COLUMNS - 1) * GAP) * ui
     const height = (PADDING * 2 + HEADER_H + rows * BUTTON_H + (rows - 1) * GAP) * ui
     const point = slotPoint(layout, zone, slot) ?? layout.map.playerStart
-    const screen = worldToScreen(layout, point)
+    const screen = worldToScreen(camera, point)
     const x = options.centered
       ? layout.width / 2
       : Math.max(width / 2 + 10 * ui, Math.min(layout.width - width / 2 - 10 * ui, screen.x))
-    const bottom = Math.max(150 * ui, screen.y - 38 * layout.worldScale * ui)
+    const bottom = Math.max(150 * ui, screen.y - 38 * camera.scale)
     const y = options.centered
       ? layout.height / 2
       : Math.max(

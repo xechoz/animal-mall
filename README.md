@@ -23,9 +23,10 @@ state: customers keep arriving, and a missed sale only costs that sale.
   pill on the left and the buttons on the right.
   The shop recommends the next purchase with a `NEXT` pill on the matching card
   and a dot on the zone or tab that leads there. Phones also scale the interface
-  up
-  (`src/ui/scale.ts`) so HUD text, buttons and in-world labels stay readable;
-  tablets and desktops keep 1:1 design units. Rotating pauses and remaps the run
+  up (`src/ui/scale.ts`) so HUD text, buttons and in-world labels stay readable,
+  and the shop view zooms in up to 1.45x with a camera that follows the player,
+  keeping characters, beds and price tags legible on a small screen. Tablets and
+  desktops keep the full-map 1:1 view. Rotating pauses and remaps the run
   without losing coins, plants, upgrades or deposits. On phones, tapping Start
   requests fullscreen and tries to lock the screen to landscape; the lock is
   best-effort, so iOS Safari, browsers without the Screen Orientation API and

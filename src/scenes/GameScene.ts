@@ -97,7 +97,7 @@ import {
 import { coinTextureKey } from '../ui/fruitArt'
 import { Hud } from '../ui/Hud'
 import { Joystick } from '../ui/Joystick'
-import { computeGameLayout, type GameLayout, worldToScreen } from '../ui/layout'
+import { computeGameLayout, type GameLayout } from '../ui/layout'
 import { MapOffers } from '../ui/MapOffers'
 import { PauseOverlay } from '../ui/PauseOverlay'
 import { PlantBedView } from '../ui/PlantBedView'
@@ -114,6 +114,13 @@ import { SceneryView } from '../ui/scenery'
 import { createShopBackground } from '../ui/shopArt'
 import { Toast } from '../ui/Toast'
 import { TutorialOverlay } from '../ui/TutorialOverlay'
+import {
+  createWorldCamera,
+  followWorldCamera,
+  snapWorldCamera,
+  type WorldCamera,
+  worldToScreen,
+} from '../ui/worldCamera'
 import { ZoneOverlay } from '../ui/ZoneOverlay'
 
 const STEP_MS = 1000 / 60
@@ -155,6 +162,7 @@ export class GameScene extends Phaser.Scene {
   private state!: ShopState
   private rng!: Rng
   private layout!: GameLayout
+  private viewCamera!: WorldCamera
   private backdrop!: Phaser.GameObjects.Graphics
   private world!: Phaser.GameObjects.Container
   private shelfViews!: Record<ZoneId, ShelfView>
@@ -239,6 +247,7 @@ export class GameScene extends Phaser.Scene {
       cssShortSide: readCssShortSide(this),
     })
     this.state = createShopState(this.saveStore.read(), this.layout.map)
+    this.viewCamera = createWorldCamera(this.layout, this.state.player.pos)
     const seed = Number(this.services.params.get('seed'))
     this.rng = createRng(Number.isFinite(seed) && seed > 0 ? seed : randomSeed())
 
@@ -294,7 +303,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const alpha = this.mode === 'playing' ? Math.min(1, this.accumulator / STEP_MS) : 1
-    this.render(alpha, time)
+    this.render(alpha, time, delta)
   }
 
   private drawBackdrop(): void {
@@ -342,8 +351,8 @@ export class GameScene extends Phaser.Scene {
     this.bedHits = []
     this.bedPress = undefined
     this.destroyBedPressRing()
-    this.world = this.add.container(this.layout.room.x, this.layout.room.y)
-    this.world.setScale(this.layout.worldScale)
+    this.world = this.add.container(this.viewCamera.x, this.viewCamera.y)
+    this.world.setScale(this.viewCamera.scale)
 
     const labels: Record<ZoneId, string> = {
       fruit: i18n.t('zone.fruit'),
@@ -524,7 +533,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.bedPressRing ??= this.add.graphics().setDepth(6500)
     if (this.bedPressLabel === undefined) {
-      const ui = Math.min(this.layout.ui, 1.2)
+      const ui = this.layout.worldUi
       this.bedPressLabel = this.add
         .text(0, 0, '', textStyle(this.services.theme, 12 * ui, this.services.theme.text, true))
         .setOrigin(0.5, 1)
@@ -572,11 +581,11 @@ export class GameScene extends Phaser.Scene {
     if (press === undefined || ring === undefined) return
     const slot = this.slotAt(press.zone, press.slot)
     if (slot === undefined) return
-    const point = worldToScreen(this.layout, slot)
-    const ui = Math.min(this.layout.ui, 1.2)
+    const point = worldToScreen(this.viewCamera, slot)
+    const ui = this.layout.worldUi
     const size =
       press.zone === 'farm' ? PEN_SIZE.w : press.zone === 'kitchen' ? STATION_SIZE.w : PLOT_SIZE.w
-    const radius = (size / 2 + 4) * this.layout.worldScale * ui
+    const radius = (size / 2 + 4) * this.viewCamera.scale
     const ratio = Math.min(1, (time - press.startedAt) / INTERACTION.holdMs)
     ring.clear()
     ring.lineStyle(4 * ui, this.services.theme.ink, 0.18)
@@ -649,15 +658,26 @@ export class GameScene extends Phaser.Scene {
       ...(devEnabled ? { onDev: () => this.openDevPanel() } : {}),
     })
     this.joystick = new Joystick(this, this.services.theme)
-    this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
+    this.tutorial = new TutorialOverlay(
+      this,
+      this.layout,
+      this.viewCamera,
+      this.services.theme,
+      this.services.i18n,
+    )
     this.toast = new Toast(this, this.layout, this.services.theme)
-    this.mapOffers = new MapOffers(this, this.layout, this.services.theme, (zone, slot) =>
-      this.tryOpenSlot(zone, slot),
+    this.mapOffers = new MapOffers(
+      this,
+      this.layout,
+      this.viewCamera,
+      this.services.theme,
+      (zone, slot) => this.tryOpenSlot(zone, slot),
     )
     this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
     this.facilityOverlay = new FacilityOverlay(
       this,
       this.layout,
+      this.viewCamera,
       this.services.theme,
       this.services.i18n,
       { onNudge: () => this.nudgeStaff() },
@@ -729,13 +749,21 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdownScene())
   }
 
-  private render(alpha: number, time: number): void {
+  private render(alpha: number, time: number, delta: number): void {
     this.playerView.updatePlayer(
       this.state.player,
       alpha,
       time,
       this.state.dining.playerSeat !== null,
     )
+    followWorldCamera(
+      this.layout,
+      this.viewCamera,
+      { x: this.playerView.x, y: this.playerView.y },
+      delta,
+    )
+    this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
+    this.world.setScale(this.viewCamera.scale)
     this.playerView.setDepth(this.state.player.pos.y + 1)
     this.syncCustomers(alpha, time)
     this.syncStaff(alpha, time)
@@ -1267,6 +1295,7 @@ export class GameScene extends Phaser.Scene {
     this.slotPicker = new SlotPicker({
       scene: this,
       layout: this.layout,
+      camera: this.viewCamera,
       theme: this.services.theme,
       i18n: this.services.i18n,
       state: this.state,
@@ -1487,7 +1516,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private coinCollectBurst(amount: number): void {
-    const from = worldToScreen(this.layout, this.layout.map.register)
+    const from = worldToScreen(this.viewCamera, this.layout.map.register)
     const to = this.layout.hud.coins
     const count = Math.min(6, Math.max(1, Math.ceil(amount / 4)))
     for (let index = 0; index < count; index += 1) {
@@ -1511,8 +1540,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private coinToPile(): void {
-    const from = worldToScreen(this.layout, this.layout.map.register)
-    const to = worldToScreen(this.layout, {
+    const from = worldToScreen(this.viewCamera, this.layout.map.register)
+    const to = worldToScreen(this.viewCamera, {
       x: this.layout.map.counter.x + this.layout.map.counter.w - 15,
       y: this.layout.map.counter.y + 22,
     })
@@ -1531,7 +1560,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private coinBurst(amount: number): void {
-    const point = worldToScreen(this.layout, this.layout.map.register)
+    const point = worldToScreen(this.viewCamera, this.layout.map.register)
     for (let index = 0; index < Math.min(3, amount); index += 1) {
       const coin = this.add
         .image(point.x + (index - 1) * 8, point.y - 8, coinTextureKey())
@@ -1564,7 +1593,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Small "+1" that confirms an automatic feed or station load. */
   private floatGoods(product: ProductKind, at: Vec2, amount: number): void {
-    const screen = worldToScreen(this.layout, at)
+    const screen = worldToScreen(this.viewCamera, at)
     const icon = this.add
       .image(screen.x - 12, screen.y - 34, productTextureKey(product))
       .setScale(0.42)
@@ -1593,7 +1622,7 @@ export class GameScene extends Phaser.Scene {
 
   /** The replaced crop lifts off the bed before the new sapling takes its place. */
   private floatOldCrop(product: ProductKind, at: Vec2): void {
-    const screen = worldToScreen(this.layout, at)
+    const screen = worldToScreen(this.viewCamera, at)
     const icon = this.add
       .image(screen.x, screen.y - 34, productTextureKey(product))
       .setScale(0.55)
@@ -1613,7 +1642,7 @@ export class GameScene extends Phaser.Scene {
   /** Half of the old crop's cost comes back, so show the refund on the bed. */
   private floatRefund(at: Vec2, refund: number): void {
     if (refund <= 0) return
-    const screen = worldToScreen(this.layout, at)
+    const screen = worldToScreen(this.viewCamera, at)
     const coin = this.add
       .image(screen.x - 14, screen.y - 14, coinTextureKey())
       .setScale(0.4)
@@ -1643,8 +1672,8 @@ export class GameScene extends Phaser.Scene {
   private fishCatchBurst(pondId: number): void {
     const pond = this.state.producers.find((producer) => producer.id === pondId)
     if (pond === undefined) return
-    const from = worldToScreen(this.layout, pond.pos)
-    const to = worldToScreen(this.layout, this.state.player.pos)
+    const from = worldToScreen(this.viewCamera, pond.pos)
+    const to = worldToScreen(this.viewCamera, this.state.player.pos)
     const fish = this.add
       .image(from.x, from.y - 6, productTextureKey('fish'))
       .setScale(0.6)
@@ -1683,7 +1712,7 @@ export class GameScene extends Phaser.Scene {
   private sparkleProducer(id: number): void {
     const producer = this.state.producers.find((candidate) => candidate.id === id)
     if (producer === undefined) return
-    const point = worldToScreen(this.layout, producer.pos)
+    const point = worldToScreen(this.viewCamera, producer.pos)
     for (let index = 0; index < 5; index += 1) {
       const dot = this.add.circle(point.x, point.y - 20, 3, 0xffd166, 0.9).setDepth(6400)
       const angle = (Math.PI * 2 * index) / 5
@@ -1925,7 +1954,8 @@ export class GameScene extends Phaser.Scene {
       next.room.x === this.layout.room.x &&
       next.room.y === this.layout.room.y &&
       next.room.w === this.layout.room.w &&
-      next.room.h === this.layout.room.h
+      next.room.h === this.layout.room.h &&
+      next.worldZoom === this.layout.worldZoom
     ) {
       return
     }
@@ -1935,17 +1965,29 @@ export class GameScene extends Phaser.Scene {
     this.destroyFloatingUi()
     if (mapChanged) this.state = remapShopState(this.state, next.map)
     this.layout = next
+    snapWorldCamera(this.layout, this.viewCamera, this.state.player.pos)
     if (mapChanged) this.rebuildWorld()
     this.applyWorldLayout()
-    this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
+    this.tutorial = new TutorialOverlay(
+      this,
+      this.layout,
+      this.viewCamera,
+      this.services.theme,
+      this.services.i18n,
+    )
     this.toast = new Toast(this, this.layout, this.services.theme)
-    this.mapOffers = new MapOffers(this, this.layout, this.services.theme, (zone, slot) =>
-      this.tryOpenSlot(zone, slot),
+    this.mapOffers = new MapOffers(
+      this,
+      this.layout,
+      this.viewCamera,
+      this.services.theme,
+      (zone, slot) => this.tryOpenSlot(zone, slot),
     )
     this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
     this.facilityOverlay = new FacilityOverlay(
       this,
       this.layout,
+      this.viewCamera,
       this.services.theme,
       this.services.i18n,
       { onNudge: () => this.nudgeStaff() },
@@ -1989,8 +2031,9 @@ export class GameScene extends Phaser.Scene {
   private applyWorldLayout(): void {
     this.backdrop.destroy()
     this.drawBackdrop()
-    this.world.setPosition(this.layout.room.x, this.layout.room.y)
-    this.world.setScale(this.layout.worldScale)
+    snapWorldCamera(this.layout, this.viewCamera, this.state.player.pos)
+    this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
+    this.world.setScale(this.viewCamera.scale)
     this.hud.relayout(this.layout)
     this.joystick.reset()
   }

@@ -9,6 +9,10 @@ const WORLD_LABEL_TARGET_PX = 10.5
 /** Phones cap out below 2x so the HUD keeps breathing room. */
 const MAX_UI_SCALE = 1.55
 const MAX_WORLD_TEXT_SCALE = 2
+/** Comfortable physical size for a 1-unit world object on a phone. */
+const WORLD_CSS_UNIT_TARGET = 0.9
+/** Upper bound keeps the shop from turning into a keyhole view. */
+const MAX_WORLD_ZOOM = 1.45
 
 /**
  * CSS pixels covered by the design space short side. Phones squeeze the whole
@@ -26,6 +30,17 @@ export function readCssShortSide(scene: Phaser.Scene): number {
 export function computeUiScale(cssShortSide: number): number {
   if (!(cssShortSide > 0)) return 1
   return Math.min(MAX_UI_SCALE, Math.max(1, DESIGN_BASE / cssShortSide))
+}
+
+/**
+ * The whole shop is fitted into the short side, so on a phone one world unit
+ * ends up around 0.6 CSS px. This zoom restores a comfortable physical size
+ * and lets the camera follow the player; tablets and desktops keep a 1:1 view.
+ */
+export function computeWorldZoom(worldScale: number, cssShortSide: number): number {
+  if (!(worldScale > 0) || !(cssShortSide > 0) || cssShortSide >= DESIGN_BASE) return 1
+  const cssPerUnit = worldScale * (cssShortSide / DESIGN_BASE)
+  return Math.min(MAX_WORLD_ZOOM, Math.max(1, WORLD_CSS_UNIT_TARGET / cssPerUnit))
 }
 
 /**

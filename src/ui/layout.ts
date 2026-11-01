@@ -1,7 +1,7 @@
 import { type Insets, NO_INSETS } from '@mg/core'
 import { shopMapFor } from '../logic/config'
 import type { Rect, ShopMap, Vec2 } from '../logic/types'
-import { computeUiScale, computeWorldTextScale } from './scale'
+import { computeUiScale, computeWorldTextScale, computeWorldZoom } from './scale'
 
 export interface HudLayout {
   readonly vertical: boolean
@@ -25,8 +25,12 @@ export interface GameLayout {
   readonly content: Rect
   readonly room: Rect
   readonly worldScale: number
+  /** Extra camera zoom for phones; 1 on tablets and desktops. */
+  readonly worldZoom: number
   /** UI size multiplier: 1 on desktop, up to 1.55 on phones. */
   readonly ui: number
+  /** Screen-space labels anchored to world points (price chips, swap tags). */
+  readonly worldUi: number
   /** Multiplier for labels drawn inside the world container. */
   readonly worldText: number
   readonly hud: HudLayout
@@ -56,6 +60,8 @@ const RAIL_COIN_Y = 40
 const RAIL_BUFF_Y = 112
 const RAIL_BUTTON_GAP = 6
 const RAIL_BOTTOM_PAD = 10
+/** World-anchored screen labels grow with the camera but stay tappable. */
+const MAX_WORLD_UI_SCALE = 2.2
 
 export function computeGameLayout(
   width: number,
@@ -84,6 +90,8 @@ export function computeGameLayout(
     0.2,
     mobile ? Math.min(contentWidth / walkableWidth, availableHeight / walkableHeight) : fitScale,
   )
+  const worldZoom = computeWorldZoom(scale, options.cssShortSide ?? 0)
+  const worldUi = Math.min(MAX_WORLD_UI_SCALE, ui * worldZoom)
   const content: Rect = {
     x: contentLeft,
     y: top,
@@ -126,7 +134,9 @@ export function computeGameLayout(
     content,
     room,
     worldScale: scale,
+    worldZoom,
     ui,
+    worldUi,
     worldText: computeWorldTextScale(scale, options.cssShortSide ?? 0),
     hud: {
       vertical,
@@ -146,13 +156,6 @@ export function computeGameLayout(
     panelWidth: mobile ? width - 16 * ui : Math.min(720, width - 24),
     // Tall enough for the five-row producer tab, short enough to stay a dialog.
     panelHeight: Math.min(mobile ? 1330 : 1180, height - 20 * ui),
-  }
-}
-
-export function worldToScreen(layout: GameLayout, point: Vec2): Vec2 {
-  return {
-    x: layout.room.x + point.x * layout.worldScale,
-    y: layout.room.y + point.y * layout.worldScale,
   }
 }
 
