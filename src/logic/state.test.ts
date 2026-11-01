@@ -1,18 +1,19 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
-import { INTERACT, PORTRAIT_MAP } from './config'
+import { DAY, INTERACT, LANDSCAPE_MAP, PORTRAIT_MAP } from './config'
 import { feedCount } from './production'
 import { purchasePlant, purchaseUpgrade } from './purchase'
 import { initialSave } from './saveData'
 import {
   createShopState,
   inRegisterZone,
+  remapShopState,
   removeProducerFromState,
   stepShop,
   stockReach,
   toSave,
 } from './state'
-import type { GameEvent, SaveData, ShopState, Vec2 } from './types'
+import type { CustomerState, GameEvent, SaveData, ShopState, Vec2 } from './types'
 
 function withPlayer(state: ShopState, pos: Vec2): ShopState {
   return { ...state, player: { ...state.player, pos, prevPos: pos } }
@@ -53,6 +54,30 @@ function eggSave(): SaveData {
     ...initialSave(),
     zones: { fruit: true, veg: true, farm: true, kitchen: true },
     producers: [{ product: 'egg', slot: 0 }],
+  }
+}
+
+function waitingCustomer(state: ShopState, id: number): CustomerState {
+  return {
+    id,
+    species: 'cat',
+    pos: state.map.doorSpawn,
+    prevPos: state.map.doorSpawn,
+    path: [],
+    pathIndex: 0,
+    phase: 'toShelf',
+    wanted: ['apple'],
+    basket: [],
+    target: 'apple',
+    patienceMs: 60_000,
+    maxPatienceMs: 60_000,
+    waitMs: 0,
+    queueIndex: -1,
+    speed: 58,
+    sad: false,
+    angerMs: 0,
+    paid: 0,
+    missed: 0,
   }
 }
 
@@ -103,6 +128,10 @@ describe('shop simulation', () => {
     expect(state.zones.veg).toBe(true)
     expect(state.tutorial).toBe('done')
     expect(result.events.some((event) => event.type === 'sale')).toBe(true)
+    expect(state.day.entered).toBeGreaterThanOrEqual(1)
+    expect(state.day.served).toBe(1)
+    expect(state.day.revenue).toBe(6)
+    expect(state.day.scoreSum).toBeGreaterThan(0)
   })
 
   it('does not spawn customers before the first shelf is stocked', () => {
@@ -499,5 +528,120 @@ describe('shop simulation', () => {
     const result = simulate(state, 400)
     expect(result.state.shelves.kitchen.stock.cake).toBeGreaterThan(0)
     expect(result.state.producers.find((producer) => producer.product === 'cake')?.ready).toBe(0)
+  })
+})
+
+describe('working day', () => {
+  it('stops admitting shoppers after 21:30', () => {
+    const state = {
+      ...createShopState(appleSave({ coins: 0, served: 1 }), PORTRAIT_MAP),
+      spawnMs: 0,
+    }
+    const closing = { ...state, day: { ...state.day, ms: DAY.lastSpawnMs } }
+    const result = simulate(closing, 120)
+    expect(result.state.day.entered).toBe(0)
+    expect(result.state.customers).toHaveLength(0)
+  })
+
+  it('closes an empty shop at 22:00 and pays the satisfaction tip', () => {
+    const base = createShopState(initialSave(), PORTRAIT_MAP)
+    const state: ShopState = {
+      ...base,
+      coins: 100,
+      day: {
+        ...base.day,
+        ms: DAY.lengthMs - 10,
+        revenue: 200,
+        served: 2,
+        entered: 2,
+        scoreSum: 200,
+      },
+    }
+    const result = simulate(state, 1)
+    expect(result.state.day.index).toBe(2)
+    expect(result.state.day.ms).toBe(0)
+    expect(result.state.day.report).toEqual({
+      day: 1,
+      revenue: 200,
+      served: 2,
+      lost: 0,
+      missed: 0,
+      rating: 100,
+      tip: 16,
+      tipPercent: 8,
+    })
+    expect(result.state.coins).toBe(116)
+    expect(result.events.some((event) => event.type === 'dayEnded')).toBe(true)
+  })
+
+  it('waits for the last shopper before closing the books', () => {
+    const base = createShopState(appleSave({ coins: 0, served: 1 }), PORTRAIT_MAP)
+    const state: ShopState = {
+      ...base,
+      day: { ...base.day, ms: DAY.lengthMs, entered: 1 },
+      customers: [waitingCustomer(base, 1)],
+    }
+    const result = simulate(state, 1)
+    expect(result.state.day.report).toBeNull()
+    expect(result.state.customers).toHaveLength(1)
+  })
+
+  it('clears a stuck shopper after the closing grace window', () => {
+    const base = createShopState(appleSave({ coins: 0, served: 1 }), PORTRAIT_MAP)
+    const state: ShopState = {
+      ...base,
+      day: { ...base.day, ms: DAY.lengthMs + DAY.closeGraceMs, entered: 1 },
+      customers: [waitingCustomer(base, 1)],
+    }
+    const result = simulate(state, 1)
+    expect(result.state.customers).toHaveLength(0)
+    expect(result.state.day.report?.lost).toBe(1)
+    expect(result.events.some((event) => event.type === 'dayEnded')).toBe(true)
+  })
+
+  it('round-trips the day counter while resetting the daily books', () => {
+    const base = createShopState(initialSave(), PORTRAIT_MAP)
+    const state: ShopState = {
+      ...base,
+      day: {
+        ...base.day,
+        index: 6,
+        revenue: 320,
+        served: 3,
+        entered: 4,
+        missed: 1,
+        scoreSum: 280,
+      },
+    }
+    const save = toSave(state)
+    expect(save.day).toBe(6)
+    const loaded = createShopState(save, PORTRAIT_MAP)
+    expect(loaded.day.index).toBe(6)
+    expect(loaded.day.revenue).toBe(0)
+    expect(loaded.day.served).toBe(0)
+    expect(loaded.day.entered).toBe(0)
+    expect(loaded.day.report).toBeNull()
+  })
+
+  it('does not count shoppers cleared by a rotation as lost', () => {
+    const base = createShopState(appleSave({ coins: 0, served: 1 }), PORTRAIT_MAP)
+    const waiting = waitingCustomer(base, 1)
+    const served: CustomerState = {
+      ...waiting,
+      id: 2,
+      phase: 'leaving',
+      sad: false,
+      basket: ['apple'],
+      paid: 6,
+    }
+    const sad: CustomerState = { ...waiting, id: 3, phase: 'leaving', sad: true }
+    const state: ShopState = {
+      ...base,
+      day: { ...base.day, entered: 3, served: 1 },
+      customers: [waiting, served, sad],
+    }
+    const rotated = remapShopState(state, LANDSCAPE_MAP)
+    expect(rotated.day.entered).toBe(1)
+    expect(rotated.customers).toHaveLength(0)
   })
 })

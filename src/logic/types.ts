@@ -22,6 +22,9 @@ export type CustomerPhase = 'toShelf' | 'picking' | 'toQueue' | 'inQueue' | 'lea
 
 export type TutorialStep = 'buyTree' | 'grow' | 'harvest' | 'stock' | 'checkout' | 'done'
 
+/** The visible part of the working day. `closing` waits for the last shopper. */
+export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night' | 'closing'
+
 export interface Vec2 {
   readonly x: number
   readonly y: number
@@ -160,6 +163,34 @@ export interface SaveData {
   readonly shelfLevels: ShelfLevels
   readonly staff: Readonly<Record<StaffKind, number>>
   readonly deposits: Readonly<Record<string, number>>
+  /** Current shop day. Transient counters restart in the morning on reload. */
+  readonly day: number
+}
+
+export interface DayReport {
+  readonly day: number
+  readonly revenue: number
+  readonly served: number
+  readonly lost: number
+  readonly missed: number
+  readonly rating: number | null
+  readonly tip: number
+  readonly tipPercent: number
+}
+
+/**
+ * One working day. `ms` only advances while the shop is open, so losing focus
+ * never eats a shift. Counters are reset when the report is produced.
+ */
+export interface DayState {
+  readonly index: number
+  readonly ms: number
+  readonly revenue: number
+  readonly served: number
+  readonly entered: number
+  readonly missed: number
+  readonly scoreSum: number
+  readonly report: DayReport | null
 }
 
 export interface ProducerState {
@@ -217,6 +248,8 @@ export interface CustomerState {
   /** Grows when an order is missed or the queue waits too long. Transient. */
   readonly angerMs: number
   readonly paid: number
+  /** Out-of-stock items this shopper had to skip; feeds the daily rating. */
+  readonly missed: number
 }
 
 export interface RegisterState {
@@ -330,6 +363,7 @@ export interface ShopState {
   readonly dining: DiningState
   readonly buffs: BuffTimers
   readonly tutorial: TutorialStep
+  readonly day: DayState
 }
 
 export type GameEvent =
@@ -441,6 +475,7 @@ export type GameEvent =
   | { readonly type: 'staffLazy'; readonly staffId: number; readonly kind: StaffKind }
   | { readonly type: 'staffUrged'; readonly staffId: number }
   | { readonly type: 'tutorial'; readonly step: TutorialStep }
+  | { readonly type: 'dayEnded'; readonly report: DayReport }
 
 export interface StepInput {
   readonly moveX: number

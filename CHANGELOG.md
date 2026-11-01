@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Add a working-day cycle. A shift lasts five minutes of shop time shown as
+  09:00–21:00; dawn, dusk and night tint the forest, the shop gets a warm lamp
+  pool after 19:30, and a floating clock shows the day and time. New customers
+  stop at 20:30, the last shopper finishes, and a report card totals revenue,
+  served and lost customers, out-of-stock items, average spend, satisfaction and
+  the service tip. Satisfaction starts at 100 per checkout, loses 20 per skipped
+  item and 20 for a nearly expired patience bar; 75/85/95 ratings pay 2/5/8%
+  tips. The report pauses the simulation, and the next morning starts on a
+  button or `Esc`. There is no rent, quota or failure state. Save version 8 adds
+  the day counter; daily counters restart in the morning, so reloading never
+  keeps a half-finished report.
+
 - Zoom the shop on phones. The world renders at up to 1.45x and the camera
   follows the player with a central dead zone, so characters, beds, pens and
   price tags stay readable on a 390px screen. Tablets and desktops keep the

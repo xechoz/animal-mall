@@ -110,6 +110,24 @@ submodule. Do not copy platform source into this repo.
   and finishes the delivery first; an empty-handed worker with no seat or no
   shelf food still drinks at the rest corner. Dining state is transient; it must
   not change the save version or shelf stock except for the fetched meal.
+- The shop runs in five-minute working days (`DAY` in `src/logic/config.ts`),
+  displayed as 09:00–21:00. Dawn, day, dusk and night drive `DaylightView`; the
+  overlay sits at depth 3900 so HUD, tutorial arrows and map offers stay readable.
+  New customers stop at `DAY.lastSpawnMs` (20:30), and the report appears only
+  after the last shopper leaves. A 90 s grace clears a shopper stuck after
+  closing. The report pauses the simulation, pays the tip and starts the next
+  morning; there is no rent, quota or failure state. The clock only advances in
+  `playing`/`shop` mode, so pause, blur and the report all stop the day.
+- Daily counters (`revenue`, `served`, `entered`, `missed`, `scoreSum`) are
+  transient. Save version 8 stores only `day`; reloading starts that morning
+  again. `remapShopState` must subtract unserved shoppers cleared by a rotation
+  from `day.entered`, otherwise rotating invents lost customers.
+- Satisfaction is scored per completed checkout: 100 minus 20 per skipped item
+  and 20 when patience is below 30% at the till. Shoppers who leave without
+  paying contribute 0 through the `entered` denominator. Tips are 2/5/8% at
+  75/85/95 and only ever reward; low satisfaction never blocks customers or
+  content. Do not show net profit in the report: one-off purchases would make
+  every investment day look like a loss.
 - Empty beds always show a compact coin price chip and are tappable: a short tap
   (or 500 ms dwell) opens the plant chooser. The chip shrinks to a small sticker
   sitting on the soil until the player is near.

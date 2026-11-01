@@ -81,6 +81,7 @@ function customerAtRegister(): CustomerState {
     sad: false,
     angerMs: 0,
     paid: 0,
+    missed: 0,
   }
 }
 

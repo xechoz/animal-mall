@@ -40,6 +40,7 @@ export function initialSave(): SaveData {
     shelfLevels: zeroShelfLevels(),
     staff: zeroStaff(),
     deposits: {},
+    day: 1,
   }
 }
 
@@ -204,7 +205,13 @@ export function migrateSave(data: unknown, _version = 0): SaveData {
     shelfLevels,
     staff,
     deposits,
+    day: normalizeDay(record.day),
   }
+}
+
+/** Version 8 adds the working-day counter; older saves start on day 1. */
+function normalizeDay(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : 1
 }
 
 function parseProducers(record: Record<string, unknown>): SaveProducer[] {

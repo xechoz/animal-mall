@@ -63,6 +63,7 @@ import { nearestOffer } from '../logic/quickBuy'
 import { urgeStaff } from '../logic/staff'
 import { createShopState, remapShopState, stepShop, stockReach, toSave } from '../logic/state'
 import type {
+  DayReport as DayReportData,
   DrinkKind,
   GameEvent,
   Plot,
@@ -78,6 +79,8 @@ import { createAnimalTextures } from '../ui/animalArt'
 import { BuffBar } from '../ui/BuffBar'
 import { CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
+import { DaylightView } from '../ui/DaylightView'
+import { DayReport as DayReportView } from '../ui/DayReport'
 import { DevPanel } from '../ui/DevPanel'
 import { DiningView } from '../ui/DiningView'
 import { DrinkPicker } from '../ui/DrinkPicker'
@@ -154,7 +157,7 @@ function moveKeyCode(event: KeyboardEvent): string | null {
   return MOVE_KEY_FALLBACKS[event.key.toLowerCase()] ?? null
 }
 
-type Mode = 'playing' | 'paused' | 'shop' | 'countdown'
+type Mode = 'playing' | 'paused' | 'shop' | 'countdown' | 'report'
 
 export class GameScene extends Phaser.Scene {
   private services!: GameServices
@@ -164,6 +167,8 @@ export class GameScene extends Phaser.Scene {
   private layout!: GameLayout
   private viewCamera!: WorldCamera
   private backdrop!: Phaser.GameObjects.Graphics
+  private daylight!: DaylightView
+  private dayReport?: DayReportView
   private world!: Phaser.GameObjects.Container
   private shelfViews!: Record<ZoneId, ShelfView>
   private producerViews = new Map<number, ProducerView>()
@@ -254,6 +259,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(gameColors.theme.bg)
 
     this.drawBackdrop()
+    this.daylight = new DaylightView(this, this.layout)
     this.buildWorld()
     this.buildHudAndInput()
     if (this.services.debug) {
@@ -286,6 +292,7 @@ export class GameScene extends Phaser.Scene {
         this.state = result.state
         this.handleEvents(result.events)
         this.accumulator -= STEP_MS
+        if (this.dayReport !== undefined) break
       }
       this.saveTimer += delta
       if (this.saveTimer >= SAVE_EVERY_MS) {
@@ -568,6 +575,12 @@ export class GameScene extends Phaser.Scene {
     this.destroyBedPressRing()
   }
 
+  private cancelAnyBedPress(): void {
+    this.bedPress?.timer.remove()
+    this.bedPress = undefined
+    this.destroyBedPressRing()
+  }
+
   private destroyBedPressRing(): void {
     this.bedPressRing?.destroy()
     this.bedPressRing = undefined
@@ -652,7 +665,7 @@ export class GameScene extends Phaser.Scene {
 
   private buildHudAndInput(): void {
     const devEnabled = import.meta.env.DEV || this.services.debug
-    this.hud = new Hud(this, this.layout, this.services.theme, {
+    this.hud = new Hud(this, this.layout, this.services.theme, this.services.i18n, {
       onShop: () => this.openShop(),
       onPause: () => this.pauseGame(),
       ...(devEnabled ? { onDev: () => this.openDevPanel() } : {}),
@@ -695,7 +708,8 @@ export class GameScene extends Phaser.Scene {
       else if (this.mode === 'paused') this.resumeFromPause()
     }
     const escapeKey = (): void => {
-      if (this.devPanel !== undefined) this.closeDevPanel()
+      if (this.mode === 'report') this.finishDayReport()
+      else if (this.devPanel !== undefined) this.closeDevPanel()
       else if (this.slotPicker !== undefined) this.closeSlotPicker()
       else if (this.foodPicker !== undefined) this.closeFoodPicker()
       else if (this.drinkPicker !== undefined) this.closeDrinkPicker()
@@ -764,6 +778,7 @@ export class GameScene extends Phaser.Scene {
     )
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
     this.world.setScale(this.viewCamera.scale)
+    this.daylight.update(this.state.day, this.viewCamera)
     this.playerView.setDepth(this.state.player.pos.y + 1)
     this.syncCustomers(alpha, time)
     this.syncStaff(alpha, time)
@@ -1259,6 +1274,12 @@ export class GameScene extends Phaser.Scene {
             this.services.platform.happyTime()
           }
           break
+        case 'dayEnded':
+          // Day-end is the last useful event of this tick. Staff and quick-buy
+          // events were generated after it; opening a picker over the report
+          // would break the modal.
+          this.showDayReport(event.report)
+          return
       }
     }
   }
@@ -1859,9 +1880,44 @@ export class GameScene extends Phaser.Scene {
     else if (result === 'lastProducer') this.toast.show(this.services.i18n.t('toast.lastProducer'))
   }
 
+  private showDayReport(report: DayReportData): void {
+    this.resetMovementInput()
+    this.cancelAnyBedPress()
+    this.closeSlotPicker()
+    this.closeDrinkPicker()
+    this.closeFoodPicker()
+    this.closeDevPanel()
+    this.shopPanel?.destroy()
+    this.shopPanel = undefined
+    this.dayReport?.destroy()
+    this.mode = 'report'
+    this.hud.setEnabled(false)
+    this.joystick.setEnabled(false)
+    this.tutorial.setVisible(false)
+    this.services.platform.gameplayStop()
+    this.saveGame()
+    this.dayReport = new DayReportView({
+      scene: this,
+      layout: this.layout,
+      theme: this.services.theme,
+      i18n: this.services.i18n,
+      report,
+      onNext: () => this.finishDayReport(),
+    })
+  }
+
+  private finishDayReport(): void {
+    if (this.mode !== 'report') return
+    this.dayReport?.destroy()
+    this.dayReport = undefined
+    this.saveGame()
+    this.setPlaying()
+  }
+
   private pauseGame(): void {
     if (this.mode !== 'playing' && this.mode !== 'shop') return
     this.resetMovementInput()
+    this.cancelAnyBedPress()
     this.closeSlotPicker()
     this.closeDrinkPicker()
     this.closeFoodPicker()
@@ -2014,6 +2070,9 @@ export class GameScene extends Phaser.Scene {
         )
         .setOrigin(0.5)
         .setDepth(7500)
+    } else if (previousMode === 'report') {
+      const report = this.state.day.report
+      if (report !== null) this.showDayReport(report)
     }
   }
 
@@ -2034,6 +2093,7 @@ export class GameScene extends Phaser.Scene {
     snapWorldCamera(this.layout, this.viewCamera, this.state.player.pos)
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
     this.world.setScale(this.viewCamera.scale)
+    this.daylight.relayout(this.layout)
     this.hud.relayout(this.layout)
     this.joystick.reset()
   }
@@ -2041,8 +2101,11 @@ export class GameScene extends Phaser.Scene {
   private destroyFloatingUi(): void {
     this.pauseOverlay?.destroy()
     this.pauseOverlay = undefined
+    this.dayReport?.destroy()
+    this.dayReport = undefined
     this.shopPanel?.destroy()
     this.shopPanel = undefined
+    this.cancelAnyBedPress()
     this.closeSlotPicker()
     this.closeDrinkPicker()
     this.closeFoodPicker()
@@ -2062,6 +2125,7 @@ export class GameScene extends Phaser.Scene {
     this.removeHidden?.()
     this.inputCleanup?.()
     this.joystick?.destroy()
+    this.daylight?.destroy()
     this.destroyFloatingUi()
   }
 }

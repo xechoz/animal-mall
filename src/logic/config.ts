@@ -568,6 +568,47 @@ export const WANDER: Readonly<Record<'customer' | 'staff', WanderTuning>> = {
   staff: { chance: 0.2, minLeg: 140, minExtra: 16, maxExtra: 0.15, maxOffset: 90 },
 }
 
+const DAY_LENGTH_MS = 300_000
+const DAY_OPEN_HOUR = 9
+const DAY_CLOSE_HOUR = 21
+
+/** Compress an in-game hour into the five-minute shift. */
+function dayMsAt(hour: number): number {
+  return ((hour - DAY_OPEN_HOUR) / (DAY_CLOSE_HOUR - DAY_OPEN_HOUR)) * DAY_LENGTH_MS
+}
+
+/**
+ * One working day is five minutes of shop time compressed into 09:00–21:00.
+ * The clock only advances while the shop is open; the closing phase stops new
+ * shoppers at 20:30 and waits for the last one before the report appears.
+ */
+export const DAY = {
+  lengthMs: DAY_LENGTH_MS,
+  openHour: DAY_OPEN_HOUR,
+  closeHour: DAY_CLOSE_HOUR,
+  dawnEndMs: dayMsAt(11),
+  duskStartMs: dayMsAt(18),
+  nightStartMs: dayMsAt(19.5),
+  lastSpawnMs: dayMsAt(20.5),
+  /** Safety net: clear a stuck shop 90 s after closing so the report appears. */
+  closeGraceMs: 90_000,
+} as const
+
+export const SATISFACTION = {
+  /** Each out-of-stock item a shopper had to skip. */
+  missedPenalty: 20,
+  /** A shopper who reaches the till nearly out of patience. */
+  patiencePenalty: 20,
+  lowPatience: 0.3,
+  tipMinRating: 75,
+  /** Highest matching tier wins. */
+  tipTiers: [
+    { min: 95, percent: 8 },
+    { min: 85, percent: 5 },
+    { min: 75, percent: 2 },
+  ],
+} as const
+
 export const INTERACT = {
   harvestRadius: 84,
   /** How close the player must be to a shelf edge to stock it, not to a point. */
@@ -588,5 +629,5 @@ export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   kitchen: 2,
 }
 
-export const SAVE_VERSION = 7
+export const SAVE_VERSION = 8
 export const STARTING_COINS = 100

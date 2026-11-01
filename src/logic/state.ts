@@ -28,6 +28,15 @@ import {
   zeroBuffs,
   zoneOf,
 } from './config'
+import {
+  dayAcceptsCustomers,
+  dayGraceOver,
+  dayPhase,
+  discountClearedCustomers,
+  finishDay,
+  initialDayState,
+  satisfactionScore,
+} from './day'
 import { initialDiningState, stepDining } from './dining'
 import { stepFacilityDwell } from './facilities'
 import { stepFishing } from './fishing'
@@ -138,6 +147,7 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
     dining: initialDiningState(),
     buffs: zeroBuffs(),
     tutorial,
+    day: initialDayState(save.day),
   }
 }
 
@@ -148,9 +158,17 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
  */
 export function remapShopState(state: ShopState, map: ShopMap): ShopState {
   if (state.map.id === map.id) return state
+  // Rotation clears shoppers whose paths belong to the old floor plan. They
+  // never got a chance to shop, so they must not count as lost customers in
+  // the daily report. Served shoppers already counted in `served`; those still
+  // walking out keep their score.
+  const unserved = state.customers.filter(
+    (customer) => customer.phase !== 'leaving' || customer.sad,
+  ).length
   return {
     ...state,
     map,
+    day: discountClearedCustomers(state.day, unserved),
     player: {
       ...state.player,
       pos: map.playerStart,
@@ -196,6 +214,7 @@ export function toSave(state: ShopState): SaveData {
     shelfLevels: state.shelfLevels,
     staff: state.staff,
     deposits: state.deposits,
+    day: state.day.index,
   }
 }
 
@@ -227,6 +246,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   let totalEarned = state.totalEarned
   let served = state.served
   let pendingCoins = state.pendingCoins
+  let day = { ...state.day, ms: state.day.ms + dt }
   const hasCashier = activeCashier(state.staffMembers)
   let tutorial = state.tutorial
   let spawnMs = state.spawnMs
@@ -476,8 +496,10 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
             customer = {
               ...customer,
               wanted: customer.wanted.slice(1),
+              missed: customer.missed + 1,
               angerMs: Math.max(customer.angerMs, 2_400),
             }
+            day = { ...day, missed: day.missed + 1 }
             events.push({
               type: 'customerMissed',
               customerId: customer.id,
@@ -553,6 +575,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           coins += price
         }
         totalEarned += price
+        day = { ...day, revenue: day.revenue + price }
         scanMs -= scanInterval
         events.push({ type: 'scan', product, amount: price })
       }
@@ -560,6 +583,13 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       customer = { ...customer, basket, paid }
       if (basket.length === 0) {
         served += 1
+        day = {
+          ...day,
+          served: day.served + 1,
+          scoreSum:
+            day.scoreSum +
+            satisfactionScore(customer.missed, customer.patienceMs / customer.maxPatienceMs),
+        }
         events.push({ type: 'sale', amount: paid, customerId: customer.id })
         customer = {
           ...customer,
@@ -606,10 +636,37 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         : tutorial
   if (tutorial === 'checkout' && served > 0) tutorial = 'done'
 
+  /**
+   * Closing is a wind-down, not a cut: new shoppers stop at 21:30, the last
+   * queue finishes, and the report appears once the shop is empty. The grace
+   * clears a shopper stuck on a broken path so the day can never wedge.
+   */
+  if (dayGraceOver(day.ms) && customers.length > 0) {
+    for (const customer of customers) {
+      events.push({
+        type: 'customerLeave',
+        customerId: customer.id,
+        sad: customer.phase !== 'leaving' || customer.sad,
+      })
+    }
+    customers = []
+    queue = []
+    register = { customerId: null, scanMs: 0 }
+  }
+
+  if (dayPhase(day.ms) === 'closing' && customers.length === 0) {
+    const closed = finishDay(day)
+    day = { ...closed.day, report: closed.report }
+    coins += closed.report.tip
+    events.push({ type: 'dayEnded', report: closed.report })
+    spawnMs = 1_500
+  }
+
   spawnMs -= dt
   const eligible = eligibleProducts(shelves)
   const clearance = clearanceProducts(shelves)
   const canSpawn =
+    dayAcceptsCustomers(day.ms) &&
     spawnMs <= 0 &&
     customers.length < CUSTOMER_TUNING.maxCustomers &&
     queue.length < CUSTOMER_TUNING.maxQueue &&
@@ -630,6 +687,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         ),
       ]
       nextCustomerId += 1
+      day = { ...day, entered: day.entered + 1 }
       spawnMs = 2_500
     } else if (tutorial === 'done') {
       const count = 1 + rng.int(Math.min(4, 1 + eligible.length))
@@ -639,6 +697,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
         createCustomer(nextCustomerId, rng, wanted, CUSTOMER_TUNING.patienceMs, radius, map),
       ]
       nextCustomerId += 1
+      day = { ...day, entered: day.entered + 1 }
       spawnMs = CUSTOMER_TUNING.spawnMs + rng.int(CUSTOMER_TUNING.spawnJitterMs)
     }
   } else if (spawnMs <= 0) {
@@ -669,6 +728,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     dining,
     buffs,
     tutorial,
+    day,
   }
 
   const quick = stepQuickBuy(nextState, dt, moving || seated)
@@ -962,6 +1022,7 @@ function createCustomer(
     sad: false,
     angerMs: 0,
     paid: 0,
+    missed: 0,
   }
 }
 

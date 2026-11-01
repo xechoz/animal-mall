@@ -13,6 +13,16 @@ describe('save data', () => {
     expect(save.staff).toEqual({ cashier: 0, picker: 0, chef: 0 })
     expect(save.shelfLevels).toEqual({ fruit: 0, veg: 0, farm: 0, kitchen: 0 })
     expect(save.deposits).toEqual({})
+    expect(save.day).toBe(1)
+  })
+
+  it('migrates older saves to day 1 and keeps a valid day counter', () => {
+    expect(migrateSave({ coins: 40 }).day).toBe(1)
+    expect(migrateSave({ day: 7 }).day).toBe(7)
+    expect(migrateSave({ day: 0 }).day).toBe(1)
+    expect(migrateSave({ day: -3 }).day).toBe(1)
+    expect(migrateSave({ day: 4.8 }).day).toBe(4)
+    expect(migrateSave({ day: 'nine' }).day).toBe(1)
   })
 
   it('adds a zero-level chef when migrating an older save', () => {

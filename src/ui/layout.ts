@@ -8,6 +8,10 @@ export interface HudLayout {
   /** Reserved HUD safe area. Only the mobile rail paints a surface here. */
   readonly bar: Rect
   readonly coins: Vec2
+  /** Floating day/time pill; the only HUD surface besides coins and buttons. */
+  readonly clock: Vec2
+  readonly clockWidth: number
+  readonly clockHeight: number
   /** Active drink buff chips sit here, above the world and clear of the rail. */
   readonly buffTop: number
   readonly shop: Vec2
@@ -124,6 +128,14 @@ export function computeGameLayout(
   const pause: Vec2 = vertical
     ? { x: centerX, y: bar.y + bar.h - RAIL_BOTTOM_PAD * ui - buttonSize / 2 }
     : { x: bar.x + bar.w - buttonSize * 0.55, y: centerY }
+  const shop: Vec2 = vertical
+    ? { x: centerX, y: pause.y - buttonSize - RAIL_BUTTON_GAP * ui }
+    : { x: bar.x + bar.w - buttonSize * 1.55, y: centerY }
+  const clockWidth = vertical ? bar.w - 12 * ui : 104 * ui
+  const clockHeight = (vertical ? 42 : 40) * ui
+  const clock: Vec2 = vertical
+    ? { x: centerX, y: bar.y + 108 * ui }
+    : { x: shop.x - buttonSize * 1.55, y: centerY }
 
   return {
     width,
@@ -144,10 +156,11 @@ export function computeGameLayout(
       coins: vertical
         ? { x: centerX, y: bar.y + RAIL_COIN_Y * ui }
         : { x: bar.x + 36 * ui, y: centerY },
-      buffTop: vertical ? bar.y + RAIL_BUFF_Y * ui : bar.y + bar.h + 14 * ui,
-      shop: vertical
-        ? { x: centerX, y: pause.y - buttonSize - RAIL_BUTTON_GAP * ui }
-        : { x: bar.x + bar.w - buttonSize * 1.55, y: centerY },
+      clock,
+      clockWidth,
+      clockHeight,
+      buffTop: vertical ? bar.y + RAIL_BUFF_Y * ui + 50 * ui : bar.y + bar.h + 14 * ui,
+      shop,
       pause,
       buttonSize,
     },

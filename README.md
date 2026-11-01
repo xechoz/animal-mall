@@ -9,8 +9,11 @@ juice, jam and ice cream. Stock four zone shelves and serve the neighborhood
 animals at the counter. Each land animal has a trough: put produce in it
 yourself or let a picker fill it, and the animal eats the cheapest item first.
 Hire a cashier and pickers to keep the shop running, or use the in-world
-quick-buy signs to buy without opening the shop. There is no timer or failure
-state: customers keep arriving, and a missed sale only costs that sale.
+quick-buy signs to buy without opening the shop. The shop runs in working days:
+after five minutes the door closes, the last shopper finishes, and a report
+card totals the takings, lost customers and satisfaction. A good day pays a
+small tip, but there is still no failure state — a bad day only means a fresh
+morning.
 
 ## Play
 
@@ -32,6 +35,14 @@ state: customers keep arriving, and a missed sale only costs that sale.
   best-effort, so iOS Safari, browsers without the Screen Orientation API and
   embedded portals keep the portrait plan, and exiting fullscreen returns
   control to the device orientation. Each zone has one shelf for its products.
+- The floating clock shows the day and the shop time. A shift is 09:00–21:00 in
+  five minutes; new customers stop at 20:30, and the shop closes only after the
+  last shopper leaves. The report card pauses the simulation and lists revenue,
+  served and lost customers, out-of-stock items, average spend, satisfaction and
+  the service tip. Satisfaction starts at 100 per checkout, drops by 20 for each
+  skipped item and by 20 when the patience bar is nearly empty; 75/85/95 pays a
+  2/5/8% tip. There is no rent, quota or failure state, daily counters reset
+  each morning, and only the day number is saved.
 - Harvest, stocking and checkout happen automatically when you are close enough.
   The counter has a wide service area.
 - The locked farm and kitchen zones can be bought in place: stand still anywhere
@@ -149,19 +160,20 @@ are oven, loom, grill, juicer, jam pot and churn.
 
 ## Save and language
 
-- Progress is stored as `mg:animal-mall:progress`, save version `7`.
-- Coins, pending counter coins, earned coins, served customers, zones, planted
-  crops, animals, stations, tool levels, per-zone shelf levels, staff levels and
-  non-refundable deposits persist. Shelf stock, station hoppers, trough contents,
-  fishing state, station progress, customers, staff break state and temporary
-  drink buffs reset on reload.
+- Progress is stored as `mg:animal-mall:progress`, save version `8`.
+- Coins, pending counter coins, earned coins, served customers, the day number,
+  zones, planted crops, animals, stations, tool levels, per-zone shelf levels,
+  staff levels and non-refundable deposits persist. Shelf stock, station hoppers,
+  trough contents, fishing state, station progress, customers, staff break state,
+  temporary drink buffs and the current day's counters reset on reload.
 - Version 2–4 saves migrate automatically: old trees become producers,
   vegetables unlock if the save has served customers, stranded deposits are
   returned to coins, and the expanded planting slots start empty. Version 5
   copies the old global shelf level onto every zone. Version 6 adds the chef
   staff slot at level 0. Version 7 makes pens and stations generic slots: old
   fixed pens keep their slot index 1:1, duplicate products are rejected and a
-  repeated slot is moved to the first free pen or station.
+  repeated slot is moved to the first free pen or station. Version 8 adds the day
+  counter; older saves start on day 1.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
 - All art is drawn procedurally with Phaser Graphics; the soundtrack, drink
