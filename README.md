@@ -21,8 +21,11 @@ that sale.
   vertical rail; desktop keeps the top bar. Phones also scale the interface up
   (`src/ui/scale.ts`) so HUD text, buttons and in-world labels stay readable;
   tablets and desktops keep 1:1 design units. Rotating pauses and remaps the run
-  without losing coins, plants, upgrades or deposits. Each zone has one shelf
-  for its products.
+  without losing coins, plants, upgrades or deposits. On phones, tapping Start
+  requests fullscreen and tries to lock the screen to landscape; the lock is
+  best-effort, so iOS Safari, browsers without the Screen Orientation API and
+  embedded portals keep the portrait plan, and exiting fullscreen returns
+  control to the device orientation. Each zone has one shelf for its products.
 - Harvest, stocking and checkout happen automatically when you are close enough.
   The counter has a wide service area.
 - The locked farm and kitchen zones can be bought in place: stand still anywhere

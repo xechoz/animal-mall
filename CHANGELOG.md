@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Default mobile play to landscape: tapping Start now requests fullscreen and
+  tries to lock the screen orientation to landscape. The lock is best-effort;
+  iOS Safari, browsers without the Screen Orientation API and embedded portals
+  keep the portrait layout, and exiting fullscreen returns control to the
+  device orientation.
 - Touch presses on the play field now draw a floating joystick ring and knob
   under the finger; mouse drags stay invisible on desktop.
 - Rework the orchard and vegetable plots: rectangular tilled beds, seed holes

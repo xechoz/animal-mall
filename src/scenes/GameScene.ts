@@ -184,9 +184,10 @@ export class GameScene extends Phaser.Scene {
   private accumulator = 0
   private saveTimer = 0
   /**
-   * Fullscreen requests and the first frame of a scene start can emit a window
-   * blur. Ignore auto-pause for a moment so tapping "Open Shop" never lands on
-   * the pause card.
+   * Fullscreen requests, the mobile landscape lock and the first frame of a
+   * scene start can emit a window blur or an orientation resize. Ignore
+   * auto-pause for a moment so tapping "Open Shop" never lands on the pause
+   * card while the shop is still settling.
    */
   private suppressAutoPauseUntil = 0
   private removeHidden?: () => void
@@ -202,7 +203,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.services = getServices()
-    this.suppressAutoPauseUntil = performance.now() + 1_200
+    this.suppressAutoPauseUntil = performance.now() + 2_500
     startMusic(this)
     createAnimalTextures(this)
     createProductTextures(this)

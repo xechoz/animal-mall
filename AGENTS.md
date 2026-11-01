@@ -1,7 +1,7 @@
 # Animal Mall — Agent Instructions
 
 This repository contains exactly one game. Shared infrastructure lives in the
-`platform/` git submodule (`xechoz/mg-platform`), pinned to `v4.3.0`.
+`platform/` git submodule (`xechoz/mg-platform`), pinned to `v4.4.0`.
 
 ## Read first
 
@@ -108,6 +108,11 @@ submodule. Do not copy platform source into this repo.
 - Game-specific audio keys are registered through `audioSamples` and are not
   limited to the platform `SfxName` union; use `SoundName` for helper
   signatures. Fishing currently uses `fishCast` and `fishSplash`.
+- Mobile defaults to landscape: the menu's Start button requests fullscreen and
+  a best-effort `screen.orientation.lock('landscape')`. The lock stays optional:
+  iOS Safari, browsers without the Screen Orientation API and embedded portals
+  keep the portrait plan, and exiting fullscreen returns control to the device
+  orientation.
 
 ## Commands
 

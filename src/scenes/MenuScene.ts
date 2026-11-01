@@ -16,6 +16,7 @@ import {
   fullscreenActive,
   fullscreenHint,
   fullscreenSupported,
+  preferLandscape,
   requestGameFullscreen,
   toggleGameFullscreen,
 } from '../ui/fullscreen'
@@ -125,6 +126,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private startGame(): void {
+    preferLandscape(this.scale)
     requestGameFullscreen(this.scale)
     this.scene.start('Game')
   }
