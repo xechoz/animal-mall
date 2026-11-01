@@ -1,5 +1,6 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { gameColors } from '../colors'
 import { distance } from '../logic/collision'
 import { INTERACTION, PEN_SIZE, PLOT_SIZE, STAFF, STATION_SIZE } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
@@ -231,7 +232,7 @@ export class MapOffers {
       label.bg.fillCircle(0, 3 * ui, (SWAP_TAG / 2) * ui)
       label.bg.fillStyle(this.theme.panel, 0.96)
       label.bg.fillCircle(0, 0, (SWAP_TAG / 2) * ui)
-      label.bg.lineStyle(2 * ui, this.theme.borderSoft, 0.9)
+      label.bg.lineStyle(2 * ui, gameColors.barkDark, 0.8)
       label.bg.strokeCircle(0, 0, (SWAP_TAG / 2) * ui)
     } else {
       label.bg.fillStyle(this.theme.shadow, 0.16)

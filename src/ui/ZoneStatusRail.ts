@@ -1,5 +1,6 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
+import { gameColors } from '../colors'
 import { ZONE_ORDER, ZONE_PRODUCTS, zoneOf } from '../logic/config'
 import type { ProductKind, ShopState, ZoneId } from '../logic/types'
 import type { GameLayout } from './layout'
@@ -99,15 +100,29 @@ export class ZoneStatusRail {
       if (row === undefined) return
       const top = hud.zoneTop + index * (hud.zoneRowHeight + hud.zoneRowGap)
       const tint = ZONE_TINTS[zone.zone]
-      this.chrome.fillStyle(zone.locked ? 0x2f2433 : tint, zone.locked ? 0.06 : 0.11)
+      this.chrome.fillStyle(gameColors.barkDark, zone.locked ? 0.25 : 0.45)
       this.chrome.fillRoundedRect(left, top, width, hud.zoneRowHeight, 11 * ui)
-      this.chrome.fillStyle(tint, zone.locked ? 0.25 : 0.8)
+      this.chrome.fillStyle(zone.locked ? gameColors.canopy : tint, zone.locked ? 0.1 : 0.18)
       this.chrome.fillRoundedRect(
-        left + 6 * ui,
-        top + 10 * ui,
-        4 * ui,
-        hud.zoneRowHeight - 20 * ui,
-        2 * ui,
+        left + 2 * ui,
+        top + 2 * ui,
+        width - 4 * ui,
+        hud.zoneRowHeight - 4 * ui,
+        9 * ui,
+      )
+      this.chrome.fillStyle(tint, zone.locked ? 0.28 : 0.85)
+      this.chrome.fillEllipse(
+        left + 9 * ui,
+        top + hud.zoneRowHeight / 2,
+        7 * ui,
+        hud.zoneRowHeight - 12 * ui,
+      )
+      this.chrome.fillStyle(tint, zone.locked ? 0.2 : 0.7)
+      this.chrome.fillEllipse(
+        left + width - 8 * ui,
+        top + hud.zoneRowHeight / 2,
+        6 * ui,
+        hud.zoneRowHeight - 16 * ui,
       )
 
       row.icon.setAlpha(zone.locked ? 0.25 : zone.ready > 0 ? 1 : 0.55)

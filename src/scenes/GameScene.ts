@@ -81,6 +81,15 @@ import { DrinkPicker } from '../ui/DrinkPicker'
 import { FacilityOverlay } from '../ui/FacilityOverlay'
 import { FacilityView } from '../ui/FacilityView'
 import { FishingView } from '../ui/FishingView'
+import {
+  drawCanopyBand,
+  drawFern,
+  drawFirefly,
+  drawMushroomCluster,
+  drawRock,
+  drawSunShaft,
+  drawTree,
+} from '../ui/forestArt'
 import { coinTextureKey } from '../ui/fruitArt'
 import { Hud } from '../ui/Hud'
 import { Joystick } from '../ui/Joystick'
@@ -276,36 +285,39 @@ export class GameScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(-100)
     const { width, height } = this.layout
     const room = this.layout.room
-    g.fillStyle(this.services.theme.bg, 1)
+    g.fillStyle(gameColors.canopy, 1)
     g.fillRect(0, 0, width, height)
-    g.fillStyle(this.services.theme.bgAlt, 1)
-    g.fillRect(0, height * 0.72, width, height * 0.28)
-
-    // Soft sky band and sun sit outside the shop walls; the room itself keeps
-    // exactly the same footprint and world scale.
-    g.fillStyle(0xbfe8ef, 0.32)
+    g.fillStyle(gameColors.pine, 0.9)
     g.fillRect(0, 0, width, Math.max(0, room.y + 24))
-    g.fillStyle(0xffd166, 0.4)
-    g.fillCircle(width * 0.9, Math.max(26, room.y - 18), 20)
-    g.fillStyle(0xffffff, 0.18)
-    g.fillEllipse(width * 0.12, Math.max(28, room.y - 10), 180, 44)
-    g.fillEllipse(width * 0.78, Math.max(20, room.y - 22), 150, 34)
+    g.fillStyle(this.services.theme.bgAlt, 0.85)
+    g.fillRect(0, height * 0.7, width, height * 0.3)
 
-    // A grassy lip behind the shop, visible only in the screen margins.
-    g.fillStyle(0x7fb069, 0.45)
-    g.fillRoundedRect(room.x - 10, room.y - 10, room.w + 20, room.h + 20, 20)
-    g.fillStyle(0x8cd08b, 0.3)
-    g.fillRoundedRect(room.x - 4, room.y - 4, room.w + 8, room.h + 8, 16)
-    g.fillStyle(this.services.theme.accentAlt, 0.08)
-    for (let index = 0; index < 7; index += 1) {
-      g.fillCircle(width * (0.08 + index * 0.14), height * 0.9, 40)
+    // A canopy band frames the top edge; the room still owns its exact footprint.
+    drawCanopyBand(g, -30, -20, width + 60, Math.max(72, room.y + 18), 11)
+    drawSunShaft(g, width * 0.12, Math.max(24, room.y - 18), 70, height * 0.55, 0.05)
+    drawSunShaft(g, width * 0.66, Math.max(18, room.y - 30), 52, height * 0.5, 0.04)
+
+    // Mossy clearing lip behind the shop, visible only in the screen margins.
+    g.fillStyle(gameColors.mossDark, 0.55)
+    g.fillRoundedRect(room.x - 14, room.y - 14, room.w + 28, room.h + 28, 24)
+    g.fillStyle(gameColors.moss, 0.32)
+    g.fillRoundedRect(room.x - 6, room.y - 6, room.w + 12, room.h + 12, 18)
+
+    const leftTree = room.x - 32
+    if (leftTree > 16) drawTree(g, leftTree, room.y + room.h * 0.34, 0.9, 'oak', 'olive')
+    const rightTree = room.x + room.w + 32
+    if (rightTree < width - 16) drawTree(g, rightTree, room.y + room.h * 0.54, 0.85, 'pine', 'teal')
+
+    drawFern(g, Math.max(18, room.x - 22), room.y + room.h - 34, 0.9, 1)
+    drawFern(g, Math.min(width - 18, room.x + room.w + 22), room.y + room.h - 40, 0.9, -1)
+    drawRock(g, Math.max(22, room.x - 20), room.y + room.h - 70, 0.8)
+    drawMushroomCluster(g, Math.min(width - 26, room.x + room.w + 24), room.y + room.h - 76, 0.85)
+
+    for (let index = 0; index < 6; index += 1) {
+      const x = width * (0.07 + index * 0.16)
+      const y = height * (0.14 + ((index * 19) % 30) / 100)
+      drawFirefly(g, x, y, index * 1.7)
     }
-
-    // Small distant trees when the viewport leaves room beside the shop.
-    const leftTree = room.x - 26
-    if (leftTree > 16) drawBackdropTree(g, leftTree, room.y + room.h * 0.34, 0.8)
-    const rightTree = room.x + room.w + 26
-    if (rightTree < width - 16) drawBackdropTree(g, rightTree, room.y + room.h * 0.5, 0.9)
     this.backdrop = g
   }
 
@@ -1830,24 +1842,4 @@ export class GameScene extends Phaser.Scene {
     this.joystick?.destroy()
     this.destroyFloatingUi()
   }
-}
-
-function drawBackdropTree(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  scale: number,
-): void {
-  g.fillStyle(0x3b2f3a, 0.1)
-  g.fillEllipse(x, y + 34 * scale, 38 * scale, 10 * scale)
-  g.fillStyle(0x8f5734, 1)
-  g.fillRoundedRect(x - 3 * scale, y, 6 * scale, 34 * scale, 2 * scale)
-  g.fillStyle(0x3f8454, 0.75)
-  g.fillCircle(x - 12 * scale, y - 4 * scale, 14 * scale)
-  g.fillCircle(x + 12 * scale, y - 2 * scale, 15 * scale)
-  g.fillStyle(0x5aa96f, 0.85)
-  g.fillCircle(x, y - 14 * scale, 17 * scale)
-  g.fillCircle(x - 10 * scale, y - 8 * scale, 11 * scale)
-  g.fillStyle(0x8cd08b, 0.55)
-  g.fillCircle(x + 3 * scale, y - 18 * scale, 8 * scale)
 }

@@ -1,7 +1,10 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
+import { gameColors } from '../colors'
 import { ZONE_ORDER, ZONES } from '../logic/config'
 import type { ShopMap, ShopState, ZoneId } from '../logic/types'
+import { fillPolygon, strokePolygon, zonePatchPoints } from './forestArt'
+import { drawTagFrame } from './frames'
 
 /**
  * Dims locked landscape zones and shows their unlock price. It lives inside the
@@ -22,7 +25,7 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
 
     for (const zone of ZONE_ORDER) {
       const price = scene.add
-        .text(0, 0, '', textStyle(theme, 24, '#fff7e8', true))
+        .text(0, 0, '', textStyle(theme, 20, theme.text, true))
         .setOrigin(0.5)
         .setVisible(false)
       this.prices.set(zone, price)
@@ -48,15 +51,31 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       const centerX = area.x + area.w / 2
       const lockY = area.y + 148
       const priceY = area.y + 198
-      this.graphics.fillStyle(0x2f2433, 0.28)
-      this.graphics.fillRoundedRect(area.x, area.y, area.w, area.h, 18)
+      const patch = zonePatchPoints(area)
+      fillPolygon(this.graphics, patch, gameColors.canopy, 0.4)
+      strokePolygon(this.graphics, patch, gameColors.mossDark, 0.85, 2)
+      patch.forEach((point, index) => {
+        if (index % 3 !== 0) return
+        this.graphics.fillStyle(gameColors.moss, 0.65)
+        this.graphics.fillEllipse(point.x, point.y, 6, 3)
+      })
       drawLock(this.graphics, centerX, lockY)
 
       const cost = ZONES[zone].unlockCost
       if (cost <= 0) continue
-      price.setText(String(cost)).setPosition(centerX, priceY).setVisible(true)
-      this.graphics.fillStyle(0xffd166, 1)
-      this.graphics.fillCircle(centerX - price.width / 2 - 13, priceY, 6)
+      price.setText(String(cost)).setVisible(true)
+      const tagWidth = Math.max(54, price.width + 42)
+      const tagHeight = 26
+      drawTagFrame(
+        this.graphics,
+        centerX - tagWidth / 2,
+        priceY - tagHeight / 2,
+        tagWidth,
+        tagHeight,
+      )
+      price.setPosition(centerX + 4, priceY)
+      this.graphics.fillStyle(gameColors.sunbeam, 1)
+      this.graphics.fillCircle(centerX - price.width / 2 - 11, priceY, 6)
     }
   }
 }

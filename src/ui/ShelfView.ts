@@ -79,6 +79,17 @@ export class ShelfView extends Phaser.GameObjects.Container {
     g.fillStyle(gameColors.woodDark, 1)
     g.fillRoundedRect(-width / 2 + 7, height / 2 - 3, 12, 6, 2)
     g.fillRoundedRect(width / 2 - 19, height / 2 - 3, 12, 6, 2)
+
+    // Moss and a short vine keep the stall tied to the forest clearing.
+    g.fillStyle(gameColors.moss, 0.7)
+    g.fillEllipse(-width / 2 + 16, -height / 2 + 1, 16, 5)
+    g.fillEllipse(width / 2 - 18, -height / 2, 14, 5)
+    g.lineStyle(1.4, gameColors.mossDark, 0.65)
+    for (let x = -width / 2 + 14; x < width / 2 - 12; x += 22) {
+      g.lineBetween(x, -height / 2 + 9, x + 8, -height / 2 + 7)
+      g.fillStyle(gameColors.fern, 0.7)
+      g.fillEllipse(x + 8, -height / 2 + 7, 5, 2.4)
+    }
     this.add(g)
 
     for (let index = 0; index < this.slotCount; index += 1) {

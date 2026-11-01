@@ -1,5 +1,6 @@
 import { Button, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { drawHeaderRibbon, drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 
 export interface PauseOptions {
@@ -36,12 +37,15 @@ export class PauseOverlay {
     const card = scene.add.container(layout.width / 2, layout.height / 2)
     this.root.add(card)
     const g = scene.add.graphics()
-    g.fillStyle(theme.shadow, 0.22)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2 + 10 * ui, cardW, cardH, 28 * ui)
-    g.fillStyle(theme.panel, 1)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 28 * ui)
-    g.lineStyle(3 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 28 * ui)
+    drawPanelFrame(g, -cardW / 2, -cardH / 2, cardW, cardH, theme, 28 * ui)
+    drawHeaderRibbon(
+      g,
+      -cardW / 2 + 18 * ui,
+      -cardH / 2 + 16 * ui,
+      cardW - 36 * ui,
+      64 * ui,
+      14 * ui,
+    )
     card.add(g)
 
     card.add(
@@ -50,7 +54,7 @@ export class PauseOverlay {
           0,
           -cardH / 2 + 52 * ui,
           i18n.t('pause.title'),
-          textStyle(theme, 30 * ui, theme.text, true),
+          textStyle(theme, 30 * ui, '#fff7e8', true),
         )
         .setOrigin(0.5),
     )

@@ -3,6 +3,7 @@ import type Phaser from 'phaser'
 import { ZONE_PRODUCTS } from '../logic/config'
 import { type Goal, goalCost, nextGoal } from '../logic/goals'
 import type { ProductKind, ShopState } from '../logic/types'
+import { drawPanelFrame } from './frames'
 import { coinTextureKey } from './fruitArt'
 import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
@@ -118,35 +119,28 @@ export class Hud {
     this.bar.clear()
 
     if (hud.vertical) {
-      this.bar.fillStyle(this.theme.shadow, 0.16)
-      this.bar.fillRoundedRect(bar.x, bar.y + 7 * ui, bar.w, bar.h, 22 * ui)
-      this.bar.fillStyle(this.theme.panel, 0.94)
-      this.bar.fillRoundedRect(bar.x, bar.y, bar.w, bar.h, 22 * ui)
-      this.bar.lineStyle(2 * ui, this.theme.borderSoft, 0.8)
-      this.bar.strokeRoundedRect(bar.x, bar.y, bar.w, bar.h, 22 * ui)
-      this.bar.fillStyle(this.theme.accentWarm, 0.4)
-      this.bar.fillRoundedRect(bar.x + 8 * ui, bar.y + 8 * ui, bar.w - 16 * ui, 84 * ui, 16 * ui)
-      this.bar.fillStyle(this.theme.ink, 0.08)
-      this.bar.fillRoundedRect(bar.x + 16 * ui, bar.y + 160 * ui, bar.w - 32 * ui, 2 * ui, ui)
-      this.bar.fillStyle(this.theme.ink, 0.08)
-      this.bar.fillRoundedRect(bar.x + 16 * ui, hud.shop.y - 56 * ui, bar.w - 32 * ui, 2 * ui, ui)
-      this.bar.fillStyle(this.theme.accentWarm, 0.55)
-      this.bar.fillRoundedRect(
-        bar.x + bar.w / 2 - 14 * ui,
-        bar.y + bar.h - 14 * ui,
-        28 * ui,
-        4 * ui,
-        2 * ui,
+      drawPanelFrame(this.bar, bar.x, bar.y, bar.w, bar.h, this.theme, 20 * ui)
+      this.bar.fillStyle(this.theme.accentWarm, 0.32)
+      this.bar.fillRoundedRect(bar.x + 10 * ui, bar.y + 10 * ui, bar.w - 20 * ui, 80 * ui, 14 * ui)
+      this.bar.lineStyle(1.5, this.theme.borderSoft, 0.9)
+      this.bar.lineBetween(
+        bar.x + 16 * ui,
+        bar.y + 160 * ui,
+        bar.x + bar.w - 16 * ui,
+        bar.y + 160 * ui,
       )
+      this.bar.lineBetween(
+        bar.x + 16 * ui,
+        hud.shop.y - 56 * ui,
+        bar.x + bar.w - 16 * ui,
+        hud.shop.y - 56 * ui,
+      )
+      this.bar.fillStyle(this.theme.accentWarm, 0.6)
+      this.bar.fillEllipse(bar.x + bar.w / 2, bar.y + bar.h - 12 * ui, 28 * ui, 4 * ui)
     } else {
-      this.bar.fillStyle(this.theme.shadow, 0.16)
-      this.bar.fillRoundedRect(bar.x, bar.y + 7 * ui, bar.w, bar.h, 18 * ui)
-      this.bar.fillStyle(this.theme.panel, 0.94)
-      this.bar.fillRoundedRect(bar.x, bar.y, bar.w, bar.h, 18 * ui)
-      this.bar.lineStyle(2 * ui, this.theme.borderSoft, 0.8)
-      this.bar.strokeRoundedRect(bar.x, bar.y, bar.w, bar.h, 18 * ui)
-      this.bar.fillStyle(this.theme.accentWarm, 0.45)
-      this.bar.fillRoundedRect(bar.x + 8 * ui, bar.y + 6 * ui, 92 * ui, bar.h - 12 * ui, 13 * ui)
+      drawPanelFrame(this.bar, bar.x, bar.y, bar.w, bar.h, this.theme, 18 * ui)
+      this.bar.fillStyle(this.theme.accentWarm, 0.4)
+      this.bar.fillRoundedRect(bar.x + 10 * ui, bar.y + 8 * ui, 92 * ui, bar.h - 16 * ui, 12 * ui)
     }
 
     if (hud.vertical) {

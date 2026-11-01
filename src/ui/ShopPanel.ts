@@ -31,6 +31,7 @@ import type {
   ZoneId,
 } from '../logic/types'
 import { animalTextureKey } from './animalArt'
+import { drawHeaderRibbon, drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
 import { drawToolIcon } from './toolArt'
@@ -153,18 +154,12 @@ export class ShopPanel {
     const w = layout.panelWidth
     const h = layout.panelHeight
     const g = scene.add.graphics()
-    g.fillStyle(theme.shadow, 0.2)
-    g.fillRoundedRect(0, 8 * ui, w, h, theme.radiusLarge)
-    g.fillStyle(theme.panel, 1)
-    g.fillRoundedRect(0, 0, w, h, theme.radiusLarge)
-    g.lineStyle(3 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(0, 0, w, h, theme.radiusLarge)
-    g.fillStyle(theme.accentWarm, 0.35)
-    g.fillRoundedRect(18 * ui, 18, w - 36 * ui, Math.max(58, 26 * ui + 20), 18 * ui)
+    drawPanelFrame(g, 0, 0, w, h, theme, theme.radiusLarge)
+    drawHeaderRibbon(g, 18 * ui, 18, w - 36 * ui, Math.max(58, 26 * ui + 20), 14 * ui)
     this.chrome.add(g)
 
     const title = scene.add
-      .text(30 * ui, 38, i18n.t('shop.title'), textStyle(theme, 26 * ui, theme.text, true))
+      .text(30 * ui, 38, i18n.t('shop.title'), textStyle(theme, 26 * ui, '#fff7e8', true))
       .setOrigin(0, 0.5)
     this.chrome.add(title)
 
@@ -173,7 +168,7 @@ export class ShopPanel {
         w - 96 * ui,
         38,
         i18n.t('shop.balance', { coins: this.state.coins }),
-        textStyle(theme, 18 * ui, theme.text, true),
+        textStyle(theme, 18 * ui, '#fff7e8', true),
       )
       .setOrigin(1, 0.5)
     this.chrome.add(this.balanceText)

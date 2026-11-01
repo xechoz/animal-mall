@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Restyle the game as a sunlit forest market: a lighter layered forest
+  backdrop, split-rail fences around the shop and pens, dirt paths, mossy
+  organic zone clearings, colourful trees with varied fruit, wildlife such as
+  squirrels, hedgehogs, birds, frogs, ants and fireflies, wooden sign tags, and
+  parchment/bark frames for the HUD, shop panel and modals. All art stays
+  procedural, so there are no new assets or runtime requests.
 - Add a chef staff member (800 / 1800 coins) for the kitchen. Chefs carry
   finished dishes from station trays to the kitchen shelf and top up idle
   station hoppers with shelf ingredients; leftovers go back on their shelf.

@@ -1,18 +1,36 @@
 import Phaser from 'phaser'
+import { gameColors } from '../colors'
 import { PEN_SIZE, STATION_SIZE, ZONE_ORDER } from '../logic/config'
 import type { ShopMap, Vec2 } from '../logic/types'
+import {
+  drawAntTrail,
+  drawBarrel,
+  drawBeehive,
+  drawFern,
+  drawFirefly,
+  drawFrog,
+  drawHedgehog,
+  drawLeafLitter,
+  drawLog,
+  drawMushroomCluster,
+  drawRock,
+  drawScarecrow,
+  drawSquirrel,
+  drawStump,
+  drawWell,
+  fillPolygon,
+  strokePolygon,
+  zonePatchPoints,
+} from './forestArt'
 import { drawClover, drawGrassTuft } from './groundArt'
 
-const GRASS = 0x7fb069
-const GRASS_DARK = 0x3f8454
-const GRASS_LIGHT = 0x8cd08b
 const FLOWER_COLORS = [0xf2a8b4, 0xffd166, 0xbfe8ef, 0xe9b7a3] as const
 
 /**
  * Decorative terrain inside the shop. Everything is drawn with Phaser
  * Graphics, stays behind actors and never changes collision or interaction
- * footprints. The aim is a farm-market feel: grass and soil around the beds, a
- * stone kitchen corner and a small garden strip along the bottom wall.
+ * footprints. The zones are painted as organic clearings so the floor does not
+ * read as four rounded UI cards.
  */
 export function drawIndoorScenery(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   for (const zone of ZONE_ORDER) {
@@ -23,25 +41,35 @@ export function drawIndoorScenery(g: Phaser.GameObjects.Graphics, map: ShopMap):
     else drawKitchenGround(g, map, area)
   }
 
+  drawWildlife(g, map)
   drawGardenStrip(g, map)
   drawBenchProps(g, map)
 
   // A few tiny residents make the floor feel alive without competing with the
   // real animals in their pens.
-  const ladybug = { x: map.room.w * 0.17, y: map.room.h * 0.78 }
-  drawLadybug(g, ladybug.x, ladybug.y)
-  const snail = { x: map.room.w * 0.82, y: map.room.h * 0.72 }
-  drawSnail(g, snail.x, snail.y)
+  drawLadybug(g, map.room.w * 0.17, map.room.h * 0.78)
+  drawSnail(g, map.room.w * 0.82, map.room.h * 0.72)
+}
+
+function drawWildlife(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
+  const fruit = map.zoneAreas.fruit
+  const veg = map.zoneAreas.veg
+  const farm = map.zoneAreas.farm
+  drawSquirrel(g, fruit.x + fruit.w - 28, fruit.y + fruit.h - 26, 0.85, -1)
+  drawHedgehog(g, veg.x + 20, veg.y + veg.h - 34, 0.85, 1)
+  drawAntTrail(g, farm.x + 24, farm.y + farm.h - 18, 0.8)
+  drawFrog(g, map.room.w * 0.18, map.room.h - 34, 0.8)
 }
 
 /**
- * Animated butterflies and a dragonfly. One graphics object is cleared and
- * redrawn per frame; positions follow deterministic sine paths, so no RNG or
- * simulation state is involved.
+ * Animated butterflies, a bee, a dragonfly and a handful of fireflies. One
+ * graphics object is cleared and redrawn per frame; positions follow
+ * deterministic sine paths, so no RNG or simulation state is involved.
  */
 export class SceneryView extends Phaser.GameObjects.Container {
   private readonly art: Phaser.GameObjects.Graphics
   private readonly anchors: readonly Vec2[]
+  private readonly fireflies: readonly Vec2[]
 
   constructor(scene: Phaser.Scene, map: ShopMap) {
     super(scene, 0, 0)
@@ -53,6 +81,12 @@ export class SceneryView extends Phaser.GameObjects.Container {
       { x: map.zoneAreas.farm.x + map.zoneAreas.farm.w - 24, y: map.zoneAreas.farm.y + 48 },
       { x: map.room.w * 0.56, y: map.room.h - 42 },
     ]
+    this.fireflies = [
+      { x: map.zoneAreas.fruit.x + 28, y: map.zoneAreas.fruit.y + 190 },
+      { x: map.zoneAreas.veg.x + map.zoneAreas.veg.w - 30, y: map.zoneAreas.veg.y + 210 },
+      { x: map.zoneAreas.farm.x + 34, y: map.zoneAreas.farm.y + map.zoneAreas.farm.h - 36 },
+      { x: map.room.w * 0.44, y: map.room.h - 66 },
+    ]
     scene.add.existing(this)
   }
 
@@ -63,6 +97,12 @@ export class SceneryView extends Phaser.GameObjects.Container {
     this.drawButterfly(t, this.anchors[1], 1.7, 0xffd166)
     this.drawBee(t, this.anchors[2], 3.1)
     this.drawDragonfly(t, this.anchors[3], 4.4)
+    this.fireflies.forEach((anchor, index) => {
+      if (anchor === undefined) return
+      const x = anchor.x + Math.sin(t * 0.7 + index * 1.9) * 16
+      const y = anchor.y + Math.cos(t * 0.9 + index * 2.3) * 10
+      drawFirefly(this.art, x, y, t * 2.4 + index * 1.3)
+    })
   }
 
   private drawButterfly(time: number, anchor: Vec2, phase: number, color: number): void {
@@ -70,12 +110,12 @@ export class SceneryView extends Phaser.GameObjects.Container {
     const x = anchor.x + Math.sin(time * 1.25 + phase) * 26
     const y = anchor.y + Math.cos(time * 0.9 + phase) * 15
     const flap = 0.55 + Math.abs(Math.sin(time * 8 + phase)) * 0.45
-    this.art.fillStyle(0x3b2f3a, 0.12)
+    this.art.fillStyle(0x1a120c, 0.12)
     this.art.fillEllipse(x, y + 7, 10, 3)
     this.art.fillStyle(color, 0.95)
     this.art.fillEllipse(x - 4 * flap, y - 2, 7 * flap, 5)
     this.art.fillEllipse(x + 4 * flap, y - 2, 7 * flap, 5)
-    this.art.fillStyle(0x3b2f3a, 0.85)
+    this.art.fillStyle(0x2b241d, 0.85)
     this.art.fillEllipse(x, y, 2, 6)
   }
 
@@ -86,9 +126,9 @@ export class SceneryView extends Phaser.GameObjects.Container {
     this.art.fillStyle(0xffffff, 0.35)
     this.art.fillEllipse(x - 2, y - 4, 5, 4)
     this.art.fillEllipse(x + 2, y - 4, 5, 4)
-    this.art.fillStyle(0xffd166, 1)
+    this.art.fillStyle(gameColors.sunbeam, 1)
     this.art.fillEllipse(x, y, 8, 5)
-    this.art.lineStyle(1.4, 0x3b2f3a, 0.9)
+    this.art.lineStyle(1.4, 0x2b241d, 0.9)
     this.art.lineBetween(x - 2, y - 2, x - 2, y + 2)
     this.art.lineBetween(x + 2, y - 2, x + 2, y + 2)
   }
@@ -99,7 +139,7 @@ export class SceneryView extends Phaser.GameObjects.Container {
     const y = anchor.y + Math.cos(time * 1.1 + phase) * 10
     this.art.lineStyle(1.4, 0x4f8f9f, 0.7)
     this.art.lineBetween(x - 6, y - 3, x + 6, y + 3)
-    this.art.fillStyle(0xbfe8ef, 0.55)
+    this.art.fillStyle(gameColors.sky, 0.6)
     this.art.fillEllipse(x - 3, y - 4, 9, 4)
     this.art.fillEllipse(x + 3, y - 4, 9, 4)
   }
@@ -110,26 +150,17 @@ function drawFruitGround(
   map: ShopMap,
   area: { x: number; y: number; w: number; h: number },
 ): void {
-  const left = area.x + 6
-  const top = area.y + 6
-  const width = area.w - 12
-  const height = area.h - 12
-
-  // A proper lawn, not a green wash over the wooden floor.
-  g.fillStyle(0x7fae63, 0.5)
-  g.fillRoundedRect(left, top, width, height, 18)
-  g.fillStyle(0x9fd07f, 0.26)
-  g.fillRoundedRect(left + 8, top + 8, width - 16, height - 16, 14)
-  g.lineStyle(2, 0x5f9552, 0.32)
-  g.strokeRoundedRect(left, top, width, height, 18)
+  const patch = zonePatchPoints(area)
+  fillPolygon(g, patch, 0x7fae63, 0.58)
+  fillPolygon(g, patch, 0x9fd07f, 0.16)
+  strokePolygon(g, patch, 0x5f9552, 0.38, 2)
 
   // Broad mowing bands suggest a tended orchard lawn.
   g.fillStyle(0x5f9552, 0.1)
-  for (let y = top + 22; y < top + height - 20; y += 42) {
-    g.fillRect(left + 12, y, width - 24, 14)
+  for (let y = area.y + 32; y < area.y + area.h - 22; y += 42) {
+    g.fillRect(area.x + 18, y, area.w - 36, 14)
   }
 
-  // Grass lives in the strips clear of the rectangular seedbeds.
   const topBand = area.y + 54
   const bottomBand = area.y + area.h - 18
   for (let index = 0; index < 5; index += 1) {
@@ -152,37 +183,38 @@ function drawFruitGround(
   drawFlowers(g, area.x + 18, area.y + 58, 3)
   drawFlowers(g, area.x + area.w - 36, area.y + area.h - 18, 3)
   drawPebbles(g, area.x + area.w - 24, area.y + 60, 2)
+  drawFern(g, area.x + 20, area.y + area.h - 34, 1.1, 1)
+  drawFern(g, area.x + area.w - 22, area.y + 46, 0.9, -1)
+  drawMushroomCluster(g, area.x + area.w - 30, area.y + area.h - 30, 1)
+  drawRock(g, area.x + 26, area.y + area.h - 62, 0.8)
+  drawBeehive(g, area.x + 20, area.y + 82, 1)
+  drawLeafLitter(g, area, 10, 31)
 }
 
 function drawVegGround(
   g: Phaser.GameObjects.Graphics,
   area: { x: number; y: number; w: number; h: number },
 ): void {
-  const left = area.x + 6
-  const top = area.y + 6
-  const width = area.w - 12
-  const height = area.h - 12
-
-  // Deep tilled earth over the whole vegetable field; the individual beds are
-  // drawn on top by PlantBedView so empty and planted rows stay in sync.
-  g.fillStyle(0x5f4028, 0.44)
-  g.fillRoundedRect(left, top, width, height, 14)
-  g.fillStyle(0x6f4b2e, 0.18)
-  g.fillRoundedRect(left + 6, top + 6, width - 12, height - 12, 10)
-  g.lineStyle(2, 0x3f2819, 0.3)
-  g.strokeRoundedRect(left, top, width, height, 14)
+  const patch = zonePatchPoints(area)
+  fillPolygon(g, patch, 0x5f4028, 0.58)
+  fillPolygon(g, patch, 0x6f4b2e, 0.2)
+  strokePolygon(g, patch, 0x3f2819, 0.38, 2)
 
   // Long furrow bands make the plot read as a field rather than a row of pads.
-  g.lineStyle(2, 0x3f2819, 0.2)
+  g.lineStyle(2, 0x3f2819, 0.22)
   for (let y = area.y + 60; y < area.y + area.h - 12; y += 14) {
     g.lineBetween(area.x + 14, y, area.x + area.w - 14, y)
   }
 
-  // Grass is deliberately sparse here: a few tufts at the outer corners only.
   drawGrassTuft(g, area.x + 16, area.y + area.h - 16, 0.8)
   drawGrassTuft(g, area.x + area.w - 18, area.y + area.h - 15, 0.7)
   drawGrassTuft(g, area.x + 36, area.y + area.h - 14, 0.55)
   drawPebbles(g, area.x + area.w - 30, area.y + 58, 2)
+  drawFern(g, area.x + 18, area.y + 86, 0.75, 1)
+  drawRock(g, area.x + area.w - 24, area.y + area.h - 48, 0.7)
+  drawLeafLitter(g, area, 8, 67)
+  drawWateringCan(g, area.x + area.w - 30, area.y + 48)
+  drawScarecrow(g, area.x + 20, area.y + 84, 1)
 }
 
 function drawFarmGround(
@@ -190,26 +222,36 @@ function drawFarmGround(
   map: ShopMap,
   area: { x: number; y: number; w: number; h: number },
 ): void {
-  g.fillStyle(0xe0c080, 0.22)
-  g.fillRoundedRect(area.x + 6, area.y + 6, area.w - 12, area.h - 12, 16)
-  g.fillStyle(GRASS, 0.1)
-  g.fillRoundedRect(area.x + 14, area.y + 14, area.w - 28, area.h - 28, 12)
+  const patch = zonePatchPoints(area)
+  fillPolygon(g, patch, 0xd9b25a, 0.24)
+  fillPolygon(g, patch, 0x8fae63, 0.12)
+  strokePolygon(g, patch, 0xb99a4a, 0.32, 2)
+
   for (const pen of Object.values(map.animalPens)) {
     drawGrassTuft(g, pen.x - PEN_SIZE.w / 2 - 2, pen.y + PEN_SIZE.h / 2 + 6, 0.75)
     drawGrassTuft(g, pen.x + PEN_SIZE.w / 2 + 2, pen.y + PEN_SIZE.h / 2 + 6, 0.75)
   }
+
   // Hay bale in the open farm corner.
   const hay = { x: area.x + area.w - 24, y: area.y + area.h - 30 }
-  g.fillStyle(0x3b2f3a, 0.1)
+  g.fillStyle(0x1a120c, 0.12)
   g.fillEllipse(hay.x, hay.y + 8, 22, 6)
-  g.fillStyle(0xd9b25a, 1)
+  g.fillStyle(gameColors.straw, 1)
   g.fillRoundedRect(hay.x - 11, hay.y - 4, 22, 12, 4)
-  g.fillStyle(0xf0d08a, 1)
+  g.fillStyle(gameColors.hay, 1)
   g.fillRoundedRect(hay.x - 9, hay.y - 2, 18, 5, 2)
   g.lineStyle(1, 0xb98a3c, 0.7)
   g.lineBetween(hay.x - 6, hay.y - 3, hay.x - 6, hay.y + 7)
   g.lineBetween(hay.x + 1, hay.y - 3, hay.x + 1, hay.y + 7)
   g.lineBetween(hay.x + 7, hay.y - 3, hay.x + 7, hay.y + 7)
+
+  drawWell(g, area.x + area.w / 2, area.y + area.h / 2, 0.75)
+  drawFern(g, area.x + 22, area.y + area.h - 42, 1.05, 1)
+  drawFern(g, area.x + area.w - 26, area.y + 54, 0.85, -1)
+  drawMushroomCluster(g, area.x + 30, area.y + area.h - 62, 0.9)
+  drawRock(g, area.x + area.w - 34, area.y + area.h - 74, 0.85)
+  drawBarrel(g, area.x + 22, area.y + area.h - 78, 0.8)
+  drawLeafLitter(g, area, 9, 97)
 }
 
 function drawKitchenGround(
@@ -217,9 +259,12 @@ function drawKitchenGround(
   map: ShopMap,
   area: { x: number; y: number; w: number; h: number },
 ): void {
-  g.fillStyle(0x8a9098, 0.2)
-  g.fillRoundedRect(area.x + 6, area.y + 6, area.w - 12, area.h - 12, 16)
-  g.lineStyle(1, 0x6f757c, 0.28)
+  const patch = zonePatchPoints(area)
+  fillPolygon(g, patch, gameColors.stone, 0.28)
+  fillPolygon(g, patch, 0xb8bec2, 0.12)
+  strokePolygon(g, patch, gameColors.stoneDark, 0.4, 2)
+
+  g.lineStyle(1, gameColors.stoneDark, 0.28)
   for (let x = area.x + 12; x < area.x + area.w - 8; x += 34) {
     g.lineBetween(x, area.y + 10, x, area.y + area.h - 10)
   }
@@ -230,48 +275,87 @@ function drawKitchenGround(
     drawPebbles(g, station.x + STATION_SIZE.w / 2 + 4, station.y + 18, 2)
   }
   drawFlowers(g, area.x + 18, area.y + 18, 2, 0xbfe8ef)
+  drawFern(g, area.x + 20, area.y + area.h - 30, 0.8, 1)
+  drawRock(g, area.x + area.w - 26, area.y + area.h - 46, 0.75)
+  drawLeafLitter(g, area, 6, 131)
+  for (const x of [area.x + area.w * 0.3, area.x + area.w * 0.5, area.x + area.w * 0.7]) {
+    drawHerbPot(g, x, area.y + area.h - 16, 0.7)
+  }
+  drawBarrel(g, area.x + 22, area.y + area.h - 34, 0.8)
+}
+
+function drawHerbPot(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  g.fillStyle(0x1a120c, 0.14)
+  g.fillEllipse(x, y + 4 * scale, 16 * scale, 4 * scale)
+  g.fillStyle(gameColors.woodDark, 1)
+  g.fillRoundedRect(x - 6 * scale, y - 2 * scale, 12 * scale, 8 * scale, 2 * scale)
+  g.fillStyle(gameColors.dirt, 1)
+  g.fillEllipse(x, y - 2 * scale, 10 * scale, 3 * scale)
+  g.fillStyle(gameColors.leafDark, 1)
+  g.fillEllipse(x - 3 * scale, y - 7 * scale, 6 * scale, 3 * scale)
+  g.fillEllipse(x + 3 * scale, y - 8 * scale, 6 * scale, 3 * scale)
+  g.fillStyle(gameColors.leafLight, 1)
+  g.fillEllipse(x, y - 10 * scale, 5 * scale, 2.5 * scale)
 }
 
 function drawGardenStrip(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   const y = map.room.h - 44
-  g.fillStyle(GRASS, 0.24)
+  g.fillStyle(gameColors.moss, 0.22)
   g.fillRoundedRect(34, y, map.room.w - 68, 22, 9)
   for (let x = 56; x < map.room.w - 50; x += 54) {
     if (Math.abs(x - map.doorPoint.x) < 58) continue
     drawGrassTuft(g, x, y + 14, 0.55 + (x % 3) * 0.08)
-    if (x % 2 === 0)
-      drawFlower(g, x + 10, y + 8, FLOWER_COLORS[x % FLOWER_COLORS.length] ?? GRASS_LIGHT)
+    if (x % 2 === 0) {
+      drawFlower(g, x + 10, y + 8, FLOWER_COLORS[x % FLOWER_COLORS.length] ?? gameColors.leafLight)
+    }
   }
+  drawFern(g, 48, y + 8, 0.7, 1)
+  drawFern(g, map.room.w - 48, y + 8, 0.7, -1)
 }
 
 function drawBenchProps(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
-  // Tiny mushroom and pebble clusters in the open corners.
   const cornerY = map.room.h - 76
-  drawMushroom(g, 42, cornerY, 0.85)
-  drawMushroom(g, 56, cornerY + 6, 0.6)
+  drawMushroomCluster(g, 52, cornerY, 0.85)
   drawPebbles(g, map.room.w - 48, cornerY, 3)
+  drawRock(g, map.room.w - 62, cornerY + 12, 0.7)
   drawPottedTree(g, 54, map.room.h - 52, 0.9)
   drawPottedTree(g, map.room.w - 40, map.room.h - 52, 0.9)
+  drawFern(g, 74, map.room.h - 44, 0.65, 1)
+  drawFern(g, map.room.w - 62, map.room.h - 44, 0.65, -1)
+  drawStump(g, 40, map.room.h - 120, 0.8)
+  drawLog(g, map.room.w - 60, map.room.h - 140, 0.8)
 }
 
 function drawPottedTree(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
-  g.fillStyle(0x3b2f3a, 0.12)
+  g.fillStyle(0x1a120c, 0.12)
   g.fillEllipse(x, y + 14 * scale, 30 * scale, 8 * scale)
-  g.fillStyle(0x8f5734, 1)
+  g.fillStyle(gameColors.woodDark, 1)
   g.fillRoundedRect(x - 8 * scale, y - 2 * scale, 16 * scale, 16 * scale, 4 * scale)
-  g.fillStyle(0x9c6b42, 1)
+  g.fillStyle(gameColors.woodLight, 1)
   g.fillEllipse(x, y - 2 * scale, 15 * scale, 6 * scale)
-  g.fillStyle(0x6f4b2e, 1)
+  g.fillStyle(gameColors.barkDark, 1)
   g.fillRoundedRect(x - 2 * scale, y - 18 * scale, 4 * scale, 18 * scale, 1.5 * scale)
-  g.fillStyle(0x3f8454, 1)
+  const palettes = [
+    {
+      dark: gameColors.leafDark,
+      mid: gameColors.moss,
+      light: gameColors.leafLight,
+      fruit: gameColors.berry,
+    },
+    { dark: 0x6f8f3a, mid: 0x8fae4a, light: 0xb8d070, fruit: 0xf0c94a },
+    { dark: 0x7a3f52, mid: 0xa85a72, light: 0xd98aa2, fruit: 0x8f5aa8 },
+    { dark: 0x3f7d6a, mid: 0x5f9e8a, light: 0x8fc9b0, fruit: 0x5f9ec9 },
+  ] as const
+  const palette = palettes[Math.abs(Math.round(x + y)) % palettes.length] ?? palettes[0]
+  g.fillStyle(palette.dark, 1)
   g.fillCircle(x - 8 * scale, y - 20 * scale, 11 * scale)
   g.fillCircle(x + 8 * scale, y - 19 * scale, 12 * scale)
-  g.fillStyle(0x5aa96f, 1)
+  g.fillStyle(palette.mid, 1)
   g.fillCircle(x, y - 29 * scale, 14 * scale)
   g.fillCircle(x - 9 * scale, y - 24 * scale, 9 * scale)
-  g.fillStyle(0x8cd08b, 0.8)
+  g.fillStyle(palette.light, 0.85)
   g.fillCircle(x + 3 * scale, y - 33 * scale, 6 * scale)
-  g.fillStyle(0xe25d5d, 0.9)
+  g.fillStyle(palette.fruit, 0.9)
   g.fillCircle(x - 8 * scale, y - 27 * scale, 2.2 * scale)
   g.fillCircle(x + 9 * scale, y - 24 * scale, 2 * scale)
 }
@@ -281,12 +365,12 @@ function drawFlowers(
   x: number,
   y: number,
   count: number,
-  color = GRASS_LIGHT,
+  color: number = gameColors.leafLight,
 ): void {
   for (let index = 0; index < count; index += 1) {
     const px = x + index * 9
     const py = y + (index % 2) * 4
-    g.lineStyle(1.2, GRASS_DARK, 0.55)
+    g.lineStyle(1.2, gameColors.leafDark, 0.55)
     g.lineBetween(px, py + 4, px, py)
     drawFlower(
       g,
@@ -303,7 +387,7 @@ function drawFlower(g: Phaser.GameObjects.Graphics, x: number, y: number, color:
   g.fillCircle(x + 2, y, 2)
   g.fillCircle(x, y - 2, 2)
   g.fillCircle(x, y + 2, 2)
-  g.fillStyle(0xffd166, 0.95)
+  g.fillStyle(gameColors.sunbeam, 0.95)
   g.fillCircle(x, y, 1.2)
 }
 
@@ -311,48 +395,54 @@ function drawPebbles(g: Phaser.GameObjects.Graphics, x: number, y: number, count
   for (let index = 0; index < count; index += 1) {
     const px = x + index * 7
     const py = y + (index % 2) * 4
-    g.fillStyle(0x8a9098, 0.35)
+    g.fillStyle(gameColors.stoneDark, 0.38)
     g.fillEllipse(px, py, 6, 4)
     g.fillStyle(0xbfc4c8, 0.3)
     g.fillEllipse(px - 1, py - 1, 3, 2)
   }
 }
 
-function drawMushroom(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
-  g.fillStyle(0xfff3dd, 1)
-  g.fillRoundedRect(x - 1.4 * scale, y, 2.8 * scale, 7 * scale, 1.2 * scale)
-  g.fillStyle(0xe25d5d, 0.85)
-  g.fillEllipse(x, y, 9 * scale, 5 * scale)
-  g.fillStyle(0xffffff, 0.8)
-  g.fillCircle(x - 2 * scale, y - 1 * scale, 1.1 * scale)
-  g.fillCircle(x + 2 * scale, y - 1 * scale, 1 * scale)
+function drawWateringCan(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillEllipse(x, y + 6, 16, 4)
+  g.fillStyle(gameColors.mossDark, 1)
+  g.fillRoundedRect(x - 7, y - 4, 12, 10, 3)
+  g.fillStyle(gameColors.moss, 1)
+  g.fillRoundedRect(x - 6, y - 3, 10, 6, 2)
+  g.lineStyle(2, gameColors.mossDark, 1)
+  g.lineBetween(x + 5, y, x + 11, y - 5)
+  g.lineBetween(x + 11, y - 5, x + 12, y - 1)
+  g.lineStyle(1.6, gameColors.mossDark, 1)
+  g.beginPath()
+  g.arc(x - 1, y - 4, 5, Math.PI, Math.PI * 1.8)
+  g.strokePath()
 }
 
 function drawLadybug(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-  g.fillStyle(0x3b2f3a, 0.14)
+  g.fillStyle(0x1a120c, 0.14)
   g.fillEllipse(x, y + 4, 12, 4)
-  g.fillStyle(0xe25d5d, 0.9)
+  g.fillStyle(gameColors.berry, 0.9)
   g.fillEllipse(x, y, 9, 7)
-  g.fillStyle(0x3b2f3a, 1)
+  g.fillStyle(0x2b241d, 1)
   g.fillCircle(x - 2.5, y - 1, 1.4)
   g.fillCircle(x + 2.5, y + 1, 1.4)
-  g.lineStyle(1, 0x3b2f3a, 0.8)
+  g.lineStyle(1, 0x2b241d, 0.8)
   g.lineBetween(x, y - 3, x, y + 3)
 }
 
 function drawSnail(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-  g.fillStyle(0x3b2f3a, 0.12)
+  g.fillStyle(0x1a120c, 0.12)
   g.fillEllipse(x, y + 5, 14, 4)
-  g.fillStyle(0xd9b25a, 0.9)
+  g.fillStyle(gameColors.hay, 0.95)
   g.fillEllipse(x + 1, y + 2, 11, 6)
-  g.fillStyle(0xb87545, 1)
+  g.fillStyle(gameColors.bark, 1)
   g.fillCircle(x, y, 5)
-  g.lineStyle(1, 0x8f5734, 0.8)
+  g.lineStyle(1, gameColors.barkDark, 0.8)
   g.beginPath()
   g.arc(x, y, 2.8, 0.2, 4.4)
   g.strokePath()
-  g.lineStyle(1, 0x8f5734, 0.8)
+  g.lineStyle(1, gameColors.barkDark, 0.8)
   g.lineBetween(x + 5, y + 2, x + 7, y - 2)
-  g.fillStyle(0x8f5734, 1)
+  g.fillStyle(gameColors.barkDark, 1)
   g.fillCircle(x + 7, y - 3, 1)
 }
