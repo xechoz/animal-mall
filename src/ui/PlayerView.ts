@@ -1,8 +1,8 @@
 import { type Theme, textStyle } from '@mg/core'
-import Phaser from 'phaser'
+import type Phaser from 'phaser'
 import { carriedKinds, carryOf, carryTotal } from '../logic/carry'
 import type { DrinkKind, PlayerState, ProductKind } from '../logic/types'
-import { playerTextureKey } from './animalArt'
+import { AnimalRig, type RigPose } from './AnimalRig'
 import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
 
@@ -36,6 +36,18 @@ interface EatState {
   readonly start: number
 }
 
+interface SipFx {
+  readonly raise: number
+  readonly lower: number
+  readonly pulse: number
+}
+
+interface ChewFx {
+  readonly raise: number
+  readonly lower: number
+  readonly chew: number
+}
+
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
@@ -54,8 +66,7 @@ function gulpPulse(elapsed: number): number {
   return pulse
 }
 
-export class PlayerView extends Phaser.GameObjects.Container {
-  private readonly bodyImage: Phaser.GameObjects.Image
+export class PlayerView extends AnimalRig {
   private readonly cup: Phaser.GameObjects.Graphics
   private readonly food: Phaser.GameObjects.Image
   private readonly carrying: Phaser.GameObjects.Image[] = []
@@ -68,16 +79,14 @@ export class PlayerView extends Phaser.GameObjects.Container {
   private eat: EatState | null = null
 
   constructor(scene: Phaser.Scene, theme: Theme) {
-    super(scene, 0, 0)
+    super(scene, {
+      species: 'bear',
+      player: true,
+      scale: BODY_SCALE,
+      seed: 0,
+      shadow: { width: 42, height: 12, alpha: 0.18 },
+    })
     this.theme = theme
-
-    const shadow = scene.add.graphics()
-    shadow.fillStyle(0x3b2f3a, 0.18)
-    shadow.fillEllipse(0, 2, 42, 12)
-    this.add(shadow)
-
-    this.bodyImage = scene.add.image(0, 0, playerTextureKey()).setOrigin(0.5, 0.9).setScale(0.82)
-    this.add(this.bodyImage)
 
     this.cup = scene.add.graphics().setVisible(false)
 
@@ -87,12 +96,12 @@ export class PlayerView extends Phaser.GameObjects.Container {
         .setScale(0.46)
         .setVisible(false)
       this.carrying.push(icon)
-      this.add(icon)
+      this.addAbove(icon)
     }
     // The cup sits in front of the carried pile so a sip stays readable.
-    this.add(this.cup)
+    this.addAbove(this.cup)
     this.food = scene.add.image(0, 0, productTextureKey('apple')).setScale(0.5).setVisible(false)
-    this.add(this.food)
+    this.addAbove(this.food)
 
     this.carryCount = scene.add
       .text(
@@ -105,7 +114,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
       .setBackgroundColor('#fff7e8')
       .setPadding(4, 0, 4, 0)
       .setVisible(false)
-    this.add(this.carryCount)
+    this.addAbove(this.carryCount)
     this.layoutCarry(1)
 
     scene.add.existing(this)
@@ -137,75 +146,63 @@ export class PlayerView extends Phaser.GameObjects.Container {
   updatePlayer(player: PlayerState, alpha: number, time: number, seated = false): void {
     const x = player.prevPos.x + (player.pos.x - player.prevPos.x) * alpha
     const y = player.prevPos.y + (player.pos.y - player.prevPos.y) * alpha
-    const bob = player.moving
-      ? Math.abs(Math.sin(time * 0.012)) * 3
-      : Math.sin(time * 0.003) * (seated ? 0.5 : 1)
-    this.setPosition(x, y - bob)
     this.facing = player.facing
     if (player.facing !== this.carryFacing) {
       this.carryFacing = player.facing
       this.layoutCarry(player.facing)
     }
 
-    let bodyScaleX = BODY_SCALE
-    let bodyScaleY = BODY_SCALE
-    let bodyRotation = 0
-    let bodyY = 0
+    const drinkFx = this.drinkFx(time)
+    const chewFx = this.eatFx(time)
+
+    let poseY = 0
+    let poseScaleX = 1
+    let poseScaleY = 1
+    let poseRotation = 0
     if (seated) {
-      bodyY = 4
-      bodyScaleX = BODY_SCALE * 0.92
-      bodyScaleY = BODY_SCALE * 0.9
+      poseY = 4
+      poseScaleX *= 0.92
+      poseScaleY *= 0.9
     }
+    if (drinkFx !== null) {
+      poseScaleX *= 1 + 0.035 * drinkFx.pulse
+      poseScaleY *= 1 - 0.05 * drinkFx.pulse
+      poseRotation += -player.facing * 0.04 * drinkFx.raise * (1 - drinkFx.lower)
+    }
+    if (chewFx !== null) poseScaleY *= 1 - 0.035 * chewFx.chew
 
-    const eat = this.eat
-    if (eat !== null) {
-      const elapsed = time - eat.start
-      if (elapsed >= EAT_MS) {
-        this.eat = null
-        this.food.setVisible(false)
-      } else {
-        const raise = smoothstep(clamp01(elapsed / 120))
-        const lower = smoothstep(clamp01((elapsed - 450) / (EAT_MS - 450)))
-        const chew = Math.abs(Math.sin(elapsed * 0.045))
-        bodyScaleY *= 1 - 0.035 * chew
-        this.food.setPosition(
-          player.facing * (8 + 2 * raise),
-          -27 - 4 * raise + 5 * lower - 2 * chew,
-        )
-        this.food.setScale(player.facing * (0.5 + 0.08 * raise), 0.5 + 0.08 * raise)
-        this.food.setRotation(-player.facing * 0.18 * raise * (1 - lower))
-        this.food.setAlpha(raise * (1 - lower))
-      }
+    const pose: RigPose = {
+      y: poseY,
+      scaleX: poseScaleX,
+      scaleY: poseScaleY,
+      rotation: poseRotation,
     }
+    const load = Math.min(1, carryTotal(player.carry) / 8)
+    const frame = this.updateRig(x, y, player.facing, time, pose, load)
 
-    const drink = this.drink
-    if (drink !== null) {
-      const elapsed = time - drink.start
-      if (elapsed >= DRINK_MS) {
-        this.drink = null
-        this.cup.setVisible(false)
-      } else {
-        const raise = smoothstep(clamp01(elapsed / RAISE_MS))
-        const lower = smoothstep(clamp01((elapsed - LOWER_MS) / (DRINK_MS - LOWER_MS)))
-        const pulse = gulpPulse(elapsed)
-        bodyScaleX = BODY_SCALE * (1 + 0.035 * pulse)
-        bodyScaleY = BODY_SCALE * (1 - 0.05 * pulse)
-        bodyRotation = -player.facing * 0.04 * raise * (1 - lower)
-        this.cup.setPosition(
-          player.facing * (8 + 2 * raise),
-          -22 - 5 * raise + 4 * lower - 2 * pulse,
-        )
-        this.cup.setScale(
-          player.facing * CUP_SCALE * (0.8 + 0.2 * raise),
-          CUP_SCALE * (0.8 + 0.2 * raise),
-        )
-        this.cup.setRotation(-player.facing * (0.2 + 0.9 * raise) * (1 - 0.1 * pulse))
-        this.cup.setAlpha(raise * (1 - lower))
-      }
+    if (drinkFx !== null) {
+      const { raise, lower, pulse } = drinkFx
+      this.cup.setPosition(
+        player.facing * (8 + 2 * raise) + frame.headX,
+        -22 - 5 * raise + 4 * lower - 2 * pulse + frame.headY,
+      )
+      this.cup.setScale(
+        player.facing * CUP_SCALE * (0.8 + 0.2 * raise),
+        CUP_SCALE * (0.8 + 0.2 * raise),
+      )
+      this.cup.setRotation(-player.facing * (0.2 + 0.9 * raise) * (1 - 0.1 * pulse))
+      this.cup.setAlpha(raise * (1 - lower))
     }
-    this.bodyImage.setPosition(0, bodyY)
-    this.bodyImage.setScale(player.facing * bodyScaleX, bodyScaleY)
-    this.bodyImage.setRotation(bodyRotation)
+    if (chewFx !== null) {
+      const { raise, lower, chew } = chewFx
+      this.food.setPosition(
+        player.facing * (8 + 2 * raise) + frame.headX,
+        -27 - 4 * raise + 5 * lower - 2 * chew + frame.headY,
+      )
+      this.food.setScale(player.facing * (0.5 + 0.08 * raise), 0.5 + 0.08 * raise)
+      this.food.setRotation(-player.facing * 0.18 * raise * (1 - lower))
+      this.food.setAlpha(raise * (1 - lower))
+    }
 
     const kinds = carriedKinds(player.carry)
     const key = kinds.map((product) => `${product}:${carryOf(player.carry, product)}`).join('|')
@@ -230,6 +227,38 @@ export class PlayerView extends Phaser.GameObjects.Container {
     this.carryCount.setColor(this.theme.text)
   }
 
+  private drinkFx(time: number): SipFx | null {
+    const drink = this.drink
+    if (drink === null) return null
+    const elapsed = time - drink.start
+    if (elapsed >= DRINK_MS) {
+      this.drink = null
+      this.cup.setVisible(false)
+      return null
+    }
+    return {
+      raise: smoothstep(clamp01(elapsed / RAISE_MS)),
+      lower: smoothstep(clamp01((elapsed - LOWER_MS) / (DRINK_MS - LOWER_MS))),
+      pulse: gulpPulse(elapsed),
+    }
+  }
+
+  private eatFx(time: number): ChewFx | null {
+    const eat = this.eat
+    if (eat === null) return null
+    const elapsed = time - eat.start
+    if (elapsed >= EAT_MS) {
+      this.eat = null
+      this.food.setVisible(false)
+      return null
+    }
+    return {
+      raise: smoothstep(clamp01(elapsed / 120)),
+      lower: smoothstep(clamp01((elapsed - 450) / (EAT_MS - 450))),
+      chew: Math.abs(Math.sin(elapsed * 0.045)),
+    }
+  }
+
   /** Anchors the carried pile to the hand and flips it with the body. */
   private layoutCarry(facing: -1 | 1): void {
     this.carrying.forEach((icon, index) => {
@@ -249,7 +278,7 @@ export class PlayerView extends Phaser.GameObjects.Container {
     const bubble = this.scene.add
       .circle(cupX, -36, index === 0 ? 2.4 : 1.7, 0xffffff, 0.8)
       .setAlpha(0.9)
-    this.add(bubble)
+    this.addAbove(bubble)
     this.scene.tweens.add({
       targets: bubble,
       x: cupX + side * (6 + index * 1.5),

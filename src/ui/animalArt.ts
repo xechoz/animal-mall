@@ -5,6 +5,20 @@ import type { SpeciesId } from '../logic/types'
 const SIZE = 96
 const INK = 0x3b2f3a
 
+export const ANIMAL_TEXTURE_SIZE = SIZE
+export const ANIMAL_ORIGIN_Y = 0.9
+
+export type AnimalPart = 'body' | 'head' | 'tail' | 'paw'
+
+type Layer = 'shadow' | 'tail' | 'feet' | 'body' | 'head'
+
+const ALL_LAYERS: ReadonlySet<Layer> = new Set(['shadow', 'tail', 'feet', 'body', 'head'])
+const PART_LAYERS: Readonly<Record<Exclude<AnimalPart, 'paw'>, ReadonlySet<Layer>>> = {
+  body: new Set(['body']),
+  head: new Set(['head']),
+  tail: new Set(['tail']),
+}
+
 interface AnimalStyle {
   readonly body: number
   readonly bodyDark: number
@@ -89,11 +103,102 @@ export function playerTextureKey(): string {
   return 'animal-player'
 }
 
+export function animalPartKey(species: SpeciesId, part: AnimalPart): string {
+  return `animal-${species}-${part}`
+}
+
+export function playerPartKey(part: AnimalPart): string {
+  return `animal-player-${part}`
+}
+
+export interface TexturePoint {
+  readonly x: number
+  readonly y: number
+}
+
+/**
+ * Where the tail attaches to the body, in the shared 96x96 texture space.
+ * The split tail texture rotates around this point.
+ */
+const TAIL_PIVOTS: Readonly<Record<SpeciesId, TexturePoint>> = {
+  bear: { x: 77, y: 72 },
+  cat: { x: 68, y: 72 },
+  rabbit: { x: 78, y: 72 },
+  fox: { x: 68, y: 70 },
+  panda: { x: 77, y: 72 },
+  frog: { x: 77, y: 72 },
+  pig: { x: 76, y: 65 },
+  dog: { x: 68, y: 72 },
+}
+
+export function tailPivot(species: SpeciesId): TexturePoint {
+  return TAIL_PIVOTS[species]
+}
+
+export interface BlinkEye {
+  readonly x: number
+  readonly y: number
+  readonly r: number
+}
+
+const DEFAULT_EYES: readonly BlinkEye[] = [
+  { x: 40, y: 39, r: 3.8 },
+  { x: 56, y: 39, r: 3.8 },
+]
+
+/**
+ * Eyes the eyelid overlay has to cover. The frog's real eyes are the bulges on
+ * top of the head; the panda's sit inside the dark patches.
+ */
+export function blinkEyes(species: SpeciesId): readonly BlinkEye[] {
+  if (species === 'frog') {
+    return [
+      { x: 34, y: 20, r: 7.5 },
+      { x: 62, y: 20, r: 7.5 },
+    ]
+  }
+  if (species === 'panda') {
+    return [
+      { x: 40, y: 39, r: 4.8 },
+      { x: 56, y: 39, r: 4.8 },
+    ]
+  }
+  return DEFAULT_EYES
+}
+
+/** Colour to paint over the eye while blinking (the head colour around it). */
+export function eyeCoverColor(species: SpeciesId): number {
+  return STYLES[species].body
+}
+
 export function createAnimalTextures(scene: Phaser.Scene): void {
   for (const species of CUSTOMER_SPECIES) {
-    createTexture(scene, animalTextureKey(species), () => drawAnimal(scene, species, false))
+    createTexture(scene, animalTextureKey(species), () =>
+      drawAnimal(scene, species, false, ALL_LAYERS),
+    )
+    createTexture(scene, animalPartKey(species, 'body'), () =>
+      drawAnimal(scene, species, false, PART_LAYERS.body),
+    )
+    createTexture(scene, animalPartKey(species, 'head'), () =>
+      drawAnimal(scene, species, false, PART_LAYERS.head),
+    )
+    createTexture(scene, animalPartKey(species, 'tail'), () =>
+      drawAnimal(scene, species, false, PART_LAYERS.tail),
+    )
+    createTexture(scene, animalPartKey(species, 'paw'), () => drawPaw(scene, species))
   }
-  createTexture(scene, playerTextureKey(), () => drawAnimal(scene, 'bear', true))
+
+  createTexture(scene, playerTextureKey(), () => drawAnimal(scene, 'bear', true, ALL_LAYERS))
+  createTexture(scene, playerPartKey('body'), () =>
+    drawAnimal(scene, 'bear', true, PART_LAYERS.body),
+  )
+  createTexture(scene, playerPartKey('head'), () =>
+    drawAnimal(scene, 'bear', true, PART_LAYERS.head),
+  )
+  createTexture(scene, playerPartKey('tail'), () =>
+    drawAnimal(scene, 'bear', true, PART_LAYERS.tail),
+  )
+  createTexture(scene, playerPartKey('paw'), () => drawPaw(scene, 'bear'))
 }
 
 function createTexture(scene: Phaser.Scene, key: string, draw: () => Phaser.GameObjects.Graphics) {
@@ -103,20 +208,40 @@ function createTexture(scene: Phaser.Scene, key: string, draw: () => Phaser.Game
   graphics.destroy()
 }
 
+function drawPaw(scene: Phaser.Scene, species: SpeciesId): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics()
+  drawFoot(g, STYLES[species], 38)
+  return g
+}
+
 function drawAnimal(
   scene: Phaser.Scene,
   species: SpeciesId,
   player: boolean,
+  layers: ReadonlySet<Layer>,
 ): Phaser.GameObjects.Graphics {
   const style = STYLES[species]
   const g = scene.add.graphics()
 
-  g.fillStyle(INK, 0.16)
-  g.fillEllipse(48, 89, 46, 9)
+  if (layers.has('shadow')) {
+    g.fillStyle(INK, 0.16)
+    g.fillEllipse(48, 89, 46, 9)
+  }
+  if (layers.has('tail')) drawTail(g, species, style)
+  if (layers.has('feet')) drawFeet(g, style)
+  if (layers.has('body')) drawBody(g, species, style, player, layers.has('shadow'))
+  if (layers.has('head')) drawHead(g, species, style, player)
 
-  drawTail(g, species, style)
-  drawFeet(g, style)
+  return g
+}
 
+function drawBody(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  style: AnimalStyle,
+  player: boolean,
+  pocket: boolean,
+): void {
   g.fillStyle(INK, 1)
   g.fillEllipse(48, 68, 48, 38)
   g.fillStyle(style.bodyDark, 1)
@@ -145,6 +270,29 @@ function drawAnimal(
   g.fillRoundedRect(26, 63, 7, 14, 3)
   g.fillRoundedRect(63, 63, 7, 14, 3)
 
+  if (species === 'frog') {
+    g.fillStyle(0x3f7a4d, 0.45)
+    g.fillEllipse(33, 74, 7, 4)
+    g.fillEllipse(61, 78, 6, 3)
+    g.fillEllipse(48, 83, 5, 3)
+  }
+
+  // The portrait texture keeps the apron pocket. The walking body drops it so
+  // the split paws stay visible below the apron hem.
+  if (player && pocket) {
+    g.fillStyle(0x5fbf9f, 1)
+    g.fillRoundedRect(34, 78, 28, 12, 5)
+    g.fillStyle(0xfff3dd, 1)
+    g.fillRoundedRect(39, 81, 18, 6, 3)
+  }
+}
+
+function drawHead(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  style: AnimalStyle,
+  player: boolean,
+): void {
   const headY = 40
   drawEars(g, species, style, headY)
 
@@ -166,13 +314,6 @@ function drawAnimal(
         g.lineBetween(48 + side * 14, 47 + index * 2, 48 + side * 27, 45 + index * 4)
       }
     }
-  }
-
-  if (species === 'frog') {
-    g.fillStyle(0x3f7a4d, 0.45)
-    g.fillEllipse(33, 74, 7, 4)
-    g.fillEllipse(61, 78, 6, 3)
-    g.fillEllipse(48, 83, 5, 3)
   }
 
   if (species === 'rabbit') {
@@ -227,15 +368,6 @@ function drawAnimal(
   g.fillStyle(0xffffff, 0.5)
   g.fillCircle(32, 49, 1)
   g.fillCircle(64, 49, 1)
-
-  if (player) {
-    g.fillStyle(0x5fbf9f, 1)
-    g.fillRoundedRect(34, 78, 28, 12, 5)
-    g.fillStyle(0xfff3dd, 1)
-    g.fillRoundedRect(39, 81, 18, 6, 3)
-  }
-
-  return g
 }
 
 function drawEye(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
@@ -393,14 +525,18 @@ function curveTail(
 
 function drawFeet(g: Phaser.GameObjects.Graphics, style: AnimalStyle): void {
   for (const x of [38, 54]) {
-    g.fillStyle(INK, 1)
-    g.fillRoundedRect(x - 2, 80, 15, 10, 5)
-    g.fillStyle(style.bodyDark, 1)
-    g.fillRoundedRect(x, 81, 11, 8, 4)
-    g.lineStyle(1, INK, 0.35)
-    g.lineBetween(x + 4, 83, x + 4, 88)
-    g.lineBetween(x + 7, 83, x + 7, 88)
+    drawFoot(g, style, x)
   }
+}
+
+function drawFoot(g: Phaser.GameObjects.Graphics, style: AnimalStyle, x: number): void {
+  g.fillStyle(INK, 1)
+  g.fillRoundedRect(x - 2, 80, 15, 10, 5)
+  g.fillStyle(style.bodyDark, 1)
+  g.fillRoundedRect(x, 81, 11, 8, 4)
+  g.lineStyle(1, INK, 0.35)
+  g.lineBetween(x + 4, 83, x + 4, 88)
+  g.lineBetween(x + 7, 83, x + 7, 88)
 }
 
 function drawApron(g: Phaser.GameObjects.Graphics): void {

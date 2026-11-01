@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Rework how animals walk. Gaits are driven by the distance actually travelled,
+  so cadence follows the player's speed upgrades and each staff member's pace.
+  Rabbits and frogs hop with both feet, bears, pandas and pigs waddle, and cats,
+  foxes and dogs trot. Bodies squash and stretch, shadows stay grounded and
+  shrink in the air, paws alternate, heads trail the body, tails wag, eyes
+  blink, and hopping animals kick up a small landing puff. Walkers now use
+  layered body/head/tail/paw textures so those parts can move separately;
+  portraits, the menu and the shop cards keep the original single texture.
+
 - Compress the bundled audio: the music is now a 48 kbps stereo MP3 and the
   four WAV effects are 128 kbps mono MP3. The web package drops from about
   2.1 MB to 1.6 MB, below the 2 MB target, with the same sound keys and

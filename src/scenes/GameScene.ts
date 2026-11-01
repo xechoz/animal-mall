@@ -435,6 +435,7 @@ export class GameScene extends Phaser.Scene {
     })
 
     this.playerView = new PlayerView(this, theme)
+    this.playerView.landHandler = (x, y) => this.spawnDust(x, y)
     this.world.add(this.playerView)
     this.buildSlotHits()
     this.updateWorldViews()
@@ -809,7 +810,14 @@ export class GameScene extends Phaser.Scene {
       alive.add(customer.id)
       let view = this.customerViews.get(customer.id)
       if (view === undefined) {
-        view = new CustomerView(this, this.services.theme, customer.species, this.layout.worldText)
+        view = new CustomerView(
+          this,
+          this.services.theme,
+          customer.species,
+          this.layout.worldText,
+          customer.id,
+        )
+        view.landHandler = (x, y) => this.spawnDust(x, y)
         this.world.add(view)
         this.customerViews.set(customer.id, view)
       }
@@ -831,6 +839,7 @@ export class GameScene extends Phaser.Scene {
       if (view === undefined) {
         view = new StaffView(this, this.services.theme, member, this.layout.worldText)
         view.hit.on('pointerup', () => this.urgeStaffById(member.id))
+        view.landHandler = (x, y) => this.spawnDust(x, y)
         this.world.add(view)
         this.staffViews.set(member.id, view)
       }
@@ -842,6 +851,24 @@ export class GameScene extends Phaser.Scene {
       view.destroy()
       this.staffViews.delete(id)
     }
+  }
+
+  /** A tiny puff of floor dust where a hopping animal lands. */
+  private spawnDust(x: number, y: number): void {
+    const side = Math.floor(x + y) % 2 === 0 ? -1 : 1
+    const puff = this.add.circle(x, y + 1, 2.4, 0xdcc8a4, 0.4)
+    this.world.add(puff)
+    puff.setDepth(y - 2)
+    this.tweens.add({
+      targets: puff,
+      x: x + side * 5,
+      y: y - 7,
+      scale: 2.1,
+      alpha: 0,
+      duration: 320,
+      ease: 'Quad.easeOut',
+      onComplete: () => puff.destroy(),
+    })
   }
 
   private updateWorldViews(): void {

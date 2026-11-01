@@ -1,10 +1,11 @@
 import { type Theme, textStyle } from '@mg/core'
-import Phaser from 'phaser'
+import type Phaser from 'phaser'
 import type { StaffState } from '../logic/types'
-import { animalTextureKey } from './animalArt'
+import { AnimalRig } from './AnimalRig'
 import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
 
+const BODY_SCALE = 0.78
 const APRON = {
   cashier: 0x5fbf9f,
   picker: 0x7fa65a,
@@ -19,10 +20,10 @@ const CARRY_LEAN = 1.2
 const CARRY_BADGE_X = 10
 const CARRY_BADGE_Y = -3
 
-export class StaffView extends Phaser.GameObjects.Container {
+export class StaffView extends AnimalRig {
   readonly hit: Phaser.GameObjects.Zone
-  private readonly bodyImage: Phaser.GameObjects.Image
   private readonly apron: Phaser.GameObjects.Graphics
+  private readonly hat: Phaser.GameObjects.Graphics
   private readonly carrying: Phaser.GameObjects.Image[] = []
   private readonly carryCount: Phaser.GameObjects.Text
   private readonly mood: Phaser.GameObjects.Graphics
@@ -31,22 +32,22 @@ export class StaffView extends Phaser.GameObjects.Container {
   private carryKey = ''
   private carryFacing: -1 | 1 = 1
   private lastPhase: StaffState['phase'] | '' = ''
+  private hatKind: StaffState['kind'] | '' = ''
 
   constructor(scene: Phaser.Scene, theme: Theme, member: StaffState, textScale: number) {
-    super(scene, member.pos.x, member.pos.y)
-    const shadow = scene.add.graphics()
-    shadow.fillStyle(0x3b2f3a, 0.18)
-    shadow.fillEllipse(0, 2, 40, 11)
-    this.add(shadow)
-
-    this.bodyImage = scene.add
-      .image(0, 0, animalTextureKey(member.species))
-      .setOrigin(0.5, 0.9)
-      .setScale(0.78)
-    this.add(this.bodyImage)
+    super(scene, {
+      species: member.species,
+      player: false,
+      scale: BODY_SCALE,
+      seed: member.id,
+      shadow: { width: 40, height: 11, alpha: 0.18 },
+    })
 
     this.apron = scene.add.graphics()
-    this.add(this.apron)
+    this.addBodyLayer(this.apron)
+
+    this.hat = scene.add.graphics()
+    this.addAbove(this.hat)
 
     for (let index = 0; index < 4; index += 1) {
       const icon = scene.add
@@ -54,7 +55,7 @@ export class StaffView extends Phaser.GameObjects.Container {
         .setScale(0.42)
         .setVisible(false)
       this.carrying.push(icon)
-      this.add(icon)
+      this.addAbove(icon)
     }
 
     this.carryCount = scene.add
@@ -68,13 +69,13 @@ export class StaffView extends Phaser.GameObjects.Container {
       .setBackgroundColor('#fff7e8')
       .setPadding(3, 0, 3, 0)
       .setVisible(false)
-    this.add(this.carryCount)
+    this.addAbove(this.carryCount)
     this.layoutCarry(1)
 
     this.mood = scene.add.graphics()
-    this.add(this.mood)
+    this.addAbove(this.mood)
     this.food = scene.add.image(0, 0, productTextureKey('apple')).setScale(0.42).setVisible(false)
-    this.add(this.food)
+    this.addAbove(this.food)
 
     this.sleep = scene.add
       .text(18, -96, 'Zzz', textStyle(theme, 14 * textScale, theme.text, true))
@@ -83,7 +84,7 @@ export class StaffView extends Phaser.GameObjects.Container {
       .setPadding(5, 1, 5, 1)
       .setAngle(-8)
       .setVisible(false)
-    this.add(this.sleep)
+    this.addAbove(this.sleep)
 
     this.hit = scene.add.zone(0, -38, 46, 86).setInteractive({ useHandCursor: true })
     this.add(this.hit)
@@ -95,12 +96,21 @@ export class StaffView extends Phaser.GameObjects.Container {
     const x = member.prevPos.x + (member.pos.x - member.prevPos.x) * alpha
     const y = member.prevPos.y + (member.pos.y - member.prevPos.y) * alpha
     const dining = member.phase === 'dining'
-    const bob = member.moving
-      ? Math.abs(Math.sin(time * 0.012)) * 3
-      : Math.sin(time * 0.003) * (dining ? 0.5 : 1)
-    this.setPosition(x, y - bob)
-    this.bodyImage.setPosition(0, dining ? 4 : 0)
-    this.bodyImage.setScale(member.facing * (dining ? 0.72 : 0.78), dining ? 0.72 : 0.78)
+    const seatedScale = dining ? 0.72 / BODY_SCALE : 1
+    const load = Math.min(1, member.carryCount / 6)
+    const frame = this.updateRig(
+      x,
+      y,
+      member.facing,
+      time,
+      {
+        y: dining ? 4 : 0,
+        scaleX: seatedScale,
+        scaleY: seatedScale,
+      },
+      load,
+    )
+
     if (member.facing !== this.carryFacing) {
       this.carryFacing = member.facing
       this.layoutCarry(member.facing)
@@ -111,19 +121,29 @@ export class StaffView extends Phaser.GameObjects.Container {
       this.food
         .setTexture(productTextureKey(member.carry))
         .setVisible(true)
-        .setPosition(member.facing * 16, -24 - chew * 2)
+        .setPosition(member.facing * 16 + frame.headX, -24 - chew * 2 + frame.headY)
         .setScale(member.facing * 0.42, 0.42)
         .setRotation(-member.facing * 0.2)
     } else {
       this.food.setVisible(false)
     }
+    this.mood.setPosition(frame.headX, frame.headY)
 
     this.apron.clear()
     this.apron.fillStyle(APRON[member.kind], 0.9)
     this.apron.fillRoundedRect(-13, -34, 26, 25, 6)
     this.apron.fillStyle(0xffffff, 0.35)
     this.apron.fillRoundedRect(-11, -32, 8, 6, 3)
-    if (member.kind === 'chef') this.drawChefHat()
+
+    if (member.kind === 'chef') {
+      if (this.hatKind !== 'chef') {
+        this.hatKind = 'chef'
+        this.drawChefHat()
+      }
+      this.hat.setPosition(frame.headX, frame.headY).setVisible(true)
+    } else {
+      this.hat.setVisible(false)
+    }
 
     if (member.phase !== this.lastPhase) {
       this.lastPhase = member.phase
@@ -131,7 +151,10 @@ export class StaffView extends Phaser.GameObjects.Container {
     }
     if (member.phase === 'resting') {
       this.sleep.setAlpha(0.62 + Math.abs(Math.sin(time * 0.004)) * 0.38)
-      this.sleep.setY(-96 + Math.sin(time * 0.004) * 3)
+      this.sleep.setPosition(
+        18 + frame.headX * 0.5,
+        -96 + frame.headY * 0.5 + Math.sin(time * 0.004) * 3,
+      )
     }
 
     const key = `${member.carry}-${member.carryCount}`
@@ -163,15 +186,16 @@ export class StaffView extends Phaser.GameObjects.Container {
   }
 
   private drawChefHat(): void {
-    this.apron.fillStyle(0xffffff, 1)
-    this.apron.fillRoundedRect(-11, -62, 22, 9, 3)
-    this.apron.fillCircle(-9, -64, 5)
-    this.apron.fillCircle(0, -67, 6)
-    this.apron.fillCircle(9, -64, 5)
-    this.apron.lineStyle(1.5, 0xd9cbb5, 0.9)
-    this.apron.strokeRoundedRect(-11, -62, 22, 9, 3)
-    this.apron.fillStyle(0xe8b04c, 1)
-    this.apron.fillRoundedRect(-12, -54, 24, 3, 1.5)
+    this.hat.clear()
+    this.hat.fillStyle(0xffffff, 1)
+    this.hat.fillRoundedRect(-11, -62, 22, 9, 3)
+    this.hat.fillCircle(-9, -64, 5)
+    this.hat.fillCircle(0, -67, 6)
+    this.hat.fillCircle(9, -64, 5)
+    this.hat.lineStyle(1.5, 0xd9cbb5, 0.9)
+    this.hat.strokeRoundedRect(-11, -62, 22, 9, 3)
+    this.hat.fillStyle(0xe8b04c, 1)
+    this.hat.fillRoundedRect(-12, -54, 24, 3, 1.5)
   }
 
   private drawMood(phase: StaffState['phase']): void {

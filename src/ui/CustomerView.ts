@@ -1,11 +1,12 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { CustomerState } from '../logic/types'
-import { animalTextureKey } from './animalArt'
+import { AnimalRig } from './AnimalRig'
 import { productTextureKey } from './productArt'
 
-export class CustomerView extends Phaser.GameObjects.Container {
-  private readonly bodyImage: Phaser.GameObjects.Image
+const BODY_SCALE = 0.74
+
+export class CustomerView extends AnimalRig {
   private readonly moodArt: Phaser.GameObjects.Graphics
   private readonly bubble: Phaser.GameObjects.Container
   private readonly bubbleBg: Phaser.GameObjects.Graphics
@@ -18,32 +19,31 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private readonly theme: Theme
   private bubbleKey = ''
   private basketKey = ''
+  private facing: -1 | 1 = 1
 
   constructor(
     scene: Phaser.Scene,
     theme: Theme,
     species: CustomerState['species'],
     textScale: number,
+    seed: number,
   ) {
-    super(scene, 0, 0)
+    super(scene, {
+      species,
+      player: false,
+      scale: BODY_SCALE,
+      seed,
+      shadow: { width: 34, height: 10, alpha: 0.16 },
+    })
     this.theme = theme
 
-    const shadow = scene.add.graphics()
-    shadow.fillStyle(0x3b2f3a, 0.16)
-    shadow.fillEllipse(0, 2, 34, 10)
-    this.add(shadow)
-
-    this.bodyImage = scene.add
-      .image(0, 0, animalTextureKey(species))
-      .setOrigin(0.5, 0.9)
-      .setScale(0.74)
-    this.add(this.bodyImage)
     this.moodArt = scene.add.graphics()
-    this.add(this.moodArt)
+    this.addAbove(this.moodArt)
 
     this.patienceBg = scene.add.rectangle(0, -66, 46, 6, 0x3b2f3a, 0.28).setOrigin(0.5)
     this.patienceFill = scene.add.rectangle(-23, -66, 46, 6, 0x5fbf9f, 1).setOrigin(0, 0.5)
-    this.add([this.patienceBg, this.patienceFill])
+    this.addAbove(this.patienceBg)
+    this.addAbove(this.patienceFill)
 
     this.bubble = scene.add.container(0, -94)
     this.bubbleBg = scene.add.graphics()
@@ -61,7 +61,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
       .setOrigin(0.5)
       .setVisible(false)
     this.bubble.add(this.bubbleMark)
-    this.add(this.bubble)
+    this.addAbove(this.bubble)
 
     this.basket = scene.add.container(20, -24)
     const basketArt = scene.add.graphics()
@@ -79,7 +79,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
       .setOrigin(0.5)
     this.basket.add(this.basketText)
     this.basket.setVisible(false)
-    this.add(this.basket)
+    this.addAbove(this.basket)
 
     scene.add.existing(this)
   }
@@ -88,23 +88,20 @@ export class CustomerView extends Phaser.GameObjects.Container {
     const x = customer.prevPos.x + (customer.pos.x - customer.prevPos.x) * alpha
     const y = customer.prevPos.y + (customer.pos.y - customer.prevPos.y) * alpha
     const dx = customer.pos.x - customer.prevPos.x
-    const moving =
-      customer.phase !== 'picking' &&
-      customer.phase !== 'inQueue' &&
-      Math.abs(dx) + Math.abs(customer.pos.y - customer.prevPos.y) > 0.01
-    const bob = moving ? Math.abs(Math.sin(time * 0.011 + customer.id)) * 2.5 : 0
-    this.setPosition(x, y - bob)
-    if (Math.abs(dx) > 0.01) this.bodyImage.setScale(dx < 0 ? -0.74 : 0.74, 0.74)
+    if (Math.abs(dx) > 0.01) this.facing = dx < 0 ? -1 : 1
+
+    const angry = customer.angerMs >= 1_200
+    const shake = angry ? Math.sin(time * 0.035 + customer.id) * 1.6 : 0
+    const frame = this.updateRig(x, y, this.facing, time, { x: shake })
+    this.moodArt.setPosition(frame.headX, frame.headY)
 
     const ratio = Math.max(0, Math.min(1, customer.patienceMs / customer.maxPatienceMs))
     this.patienceFill.setDisplaySize(46 * ratio, 6)
     this.patienceFill.setFillStyle(ratio > 0.55 ? 0x5fbf9f : ratio > 0.25 ? 0xffd166 : 0xe25d5d)
     this.patienceBg.setVisible(!customer.sad)
 
-    const angry = customer.angerMs >= 1_200
     this.drawMood(customer, angry, time)
     this.bubble.setVisible(!angry)
-    this.bodyImage.setX(angry ? Math.sin(time * 0.035 + customer.id) * 1.6 : 0)
 
     const bubbleKey = `${customer.phase}-${customer.wanted.join(',')}-${customer.basket.length}-${customer.sad}-${angry}`
     if (bubbleKey !== this.bubbleKey) {
@@ -119,11 +116,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
       this.basketText.setText(customer.basket.length > 1 ? `×${customer.basket.length}` : '')
     }
 
-    if (customer.sad) {
-      this.bodyImage.setTint(0xd9b0b0)
-    } else {
-      this.bodyImage.clearTint()
-    }
+    this.setTint(customer.sad ? 0xd9b0b0 : null)
   }
 
   private drawMood(customer: CustomerState, angry: boolean, time: number): void {
