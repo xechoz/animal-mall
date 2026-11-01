@@ -11,9 +11,9 @@
   layered body/head/tail/paw textures so those parts can move separately;
   portraits, the menu and the shop cards keep the original single texture.
 
-- Compress the bundled audio: the music is now a 48 kbps stereo MP3 and the
-  four WAV effects are 128 kbps mono MP3. The web package drops from about
-  2.1 MB to 1.6 MB, below the 2 MB target, with the same sound keys and
+- Compress the bundled audio: the music is now a 40 kbps stereo MP3 cut down to
+  the 109.7 s A-B-C-D loop, and the four WAV effects are 128 kbps mono MP3. The
+  web package drops from about 2.1 MB to 1.1 MB, with the same sound keys and
   licences.
 - Rebalance the shop floor plan: the four product zones are wider and taller,
   the dirt aisles and service band are narrower, and the dining/rest nook now
