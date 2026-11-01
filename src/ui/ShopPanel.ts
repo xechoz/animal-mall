@@ -21,6 +21,7 @@ import {
   ZONES,
   zoneOf,
 } from '../logic/config'
+import { type Goal, goalCost, nextGoal } from '../logic/goals'
 import { plantedCount, staffCost, staffMax, upgradeCost, upgradeMax } from '../logic/purchase'
 import type {
   PlantKind,
@@ -33,6 +34,7 @@ import type {
 import { animalTextureKey } from './animalArt'
 import { drawHeaderRibbon, drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
+import { createNextTag } from './nextTag'
 import { productTextureKey } from './productArt'
 import { drawToolIcon } from './toolArt'
 
@@ -296,6 +298,17 @@ export class ShopPanel {
       4 * ui,
       2 * ui,
     )
+    // The NEXT pill lives on the card itself; a dot on the owning tab tells the
+    // player where to look before that card is on screen.
+    if (this.goal()?.type === 'upgrade' && this.tab !== 'tools') {
+      const toolsIndex = tabOrder.indexOf('tools')
+      this.tabHighlight?.fillStyle(theme.accent, 1)
+      this.tabHighlight?.fillCircle(
+        30 * ui + toolsIndex * (tabWidth + gap) + tabWidth - 9 * ui,
+        this.tabY - this.tabHeight / 2 + 4 * ui,
+        4 * ui,
+      )
+    }
 
     this.zoneHighlight?.clear()
     if (this.tab !== 'production') return
@@ -309,6 +322,16 @@ export class ShopPanel {
       4 * ui,
       2 * ui,
     )
+    const goalZone = this.goalZone()
+    if (goalZone !== null && goalZone !== this.zone) {
+      const goalIndex = ZONE_ORDER.indexOf(goalZone)
+      this.zoneHighlight?.fillStyle(theme.accent, 1)
+      this.zoneHighlight?.fillCircle(
+        30 * ui + goalIndex * (chipWidth + gap) + chipWidth - 10 * ui,
+        this.chipY - this.chipHeight / 2 + 4 * ui,
+        4 * ui,
+      )
+    }
 
     for (const [tab, button] of this.tabButtons) {
       button.setAlpha(this.tab === tab ? 1 : 0.7)
@@ -351,6 +374,7 @@ export class ShopPanel {
 
     this.structureKey = this.structureKeyFor(this.state)
     this.refreshDynamic()
+    this.applyChromeSelection()
   }
 
   private renderLockedZone(
@@ -490,13 +514,12 @@ export class ShopPanel {
   ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = this.options
     const card = scene.add.container(x, y)
-    const g = scene.add.graphics()
-    g.fillStyle(theme.surface, 1)
     const ui = this.options.layout.ui
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
-    g.lineStyle(2 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    const g = scene.add.graphics()
+    const goal = this.isGoalProduct(product)
+    this.drawCardFace(g, width, height, goal)
     card.add(g)
+    if (goal) this.addNextTag(card, width, height)
 
     card.add(
       scene.add
@@ -638,12 +661,14 @@ export class ShopPanel {
     // Short landscape cards have no room for a diet/recipe line once the
     // button is placed; the picker still shows the essential output stats.
     const showDetail = height >= 190 * ui
+    const producer = this.state.producers.find(
+      (candidate) => candidate.slot === slot && zoneOf(candidate.product) === zone,
+    )
     const card = scene.add.container(x, y)
     const g = scene.add.graphics()
-    g.fillStyle(theme.surface, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
-    g.lineStyle(2 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    // An empty slot in the recommended zone is where the next purchase goes;
+    // the picker itself names the product with the NEXT pill.
+    this.drawCardFace(g, width, height, producer === undefined && this.goalZone() === zone)
     card.add(g)
 
     const slotName = i18n.t(zone === 'farm' ? 'shop.pen' : 'shop.station', { n: slot + 1 })
@@ -655,9 +680,6 @@ export class ShopPanel {
         .setOrigin(0, 0.5),
     )
 
-    const producer = this.state.producers.find(
-      (candidate) => candidate.slot === slot && zoneOf(candidate.product) === zone,
-    )
     if (producer === undefined) {
       card.add(
         scene.add
@@ -868,13 +890,12 @@ export class ShopPanel {
   ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = this.options
     const card = scene.add.container(x, y)
-    const g = scene.add.graphics()
-    g.fillStyle(theme.surface, 1)
     const ui = this.options.layout.ui
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
-    g.lineStyle(2 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    const g = scene.add.graphics()
+    const goal = this.isGoalUpgrade(kind)
+    this.drawCardFace(g, width, height, goal)
     card.add(g)
+    if (goal) this.addNextTag(card, width, height)
 
     const icon = scene.add.graphics()
     drawToolIcon(icon, kind, -width / 2 + 38 * ui, -height / 2 + 42 * ui, 24 * ui)
@@ -1062,6 +1083,64 @@ export class ShopPanel {
       enabled: true,
       lastText: '',
     })
+  }
+
+  /** The purchase the game would recommend next, if any. */
+  private goal(): Goal {
+    return nextGoal(this.state)
+  }
+
+  private goalZone(): ZoneId | null {
+    const goal = this.goal()
+    if (goal === null) return null
+    if (goal.type === 'zone') return goal.zone
+    return goal.type === 'producer' ? zoneOf(goal.product) : null
+  }
+
+  private isGoalProduct(product: ProductKind): boolean {
+    const goal = this.goal()
+    return goal !== null && goal.type === 'producer' && goal.product === product
+  }
+
+  private isGoalUpgrade(kind: UpgradeKind): boolean {
+    const goal = this.goal()
+    return goal !== null && goal.type === 'upgrade' && goal.kind === kind
+  }
+
+  private goalAffordable(): boolean {
+    const goal = this.goal()
+    return goal !== null && this.state.coins >= goalCost(this.state, goal)
+  }
+
+  /** Shared card face; `highlight` outlines the recommended purchase. */
+  private drawCardFace(
+    g: Phaser.GameObjects.Graphics,
+    width: number,
+    height: number,
+    highlight: boolean,
+    radius?: number,
+  ): void {
+    const { theme } = this.options
+    const ui = this.options.layout.ui
+    const r = radius ?? 16 * ui
+    g.fillStyle(theme.surface, 1)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, r)
+    g.lineStyle((highlight ? 3 : 2) * ui, highlight ? theme.accent : theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, r)
+  }
+
+  /** Straddles the card's top edge so it never fights the content rows. */
+  private addNextTag(card: Phaser.GameObjects.Container, width: number, height: number): void {
+    const ui = this.options.layout.ui
+    const tag = createNextTag({
+      scene: this.options.scene,
+      theme: this.options.theme,
+      i18n: this.options.i18n,
+      ui,
+      affordable: this.goalAffordable(),
+    })
+    tag.container.setPosition(width / 2 - tag.width / 2 - 12 * ui, -height / 2)
+    card.add(tag.container)
   }
 
   private refreshDynamic(): void {

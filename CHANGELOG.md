@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Simplify the top HUD: the full-width parchment bar is gone, leaving a floating
+  coin pill on the left and the shop and pause circles on the right with their
+  own shadow and ring. The middle "next purchase" hint, its item icon, price and
+  progress bar were removed; the same recommendation now sits on the item that
+  fulfils it — a NEXT pill on the plant or tool card, an accent frame on the
+  empty pen or station in that zone, an accent row inside the producer picker
+  and a dot on the tab or zone chip that leads there. The pill turns muted when
+  the player cannot afford it yet. The mobile landscape rail drops its panel and
+  its zone overview as well: only the coin pill and the shop and pause circles
+  remain, floating over the left edge.
+
 - Rework how animals walk. Gaits are driven by the distance actually travelled,
   so cadence follows the player's speed upgrades and each staff member's pace.
   Rabbits and frogs hop with both feet, bears, pandas and pigs waddle, and cats,

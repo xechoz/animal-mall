@@ -1,15 +1,10 @@
-import { Button, type I18n, mixColor, type Theme, textStyle } from '@mg/core'
+import { Button, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { ZONE_PRODUCTS } from '../logic/config'
-import { type Goal, goalCost, nextGoal } from '../logic/goals'
-import type { ProductKind, ShopState } from '../logic/types'
-import { drawPanelFrame } from './frames'
+import { goalCost, nextGoal } from '../logic/goals'
+import type { ShopState } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
 import type { GameLayout } from './layout'
-import { productTextureKey } from './productArt'
 import { RoundButton } from './RoundButton'
-import { drawToolIcon } from './toolArt'
-import { ZoneStatusRail } from './ZoneStatusRail'
 
 export interface HudCallbacks {
   readonly onShop: () => void
@@ -17,38 +12,27 @@ export interface HudCallbacks {
   readonly onDev?: () => void
 }
 
+const COIN_PILL_HEIGHT = 44
+const COIN_PILL_INSET = 26
+const COIN_RAIL_HEIGHT = 84
+
 export class Hud {
   private readonly theme: Theme
-  private readonly i18n: I18n
   private readonly bar: Phaser.GameObjects.Graphics
   private readonly coinIcon: Phaser.GameObjects.Image
   private readonly coinsText: Phaser.GameObjects.Text
-  private readonly goalIcon: Phaser.GameObjects.Image
-  private readonly goalTool: Phaser.GameObjects.Graphics
-  private readonly goalCoin: Phaser.GameObjects.Image
-  private readonly goalCost: Phaser.GameObjects.Text
-  private readonly goalBg: Phaser.GameObjects.Rectangle
-  private readonly goalFill: Phaser.GameObjects.Rectangle
   private readonly shopButton: RoundButton
   private readonly pauseButton: RoundButton
   private readonly devButton?: Button
-  private readonly zoneStatus: ZoneStatusRail
   private devEnabled = true
   private layout: GameLayout
   private vertical = false
   private coinBaseScale = 0.78
   private lastCoins = -1
-  private lastGoal = ''
+  private lastAffordable = false
 
-  constructor(
-    scene: Phaser.Scene,
-    layout: GameLayout,
-    theme: Theme,
-    i18n: I18n,
-    callbacks: HudCallbacks,
-  ) {
+  constructor(scene: Phaser.Scene, layout: GameLayout, theme: Theme, callbacks: HudCallbacks) {
     this.theme = theme
-    this.i18n = i18n
     this.layout = layout
 
     this.bar = scene.add.graphics().setDepth(6000)
@@ -60,25 +44,9 @@ export class Hud {
       .text(0, 0, '', textStyle(theme, 22 * layout.ui, theme.text, true))
       .setOrigin(0, 0.5)
       .setDepth(6002)
-    this.goalIcon = scene.add.image(0, 0, productTextureKey('apple')).setDepth(6002)
-    this.goalTool = scene.add.graphics().setDepth(6002)
-    this.goalCoin = scene.add
-      .image(0, 0, coinTextureKey())
-      .setDepth(6002)
-      .setScale(0.6 * layout.ui)
-    this.goalCost = scene.add
-      .text(0, 0, '', textStyle(theme, 16 * layout.ui, theme.text, true))
-      .setOrigin(0, 0.5)
-      .setDepth(6002)
-    this.goalBg = scene.add
-      .rectangle(0, 0, 10, 6 * layout.ui, theme.ink, 0.13)
-      .setOrigin(0, 0.5)
-      .setDepth(6002)
-    this.goalFill = scene.add
-      .rectangle(0, 0, 0, 6 * layout.ui, theme.accent, 1)
-      .setOrigin(0, 0.5)
-      .setDepth(6003)
 
+    // Shop and pause carry their own circular faces, so the top bar needs no
+    // panel behind them: the world keeps the full width and the HUD floats.
     this.shopButton = new RoundButton(scene, 0, 0, {
       icon: 'bag',
       theme,
@@ -105,7 +73,6 @@ export class Hud {
       })
       this.devButton.setDepth(6100)
     }
-    this.zoneStatus = new ZoneStatusRail(scene, layout, theme)
 
     this.relayout(layout)
   }
@@ -119,75 +86,32 @@ export class Hud {
     this.bar.clear()
 
     if (hud.vertical) {
-      drawPanelFrame(this.bar, bar.x, bar.y, bar.w, bar.h, this.theme, 20 * ui)
-      this.bar.fillStyle(this.theme.accentWarm, 0.32)
-      this.bar.fillRoundedRect(bar.x + 10 * ui, bar.y + 10 * ui, bar.w - 20 * ui, 80 * ui, 14 * ui)
-      this.bar.lineStyle(1.5, this.theme.borderSoft, 0.9)
-      this.bar.lineBetween(
-        bar.x + 16 * ui,
-        bar.y + 160 * ui,
-        bar.x + bar.w - 16 * ui,
-        bar.y + 160 * ui,
-      )
-      this.bar.lineBetween(
-        bar.x + 16 * ui,
-        hud.shop.y - 56 * ui,
-        bar.x + bar.w - 16 * ui,
-        hud.shop.y - 56 * ui,
-      )
-      this.bar.fillStyle(this.theme.accentWarm, 0.6)
-      this.bar.fillEllipse(bar.x + bar.w / 2, bar.y + bar.h - 12 * ui, 28 * ui, 4 * ui)
-    } else {
-      drawPanelFrame(this.bar, bar.x, bar.y, bar.w, bar.h, this.theme, 18 * ui)
-      this.bar.fillStyle(this.theme.accentWarm, 0.4)
-      this.bar.fillRoundedRect(bar.x + 10 * ui, bar.y + 8 * ui, 92 * ui, bar.h - 16 * ui, 12 * ui)
-    }
-
-    if (hud.vertical) {
       this.coinBaseScale = 0.7 * ui
       this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
       this.coinsText
         .setOrigin(0.5, 0.5)
         .setPosition(hud.coins.x, hud.coins.y + 27 * ui)
         .setFontSize(22 * ui)
-      this.goalIcon.setPosition(hud.goal.x - 30 * ui, hud.goal.y - 6 * ui).setScale(0.45 * ui)
-      this.goalCoin.setPosition(hud.goal.x - 8 * ui, hud.goal.y - 6 * ui).setScale(0.6 * ui)
-      this.goalCost
-        .setOrigin(0, 0.5)
-        .setPosition(hud.goal.x + 2 * ui, hud.goal.y - 6 * ui)
-        .setFontSize(16 * ui)
-      this.goalBg.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 16 * ui)
-      this.goalFill.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 16 * ui)
     } else {
       this.coinBaseScale = 0.78 * ui
-      this.coinIcon.setPosition(hud.coins.x - 24 * ui, hud.coins.y).setScale(this.coinBaseScale)
+      this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
       this.coinsText
         .setOrigin(0, 0.5)
-        .setPosition(hud.coins.x - 4 * ui, hud.coins.y)
+        .setPosition(hud.coins.x + 20 * ui, hud.coins.y)
         .setFontSize(22 * ui)
-      this.goalIcon.setPosition(hud.goal.x - 46 * ui, hud.goal.y - 7 * ui).setScale(0.45 * ui)
-      this.goalCoin.setPosition(hud.goal.x - 10 * ui, hud.goal.y - 7 * ui).setScale(0.6 * ui)
-      this.goalCost
-        .setOrigin(0, 0.5)
-        .setPosition(hud.goal.x + 4 * ui, hud.goal.y - 7 * ui)
-        .setFontSize(16 * ui)
-      this.goalBg.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 13 * ui)
-      this.goalFill.setPosition(hud.goal.x - hud.goalWidth / 2, hud.goal.y + 13 * ui)
     }
-    this.goalBg.setDisplaySize(hud.goalWidth, 6 * ui)
+    this.drawCoinPill()
     this.shopButton.setPosition(hud.shop.x, hud.shop.y)
     this.pauseButton.setPosition(hud.pause.x, hud.pause.y)
     this.devButton?.setPosition(
       hud.vertical ? bar.x + bar.w / 2 : hud.shop.x - 78 * ui,
       hud.vertical ? bar.y + bar.h - 44 * ui : hud.shop.y,
     )
-    this.zoneStatus.relayout(layout)
     this.lastCoins = -1
-    this.lastGoal = ''
+    this.lastAffordable = false
   }
 
   update(state: ShopState): void {
-    this.zoneStatus.update(state)
     if (state.coins !== this.lastCoins) {
       this.lastCoins = state.coins
       const text = String(state.coins)
@@ -198,90 +122,40 @@ export class Hud {
       } else {
         this.coinsText.setFontSize(22 * this.layout.ui)
       }
+      // The pill hugs the number, so every digit count stays readable over the
+      // world instead of floating as bare text.
+      this.bar.clear()
+      this.drawCoinPill()
     }
 
+    // "What to buy next" now lives on the shop cards; the button keeps only the
+    // affordable state as a badge so the world view stays quiet.
     const goal = nextGoal(state)
-    const cost = goalCost(state, goal)
-    const goalKey =
-      goal === null
-        ? 'done'
-        : goal.type === 'zone'
-          ? `zone:${goal.zone}`
-          : goal.type === 'producer'
-            ? `producer:${goal.product}`
-            : `upgrade:${goal.kind}`
-    const key = `${goalKey}-${cost}-${state.coins}`
-    if (key !== this.lastGoal) {
-      this.lastGoal = key
-      this.drawGoal(goal, cost, state)
-      this.goalCost.setColor(
-        goal !== null && state.coins >= cost ? this.theme.text : this.theme.textMuted,
-      )
-      const ratio = goal === null ? 1 : Math.min(1, state.coins / Math.max(1, cost))
-      this.goalFill.setDisplaySize(this.layout.hud.goalWidth * ratio, 6 * this.layout.ui)
-      this.goalFill.setFillStyle(
-        ratio >= 1
-          ? this.theme.accentAlt
-          : mixColor(this.theme.accent, this.theme.accentWarm, ratio),
-      )
-      this.shopButton.setBadge(goal !== null && state.coins >= cost)
+    const affordable = goal !== null && state.coins >= goalCost(state, goal)
+    if (affordable !== this.lastAffordable) {
+      this.lastAffordable = affordable
+      this.shopButton.setBadge(affordable)
     }
   }
 
-  private drawGoal(goal: Goal, cost: number, state: ShopState): void {
+  /** Floating coin pill: the only HUD surface left above the world. */
+  private drawCoinPill(): void {
     const hud = this.layout.hud
     const ui = this.layout.ui
-    const x = hud.goal.x
-    const y = hud.goal.y - (hud.vertical ? 6 : 7) * ui
-    const textual = hud.vertical && goal !== null && goal.type === 'zone' && cost === 0
-    this.goalTool.clear()
-    this.goalIcon.setVisible(goal !== null && goal.type !== 'upgrade' && !textual)
-    this.goalTool.setVisible(goal?.type === 'upgrade')
-    this.goalCoin.setVisible(goal !== null && cost > 0)
-    this.goalCost.setVisible(goal !== null)
-    const label =
-      goal === null
-        ? ''
-        : goal.type === 'zone' && cost === 0
-          ? goal.zone === 'veg' && state.served === 0
-            ? this.i18n.t('goal.afterSale')
-            : this.i18n.t('goal.free')
-          : String(cost)
-    this.goalCost.setText(label)
-    if (hud.vertical) {
-      if (textual) {
-        this.goalCost
-          .setOrigin(0.5, 0.5)
-          .setPosition(x, y)
-          .setFontSize(13 * ui)
-          .setWordWrapWidth(hud.goalWidth + 12 * ui, true)
-      } else {
-        this.goalCost
-          .setOrigin(0, 0.5)
-          .setPosition(x + 2 * ui, y)
-          .setFontSize(16 * ui)
-          .setWordWrapWidth(1000, true)
-      }
-    } else {
-      this.goalCost
-        .setOrigin(0, 0.5)
-        .setPosition(x + 4 * ui, y)
-        .setFontSize(16 * ui)
-        .setWordWrapWidth(1000, true)
-    }
-    if (goal?.type === 'producer') {
-      this.goalIcon.setTexture(productTextureKey(goal.product))
-    } else if (goal?.type === 'zone') {
-      this.goalIcon.setTexture(productTextureKey(ZONE_PRODUCTS[goal.zone][0] as ProductKind))
-    } else if (goal?.type === 'upgrade') {
-      drawToolIcon(
-        this.goalTool,
-        goal.kind,
-        hud.vertical ? x - 30 * ui : x - 46 * ui,
-        y,
-        (hud.vertical ? 18 : 20) * ui,
-      )
-    }
+    const radius = hud.vertical ? 16 * ui : (COIN_PILL_HEIGHT * ui) / 2
+    const height = hud.vertical ? COIN_RAIL_HEIGHT * ui : COIN_PILL_HEIGHT * ui
+    const x = hud.vertical ? hud.bar.x : hud.coins.x - COIN_PILL_INSET * ui
+    const y = hud.vertical ? hud.bar.y : hud.coins.y - height / 2
+    const width = hud.vertical
+      ? hud.bar.w
+      : Math.max(72 * ui, this.coinsText.x - x + this.coinsText.width + 16 * ui)
+
+    this.bar.fillStyle(this.theme.shadow, 0.18)
+    this.bar.fillRoundedRect(x, y + 3 * ui, width, height, radius)
+    this.bar.fillStyle(this.theme.panel, 0.96)
+    this.bar.fillRoundedRect(x, y, width, height, radius)
+    this.bar.lineStyle(1.5 * ui, this.theme.borderSoft, 0.9)
+    this.bar.strokeRoundedRect(x, y, width, height, radius)
   }
 
   setEnabled(enabled: boolean): void {

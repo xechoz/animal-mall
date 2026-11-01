@@ -11,10 +11,12 @@ import {
   ZONE_PRODUCTS,
   zoneOf,
 } from '../logic/config'
+import { goalCost, nextGoal } from '../logic/goals'
 import { plantDepositKey } from '../logic/purchase'
 import type { ProductKind, ShopState, ZoneId } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
 import { type GameLayout, worldToScreen } from './layout'
+import { createNextTag } from './nextTag'
 import { productTextureKey } from './productArt'
 
 export interface SlotPickerOptions {
@@ -55,6 +57,15 @@ export class SlotPicker {
     const { scene, layout, theme, state, zone, slot, i18n } = options
     const ui = layout.ui
     const products = pickerProducts(zone)
+    // Recommend the same purchase the shop cards do, so the pill and the
+    // highlighted frame point at one product instead of leaving a stale hint
+    // on the top bar.
+    const goal = nextGoal(state)
+    const goalProduct =
+      goal !== null && goal.type === 'producer' && zoneOf(goal.product) === zone
+        ? goal.product
+        : undefined
+    const goalAffordable = goal !== null && state.coins >= goalCost(state, goal)
     const rows = Math.ceil(products.length / COLUMNS)
     const width = (PADDING * 2 + COLUMNS * BUTTON_W + (COLUMNS - 1) * GAP) * ui
     const height = (PADDING * 2 + HEADER_H + rows * BUTTON_H + (rows - 1) * GAP) * ui
@@ -165,6 +176,8 @@ export class SlotPicker {
           enabled,
           current === product,
           installedElsewhere,
+          product === goalProduct,
+          goalAffordable,
         ),
       )
     })
@@ -185,6 +198,8 @@ export class SlotPicker {
     enabled: boolean,
     current: boolean,
     installedElsewhere: boolean,
+    goal: boolean,
+    goalAffordable: boolean,
   ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = options
     const ui = options.layout.ui
@@ -194,9 +209,25 @@ export class SlotPicker {
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, enabled ? 1 : 0.55)
     g.fillRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
-    g.lineStyle(3 * ui, current ? theme.accentAlt : enabled ? theme.borderSoft : theme.ink, 1)
+    g.lineStyle(
+      3 * ui,
+      goal ? theme.accent : current ? theme.accentAlt : enabled ? theme.borderSoft : theme.ink,
+      1,
+    )
     g.strokeRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
     button.add(g)
+
+    if (goal) {
+      const tag = createNextTag({
+        scene,
+        theme,
+        i18n,
+        ui,
+        affordable: goalAffordable,
+      })
+      tag.container.setPosition(buttonW / 2 - tag.width / 2 - 6 * ui, -buttonH / 2)
+      button.add(tag.container)
+    }
 
     const icon = scene.add.image(-43 * ui, 0, productTextureKey(product)).setScale(0.6 * ui)
     if (!enabled) icon.setAlpha(0.5)

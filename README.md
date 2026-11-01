@@ -17,8 +17,13 @@ state: customers keep arriving, and a missed sale only costs that sale.
 - Press and drag anywhere on the play field to move; there is no visible stick.
   WASD / arrow keys also work and take priority while held.
 - The shop adapts to both orientations: a tall plan in portrait and four zones
-  in a row in landscape. On phones and tablets the landscape HUD becomes a left
-  vertical rail; desktop keeps the top bar. Phones also scale the interface up
+  in a row in landscape. On phones and tablets the landscape HUD becomes a
+  floating left column — a coin pill at the top and the shop and pause buttons
+  at the bottom, with no panel behind them; desktop and portrait keep the coin
+  pill on the left and the buttons on the right.
+  The shop recommends the next purchase with a `NEXT` pill on the matching card
+  and a dot on the zone or tab that leads there. Phones also scale the interface
+  up
   (`src/ui/scale.ts`) so HUD text, buttons and in-world labels stay readable;
   tablets and desktops keep 1:1 design units. Rotating pauses and remaps the run
   without losing coins, plants, upgrades or deposits. On phones, tapping Start

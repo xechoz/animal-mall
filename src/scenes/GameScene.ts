@@ -643,7 +643,7 @@ export class GameScene extends Phaser.Scene {
 
   private buildHudAndInput(): void {
     const devEnabled = import.meta.env.DEV || this.services.debug
-    this.hud = new Hud(this, this.layout, this.services.theme, this.services.i18n, {
+    this.hud = new Hud(this, this.layout, this.services.theme, {
       onShop: () => this.openShop(),
       onPause: () => this.pauseGame(),
       ...(devEnabled ? { onDev: () => this.openDevPanel() } : {}),

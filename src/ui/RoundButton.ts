@@ -109,8 +109,11 @@ export class RoundButton extends Phaser.GameObjects.Container {
     const g = this.face
     g.clear()
 
-    const base = this.variant === 'primary' ? this.theme.accent : this.theme.panel
-    const hover = this.variant === 'primary' ? this.theme.accentHover : this.theme.surfaceAlt
+    const base = this.variant === 'primary' ? this.theme.accent : this.theme.surface
+    const hover =
+      this.variant === 'primary'
+        ? this.theme.accentHover
+        : mixColor(this.theme.surface, this.theme.accentWarm, 0.5)
     const faceColor = !this.enabled
       ? mixColor(base, this.theme.borderSoft, 0.55)
       : this.pressed
@@ -120,11 +123,13 @@ export class RoundButton extends Phaser.GameObjects.Container {
           : base
     const iconColor = this.variant === 'primary' ? this.theme.onAccent : this.theme.ink
 
-    g.fillStyle(this.theme.shadow, 0.16)
-    g.fillCircle(0, 4, radius)
+    // Both buttons float over the world with no bar behind them, so they carry
+    // their own shadow and a ring dark enough to read on grass and floor.
+    g.fillStyle(this.theme.shadow, 0.2)
+    g.fillCircle(0, 5, radius)
     g.fillStyle(faceColor, 1)
     g.fillCircle(0, 0, radius)
-    g.lineStyle(3, this.theme.ink, this.variant === 'primary' ? 0.75 : 0.35)
+    g.lineStyle(3, this.theme.ink, this.variant === 'primary' ? 0.75 : 0.55)
     g.strokeCircle(0, 0, radius - 1)
 
     if (this.variant === 'primary') {

@@ -5,17 +5,14 @@ import { computeUiScale, computeWorldTextScale } from './scale'
 
 export interface HudLayout {
   readonly vertical: boolean
+  /** Reserved HUD safe area. Only the mobile rail paints a surface here. */
   readonly bar: Rect
   readonly coins: Vec2
-  readonly goal: Vec2
-  readonly goalWidth: number
+  /** Active drink buff chips sit here, above the world and clear of the rail. */
+  readonly buffTop: number
   readonly shop: Vec2
   readonly pause: Vec2
   readonly buttonSize: number
-  /** Top of the first zone row in the vertical rail. */
-  readonly zoneTop: number
-  readonly zoneRowHeight: number
-  readonly zoneRowGap: number
 }
 
 export interface GameLayout {
@@ -56,10 +53,7 @@ const EDGE_GAP = 4
 
 /** Vertical rail flow, in unscaled design units. */
 const RAIL_COIN_Y = 40
-const RAIL_GOAL_Y = 112
-const RAIL_ZONE_Y = 156
-const RAIL_ZONE_ROW = 32
-const RAIL_ZONE_GAP = 4
+const RAIL_BUFF_Y = 112
 const RAIL_BUTTON_GAP = 6
 const RAIL_BOTTOM_PAD = 10
 
@@ -139,25 +133,13 @@ export function computeGameLayout(
       bar,
       coins: vertical
         ? { x: centerX, y: bar.y + RAIL_COIN_Y * ui }
-        : { x: bar.x + 58 * ui, y: centerY },
-      goal: vertical
-        ? { x: centerX, y: bar.y + RAIL_GOAL_Y * ui }
-        : {
-            // Shift the goal left on mobile so long labels clear the buttons.
-            x: mobile ? bar.x + bar.w / 2 - buttonSize * 0.8 : insets.left + contentWidth / 2,
-            y: centerY,
-          },
-      goalWidth: vertical
-        ? bar.w - 32 * ui
-        : Math.min(220 * ui, Math.max(120 * ui, contentWidth * 0.3)),
+        : { x: bar.x + 36 * ui, y: centerY },
+      buffTop: vertical ? bar.y + RAIL_BUFF_Y * ui : bar.y + bar.h + 14 * ui,
       shop: vertical
         ? { x: centerX, y: pause.y - buttonSize - RAIL_BUTTON_GAP * ui }
         : { x: bar.x + bar.w - buttonSize * 1.55, y: centerY },
       pause,
       buttonSize,
-      zoneTop: bar.y + RAIL_ZONE_Y * ui,
-      zoneRowHeight: RAIL_ZONE_ROW * ui,
-      zoneRowGap: RAIL_ZONE_GAP * ui,
     },
     // Phones use the whole viewport: portrait keeps two columns, landscape
     // switches the shop panel to three so taller cards still fit.

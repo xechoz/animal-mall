@@ -89,9 +89,7 @@ export class BuffBar {
     const bar = this.layout.hud.bar
     const ui = this.layout.ui
     const x = this.layout.hud.vertical ? bar.x + bar.w / 2 : bar.x + 8 * ui + (CHIP_WIDTH * ui) / 2
-    const baseY = this.layout.hud.vertical
-      ? this.layout.hud.goal.y + 46 * ui
-      : bar.y + bar.h + 14 * ui
+    const baseY = this.layout.hud.buffTop
     for (const chip of Object.values(this.chips)) chip.label.setFontSize(12 * ui)
 
     for (const [index, kind] of this.active.entries()) {
