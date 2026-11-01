@@ -106,6 +106,21 @@ submodule. Do not copy platform source into this repo.
   The chooser is modal: movement input is locked until it closes through `×`, the
   backdrop or `Esc`, and it shows the planted crop and its refund. The old crop
   refunds half, and the new crop costs full price.
+- Farm pens and kitchen stations are generic slots. `map.animalPens` and
+  `map.stationSlots` are arrays; every farm product (including the pond) can be
+  installed in any pen and every processed product in any station.
+  `producerPosition` and `producerAccess` index by `slot`, never by product.
+  Save version 7 stores the slot, rejects a duplicate product and relocates a
+  duplicate slot instead of losing the producer.
+- Producer swapping follows the crop rule: long press the pen/station or tap its
+  pitchfork/wrench tag, never a proximity dwell. The tag appears after the
+  player stops, fades over the last ~35 units, and only the tag itself is
+  tappable. An empty slot opens the chooser after 500 ms or a short tap. The old
+  producer refunds half, the new one costs full price, the player keeps carried
+  goods and shelf stock, and a product can only be installed once.
+- The beehive is the one farm producer without a trough (`ANIMALS.honey.feed` is
+  `none`); the pond is manual. `feedSpace` returns 0 for both, and staff/pickers
+  must skip them when looking for a trough.
 - Plant deposits are per bed (`plant:<kind>:<slot>`). Never use one global
   deposit key for every slot; legacy `plant:<kind>` keys are read only on the
   first empty bed.

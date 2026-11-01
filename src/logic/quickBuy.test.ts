@@ -220,12 +220,35 @@ describe('quick buy', () => {
 
   it('stops offering the cashier sign once the cashier is hired', () => {
     const state = createShopState(
-      { ...appleSave(0), staff: { cashier: 1, picker: 0 } },
+      { ...appleSave(0), staff: { cashier: 1, picker: 0, chef: 0 } },
       PORTRAIT_MAP,
     )
     expect(
       mapOffers(state).some((offer) => offer.type === 'staff' && offer.kind === 'cashier'),
     ).toBe(false)
+  })
+
+  it('only offers the chef once the kitchen is unlocked', () => {
+    const locked = createShopState(appleSave(2_000), PORTRAIT_MAP)
+    expect(mapOffers(locked).some((offer) => offer.type === 'staff' && offer.kind === 'chef')).toBe(
+      false,
+    )
+    expect(purchaseStaff(locked, 'chef', false).result).toBe('lockedZone')
+
+    const open = createShopState(
+      {
+        ...appleSave(2_000),
+        zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      },
+      PORTRAIT_MAP,
+    )
+    expect(mapOffers(open).some((offer) => offer.type === 'staff' && offer.kind === 'chef')).toBe(
+      true,
+    )
+    const hired = purchaseStaff(open, 'chef', false)
+    expect(hired.result).toBe('ok')
+    expect(hired.state.staff.chef).toBe(1)
+    expect(hired.state.coins).toBe(1_200)
   })
 
   it('uses a plant deposit in the shop', () => {
@@ -242,7 +265,7 @@ describe('quick buy', () => {
     expect(bought.state.deposits[plantDepositKey('pear')]).toBeUndefined()
   })
 
-  it('quick-buys an animal when standing at its pen', () => {
+  it('opens the animal chooser after standing at an empty pen', () => {
     const state = createShopState(
       {
         ...initialSave(),
@@ -251,9 +274,31 @@ describe('quick buy', () => {
       },
       PORTRAIT_MAP,
     )
-    const pen = PORTRAIT_MAP.animalAccess.milk
-    const result = simulate(withPlayer(state, { x: pen.x, y: pen.y - 6 }), 30)
-    expect(result.state.producers.some((producer) => producer.product === 'milk')).toBe(true)
+    const pen = PORTRAIT_MAP.animalAccess[1] as Vec2
+    const result = simulate(withPlayer(state, { x: pen.x, y: pen.y }), 11)
+    expect(
+      result.events.some(
+        (event) =>
+          event.type === 'producerPickerReady' && event.zone === 'farm' && event.slot === 1,
+      ),
+    ).toBe(true)
+    expect(result.state.producers.some((producer) => producer.product === 'milk')).toBe(false)
+  })
+
+  it('never opens the animal chooser by standing at an occupied pen', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 1_000,
+        zones: { fruit: true, veg: true, farm: true, kitchen: false },
+        producers: [{ product: 'milk', slot: 1 }],
+      },
+      PORTRAIT_MAP,
+    )
+    const pen = PORTRAIT_MAP.animalAccess[1] as Vec2
+    const result = simulate(withPlayer(state, { x: pen.x, y: pen.y }), 30)
+    expect(result.events.some((event) => event.type === 'producerPickerReady')).toBe(false)
+    expect(result.events.some((event) => event.type === 'producerReplaced')).toBe(false)
   })
 
   it('unlocks the farm after standing at its shelf for half a second', () => {
@@ -321,7 +366,7 @@ describe('staff', () => {
       {
         ...appleSave(0),
         served: 3,
-        staff: { cashier: 1, picker: 0 },
+        staff: { cashier: 1, picker: 0, chef: 0 },
       },
       PORTRAIT_MAP,
     )
@@ -359,7 +404,7 @@ describe('staff', () => {
       {
         ...appleSave(0),
         served: 3,
-        staff: { cashier: 0, picker: 1 },
+        staff: { cashier: 0, picker: 1, chef: 0 },
       },
       PORTRAIT_MAP,
     )

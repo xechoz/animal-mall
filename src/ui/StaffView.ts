@@ -8,6 +8,7 @@ import { productTextureKey } from './productArt'
 const APRON = {
   cashier: 0x5fbf9f,
   picker: 0x7fa65a,
+  chef: 0xf3ebe0,
 } as const
 
 export class StaffView extends Phaser.GameObjects.Container {
@@ -84,6 +85,7 @@ export class StaffView extends Phaser.GameObjects.Container {
     this.apron.fillRoundedRect(-13, -34, 26, 25, 6)
     this.apron.fillStyle(0xffffff, 0.35)
     this.apron.fillRoundedRect(-11, -32, 8, 6, 3)
+    if (member.kind === 'chef') this.drawChefHat()
 
     if (member.phase !== this.lastPhase) {
       this.lastPhase = member.phase
@@ -107,6 +109,18 @@ export class StaffView extends Phaser.GameObjects.Container {
         .setText(overflow ? `×${member.carryCount}` : '')
         .setVisible(overflow && member.carry !== null)
     }
+  }
+
+  private drawChefHat(): void {
+    this.apron.fillStyle(0xffffff, 1)
+    this.apron.fillRoundedRect(-11, -62, 22, 9, 3)
+    this.apron.fillCircle(-9, -64, 5)
+    this.apron.fillCircle(0, -67, 6)
+    this.apron.fillCircle(9, -64, 5)
+    this.apron.lineStyle(1.5, 0xd9cbb5, 0.9)
+    this.apron.strokeRoundedRect(-11, -62, 22, 9, 3)
+    this.apron.fillStyle(0xe8b04c, 1)
+    this.apron.fillRoundedRect(-12, -54, 24, 3, 1.5)
   }
 
   private drawMood(phase: StaffState['phase']): void {

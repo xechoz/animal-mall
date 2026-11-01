@@ -35,8 +35,22 @@ export const VEG_ORDER: readonly VegKind[] = [
   'potato',
   'eggplant',
 ]
-export const ANIMAL_ORDER: readonly AnimalProductKind[] = ['egg', 'milk', 'yarn', 'fish']
-export const PROCESSED_ORDER: readonly ProcessedKind[] = ['cake', 'sweater', 'grilledFish', 'juice']
+export const ANIMAL_ORDER: readonly AnimalProductKind[] = [
+  'egg',
+  'milk',
+  'yarn',
+  'fish',
+  'cheese',
+  'honey',
+]
+export const PROCESSED_ORDER: readonly ProcessedKind[] = [
+  'cake',
+  'sweater',
+  'grilledFish',
+  'juice',
+  'jam',
+  'iceCream',
+]
 export const PLANT_ORDER: readonly PlantKind[] = [...FRUIT_ORDER, ...VEG_ORDER]
 export const PRODUCT_ORDER: readonly ProductKind[] = [
   ...FRUIT_ORDER,
@@ -122,13 +136,30 @@ export interface AnimalConfig {
   readonly price: number
   readonly cycleMs: number
   readonly capacity: number
+  /** `none` producers (fish, honey) work without a trough. */
+  readonly feed: 'trough' | 'none'
 }
 
 export const ANIMALS: Readonly<Record<AnimalProductKind, AnimalConfig>> = {
-  egg: { cost: 0, price: 12, cycleMs: 10_000, capacity: 3 },
-  milk: { cost: 350, price: 20, cycleMs: 16_000, capacity: 2 },
-  yarn: { cost: 550, price: 26, cycleMs: 20_000, capacity: 2 },
-  fish: { cost: 250, price: 18, cycleMs: 14_000, capacity: 3 },
+  egg: { cost: 0, price: 12, cycleMs: 10_000, capacity: 3, feed: 'trough' },
+  milk: { cost: 350, price: 20, cycleMs: 16_000, capacity: 2, feed: 'trough' },
+  yarn: { cost: 550, price: 26, cycleMs: 20_000, capacity: 2, feed: 'trough' },
+  fish: { cost: 250, price: 18, cycleMs: 14_000, capacity: 3, feed: 'none' },
+  cheese: { cost: 700, price: 34, cycleMs: 22_000, capacity: 2, feed: 'trough' },
+  honey: { cost: 900, price: 42, cycleMs: 26_000, capacity: 2, feed: 'none' },
+}
+
+/** Every farm pen can host any of these, including the pond. */
+export const PEN_SLOT_COUNT = 4
+/** Every kitchen station can host any processed product. */
+export const STATION_SLOT_COUNT = 4
+
+export function producerSlotCount(zone: 'farm' | 'kitchen'): number {
+  return zone === 'farm' ? PEN_SLOT_COUNT : STATION_SLOT_COUNT
+}
+
+export function animalNeedsTrough(product: AnimalProductKind): boolean {
+  return ANIMALS[product].feed === 'trough'
 }
 
 /** A trough holds one full production batch of whole produce items. */
@@ -197,6 +228,23 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
       { category: 'veg', count: 1 },
     ],
   },
+  jam: {
+    cost: 380,
+    price: 52,
+    craftMs: 9_000,
+    capacity: 3,
+    inputs: [{ category: 'fruit', count: 2 }],
+  },
+  iceCream: {
+    cost: 520,
+    price: 68,
+    craftMs: 12_000,
+    capacity: 3,
+    inputs: [
+      { product: 'milk', count: 1 },
+      { category: 'fruit', count: 1 },
+    ],
+  },
 }
 
 /** Dev-only overrides. Empty in normal play; the dev panel edits these live. */
@@ -247,7 +295,7 @@ export const UPGRADE_EFFECT: Readonly<Record<UpgradeKind, number>> = {
 /** Every shelf zone is upgraded on its own. */
 export const SHELF_UPGRADE_COSTS: readonly number[] = [40, 120, 260]
 
-export const STAFF_ORDER: readonly StaffKind[] = ['cashier', 'picker']
+export const STAFF_ORDER: readonly StaffKind[] = ['cashier', 'picker', 'chef']
 
 export interface StaffConfig {
   readonly costs: readonly number[]
@@ -257,6 +305,8 @@ export interface StaffConfig {
   readonly harvestMs: number
   readonly stockMs: number
   readonly feedMs: number
+  /** Time a chef spends pouring one batch of carried ingredients into a hopper. */
+  readonly loadMs: number
 }
 
 export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
@@ -268,6 +318,7 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
     harvestMs: 0,
     stockMs: 0,
     feedMs: 0,
+    loadMs: 0,
   },
   picker: {
     costs: [260, 680],
@@ -277,6 +328,17 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
     harvestMs: 520,
     stockMs: 320,
     feedMs: 260,
+    loadMs: 0,
+  },
+  chef: {
+    costs: [800, 1_800],
+    species: 'panda',
+    speed: 106,
+    carry: 6,
+    harvestMs: 260,
+    stockMs: 320,
+    feedMs: 0,
+    loadMs: 300,
   },
 }
 
@@ -369,6 +431,8 @@ export const QUICK_BUY = {
   zoneMargin: 36,
   /** How far outside a crop bed still counts as standing at that bed. */
   plotMargin: 38,
+  /** How far outside a farm pen or kitchen station counts as standing at it. */
+  slotMargin: 42,
 } as const
 
 export function carryCapacity(level: number): number {
@@ -420,11 +484,11 @@ export function producerPosition(map: ShopMap, product: ProductKind, slot: numbe
     return point === undefined ? map.playerStart : { x: point.x, y: point.y }
   }
   if (isAnimalProductKind(product)) {
-    const pen = map.animalPens[product]
-    return { x: pen.x, y: pen.y }
+    const pen = map.animalPens[slot] ?? map.animalPens[0]
+    return pen === undefined ? map.playerStart : { x: pen.x, y: pen.y }
   }
-  const station = map.stationSlots[product]
-  return { x: station.x, y: station.y }
+  const station = map.stationSlots[slot] ?? map.stationSlots[0]
+  return station === undefined ? map.playerStart : { x: station.x, y: station.y }
 }
 
 export function producerAccess(map: ShopMap, product: ProductKind, slot: number): Vec2 {
@@ -432,8 +496,8 @@ export function producerAccess(map: ShopMap, product: ProductKind, slot: number)
     const zone = isFruitKind(product) ? 'fruit' : 'veg'
     return map.plantAccess[zone][slot] ?? map.playerStart
   }
-  if (isAnimalProductKind(product)) return map.animalAccess[product]
-  return map.stationAccess[product]
+  if (isAnimalProductKind(product)) return map.animalAccess[slot] ?? map.playerStart
+  return map.stationAccess[slot] ?? map.playerStart
 }
 
 export {
@@ -495,5 +559,5 @@ export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   kitchen: 2,
 }
 
-export const SAVE_VERSION = 5
+export const SAVE_VERSION = 7
 export const STARTING_COINS = 100

@@ -223,5 +223,53 @@ function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void
       g.fillStyle(0x3b2f3a, 1)
       g.fillCircle(11, 19, 1.5)
       break
+    case 'cheese':
+      g.fillStyle(0xe0a93d, 1)
+      g.fillTriangle(8, 29, 32, 29, 32, 13)
+      g.fillStyle(0xffd166, 1)
+      g.fillTriangle(10, 27, 30, 27, 30, 15)
+      g.fillStyle(0xd99b2f, 1)
+      g.fillEllipse(24, 19, 4, 3)
+      g.fillEllipse(18, 23, 3, 2.4)
+      g.fillEllipse(27, 24, 2.6, 2)
+      break
+    case 'honey':
+      g.fillStyle(0xe0a93d, 1)
+      g.fillRoundedRect(11, 14, 18, 17, 4)
+      g.fillStyle(0xffb347, 1)
+      g.fillRoundedRect(13, 16, 14, 13, 3)
+      g.fillStyle(0xffd166, 1)
+      g.fillEllipse(20, 19, 9, 4)
+      g.lineStyle(2, 0x8f5734, 1)
+      g.lineBetween(20, 4, 24, 15)
+      g.fillStyle(0x8f5734, 1)
+      g.fillCircle(20, 4, 2.4)
+      g.fillStyle(0xfff7e8, 1)
+      g.fillRoundedRect(10, 12, 20, 4, 2)
+      break
+    case 'jam':
+      g.fillStyle(0xffffff, 0.8)
+      g.fillRoundedRect(11, 13, 18, 18, 4)
+      g.fillStyle(0xd94b6a, 1)
+      g.fillRoundedRect(13, 17, 14, 12, 3)
+      g.fillStyle(0xf07f8d, 1)
+      g.fillEllipse(20, 19, 8, 3)
+      g.fillStyle(0x8f5734, 1)
+      g.fillRoundedRect(10, 10, 20, 5, 2)
+      g.fillStyle(0x5aa96f, 1)
+      g.fillEllipse(24, 8, 7, 3)
+      break
+    case 'iceCream':
+      g.fillStyle(0xd9b25a, 1)
+      g.fillTriangle(13, 20, 27, 20, 20, 33)
+      g.fillStyle(0xfff7e8, 1)
+      g.fillCircle(20, 16, 8)
+      g.fillStyle(0xf5a3b5, 1)
+      g.fillCircle(20, 9, 6)
+      g.fillStyle(0xbfe8ef, 1)
+      g.fillCircle(14, 14, 3.2)
+      g.fillStyle(0xffffff, 0.6)
+      g.fillCircle(18, 7, 1.6)
+      break
   }
 }

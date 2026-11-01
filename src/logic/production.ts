@@ -1,6 +1,7 @@
 import { distance } from './collision'
 import {
   ANIMALS,
+  animalNeedsTrough,
   FEED_ORDER,
   FRUIT_ORDER,
   INTERACT,
@@ -201,7 +202,7 @@ export function nearestCollectable(
       producer.kind === 'animal' &&
       isAnimalProductKind(producer.product) &&
       producer.product !== 'fish'
-        ? map.animalAccess[producer.product]
+        ? (map.animalAccess[producer.slot] ?? producer.pos)
         : producer.pos
     const distanceToProducer = distance(pos, anchor)
     if (distanceToProducer <= INTERACT.harvestRadius && distanceToProducer < bestDistance) {
@@ -239,6 +240,28 @@ export function addStock(
       stock: { ...shelf.stock, [product]: stock },
       everStocked: { ...shelf.everStocked, [product]: stock > 0 },
     },
+  }
+}
+
+/** Removes goods from a shelf, e.g. a chef fetching ingredients for a station. */
+export function takeStock(
+  shelves: Record<ZoneId, ShelfState>,
+  product: ProductKind,
+  amount: number,
+): { shelves: Record<ZoneId, ShelfState>; taken: number } {
+  const zone = zoneOf(product)
+  const shelf = shelves[zone]
+  const taken = Math.min(Math.max(0, amount), shelf.stock[product])
+  if (taken <= 0) return { shelves, taken: 0 }
+  return {
+    shelves: {
+      ...shelves,
+      [zone]: {
+        ...shelf,
+        stock: { ...shelf.stock, [product]: shelf.stock[product] - taken },
+      },
+    },
+    taken,
   }
 }
 
@@ -291,7 +314,7 @@ function advanceAnimal(producer: ProducerState, dtMs: number, events: GameEvent[
   }
 
   let current = producer
-  if (current.progressMs === 0) {
+  if (config.feed === 'trough' && current.progressMs === 0) {
     const fed = takeFeed(current)
     if (fed === null) {
       if (!current.hungry) {
@@ -300,6 +323,8 @@ function advanceAnimal(producer: ProducerState, dtMs: number, events: GameEvent[
       return { ...current, hungry: true, progressMs: 0 }
     }
     current = { ...fed, hungry: false }
+  } else if (config.feed === 'none' && current.hungry) {
+    current = { ...current, hungry: false }
   }
 
   const progressMs = current.progressMs + dtMs
@@ -492,7 +517,7 @@ export function feedCount(producer: ProducerState): number {
 }
 
 export function feedSpace(producer: ProducerState): number {
-  if (!isAnimalProductKind(producer.product)) return 0
+  if (!isAnimalProductKind(producer.product) || !animalNeedsTrough(producer.product)) return 0
   return Math.max(0, troughCapacity(producer.product) - feedCount(producer))
 }
 
@@ -525,8 +550,9 @@ export function nearestTrough(
   let bestDistance = Number.POSITIVE_INFINITY
   for (const producer of producers) {
     if (!isAnimalProductKind(producer.product) || producer.product === 'fish') continue
+    if (!animalNeedsTrough(producer.product)) continue
     if (feedSpace(producer) <= 0) continue
-    const distanceToTrough = distance(pos, map.animalAccess[producer.product])
+    const distanceToTrough = distance(pos, map.animalAccess[producer.slot] ?? producer.pos)
     if (distanceToTrough > radius || distanceToTrough >= bestDistance) continue
     best = producer
     bestDistance = distanceToTrough

@@ -810,13 +810,17 @@ export function addProducerToState(state: ShopState, producer: ProducerState): S
   }
 }
 
-export function removeProducerFromState(state: ShopState, id: number): ShopState {
+export function removeProducerFromState(
+  state: ShopState,
+  id: number,
+  clearCarry = true,
+): ShopState {
   const removed = state.producers.find((producer) => producer.id === id)
   if (removed === undefined) return state
   const producers = state.producers.filter((producer) => producer.id !== id)
   const stillHasProduct = producers.some((producer) => producer.product === removed.product)
   let player = state.player
-  if (!stillHasProduct) {
+  if (clearCarry && !stillHasProduct) {
     player = { ...player, carry: removeCarry(player.carry, removed.product) }
   }
   const shelves = refreshShelves({ ...state.shelves }, producers, state.zones, state.shelfLevels)

@@ -2,12 +2,12 @@ import { Button, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import {
   ANIMALS,
+  animalNeedsTrough,
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
   PLANT_SHOP_ORDER,
   PLANTS,
-  producerCost,
   productPrice,
   RECIPES,
   STAFF,
@@ -18,7 +18,6 @@ import {
   UPGRADE_EFFECT,
   UPGRADE_ORDER,
   ZONE_ORDER,
-  ZONE_PRODUCTS,
   ZONES,
   zoneOf,
 } from '../logic/config'
@@ -47,7 +46,7 @@ export interface ShopPanelOptions {
   readonly i18n: I18n
   readonly state: ShopState
   readonly onPurchasePlant: (product: PlantKind) => ShopState
-  readonly onPurchaseProducer: (product: ProductKind) => ShopState
+  readonly onOpenProducerPicker: (zone: 'farm' | 'kitchen', slot: number) => void
   readonly onUnlockZone: (zone: ZoneId) => ShopState
   readonly onRemove: (id: number) => ShopState
   readonly onUpgrade: (kind: UpgradeKind) => ShopState
@@ -79,7 +78,7 @@ export class ShopPanel {
   private zone: ZoneId = 'fruit'
   private closed = false
   private structureKey = ''
-  private pendingBody = false
+  private bodyDirty = false
   private balanceText?: Phaser.GameObjects.Text
   private readonly tabButtons = new Map<Tab, Button>()
   private readonly zoneButtons = new Map<ZoneId, Button>()
@@ -115,14 +114,15 @@ export class ShopPanel {
 
   setState(state: ShopState): void {
     this.state = state
-    if (!this.closed) this.update(state)
+    if (!this.closed) this.bodyDirty = true
   }
 
   update(state: ShopState): void {
     if (this.closed) return
     this.state = state
-    if (this.structureKeyFor(state) !== this.structureKey) {
-      this.scheduleBodyRender()
+    if (this.bodyDirty || this.structureKeyFor(state) !== this.structureKey) {
+      this.bodyDirty = false
+      this.renderBody()
       return
     }
     this.refreshDynamic()
@@ -273,14 +273,14 @@ export class ShopPanel {
     if (this.tab === tab) return
     this.tab = tab
     this.applyChromeSelection()
-    this.scheduleBodyRender()
+    this.bodyDirty = true
   }
 
   private setZone(zone: ZoneId): void {
     if (this.zone === zone) return
     this.zone = zone
     this.applyChromeSelection()
-    this.scheduleBodyRender()
+    this.bodyDirty = true
   }
 
   private applyChromeSelection(): void {
@@ -324,16 +324,8 @@ export class ShopPanel {
     }
   }
 
-  private scheduleBodyRender(): void {
-    if (this.pendingBody) return
-    this.pendingBody = true
-    this.options.scene.time.delayedCall(120, () => {
-      this.pendingBody = false
-      if (!this.closed) this.renderBody()
-    })
-  }
-
   private renderBody(): void {
+    this.bodyDirty = false
     const { scene, layout } = this.options
     const panelX = (layout.width - layout.panelWidth) / 2
     const panelY = (layout.height - layout.panelHeight) / 2
@@ -604,21 +596,26 @@ export class ShopPanel {
     top: number,
     bottom: number,
   ): void {
+    if (zone !== 'farm' && zone !== 'kitchen') return
     const ui = this.options.layout.ui
     const gap = 10 * ui
     const gridTop = bottom - top >= 360 * ui ? this.renderShelfRow(parent, zone, w, top) : top
-    const products = ZONE_PRODUCTS[zone]
-    const columns = w > 700 ? 3 : 2
-    const rows = Math.ceil(products.length / columns)
+    const slots =
+      zone === 'farm' ? this.options.layout.map.animalPens : this.options.layout.map.stationSlots
+    // Four physical slots read best as a 2 x 2 grid; a 3 + 1 row wastes width
+    // and leaves one orphan card.
+    const columns = 2
+    const rows = Math.ceil(slots.length / columns)
     const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
     const cardH = Math.min((bottom - gridTop - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
     const topOffset = gridTop + (bottom - gridTop - (rows * cardH + gap * (rows - 1))) / 2
-    products.forEach((product, index) => {
+    slots.forEach((slot, index) => {
       const column = index % columns
       const row = Math.floor(index / columns)
       parent.add(
-        this.producerCard(
-          product,
+        this.slotCard(
+          zone,
+          slot.index,
           30 * ui + column * (cardW + gap) + cardW / 2,
           topOffset + row * (cardH + gap) + cardH / 2,
           cardW,
@@ -626,6 +623,143 @@ export class ShopPanel {
         ),
       )
     })
+  }
+
+  /**
+   * Farm pens and kitchen stations are slots, not products. The card shows what
+   * is installed and opens the same chooser as the in-world tool tag, so the
+   * player can compare every animal or machine before paying.
+   */
+  private slotCard(
+    zone: 'farm' | 'kitchen',
+    slot: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Phaser.GameObjects.Container {
+    const { scene, theme, i18n } = this.options
+    const ui = this.options.layout.ui
+    // Short landscape cards have no room for a diet/recipe line once the
+    // button is placed; the picker still shows the essential output stats.
+    const showDetail = height >= 190 * ui
+    const card = scene.add.container(x, y)
+    const g = scene.add.graphics()
+    g.fillStyle(theme.surface, 1)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    card.add(g)
+
+    const slotName = i18n.t(zone === 'farm' ? 'shop.pen' : 'shop.station', { n: slot + 1 })
+    card.add(
+      scene.add
+        .text(-width / 2 + 20 * ui, -height / 2 + 18 * ui, slotName, {
+          ...textStyle(theme, 11 * ui, theme.textMuted, true),
+        })
+        .setOrigin(0, 0.5),
+    )
+
+    const producer = this.state.producers.find(
+      (candidate) => candidate.slot === slot && zoneOf(candidate.product) === zone,
+    )
+    if (producer === undefined) {
+      card.add(
+        scene.add
+          .text(
+            -width / 2 + 20 * ui,
+            -height / 2 + 52 * ui,
+            i18n.t(zone === 'farm' ? 'shop.emptyPen' : 'shop.emptyStation'),
+            textStyle(theme, 18 * ui, theme.text, true),
+          )
+          .setOrigin(0, 0.5),
+      )
+      if (showDetail) {
+        card.add(
+          scene.add
+            .text(
+              -width / 2 + 20 * ui,
+              -height / 2 + 80 * ui,
+              i18n.t(zone === 'farm' ? 'shop.emptyPenHint' : 'shop.emptyStationHint'),
+              {
+                ...textStyle(theme, 12 * ui, theme.textMuted),
+                wordWrap: { width: width - 40 * ui },
+              },
+            )
+            .setOrigin(0, 0.5),
+        )
+      }
+      card.add(
+        new Button(
+          scene,
+          0,
+          height / 2 - 32 * ui,
+          i18n.t(zone === 'farm' ? 'shop.chooseAnimal' : 'shop.chooseMachine'),
+          theme,
+          {
+            width: width - 40 * ui,
+            height: 46 * ui,
+            fontSize: 14 * ui,
+            minHitSize: 64,
+            variant: 'primary',
+            onClick: () => this.options.onOpenProducerPicker(zone, slot),
+          },
+        ),
+      )
+      return card
+    }
+
+    card.add(
+      scene.add
+        .image(-width / 2 + 34 * ui, -height / 2 + 54 * ui, productTextureKey(producer.product))
+        .setScale(0.68 * ui),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 62 * ui,
+          -height / 2 + 44 * ui,
+          this.producerName(producer.product),
+          textStyle(theme, 17 * ui, theme.text, true),
+        )
+        .setOrigin(0, 0.5),
+    )
+    card.add(
+      scene.add
+        .text(
+          -width / 2 + 62 * ui,
+          -height / 2 + 68 * ui,
+          this.producerStats(producer.product),
+          textStyle(theme, 12 * ui, theme.textMuted),
+        )
+        .setOrigin(0, 0.5),
+    )
+    if (showDetail) {
+      card.add(
+        scene.add
+          .text(
+            -width / 2 + 20 * ui,
+            -height / 2 + 94 * ui,
+            this.producerDetail(producer.product),
+            {
+              ...textStyle(theme, 12 * ui, theme.textMuted),
+              wordWrap: { width: width - 40 * ui },
+            },
+          )
+          .setOrigin(0, 0.5),
+      )
+    }
+    card.add(
+      new Button(scene, 0, height / 2 - 32 * ui, i18n.t('shop.replace'), theme, {
+        width: width - 40 * ui,
+        height: 46 * ui,
+        fontSize: 14 * ui,
+        minHitSize: 64,
+        variant: 'soft',
+        onClick: () => this.options.onOpenProducerPicker(zone, slot),
+      }),
+    )
+    return card
   }
 
   /** Compact per-zone shelf upgrade above the product grid. */
@@ -706,89 +840,6 @@ export class ShopPanel {
     card.add(buy)
     parent.add(card)
     return top + height + 8 * ui
-  }
-
-  private producerCard(
-    product: ProductKind,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-  ): Phaser.GameObjects.Container {
-    const { scene, theme, i18n } = this.options
-    const card = scene.add.container(x, y)
-    const g = scene.add.graphics()
-    g.fillStyle(theme.surface, 1)
-    const ui = this.options.layout.ui
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
-    g.lineStyle(2 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
-    card.add(g)
-
-    card.add(
-      scene.add
-        .image(-width / 2 + 34 * ui, -height / 2 + 36 * ui, productTextureKey(product))
-        .setScale(0.68 * ui),
-    )
-    card.add(
-      scene.add
-        .text(
-          -width / 2 + 62 * ui,
-          -height / 2 + 26 * ui,
-          this.producerName(product),
-          textStyle(theme, 17 * ui, theme.text, true),
-        )
-        .setOrigin(0, 0.5),
-    )
-    card.add(
-      scene.add
-        .text(
-          -width / 2 + 62 * ui,
-          -height / 2 + 52 * ui,
-          this.producerStats(product),
-          textStyle(theme, 12 * ui, theme.textMuted),
-        )
-        .setOrigin(0, 0.5),
-    )
-    card.add(
-      scene.add
-        .text(-width / 2 + 20 * ui, -height / 2 + 70 * ui, this.producerDetail(product), {
-          ...textStyle(theme, 12 * ui, theme.textMuted),
-          wordWrap: { width: width - 40 * ui },
-        })
-        .setOrigin(0, 0.5),
-    )
-
-    const owned = this.state.producers.some((producer) => producer.product === product)
-    if (owned) {
-      card.add(
-        scene.add
-          .text(
-            width / 2 - 20 * ui,
-            -height / 2 + 26 * ui,
-            i18n.t('shop.owned'),
-            textStyle(theme, 13 * ui, theme.text, true),
-          )
-          .setOrigin(1, 0.5),
-      )
-    } else {
-      const cost = producerCost(product)
-      const buy = new Button(scene, 0, height / 2 - 32 * ui, i18n.t('shop.buy', { cost }), theme, {
-        width: width - 40 * ui,
-        height: 46 * ui,
-        fontSize: 14 * ui,
-        minHitSize: 64,
-        variant: 'primary',
-        onClick: () => {
-          const next = this.options.onPurchaseProducer(product)
-          this.setState(next)
-        },
-      })
-      this.track(buy, cost, 0, (remaining) => i18n.t('shop.buy', { cost: remaining }))
-      card.add(buy)
-    }
-
-    return card
   }
 
   private renderTools(
@@ -897,9 +948,12 @@ export class ShopPanel {
   ): void {
     const ui = this.options.layout.ui
     const gap = 10 * ui
-    const cardW = (w - 60 * ui - gap) / 2
+    // The chef only turns up once the kitchen itself exists.
+    const kinds = STAFF_ORDER.filter((kind) => kind !== 'chef' || this.state.zones.kitchen)
+    const columns = kinds.length
+    const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
     const cardH = Math.min(bottom - top, MAX_STAFF_CARD_HEIGHT * ui)
-    STAFF_ORDER.forEach((kind, index) => {
+    kinds.forEach((kind, index) => {
       const x = 30 * ui + index * (cardW + gap) + cardW / 2
       parent.add(this.staffCard(kind, x, top + (bottom - top) / 2, cardW, cardH))
     })
@@ -1101,7 +1155,7 @@ export class ShopPanel {
     const { i18n } = this.options
     if (product === 'fish') return i18n.t('shop.fishing')
     if (isAnimalProductKind(product)) {
-      return i18n.t('shop.dietAny')
+      return animalNeedsTrough(product) ? i18n.t('shop.dietAny') : i18n.t('shop.passive')
     }
     if (isProcessedKind(product)) {
       const inputs = RECIPES[product].inputs

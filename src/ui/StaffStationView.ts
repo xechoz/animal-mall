@@ -10,6 +10,7 @@ export class StaffStationView extends Phaser.GameObjects.Container {
   private readonly kind: StaffKind
   private readonly level: Phaser.GameObjects.Graphics
   private lastLevel = -1
+  private lastAvailable = true
 
   constructor(scene: Phaser.Scene, theme: Theme, kind: StaffKind, map: ShopMap) {
     const station = map.staffStations[kind].station
@@ -49,6 +50,7 @@ export class StaffStationView extends Phaser.GameObjects.Container {
 
     const badge = scene.add.image(17, -8, coinTextureKey()).setScale(0.32)
     if (kind === 'picker') badge.setTexture(productTextureKey('apple')).setScale(0.42)
+    if (kind === 'chef') badge.setTexture(productTextureKey('cake')).setScale(0.42)
     this.add(badge)
 
     this.level = scene.add.graphics()
@@ -57,13 +59,14 @@ export class StaffStationView extends Phaser.GameObjects.Container {
     scene.add.existing(this)
   }
 
-  updateStaffLevel(level: number): void {
-    if (level === this.lastLevel) return
+  updateStaffLevel(level: number, available = true): void {
+    if (level === this.lastLevel && available === this.lastAvailable) return
     this.lastLevel = level
+    this.lastAvailable = available
     const maxed = level >= STAFF[this.kind].costs.length
-    this.setVisible(!maxed)
+    this.setVisible(available && !maxed)
     this.level.clear()
-    if (level <= 0) return
+    if (!available || level <= 0) return
     for (let index = 0; index < level; index += 1) {
       this.level.fillStyle(0xffd166, 1)
       this.level.fillCircle(-8 + index * 10, -50, 4)

@@ -1,12 +1,14 @@
 import { distance, distanceToRect } from './collision'
 import {
   isPlantKind,
+  PEN_SIZE,
   PLANT_ORDER,
   PLOT_SIZE,
   producerCost,
-  producerPosition,
+  producerSlotCount,
   QUICK_BUY,
   STAFF_ORDER,
+  STATION_SIZE,
   ZONE_ORDER,
   ZONE_PRODUCTS,
   ZONES,
@@ -14,8 +16,8 @@ import {
 } from './config'
 import {
   plantDepositKey,
+  producerAtSlot,
   purchasePlantAt,
-  purchaseProducer,
   purchaseStaff,
   purchaseZone,
   slotPlantDeposit,
@@ -48,17 +50,6 @@ export interface PlantOffer {
   /** Area trigger. Standing anywhere near the bed counts, not its centre. */
   readonly rect: Rect
   readonly requiresChoice: boolean
-}
-
-export interface ProducerOffer {
-  readonly type: 'producer'
-  readonly id: string
-  readonly key: string
-  readonly product: ProductKind
-  readonly cost: number
-  readonly deposit: number
-  readonly remaining: number
-  readonly pos: Vec2
 }
 
 export interface StaffOffer {
@@ -95,7 +86,44 @@ export interface SwapOffer {
   readonly rect: Rect
 }
 
-export type PurchaseOffer = PlantOffer | ProducerOffer | StaffOffer | ZoneOffer | SwapOffer
+/** An empty pen/station. Standing there opens the animal or machine chooser. */
+export interface ProducerSlotOffer {
+  readonly type: 'producerSlot'
+  readonly id: string
+  readonly key: string
+  readonly zone: 'farm' | 'kitchen'
+  readonly slot: number
+  /** Cheapest option that is not installed yet, used for the price chip. */
+  readonly product: ProductKind
+  readonly cost: number
+  readonly deposit: 0
+  readonly remaining: number
+  readonly pos: Vec2
+  readonly rect: Rect
+}
+
+/** An occupied pen/station. Only its pitchfork/wrench tag opens the chooser. */
+export interface ProducerSwapOffer {
+  readonly type: 'producerSwap'
+  readonly id: string
+  readonly key: string
+  readonly zone: 'farm' | 'kitchen'
+  readonly slot: number
+  readonly product: ProductKind
+  readonly cost: number
+  readonly deposit: 0
+  readonly remaining: 0
+  readonly pos: Vec2
+  readonly rect: Rect
+}
+
+export type PurchaseOffer =
+  | PlantOffer
+  | StaffOffer
+  | ZoneOffer
+  | SwapOffer
+  | ProducerSlotOffer
+  | ProducerSwapOffer
 
 const cheapestPlant: Readonly<Record<'fruit' | 'veg', number>> = {
   fruit: Math.min(
@@ -206,26 +234,83 @@ export function swapOfferForSlot(
   }
 }
 
-export function producerOfferFor(state: ShopState, product: ProductKind): ProducerOffer | null {
-  const zone = zoneOf(product)
+export function producerSlotOffer(
+  state: ShopState,
+  zone: 'farm' | 'kitchen',
+  slot: number,
+): ProducerSlotOffer | null {
   if (!state.zones[zone]) return null
-  if (isPlantKind(product)) return null
-  if (state.producers.some((producer) => producer.product === product)) return null
+  const layout = slotLayout(state, zone, slot)
+  if (layout === null) return null
+  if (producerAtSlot(state, zone, slot) !== undefined) return null
+
+  const installed = new Set(state.producers.map((producer) => producer.product))
+  const available = ZONE_PRODUCTS[zone].filter((product) => !installed.has(product))
+  const product = [...available].sort((a, b) => producerCost(a) - producerCost(b))[0]
+  if (product === undefined) return null
   const cost = producerCost(product)
-  if (cost <= 0 || state.coins < cost) return null
   return {
-    type: 'producer',
-    id: `producer-${product}`,
-    key: `producer:${product}`,
+    type: 'producerSlot',
+    id: `slot-${zone}-${slot}`,
+    key: `slot:${zone}:${slot}`,
+    zone,
+    slot,
     product,
     cost,
     deposit: 0,
     remaining: cost,
-    pos: producerPosition(state.map, product, 0),
+    pos: layout.point,
+    rect: layout.rect,
+  }
+}
+
+export function producerSwapOffer(
+  state: ShopState,
+  zone: 'farm' | 'kitchen',
+  slot: number,
+): ProducerSwapOffer | null {
+  if (!state.zones[zone]) return null
+  const layout = slotLayout(state, zone, slot)
+  if (layout === null) return null
+  const producer = producerAtSlot(state, zone, slot)
+  if (producer === undefined) return null
+  return {
+    type: 'producerSwap',
+    id: `swap-${zone}-${slot}`,
+    key: `swap:${zone}:${slot}`,
+    zone,
+    slot,
+    product: producer.product,
+    cost: producerCost(producer.product),
+    deposit: 0,
+    remaining: 0,
+    pos: layout.point,
+    rect: layout.rect,
+  }
+}
+
+function slotLayout(
+  state: ShopState,
+  zone: 'farm' | 'kitchen',
+  slot: number,
+): { point: Vec2; rect: Rect } | null {
+  const point = zone === 'farm' ? state.map.animalPens[slot] : state.map.stationSlots[slot]
+  const size = zone === 'farm' ? PEN_SIZE : STATION_SIZE
+  if (point === undefined) return null
+  return {
+    point: { x: point.x, y: point.y },
+    rect: {
+      x: point.x - size.w / 2,
+      y: point.y - size.h / 2,
+      w: size.w,
+      h: size.h,
+    },
   }
 }
 
 export function staffOfferFor(state: ShopState, kind: StaffKind): StaffOffer | null {
+  // A chef has nothing to do until the kitchen floor exists.
+  if (kind === 'chef' && !state.zones.kitchen) return null
   const level = state.staff[kind]
   const cost = staffCost(kind, level)
   if (cost === null) return null
@@ -281,13 +366,21 @@ export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
     }
   }
   for (const zone of ZONE_ORDER) {
-    if (zone === 'fruit' || zone === 'veg') continue
-    for (const product of ZONE_PRODUCTS[zone]) {
-      const offer = producerOfferFor(state, product)
+    if (zone !== 'farm' && zone !== 'kitchen') continue
+    if (!state.zones[zone]) {
+      const unlock = zoneOfferFor(state, zone)
+      if (unlock !== null) offers.push(unlock)
+      continue
+    }
+    for (let slot = 0; slot < producerSlotCount(zone); slot += 1) {
+      const swap = producerSwapOffer(state, zone, slot)
+      if (swap !== null) {
+        offers.push(swap)
+        continue
+      }
+      const offer = producerSlotOffer(state, zone, slot)
       if (offer !== null) offers.push(offer)
     }
-    const unlock = zoneOfferFor(state, zone)
-    if (unlock !== null) offers.push(unlock)
   }
   for (const kind of STAFF_ORDER) {
     const offer = staffOfferFor(state, kind)
@@ -304,7 +397,10 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
     const gap =
       offer.type === 'zone'
         ? distanceToRect(pos, state.map.zoneAreas[offer.zone])
-        : offer.type === 'plant' || offer.type === 'swap'
+        : offer.type === 'plant' ||
+            offer.type === 'swap' ||
+            offer.type === 'producerSlot' ||
+            offer.type === 'producerSwap'
           ? distanceToRect(pos, offer.rect)
           : distance(pos, offer.pos)
     const radius =
@@ -314,7 +410,9 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
           ? QUICK_BUY.zoneMargin
           : offer.type === 'plant' || offer.type === 'swap'
             ? QUICK_BUY.plotMargin
-            : QUICK_BUY.radius
+            : offer.type === 'producerSlot' || offer.type === 'producerSwap'
+              ? QUICK_BUY.slotMargin
+              : QUICK_BUY.radius
     if (gap <= radius && gap < bestDistance) {
       best = offer
       bestDistance = gap
@@ -326,9 +424,10 @@ export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null 
 
 export function quickBuyThreshold(offer: PurchaseOffer): number {
   if (offer.type === 'zone') return QUICK_BUY.zoneMs
-  // Swapping never arms from proximity: a long press or the swap label owns it,
+  // Swapping never arms from proximity: a long press or the slot tag owns it,
   // so there is no dwell to complete. See `stepQuickBuy`.
-  if (offer.type === 'swap') return Number.POSITIVE_INFINITY
+  if (offer.type === 'swap' || offer.type === 'producerSwap') return Number.POSITIVE_INFINITY
+  if (offer.type === 'producerSlot') return QUICK_BUY.openMs
   return offer.type === 'plant' && offer.requiresChoice ? QUICK_BUY.openMs : QUICK_BUY.buyMs
 }
 
@@ -355,12 +454,12 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
     return { state, events }
   }
 
-  // Replacing a crop is destructive and paid, so proximity only advertises it:
-  // the chooser opens from a long press or a tap on the swap label, never from
-  // standing still. Keeping the swap as the active offer also stops an empty
-  // neighbour bed from starting a purchase while the player stands at a planted
-  // one.
-  if (offer.type === 'swap') {
+  // Replacing a crop or a producer is destructive and paid, so proximity only
+  // advertises it: the chooser opens from a long press or a tap on the slot
+  // tag, never from standing still. Keeping the swap as the active offer also
+  // stops an empty neighbour from starting a purchase while the player stands
+  // at an occupied one.
+  if (offer.type === 'swap' || offer.type === 'producerSwap') {
     return {
       state: { ...state, quickBuy: { ...current, dwellMs: 0, armed: false } },
       events,
@@ -393,14 +492,22 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
     }
   }
 
+  if (offer.type === 'producerSlot') {
+    return {
+      state: {
+        ...state,
+        quickBuy: { ...current, dwellMs: 0, armed: false },
+      },
+      events: [{ type: 'producerPickerReady', zone: offer.zone, slot: offer.slot }],
+    }
+  }
+
   const outcome =
     offer.type === 'plant'
       ? purchasePlantAt(state, offer.product, offer.slot, true)
-      : offer.type === 'producer'
-        ? purchaseProducer(state, offer.product)
-        : offer.type === 'zone'
-          ? purchaseZone(state, offer.zone)
-          : purchaseStaff(state, offer.kind, true)
+      : offer.type === 'zone'
+        ? purchaseZone(state, offer.zone)
+        : purchaseStaff(state, offer.kind, true)
 
   return {
     state: {

@@ -139,6 +139,32 @@ describe('production', () => {
     expect(shelves.farm.stock.yarn).toBe(1)
   })
 
+  it('turns two fruits into jam', () => {
+    const { producer, shelves } = run('jam', { apple: 2 }, 200)
+    expect(producer.ready).toBe(1)
+    expect(shelves.fruit.stock.apple).toBe(0)
+  })
+
+  it('turns milk and a fruit into ice cream', () => {
+    const { producer, shelves } = run('iceCream', { milk: 1, pear: 1 }, 260)
+    expect(producer.ready).toBe(1)
+    expect(shelves.farm.stock.milk).toBe(0)
+    expect(shelves.fruit.stock.pear).toBe(0)
+  })
+
+  it('makes honey without a trough', () => {
+    const { producer } = run('honey', {}, 600)
+    expect(producer.ready).toBe(1)
+    expect(producer.hungry).toBe(false)
+    expect(feedCount(producer)).toBe(0)
+  })
+
+  it('makes a goat wait for trough feed like the other land animals', () => {
+    const { producer } = run('cheese', {}, 4)
+    expect(producer.ready).toBe(0)
+    expect(producer.hungry).toBe(true)
+  })
+
   it('keeps leftover stock when its producer is replaced', () => {
     let shelves = emptyShelves(ZONES, LEVELS)
     shelves = {

@@ -1,8 +1,6 @@
 import type {
-  AnimalProductKind,
   FacilityLayout,
   Plot,
-  ProcessedKind,
   Rect,
   ShopMap,
   ShopMapId,
@@ -75,8 +73,8 @@ interface ShopMapInput {
   readonly shelfAccess: Readonly<Record<ZoneId, Vec2>>
   readonly fruitField: FieldLayout
   readonly vegField: FieldLayout
-  readonly animalPens: Readonly<Record<AnimalProductKind, Plot>>
-  readonly stationSlots: Readonly<Record<ProcessedKind, Plot>>
+  readonly animalPens: readonly Plot[]
+  readonly stationSlots: readonly Plot[]
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
   readonly facilities: FacilityLayout
 }
@@ -114,15 +112,8 @@ function stationRect(station: Plot): Rect {
 function createShopMap(input: ShopMapInput): ShopMap {
   const plots = fieldPlots(input.fruitField)
   const cropPlots = fieldPlots(input.vegField)
-  const animalAccess = Object.fromEntries(
-    Object.entries(input.animalPens).map(([product, pen]) => [product, penAccess(pen)]),
-  ) as Record<AnimalProductKind, Vec2>
-  const stationAccesses = Object.fromEntries(
-    Object.entries(input.stationSlots).map(([product, station]) => [
-      product,
-      stationAccess(station),
-    ]),
-  ) as Record<ProcessedKind, Vec2>
+  const animalAccess = input.animalPens.map(penAccess)
+  const stationAccesses = input.stationSlots.map(stationAccess)
 
   const solid = [
     ...Object.values(input.shelves),
@@ -142,11 +133,7 @@ function createShopMap(input: ShopMapInput): ShopMap {
     },
     animalAccess,
     stationAccess: stationAccesses,
-    obstacles: [
-      ...solid,
-      ...Object.values(input.animalPens).map(penRect),
-      ...Object.values(input.stationSlots).map(stationRect),
-    ],
+    obstacles: [...solid, ...input.animalPens.map(penRect), ...input.stationSlots.map(stationRect)],
     playerObstacles: solid,
   }
 }
@@ -186,24 +173,25 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
   },
   fruitField: { ...PLANT_FIELDS.fruit, x: 115, y: 735, gapX: 110, gapY: 100 },
   vegField: { ...PLANT_FIELDS.veg, x: 430, y: 758, gapX: 80, gapY: 68 },
-  animalPens: {
-    egg: { index: 0, x: 110, y: 255 },
-    milk: { index: 1, x: 220, y: 255 },
-    yarn: { index: 2, x: 110, y: 385 },
-    fish: { index: 3, x: 220, y: 385 },
-  },
-  stationSlots: {
-    cake: { index: 0, x: 455, y: 255 },
-    sweater: { index: 1, x: 565, y: 255 },
-    grilledFish: { index: 2, x: 455, y: 385 },
-    juice: { index: 3, x: 565, y: 385 },
-  },
+  animalPens: [
+    { index: 0, x: 110, y: 255 },
+    { index: 1, x: 220, y: 255 },
+    { index: 2, x: 110, y: 385 },
+    { index: 3, x: 220, y: 385 },
+  ],
+  stationSlots: [
+    { index: 0, x: 455, y: 255 },
+    { index: 1, x: 565, y: 255 },
+    { index: 2, x: 455, y: 385 },
+    { index: 3, x: 565, y: 385 },
+  ],
   staffStations: {
     // `station` is the hire sign and quick-buy trigger; `home` is where the
     // cashier actually works. The sign sits above the trash bin, clear of both
     // the counter and the bin's own trigger area.
     cashier: { station: { x: 620, y: 1035 }, home: { x: 470, y: 1120 } },
     picker: { station: { x: 320, y: 560 }, home: { x: 320, y: 560 } },
+    chef: { station: { x: 405, y: 470 }, home: { x: 510, y: 470 } },
   },
   facilities: {
     trashRect: { x: 580, y: 1104, w: 40, h: 48 },
@@ -212,11 +200,13 @@ export const PORTRAIT_MAP: ShopMap = createShopMap({
     vendingRect: { x: 100, y: 1015, w: 62, h: 88 },
     vendingPoint: { x: 131, y: 1059 },
     vendingUse: { x: 131, y: 1125 },
-    restMat: { x: 70, y: 952, w: 118, h: 48 },
+    restMat: { x: 70, y: 952, w: 186, h: 48 },
     restSpots: [
       { x: 96, y: 980 },
       { x: 131, y: 980 },
       { x: 166, y: 980 },
+      { x: 201, y: 980 },
+      { x: 236, y: 980 },
     ],
   },
 })
@@ -256,21 +246,22 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
   },
   fruitField: { ...PLANT_FIELDS.fruit, x: 85, y: 195, gapX: 130, gapY: 65 },
   vegField: { ...PLANT_FIELDS.veg, x: 380, y: 198, gapX: 70, gapY: 55 },
-  animalPens: {
-    egg: { index: 0, x: 685, y: 200 },
-    milk: { index: 1, x: 815, y: 200 },
-    yarn: { index: 2, x: 685, y: 340 },
-    fish: { index: 3, x: 815, y: 340 },
-  },
-  stationSlots: {
-    cake: { index: 0, x: 985, y: 200 },
-    sweater: { index: 1, x: 1115, y: 200 },
-    grilledFish: { index: 2, x: 985, y: 340 },
-    juice: { index: 3, x: 1115, y: 340 },
-  },
+  animalPens: [
+    { index: 0, x: 685, y: 200 },
+    { index: 1, x: 815, y: 200 },
+    { index: 2, x: 685, y: 340 },
+    { index: 3, x: 815, y: 340 },
+  ],
+  stationSlots: [
+    { index: 0, x: 985, y: 200 },
+    { index: 1, x: 1115, y: 200 },
+    { index: 2, x: 985, y: 340 },
+    { index: 3, x: 1115, y: 340 },
+  ],
   staffStations: {
     cashier: { station: { x: 730, y: 600 }, home: { x: 600, y: 630 } },
     picker: { station: { x: 600, y: 450 }, home: { x: 600, y: 450 } },
+    chef: { station: { x: 1050, y: 420 }, home: { x: 1050, y: 250 } },
   },
   facilities: {
     trashRect: { x: 1100, y: 584, w: 40, h: 48 },
@@ -279,11 +270,13 @@ export const LANDSCAPE_MAP: ShopMap = createShopMap({
     vendingRect: { x: 100, y: 500, w: 62, h: 88 },
     vendingPoint: { x: 131, y: 544 },
     vendingUse: { x: 131, y: 608 },
-    restMat: { x: 70, y: 432, w: 118, h: 48 },
+    restMat: { x: 70, y: 432, w: 186, h: 48 },
     restSpots: [
       { x: 96, y: 460 },
       { x: 131, y: 460 },
       { x: 166, y: 460 },
+      { x: 201, y: 460 },
+      { x: 236, y: 460 },
     ],
   },
 })

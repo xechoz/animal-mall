@@ -28,10 +28,13 @@ import {
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
+  PEN_SIZE,
   PLANT_FIELDS,
   PLOT_SIZE,
   producerCost,
   REST,
+  STAFF_ORDER,
+  STATION_SIZE,
   shelfUpgradeCost,
   ZONE_ORDER,
   zoneOf,
@@ -39,12 +42,13 @@ import {
 import { nearestRestingStaff, purchaseDrink } from '../logic/facilities'
 import { feedSpace } from '../logic/production'
 import {
+  installProducerAt,
   type PurchaseOutcome,
   type PurchaseResult,
   plantedCount,
+  producerAtSlot,
   purchasePlant,
   purchasePlantAt,
-  purchaseProducer,
   purchaseShelfUpgrade,
   purchaseStaff,
   purchaseUpgrade,
@@ -59,10 +63,11 @@ import { createShopState, remapShopState, stepShop, stockReach, toSave } from '.
 import type {
   DrinkKind,
   GameEvent,
-  PlantKind,
+  Plot,
   ProducerState,
   ProductKind,
   ShopState,
+  StaffKind,
   Vec2,
   ZoneId,
 } from '../logic/types'
@@ -83,12 +88,12 @@ import { computeGameLayout, type GameLayout, worldToScreen } from '../ui/layout'
 import { MapOffers } from '../ui/MapOffers'
 import { PauseOverlay } from '../ui/PauseOverlay'
 import { PlantBedView } from '../ui/PlantBedView'
-import { PlantPicker } from '../ui/PlantPicker'
 import { PlayerView } from '../ui/PlayerView'
 import { ProducerView } from '../ui/ProducerView'
 import { createProductTextures, productTextureKey } from '../ui/productArt'
 import { ShelfView } from '../ui/ShelfView'
 import { ShopPanel } from '../ui/ShopPanel'
+import { SlotPicker } from '../ui/SlotPicker'
 import { StaffStationView } from '../ui/StaffStationView'
 import { StaffView } from '../ui/StaffView'
 import { readCssShortSide } from '../ui/scale'
@@ -144,7 +149,7 @@ export class GameScene extends Phaser.Scene {
   private playerView!: PlayerView
   private customerViews = new Map<number, CustomerView>()
   private staffViews = new Map<number, StaffView>()
-  private staffStations!: Record<'cashier' | 'picker', StaffStationView>
+  private staffStations!: Record<StaffKind, StaffStationView>
   private zoneOverlay!: ZoneOverlay
   private sceneryView!: SceneryView
   private plantBeds!: PlantBedView
@@ -157,7 +162,7 @@ export class GameScene extends Phaser.Scene {
   private mapOffers?: MapOffers
   private bedHits: Phaser.GameObjects.Zone[] = []
   private bedPress?: {
-    readonly zone: 'fruit' | 'veg'
+    readonly zone: ZoneId
     readonly slot: number
     readonly timer: Phaser.Time.TimerEvent
     readonly startX: number
@@ -167,7 +172,7 @@ export class GameScene extends Phaser.Scene {
   }
   private bedPressRing?: Phaser.GameObjects.Graphics
   private bedPressLabel?: Phaser.GameObjects.Text
-  private plantPicker?: PlantPicker
+  private slotPicker?: SlotPicker
   private drinkPicker?: DrinkPicker
   private devPanel?: DevPanel
   private pendingDrink = false
@@ -181,6 +186,8 @@ export class GameScene extends Phaser.Scene {
   private countdownText?: Phaser.GameObjects.Text
   private hintTapBed = false
   private hintSwap = false
+  private hintAnimalSwap = false
+  private hintMachineSwap = false
   private hintFish = false
   private countdownMs = 0
   private countdownShown = 0
@@ -370,14 +377,14 @@ export class GameScene extends Phaser.Scene {
       }),
     ) as Record<ZoneId, ShelfView>
 
-    this.staffStations = {
-      cashier: new StaffStationView(this, theme, 'cashier', this.layout.map),
-      picker: new StaffStationView(this, theme, 'picker', this.layout.map),
-    }
-    this.staffStations.cashier.setDepth(this.layout.map.staffStations.cashier.station.y + 26)
-    this.staffStations.picker.setDepth(this.layout.map.staffStations.picker.station.y + 26)
-    this.world.add(this.staffStations.cashier)
-    this.world.add(this.staffStations.picker)
+    this.staffStations = Object.fromEntries(
+      STAFF_ORDER.map((kind) => {
+        const view = new StaffStationView(this, theme, kind, this.layout.map)
+        view.setDepth(this.layout.map.staffStations[kind].station.y + 26)
+        this.world.add(view)
+        return [kind, view]
+      }),
+    ) as Record<StaffKind, StaffStationView>
 
     this.coinPile = new CoinPileView(this, theme, this.layout.map)
     this.world.add(this.coinPile)
@@ -391,33 +398,55 @@ export class GameScene extends Phaser.Scene {
 
     this.playerView = new PlayerView(this, theme)
     this.world.add(this.playerView)
-    this.buildBedHits()
+    this.buildSlotHits()
     this.updateWorldViews()
   }
 
   /**
-   * Each bed is tappable. A short tap opens the chooser on an empty bed, while
-   * holding the finger down opens the swap chooser on a planted one. This is
-   * the touch-friendly twin of the half-second dwell.
+   * Every growing bed, farm pen and kitchen station is tappable. A short tap
+   * opens the chooser on an empty slot, while holding the finger down opens the
+   * swap chooser on an occupied one. This is the touch-friendly twin of the
+   * half-second dwell.
    */
-  private buildBedHits(): void {
+  private buildSlotHits(): void {
     for (const zone of ['fruit', 'veg'] as const) {
       const height = this.bedHitHeight(zone)
       for (const plot of this.layout.map.plantSlots[zone]) {
-        const hit = this.add
-          .zone(plot.x, plot.y, PLOT_SIZE.w, height)
-          .setInteractive({ useHandCursor: true })
-        hit.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
-          this.beginBedPress(zone, plot.index, pointer),
-        )
-        hit.on('pointerup', (pointer: Phaser.Input.Pointer) =>
-          this.endBedPress(zone, plot.index, pointer),
-        )
-        hit.on('pointerout', () => this.cancelBedPress(zone, plot.index))
-        this.bedHits.push(hit)
-        this.world.add(hit)
+        this.addSlotHit(zone, plot, PLOT_SIZE.w, height)
       }
     }
+    this.addProducerHits('farm', this.layout.map.animalPens, PEN_SIZE.w, PEN_SIZE.h)
+    this.addProducerHits('kitchen', this.layout.map.stationSlots, STATION_SIZE.w, STATION_SIZE.h)
+  }
+
+  private addProducerHits(
+    zone: 'farm' | 'kitchen',
+    slots: readonly Plot[],
+    width: number,
+    height: number,
+  ): void {
+    const padding = INTERACTION.plotHitPadding
+    for (const slot of slots) {
+      this.addSlotHit(zone, slot, width + padding * 2, height + padding * 2)
+    }
+  }
+
+  private addSlotHit(
+    zone: ZoneId,
+    slot: { readonly index: number; readonly x: number; readonly y: number },
+    width: number,
+    height: number,
+  ): void {
+    const hit = this.add.zone(slot.x, slot.y, width, height).setInteractive({ useHandCursor: true })
+    hit.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
+      this.beginBedPress(zone, slot.index, pointer),
+    )
+    hit.on('pointerup', (pointer: Phaser.Input.Pointer) =>
+      this.endBedPress(zone, slot.index, pointer),
+    )
+    hit.on('pointerout', () => this.cancelBedPress(zone, slot.index))
+    this.bedHits.push(hit)
+    this.world.add(hit)
   }
 
   /**
@@ -437,13 +466,13 @@ export class GameScene extends Phaser.Scene {
     return PLOT_SIZE.h + padding * 2
   }
 
-  private beginBedPress(zone: 'fruit' | 'veg', slot: number, pointer: Phaser.Input.Pointer): void {
+  private beginBedPress(zone: ZoneId, slot: number, pointer: Phaser.Input.Pointer): void {
     this.cancelBedPress(zone, slot)
     const startedAt = this.time.now
     const timer = this.time.delayedCall(INTERACTION.holdMs, () => {
       if (this.bedPress?.timer !== timer) return
       this.bedPress.fired = true
-      this.tryOpenBed(zone, slot)
+      this.tryOpenSlot(zone, slot)
     })
     this.bedPress = {
       zone,
@@ -466,7 +495,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private endBedPress(zone: 'fruit' | 'veg', slot: number, pointer: Phaser.Input.Pointer): void {
+  private endBedPress(zone: ZoneId, slot: number, pointer: Phaser.Input.Pointer): void {
     const press = this.bedPress
     this.bedPress = undefined
     this.destroyBedPressRing()
@@ -474,13 +503,17 @@ export class GameScene extends Phaser.Scene {
     press.timer.remove()
     if (press.fired) return
     if (Math.hypot(pointer.x - press.startX, pointer.y - press.startY) > INTERACTION.tapSlop) return
-    // A short tap only plants. Replacing a crop needs the hold (or the dwell),
-    // so a stray tap while harvesting never opens a paid chooser.
-    if (this.bedProducer(zone, slot) !== undefined) return
-    this.tryOpenBed(zone, slot)
+    // A short tap only opens an empty slot. Replacing an existing crop, animal
+    // or machine needs the hold (or its tool tag), so a stray tap while
+    // harvesting never opens a paid chooser.
+    if (this.producerAt(zone, slot) !== undefined) return
+    if ((zone === 'fruit' || zone === 'veg') && slotPlantDeposit(this.state, zone, slot) !== null) {
+      return
+    }
+    this.tryOpenSlot(zone, slot)
   }
 
-  private cancelBedPress(zone: 'fruit' | 'veg', slot: number): void {
+  private cancelBedPress(zone: ZoneId, slot: number): void {
     if (this.bedPress?.zone !== zone || this.bedPress.slot !== slot) return
     this.bedPress.timer.remove()
     this.bedPress = undefined
@@ -498,11 +531,13 @@ export class GameScene extends Phaser.Scene {
     const press = this.bedPress
     const ring = this.bedPressRing
     if (press === undefined || ring === undefined) return
-    const plot = this.layout.map.plantSlots[press.zone][press.slot]
-    if (plot === undefined) return
-    const point = worldToScreen(this.layout, plot)
+    const slot = this.slotAt(press.zone, press.slot)
+    if (slot === undefined) return
+    const point = worldToScreen(this.layout, slot)
     const ui = Math.min(this.layout.ui, 1.2)
-    const radius = (PLOT_SIZE.w / 2 + 4) * this.layout.worldScale * ui
+    const size =
+      press.zone === 'farm' ? PEN_SIZE.w : press.zone === 'kitchen' ? STATION_SIZE.w : PLOT_SIZE.w
+    const radius = (size / 2 + 4) * this.layout.worldScale * ui
     const ratio = Math.min(1, (time - press.startedAt) / INTERACTION.holdMs)
     ring.clear()
     ring.lineStyle(4 * ui, this.services.theme.ink, 0.18)
@@ -524,25 +559,40 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private bedProducer(zone: 'fruit' | 'veg', slot: number): ProducerState | undefined {
-    return this.state.producers.find(
-      (producer) =>
-        isPlantKind(producer.product) &&
-        zoneOf(producer.product) === zone &&
-        producer.slot === slot,
-    )
+  private slotAt(zone: ZoneId, slot: number): { x: number; y: number } | undefined {
+    if (zone === 'fruit' || zone === 'veg') return this.layout.map.plantSlots[zone][slot]
+    if (zone === 'farm') return this.layout.map.animalPens[slot]
+    return this.layout.map.stationSlots[slot]
   }
 
-  private tryOpenBed(zone: 'fruit' | 'veg', slot: number): void {
-    if (this.mode !== 'playing') return
-    if (this.plantPicker !== undefined || this.drinkPicker !== undefined) return
+  private producerAt(zone: ZoneId, slot: number): ProducerState | undefined {
+    if (zone === 'fruit' || zone === 'veg') {
+      return this.state.producers.find(
+        (producer) =>
+          isPlantKind(producer.product) &&
+          zoneOf(producer.product) === zone &&
+          producer.slot === slot,
+      )
+    }
+    return producerAtSlot(this.state, zone, slot)
+  }
+
+  private tryOpenSlot(zone: ZoneId, slot: number): void {
+    if (this.mode !== 'playing' && this.mode !== 'shop') return
+    if (this.slotPicker !== undefined || this.drinkPicker !== undefined) return
     if (this.devPanel !== undefined) return
     if (!this.state.zones[zone]) return
-    const planted = this.bedProducer(zone, slot)
+    const current = this.producerAt(zone, slot)
     // A bed that already holds a partial payment keeps its dwell-to-pay flow;
     // opening the full chooser here would offer crops the deposit cannot buy.
-    if (planted === undefined && slotPlantDeposit(this.state, zone, slot) !== null) return
-    this.openPlantPicker(zone, slot)
+    if (
+      current === undefined &&
+      (zone === 'fruit' || zone === 'veg') &&
+      slotPlantDeposit(this.state, zone, slot) !== null
+    ) {
+      return
+    }
+    this.openSlotPicker(zone, slot, this.mode === 'shop')
   }
 
   private buildHudAndInput(): void {
@@ -556,7 +606,7 @@ export class GameScene extends Phaser.Scene {
     this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(this, this.layout, this.services.theme, (zone, slot) =>
-      this.tryOpenBed(zone, slot),
+      this.tryOpenSlot(zone, slot),
     )
     this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
     this.facilityOverlay = new FacilityOverlay(
@@ -580,7 +630,7 @@ export class GameScene extends Phaser.Scene {
     }
     const escapeKey = (): void => {
       if (this.devPanel !== undefined) this.closeDevPanel()
-      else if (this.plantPicker !== undefined) this.closePlantPicker()
+      else if (this.slotPicker !== undefined) this.closeSlotPicker()
       else if (this.drinkPicker !== undefined) this.closeDrinkPicker()
       else if (this.mode === 'shop') this.shopPanel?.close()
       else toggle()
@@ -651,8 +701,8 @@ export class GameScene extends Phaser.Scene {
     this.drinkPicker?.update(this.state)
     this.devPanel?.update(this.state)
 
-    if (this.plantPicker !== undefined && this.mode !== 'playing') {
-      this.closePlantPicker()
+    if (this.slotPicker !== undefined && this.mode !== 'playing' && this.mode !== 'shop') {
+      this.closeSlotPicker()
     }
     if (this.pendingDrink) {
       if (this.canOpenDrinkPicker()) {
@@ -667,13 +717,16 @@ export class GameScene extends Phaser.Scene {
     }
 
     const showTutorial =
-      this.mode === 'playing' && this.drinkPicker === undefined && this.devPanel === undefined
+      this.mode === 'playing' &&
+      this.slotPicker === undefined &&
+      this.drinkPicker === undefined &&
+      this.devPanel === undefined
     this.tutorial.setVisible(showTutorial)
     if (showTutorial) this.tutorial.update(this.state, time)
 
     const overlayEnabled =
       this.mode === 'playing' &&
-      this.plantPicker === undefined &&
+      this.slotPicker === undefined &&
       this.drinkPicker === undefined &&
       this.devPanel === undefined
     this.facilityOverlay.update(this.state, overlayEnabled)
@@ -682,7 +735,7 @@ export class GameScene extends Phaser.Scene {
 
     const inputEnabled =
       this.mode === 'playing' &&
-      this.plantPicker === undefined &&
+      this.slotPicker === undefined &&
       this.drinkPicker === undefined &&
       this.devPanel === undefined
     this.joystick.setEnabled(inputEnabled)
@@ -775,7 +828,7 @@ export class GameScene extends Phaser.Scene {
         producer.product !== 'fish' &&
         feedSpace(producer) > 0 &&
         carriedKinds(this.state.player.carry).some((product) => isPlantKind(product)) &&
-        distance(this.state.player.pos, this.state.map.animalAccess[producer.product]) <=
+        distance(this.state.player.pos, this.state.map.animalAccess[producer.slot]) <=
           INTERACT.feedRadius
       view.setFeedActive(feedReady)
       view.setDepth(producer.kind === 'plant' ? producer.pos.y + PLOT_SIZE.h / 2 : producer.pos.y)
@@ -787,13 +840,15 @@ export class GameScene extends Phaser.Scene {
       this.producerViews.delete(id)
     }
 
-    this.staffStations.cashier.updateStaffLevel(this.state.staff.cashier)
-    this.staffStations.picker.updateStaffLevel(this.state.staff.picker)
+    for (const kind of STAFF_ORDER) {
+      const available = kind !== 'chef' || this.state.zones.kitchen
+      this.staffStations[kind].updateStaffLevel(this.state.staff[kind], available)
+    }
   }
 
   private readInput(): { moveX: number; moveY: number } {
     if (
-      this.plantPicker !== undefined ||
+      this.slotPicker !== undefined ||
       this.drinkPicker !== undefined ||
       this.devPanel !== undefined
     ) {
@@ -979,9 +1034,10 @@ export class GameScene extends Phaser.Scene {
           break
         case 'plantPickerReady':
         case 'plantSwapReady':
-          // Always go through the bed guard so a second dwell cannot replace an
-          // already open chooser while the shop keeps simulating behind it.
-          this.tryOpenBed(event.zone, event.slot)
+        case 'producerPickerReady':
+          // Always go through the slot guard so a second dwell cannot replace
+          // an already open chooser while the shop keeps simulating behind it.
+          this.tryOpenSlot(event.zone, event.slot)
           break
         case 'coinsPending':
           this.sfx('click', 0.35)
@@ -1095,20 +1151,15 @@ export class GameScene extends Phaser.Scene {
       : this.services.i18n.t(`producer.${product}`)
   }
 
-  private openPlantPicker(zone: 'fruit' | 'veg', slot: number): void {
-    this.closePlantPicker()
+  private openSlotPicker(zone: ZoneId, slot: number, centered: boolean): void {
+    this.closeSlotPicker()
     this.resetMovementInput()
     // A hold that opened the chooser must not leave its ring under the modal.
     this.bedPress?.timer.remove()
     this.bedPress = undefined
     this.destroyBedPressRing()
-    const current = this.state.producers.find(
-      (producer) =>
-        isPlantKind(producer.product) &&
-        zoneOf(producer.product) === zone &&
-        producer.slot === slot,
-    )
-    this.plantPicker = new PlantPicker({
+    const current = this.producerAt(zone, slot)
+    this.slotPicker = new SlotPicker({
       scene: this,
       layout: this.layout,
       theme: this.services.theme,
@@ -1116,53 +1167,55 @@ export class GameScene extends Phaser.Scene {
       state: this.state,
       zone,
       slot,
-      ...(current !== undefined && isPlantKind(current.product)
-        ? { current: current.product }
-        : {}),
-      onSelect: (product) => this.choosePlant(product, slot),
-      onClose: () => this.closePlantPicker(),
+      ...(current !== undefined ? { current: current.product } : {}),
+      ...(centered ? { centered: true } : {}),
+      onSelect: (product) => this.chooseSlotProduct(zone, slot, product),
+      onClose: () => this.closeSlotPicker(),
     })
   }
 
-  private choosePlant(product: PlantKind, slot: number): void {
-    const zone = zoneOf(product)
-    const existing = this.state.producers.find(
-      (producer) =>
-        isPlantKind(producer.product) &&
-        zoneOf(producer.product) === zone &&
-        producer.slot === slot,
-    )
-    if (existing !== undefined && existing.product === product) {
-      this.closePlantPicker()
+  private chooseSlotProduct(zone: ZoneId, slot: number, product: ProductKind): void {
+    const current = this.producerAt(zone, slot)
+    if (current !== undefined && current.product === product) {
+      this.closeSlotPicker()
       return
     }
-    const occupied = existing !== undefined
-    const outcome = occupied
-      ? replacePlantAt(this.state, product, slot)
-      : purchasePlantAt(this.state, product, slot, true)
+
+    let outcome: PurchaseOutcome
+    if (zone === 'fruit' || zone === 'veg') {
+      if (!isPlantKind(product)) return
+      outcome =
+        current !== undefined
+          ? replacePlantAt(this.state, product, slot)
+          : purchasePlantAt(this.state, product, slot, true)
+    } else {
+      outcome = installProducerAt(this.state, product, slot)
+    }
+
     if (outcome.result === 'ok' || outcome.result === 'deposited') {
       this.state = outcome.state
       this.handleEvents(outcome.events)
       this.saveGame()
       this.updateWorldViews()
       this.hud.update(this.state)
-      this.closePlantPicker()
+      this.shopPanel?.setState(this.state)
+      this.closeSlotPicker()
       return
     }
     this.showPurchaseFailure(outcome.result)
   }
 
-  private closePlantPicker(): void {
-    if (this.plantPicker === undefined) return
-    this.plantPicker.destroy()
-    this.plantPicker = undefined
+  private closeSlotPicker(): void {
+    if (this.slotPicker === undefined) return
+    this.slotPicker.destroy()
+    this.slotPicker = undefined
     this.resetMovementInput()
   }
 
   private canOpenDrinkPicker(): boolean {
     return (
       this.mode === 'playing' &&
-      this.plantPicker === undefined &&
+      this.slotPicker === undefined &&
       this.drinkPicker === undefined &&
       this.devPanel === undefined &&
       distance(this.state.player.pos, this.state.map.facilities.vendingUse) <= DRINK_RADIUS
@@ -1171,7 +1224,7 @@ export class GameScene extends Phaser.Scene {
 
   private openDrinkPicker(): void {
     if (this.drinkPicker !== undefined) return
-    this.closePlantPicker()
+    this.closeSlotPicker()
     this.resetMovementInput()
     this.vendingView.playUse()
     this.drinkPicker = new DrinkPicker({
@@ -1193,7 +1246,7 @@ export class GameScene extends Phaser.Scene {
 
   private openDevPanel(): void {
     if (this.devPanel !== undefined || this.mode !== 'playing') return
-    this.closePlantPicker()
+    this.closeSlotPicker()
     this.closeDrinkPicker()
     this.resetMovementInput()
     this.devPanel = new DevPanel({
@@ -1322,7 +1375,7 @@ export class GameScene extends Phaser.Scene {
       isAnimalProductKind(producer.product) &&
       producer.product !== 'fish'
     ) {
-      return this.state.map.animalAccess[producer.product]
+      return this.state.map.animalAccess[producer.slot]
     }
     return producer.pos
   }
@@ -1493,15 +1546,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showContextHints(): void {
-    if (this.mode !== 'playing') return
-    if (!this.hintSwap && nearestOffer(this.state, this.state.player.pos)?.type === 'swap') {
+    if (this.mode !== 'playing' || this.slotPicker !== undefined) return
+    const offer = nearestOffer(this.state, this.state.player.pos)
+    if (!this.hintSwap && offer?.type === 'swap') {
       this.hintSwap = true
       this.toast.show(this.services.i18n.t('toast.swapHint'))
+    }
+    if (!this.hintAnimalSwap && offer?.type === 'producerSwap' && offer.zone === 'farm') {
+      this.hintAnimalSwap = true
+      this.toast.show(this.services.i18n.t('toast.animalSwapHint'))
+    }
+    if (!this.hintMachineSwap && offer?.type === 'producerSwap' && offer.zone === 'kitchen') {
+      this.hintMachineSwap = true
+      this.toast.show(this.services.i18n.t('toast.machineSwapHint'))
     }
     if (this.hintFish) return
     const pond = this.state.producers.find((producer) => producer.product === 'fish')
     if (pond === undefined) return
-    const access = this.state.map.animalAccess.fish
+    const access = this.state.map.animalAccess[pond.slot]
     if (distance(this.state.player.pos, access) > FISHING.margin + 80) return
     this.hintFish = true
     this.toast.show(this.services.i18n.t('toast.fishHint'))
@@ -1519,7 +1581,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
     this.resetMovementInput()
-    this.closePlantPicker()
+    this.closeSlotPicker()
     this.closeDrinkPicker()
     this.closeDevPanel()
     this.mode = 'shop'
@@ -1539,7 +1601,7 @@ export class GameScene extends Phaser.Scene {
       i18n: this.services.i18n,
       state: this.state,
       onPurchasePlant: (product) => this.applyPurchase(purchasePlant(this.state, product)),
-      onPurchaseProducer: (product) => this.applyPurchase(purchaseProducer(this.state, product)),
+      onOpenProducerPicker: (zone, slot) => this.openSlotPicker(zone, slot, true),
       onUnlockZone: (zone) => this.applyPurchase(purchaseZone(this.state, zone)),
       onUpgrade: (kind) => this.applyPurchase(purchaseUpgrade(this.state, kind)),
       onShelfUpgrade: (zone) => this.applyPurchase(purchaseShelfUpgrade(this.state, zone)),
@@ -1582,7 +1644,7 @@ export class GameScene extends Phaser.Scene {
   private pauseGame(): void {
     if (this.mode !== 'playing' && this.mode !== 'shop') return
     this.resetMovementInput()
-    this.closePlantPicker()
+    this.closeSlotPicker()
     this.closeDrinkPicker()
     this.closeDevPanel()
     this.shopPanel?.destroy()
@@ -1688,7 +1750,7 @@ export class GameScene extends Phaser.Scene {
     this.tutorial = new TutorialOverlay(this, this.layout, this.services.theme, this.services.i18n)
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(this, this.layout, this.services.theme, (zone, slot) =>
-      this.tryOpenBed(zone, slot),
+      this.tryOpenSlot(zone, slot),
     )
     this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
     this.facilityOverlay = new FacilityOverlay(
@@ -1748,7 +1810,7 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay = undefined
     this.shopPanel?.destroy()
     this.shopPanel = undefined
-    this.closePlantPicker()
+    this.closeSlotPicker()
     this.closeDrinkPicker()
     this.closeDevPanel()
     this.mapOffers?.destroy()

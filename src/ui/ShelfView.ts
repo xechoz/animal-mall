@@ -1,7 +1,7 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { INTERACTION, ZONE_PRODUCTS } from '../logic/config'
+import { INTERACTION, plantSlotCount, ZONE_PRODUCTS } from '../logic/config'
 import type { ProductKind, ShelfState, ShopMap, ZoneId } from '../logic/types'
 import { productTextureKey } from './productArt'
 
@@ -38,11 +38,13 @@ export class ShelfView extends Phaser.GameObjects.Container {
     const width = rect.w
     const height = rect.h
     const products = ZONE_PRODUCTS[zone]
-    this.slotCount = products.length
-    this.bins =
+    this.slotCount =
       zone === 'fruit' || zone === 'veg'
-        ? Array<ProductKind | null>(this.slotCount).fill(null)
-        : [...products]
+        ? plantSlotCount(zone)
+        : zone === 'farm'
+          ? map.animalPens.length
+          : map.stationSlots.length
+    this.bins = Array<ProductKind | null>(this.slotCount).fill(null)
     this.showLock = map.id !== 'landscape'
     const gap = 5
     const pad = 8
@@ -225,17 +227,14 @@ export class ShelfView extends Phaser.GameObjects.Container {
   }
 
   updateShelf(shelf: ShelfState): void {
-    if (shelf.zone === 'fruit' || shelf.zone === 'veg') {
-      const products = ZONE_PRODUCTS[shelf.zone]
-      const planted = products.filter((product) => shelf.bins[product])
-      // Clearance stock from a swapped crop still gets a visible basket.
-      const leftover = products.filter(
-        (product) => !shelf.bins[product] && shelf.stock[product] > 0,
-      )
-      const shown = [...planted, ...leftover]
-      this.bins = Array.from({ length: this.slotCount }, (_, index) => shown[index] ?? null)
-    }
-    const stockKey = ZONE_PRODUCTS[shelf.zone]
+    const products = ZONE_PRODUCTS[shelf.zone]
+    const installed = products.filter((product) => shelf.bins[product])
+    // Clearance stock from a swapped crop, animal or machine still gets a
+    // visible basket until it sells out.
+    const leftover = products.filter((product) => !shelf.bins[product] && shelf.stock[product] > 0)
+    const shown = [...installed, ...leftover]
+    this.bins = Array.from({ length: this.slotCount }, (_, index) => shown[index] ?? null)
+    const stockKey = products
       .map((product) => `${product}:${shelf.stock[product]}:${shelf.bins[product] ? 1 : 0}`)
       .join('|')
     const key = `${shelf.active}-${shelf.capacity}-${stockKey}`

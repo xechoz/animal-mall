@@ -3,14 +3,14 @@
 A cozy endless management game built with Phaser 4 on
 [`xechoz/mg-platform`](https://github.com/xechoz/mg-platform).
 
-Grow six fruits and six vegetables, raise chickens, cows and sheep, then fish at
-the pond and turn the produce into cakes, sweaters and grilled fish. Stock four
-zone shelves and serve the neighborhood animals at the counter. Each land animal
-has a trough: put produce in it yourself or let a picker fill it, and the animal
-eats the cheapest item first. Hire a cashier and pickers to keep the shop running, or
-use the in-world quick-buy signs to buy without opening the shop. There is no
-timer or failure state: customers keep arriving, and a missed sale only costs
-that sale.
+Grow six fruits and six vegetables, raise chickens, cows, sheep, goats and bees,
+then fish at the pond and turn the produce into cakes, sweaters, grilled fish,
+juice, jam and ice cream. Stock four zone shelves and serve the neighborhood
+animals at the counter. Each land animal has a trough: put produce in it
+yourself or let a picker fill it, and the animal eats the cheapest item first.
+Hire a cashier and pickers to keep the shop running, or use the in-world
+quick-buy signs to buy without opening the shop. There is no timer or failure
+state: customers keep arriving, and a missed sale only costs that sale.
 
 ## Play
 
@@ -48,28 +48,41 @@ that sale.
   still has the remove button as a fallback. Partial payments stay on the bed
   where they were paid; other beds keep their normal price instead of all showing
   the same deposit ring.
+- The farm has four animal slots and the kitchen four machine slots. Any farm
+  animal, including the pond, can go in any farm slot; any machine can go in any
+  kitchen slot. Empty slots show a plus sticker: tap it or stand still for half a
+  second to choose. To change an installed one, hold the pen/station or tap its
+  pitchfork/wrench tag. The chooser is modal, shows the current product and
+  refund, refunds half of the old one and charges full price for the new one.
+  Carried goods and shelf stock survive a swap, and the same animal or machine
+  cannot be installed twice.
 - Land animals have a trough in front of their pen. Walking close with fruit or
   vegetables fills it automatically, cheapest produce first; pickers also fill
   troughs with produce they harvest. The trough shows each item currently
   inside, and a hungry animal asks for food with a local bubble. Animals eat
   the cheapest item in the trough, one whole item per production cycle. Trough
-  contents are not saved and reset on reload.
-- The pond is not an animal pen. Stand anywhere around it without moving for
-  half a second to cast; half a second later the line bites and one fish goes
-  into your basket. Keep standing and the loop repeats automatically (cast,
-  catch, short pause, cast again). Moving, leaving the pond or filling the
-  basket stops it; freeing basket space resumes it without walking away. Pickers
-  do not fish and the pond has no trough.
-- Kitchen stations pull eggs, milk, yarn or fish from the farm shelf and leave
-  one of each for customers. Walking past a machine with matching goods loads
-  its hopper automatically, up to three production batches; finished cakes,
-  sweaters, grilled fish and juice wait on the station tray and are collected
-  on contact, ready to stock the kitchen shelf.
+  contents are not saved and reset on reload. The goat works like the other
+  trough animals; the beehive is the exception and makes honey on its own.
+- The pond is one of the farm-slot options, not a fixed pen: install it in any
+  empty farm slot and the fishing spot moves with it. Stand anywhere around it
+  without moving for half a second to cast; half a second later the line bites
+  and one fish goes into your basket. Keep standing and the loop repeats
+  automatically (cast, catch, short pause, cast again). Moving, leaving the pond
+  or filling the basket stops it; freeing basket space resumes it without
+  walking away. Pickers do not fish and the pond has no trough. Replacing the
+  pond removes fishing until it is installed again.
+- Kitchen stations pull eggs, milk, yarn, fish, fruit or vegetables from the
+  matching shelf and leave one of each for customers. Walking past a machine with
+  matching goods loads its hopper automatically, up to three production batches;
+  finished cakes, sweaters, grilled fish, juice, jam and ice cream wait on the
+  station tray and are collected on contact, ready to stock the kitchen shelf. A hired chef does
+  that loop for you: finished dishes go to the kitchen shelf, and idle stations
+  get their hoppers topped up from shelf stock.
 - Staff signs use the same quick-buy flow and disappear once their station is
   fully staffed. A cashier serves customers
   automatically; pickers harvest fruit, vegetables and land-animal products, but
-  not station output or the pond. Cashier income waits as a coin pile on the
-  counter.
+  not station output or the pond. Chefs only work once the kitchen is unlocked.
+  Cashier income waits as a coin pile on the counter.
 - Staff take breaks at the free drink machine in the bottom-left corner. After
   roughly a minute they walk over, drink for a few seconds and then either
   return on their own or lounge on a stool until you walk up and nudge them.
@@ -87,16 +100,18 @@ that sale.
   last producer cannot be removed if the refund would leave you unable to
   replant. Customers only order products that have been stocked at least once.
 - Standing still is the main interaction verb. Free/contextual actions resolve
-  after 500 ms (open a bed, unlock a zone, fish, open the drink menu, nudge
-  staff, discard goods); paid purchases keep the longer one-second dwell so a
-  passing tap cannot spend coins. Crop swapping is the exception: it is explicit
-  only, via a long press or its shovel badge, because a harvest empties the bed under
-  the player. Walking always cancels the ring.
-- Beds and offer labels are tappable as well. A short tap plants, a
-  `INTERACTION.holdMs` long press swaps crops with a "Hold to swap" cue, and
-  dragging farther than `INTERACTION.tapSlop` cancels both. Empty-bed price
-  stickers and labels get extra touch padding from `INTERACTION`; the bed touch
-  area stops at half the row gap so neighbouring plots never overlap.
+  after 500 ms (open a bed, pen or station chooser, unlock a zone, fish, open the
+  drink menu, nudge staff, discard goods); paid purchases keep the longer
+  one-second dwell so a passing tap cannot spend coins. Crop and animal/machine
+  swapping is the exception: it is explicit only, via a long press or the
+  shovel/pitchfork/wrench tag, because a harvest or a swap would otherwise fire
+  under a stationary player. Walking always cancels the ring.
+- Beds, pens, stations and offer labels are tappable as well. A short tap plants
+  or opens an empty slot, a `INTERACTION.holdMs` long press swaps with a "Hold to
+  swap" cue, and dragging farther than `INTERACTION.tapSlop` cancels both.
+  Empty-bed price stickers and labels get extra touch padding from
+  `INTERACTION`; the bed touch area stops at half the row gap so neighbouring
+  plots never overlap.
 - Unhappy customers show it: a missing product, a long queue or a slow checkout
   turns the patience bar red, adds angry brows and cheeks, a comic anger vein on
   the temple and flickering flames over the head with rising embers. The thought
@@ -107,11 +122,13 @@ The game starts with 100 coins and an in-world guide for the first apple tree.
 Fruits are apple, pear, peach, cherry, strawberry and grape; vegetables are
 carrot, tomato, corn, pumpkin, potato and eggplant. Vegetables unlock
 automatically after the first sale; stand anywhere inside the locked farm or
-kitchen zone for half a second to buy it, or unlock it in the shop.
+kitchen zone for half a second to buy it, or unlock it in the shop. Farm
+animals are chicken, cow, sheep, goat, beehive and the pond; kitchen machines
+are oven, loom, grill, juicer, jam pot and churn.
 
 ## Save and language
 
-- Progress is stored as `mg:animal-mall:progress`, save version `5`.
+- Progress is stored as `mg:animal-mall:progress`, save version `7`.
 - Coins, pending counter coins, earned coins, served customers, zones, planted
   crops, animals, stations, tool levels, per-zone shelf levels, staff levels and
   non-refundable deposits persist. Shelf stock, station hoppers, trough contents,
@@ -120,7 +137,10 @@ kitchen zone for half a second to buy it, or unlock it in the shop.
 - Version 2–4 saves migrate automatically: old trees become producers,
   vegetables unlock if the save has served customers, stranded deposits are
   returned to coins, and the expanded planting slots start empty. Version 5
-  copies the old global shelf level onto every zone.
+  copies the old global shelf level onto every zone. Version 6 adds the chef
+  staff slot at level 0. Version 7 makes pens and stations generic slots: old
+  fixed pens keep their slot index 1:1, duplicate products are rejected and a
+  repeated slot is moved to the first free pen or station.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
 - All art is drawn procedurally with Phaser Graphics; the soundtrack, drink

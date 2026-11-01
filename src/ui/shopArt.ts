@@ -1,11 +1,10 @@
 import { displayTextStyle, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { ANIMAL_ORDER, PEN_SIZE, PROCESSED_ORDER, ZONE_ORDER } from '../logic/config'
+import { PEN_SIZE, ZONE_ORDER } from '../logic/config'
 import type { ShopMap, ZoneId } from '../logic/types'
 import { drawRestMat } from './facilitiesArt'
 import { drawIndoorScenery } from './scenery'
-import { drawStationPad } from './stationArt'
 
 export const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
   fruit: 0xf08a6a,
@@ -356,10 +355,10 @@ function drawQueueMarkers(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
 }
 
 function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
-  // Crop beds are state-aware and drawn by PlantBedView / ProducerView, so
-  // only animal pens and kitchen stations keep a static placeholder here.
-  for (const product of ANIMAL_ORDER) {
-    const pen = map.animalPens[product]
+  // Crop beds, pens and machines are state-aware and drawn by PlantBedView /
+  // ProducerView. Slots stay visible as faint outlines so an empty farm or
+  // kitchen still reads as a place to build.
+  for (const pen of map.animalPens) {
     const left = pen.x - PEN_SIZE.w / 2
     const top = pen.y - PEN_SIZE.h / 2
     g.fillStyle(0xe0c080, 0.14)
@@ -374,9 +373,13 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void
     }
   }
 
-  for (const product of PROCESSED_ORDER) {
-    const station = map.stationSlots[product]
-    drawStationPad(g, product, station.x, station.y)
+  for (const station of map.stationSlots) {
+    // The product-specific work mat moves to ProducerView so it follows a
+    // swapped machine; the floor keeps a neutral tile underneath.
+    g.fillStyle(0x8fa6c9, 0.12)
+    g.fillRoundedRect(station.x - 42, station.y - 30, 84, 62, 12)
+    g.lineStyle(2, 0x6f89b0, 0.22)
+    g.strokeRoundedRect(station.x - 42, station.y - 30, 84, 62, 12)
   }
 }
 

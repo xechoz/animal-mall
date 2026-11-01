@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- Add a chef staff member (800 / 1800 coins) for the kitchen. Chefs carry
+  finished dishes from station trays to the kitchen shelf and top up idle
+  station hoppers with shelf ingredients; leftovers go back on their shelf.
+  The hire sign and shop card only appear once the kitchen is unlocked, two
+  chefs claim different stations, and older saves gain a zero-level chef.
+- Farm pens and kitchen stations are now generic slots. Any of the six farm
+  animals (chicken, cow, sheep, goat, beehive, pond) can go in any of the four
+  pens; any of the six machines (oven, loom, grill, juicer, jam pot, churn) in
+  any of the four stations. Hold a pen/station or tap its pitchfork/wrench tag
+  to swap, or tap/stand at an empty slot to choose. Replacing refunds half of
+  the old producer, charges full price for the new one, keeps carried goods and
+  shelf stock, and never installs the same product twice.
+- Add goats (cheese), beehives (honey), jam pots (jam) and ice-cream churns
+  (ice cream). The beehive makes honey on its own and needs no trough; the goat
+  eats produce like the other land animals.
+- The pond is now a farm-slot option rather than a fixed pen. Installing it in
+  any slot moves the fishing spot; replacing it removes fishing until the pond
+  is installed again.
+- Save version 7 stores the producer slot for pens and stations, rejects a
+  duplicate product and relocates a repeated slot. Older fixed-pen saves keep
+  their slot index 1:1.
 - Crop swapping is explicit only. Standing next to a planted bed no longer opens
   the chooser after 500 ms: a harvest empties the bed under the player, so the
   old dwell fired on almost every pick. Hold the bed or tap its shovel badge

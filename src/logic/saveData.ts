@@ -5,20 +5,20 @@ import {
   isPlantKind,
   isProcessedKind,
   isProductKind,
+  PEN_SLOT_COUNT,
   PLANTS,
   plantSlotCount,
   STAFF,
   STAFF_ORDER,
   STARTING_COINS,
+  STATION_SLOT_COUNT,
   shelfUpgradeMax,
   UPGRADE_ORDER,
   UPGRADES,
   ZONE_ORDER,
 } from './config'
 import type {
-  AnimalProductKind,
   PlantKind,
-  ProcessedKind,
   ProductKind,
   SaveData,
   SaveProducer,
@@ -210,25 +210,29 @@ export function migrateSave(data: unknown, _version = 0): SaveData {
 function parseProducers(record: Record<string, unknown>): SaveProducer[] {
   const producers: SaveProducer[] = []
   const usedSlots = new Set<string>()
-  const usedAnimals = new Set<ProductKind>()
-  const usedStations = new Set<ProductKind>()
+  const usedProducts = new Set<ProductKind>()
 
   const add = (product: unknown, rawSlot: unknown): void => {
     if (!isProductKind(product)) return
+    if (!isPlantKind(product) && usedProducts.has(product)) return
     const slot = normalizeSlot(product, rawSlot)
     if (slot === null) return
+    const zone = producerZone(product)
+    if (zone === null) return
+
     if (isPlantKind(product)) {
-      const key = `${producerZone(product) ?? 'fruit'}:${slot}`
+      const key = `${zone}:${slot}`
       if (usedSlots.has(key)) return
       usedSlots.add(key)
-    } else if (isAnimalProductKind(product)) {
-      if (usedAnimals.has(product)) return
-      usedAnimals.add(product)
-    } else if (isProcessedKind(product)) {
-      if (usedStations.has(product)) return
-      usedStations.add(product)
+      producers.push({ product, slot })
+      return
     }
-    producers.push({ product, slot })
+
+    const free = firstFreeProducerSlot(zone, usedSlots, slot)
+    if (free === null) return
+    usedSlots.add(`${zone}:${free}`)
+    usedProducts.add(product)
+    producers.push({ product, slot: free })
   }
 
   if (Array.isArray(record.producers)) {
@@ -251,20 +255,18 @@ function parseProducers(record: Record<string, unknown>): SaveProducer[] {
   return producers
 }
 
-// Animal pens and stations use stable slot indices, so saves stay valid when
-// the same shop moves between the portrait and landscape layouts.
-const ANIMAL_SLOTS: Readonly<Record<AnimalProductKind, number>> = {
-  egg: 0,
-  milk: 1,
-  yarn: 2,
-  fish: 3,
-}
-
-const PROCESSED_SLOTS: Readonly<Record<ProcessedKind, number>> = {
-  cake: 0,
-  sweater: 1,
-  grilledFish: 2,
-  juice: 3,
+function firstFreeProducerSlot(
+  zone: ZoneId,
+  usedSlots: ReadonlySet<string>,
+  preferred: number,
+): number | null {
+  const count = zone === 'farm' ? PEN_SLOT_COUNT : zone === 'kitchen' ? STATION_SLOT_COUNT : 0
+  if (count === 0) return null
+  if (preferred < count && !usedSlots.has(`${zone}:${preferred}`)) return preferred
+  for (let slot = 0; slot < count; slot += 1) {
+    if (!usedSlots.has(`${zone}:${slot}`)) return slot
+  }
+  return null
 }
 
 function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {
@@ -280,8 +282,15 @@ function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {
     }
     return rawSlot
   }
-  if (isAnimalProductKind(product)) return ANIMAL_SLOTS[product]
-  if (isProcessedKind(product)) return PROCESSED_SLOTS[product]
+  if (isAnimalProductKind(product) || isProcessedKind(product)) {
+    const count = isAnimalProductKind(product) ? PEN_SLOT_COUNT : STATION_SLOT_COUNT
+    return typeof rawSlot === 'number' &&
+      Number.isInteger(rawSlot) &&
+      rawSlot >= 0 &&
+      rawSlot < count
+      ? rawSlot
+      : null
+  }
   return null
 }
 

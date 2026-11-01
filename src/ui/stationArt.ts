@@ -27,6 +27,12 @@ export function drawStation(g: Phaser.GameObjects.Graphics, producer: ProducerSt
     case 'juice':
       drawJuicer(g)
       break
+    case 'jam':
+      drawJamPot(g)
+      break
+    case 'iceCream':
+      drawIceCreamChurn(g)
+      break
   }
 
   // Finished goods wait on a small side tray instead of floating over the art.
@@ -87,6 +93,26 @@ export function drawStationFx(
       g.fillStyle(0xffffff, 0.28)
       g.fillCircle(-3, 4 + bubble * 10, 2.2)
       g.fillCircle(4, 9 - bubble * 7, 1.6)
+      return
+    }
+    case 'jam': {
+      if (!working) return
+      const bubble = (time * 0.003) % 1
+      g.fillStyle(0xd94b6a, 0.75)
+      g.fillCircle(-4, 2 - bubble * 8, 2.4)
+      g.fillCircle(5, 6 - bubble * 6, 1.8)
+      g.fillStyle(0xffffff, 0.25)
+      g.fillCircle(-4, 1 - bubble * 8, 0.9)
+      return
+    }
+    case 'iceCream': {
+      if (!working) return
+      const puff = (time * 0.002) % 1
+      g.fillStyle(0xdff3ef, 0.5)
+      g.fillCircle(-16, -26 - puff * 12, 4 + puff * 3)
+      g.fillCircle(12, -30 - puff * 10, 3 + puff * 2)
+      g.fillStyle(0xffffff, 0.5)
+      g.fillCircle(-14, -30 - puff * 12, 2.4)
       return
     }
   }
@@ -152,6 +178,45 @@ export function drawStationPad(
     g.fillRoundedRect(x - 36, y + 12, 18, 5, 2)
     g.fillStyle(0x4f5a5f, 1)
     g.fillRoundedRect(x - 34, y + 15, 14, 8, 2)
+    return
+  }
+
+  if (product === 'jam') {
+    // Warm berry mat with a small fruit crate.
+    g.fillStyle(0xb54b5f, 0.16)
+    g.fillRoundedRect(x - 42, y - 30, 84, 62, 12)
+    g.fillStyle(0xf3c6cf, 0.28)
+    g.fillRoundedRect(x - 40, y - 32, 80, 58, 11)
+    g.fillStyle(0x8f5734, 1)
+    g.fillRoundedRect(x + 20, y + 8, 24, 16, 4)
+    g.fillStyle(0xd94b6a, 1)
+    g.fillCircle(x + 26, y + 7, 4)
+    g.fillCircle(x + 34, y + 6, 4)
+    g.fillCircle(x + 41, y + 8, 3.4)
+    g.fillStyle(0x5aa96f, 1)
+    g.fillEllipse(x + 31, y + 2, 7, 3)
+    return
+  }
+
+  if (product === 'iceCream') {
+    // Frosty tile with a snowflake and a cone stand.
+    g.fillStyle(0x8fa6c9, 0.16)
+    g.fillRoundedRect(x - 42, y - 30, 84, 62, 12)
+    g.fillStyle(0xdff3ef, 0.4)
+    g.fillRoundedRect(x - 40, y - 32, 80, 58, 11)
+    g.lineStyle(2, 0xffffff, 0.55)
+    for (const angle of [0, Math.PI / 3, -Math.PI / 3]) {
+      g.lineBetween(
+        x + 28 - Math.cos(angle) * 8,
+        y + 14 - Math.sin(angle) * 8,
+        x + 28 + Math.cos(angle) * 8,
+        y + 14 + Math.sin(angle) * 8,
+      )
+    }
+    g.fillStyle(0xd9b25a, 1)
+    g.fillTriangle(x - 36, y + 8, x - 22, y + 8, x - 29, y + 24)
+    g.fillStyle(0xfff7e8, 1)
+    g.fillCircle(x - 29, y + 6, 6)
     return
   }
 
@@ -381,6 +446,73 @@ function drawJuicer(g: Phaser.GameObjects.Graphics): void {
   g.fillCircle(38, 11, 4)
   g.fillStyle(0x8cd08b, 1)
   g.fillEllipse(34, 7, 9, 5)
+}
+
+function drawJamPot(g: Phaser.GameObjects.Graphics): void {
+  // Copper preserving pot with a dark rim and a bubbling jam surface.
+  g.fillStyle(0x6f3f2a, 1)
+  g.fillRoundedRect(-28, -10, 56, 36, 10)
+  g.fillStyle(0xb0623e, 1)
+  g.fillRoundedRect(-26, -8, 52, 32, 9)
+  g.fillStyle(0xd98a5a, 1)
+  g.fillRoundedRect(-24, -6, 48, 12, 6)
+  g.fillStyle(0x8a4a32, 1)
+  g.fillEllipse(0, -18, 46, 11)
+  g.fillStyle(0xc4774a, 1)
+  g.fillEllipse(0, -20, 42, 9)
+  g.fillStyle(0xd94b6a, 1)
+  g.fillEllipse(0, -18, 32, 5)
+  g.fillStyle(0xf07f8d, 0.8)
+  g.fillEllipse(-6, -19, 10, 2.4)
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillCircle(0, -26, 4)
+  // Side handles.
+  g.lineStyle(3, 0x6f3f2a, 1)
+  g.beginPath()
+  g.arc(-29, 0, 7, Math.PI * 0.6, Math.PI * 1.4)
+  g.strokePath()
+  g.beginPath()
+  g.arc(29, 0, 7, Math.PI * 1.6, Math.PI * 0.4)
+  g.strokePath()
+  // Berry crate.
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(22, 12, 20, 14, 3)
+  g.fillStyle(0xd94b6a, 1)
+  g.fillCircle(28, 12, 4)
+  g.fillCircle(36, 11, 4)
+  g.fillStyle(0x5aa96f, 1)
+  g.fillEllipse(32, 7, 9, 4)
+}
+
+function drawIceCreamChurn(g: Phaser.GameObjects.Graphics): void {
+  // Wooden bucket with metal bands and a hand crank.
+  g.fillStyle(0x9b6b42, 1)
+  g.fillRoundedRect(-22, -20, 44, 46, 8)
+  g.fillStyle(0xc98b5c, 1)
+  g.fillRoundedRect(-20, -18, 40, 42, 7)
+  g.fillStyle(0x8a9098, 1)
+  g.fillRoundedRect(-22, -10, 44, 5, 2)
+  g.fillRoundedRect(-22, 10, 44, 5, 2)
+  // Cream dome and frost.
+  g.fillStyle(0xbfe8ef, 1)
+  g.fillEllipse(0, -22, 34, 11)
+  g.fillStyle(0xfff7e8, 1)
+  g.fillEllipse(0, -24, 30, 9)
+  // Crank.
+  g.lineStyle(3, 0x4f5a5f, 1)
+  g.lineBetween(0, -28, 0, -40)
+  g.lineBetween(-9, -40, 9, -40)
+  g.fillStyle(0x8a9098, 1)
+  g.fillCircle(0, -44, 4)
+  g.fillStyle(0xffd166, 1)
+  g.fillCircle(0, -44, 1.4)
+  // Cone beside the churn.
+  g.fillStyle(0xd9b25a, 1)
+  g.fillTriangle(23, 12, 35, 12, 29, 28)
+  g.fillStyle(0xfff7e8, 1)
+  g.fillCircle(29, 9, 6)
+  g.fillStyle(0xf5a3b5, 1)
+  g.fillCircle(29, 5, 4)
 }
 
 function drawSmoke(

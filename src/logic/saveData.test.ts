@@ -10,9 +10,14 @@ describe('save data', () => {
     expect(save.zones).toEqual({ fruit: true, veg: false, farm: false, kitchen: false })
     expect(save.served).toBe(0)
     expect(save.pendingCoins).toBe(0)
-    expect(save.staff).toEqual({ cashier: 0, picker: 0 })
+    expect(save.staff).toEqual({ cashier: 0, picker: 0, chef: 0 })
     expect(save.shelfLevels).toEqual({ fruit: 0, veg: 0, farm: 0, kitchen: 0 })
     expect(save.deposits).toEqual({})
+  })
+
+  it('adds a zero-level chef when migrating an older save', () => {
+    const save = migrateSave({ coins: 40, staff: { cashier: 1, picker: 2 } })
+    expect(save.staff).toEqual({ cashier: 1, picker: 2, chef: 0 })
   })
 
   it('migrates old v2 trees into producers and unlocks vegetables after a sale', () => {
@@ -78,6 +83,44 @@ describe('save data', () => {
     expect(save.producers).toEqual([
       { product: 'apple', slot: 5 },
       { product: 'carrot', slot: 11 },
+    ])
+  })
+
+  it('restores the new animals and machines in their slots', () => {
+    const save = migrateSave({
+      coins: 100,
+      producers: [
+        { product: 'cheese', slot: 2 },
+        { product: 'honey', slot: 3 },
+        { product: 'jam', slot: 1 },
+        { product: 'iceCream', slot: 3 },
+      ],
+      zones: { farm: true, kitchen: true },
+    })
+    expect(save.producers).toEqual([
+      { product: 'cheese', slot: 2 },
+      { product: 'honey', slot: 3 },
+      { product: 'jam', slot: 1 },
+      { product: 'iceCream', slot: 3 },
+    ])
+  })
+
+  it('validates farm and kitchen slots and moves an occupied duplicate', () => {
+    const save = migrateSave({
+      coins: 100,
+      producers: [
+        { product: 'egg', slot: 1 },
+        { product: 'milk', slot: 1 },
+        { product: 'cheese', slot: 4 },
+        { product: 'jam', slot: 4 },
+        { product: 'cake', slot: 0 },
+      ],
+      zones: { farm: true, kitchen: true },
+    })
+    expect(save.producers).toEqual([
+      { product: 'egg', slot: 1 },
+      { product: 'milk', slot: 0 },
+      { product: 'cake', slot: 0 },
     ])
   })
 

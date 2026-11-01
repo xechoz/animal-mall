@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { PORTRAIT_MAP, plantSlotCount } from './config'
 import {
   emptyPlantSlot,
+  installProducerAt,
   plantedCount,
   purchasePlant,
   purchaseProducer,
@@ -134,5 +135,77 @@ describe('purchases', () => {
     const outcome = purchasePlant(state, 'cherry')
     expect(outcome.result).toBe('insufficient')
     expect(outcome.state.coins).toBe(100)
+  })
+})
+
+describe('producer slots', () => {
+  function richSave(): SaveData {
+    return {
+      ...initialSave(),
+      coins: 10_000,
+      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+    }
+  }
+
+  it('installs an animal into a chosen pen and rejects duplicates', () => {
+    const state = createShopState(richSave(), PORTRAIT_MAP)
+    const cow = installProducerAt(state, 'milk', 2)
+    expect(cow.result).toBe('ok')
+    expect(cow.state.producers.find((producer) => producer.product === 'milk')?.slot).toBe(2)
+    expect(installProducerAt(cow.state, 'milk', 3).result).toBe('maxed')
+  })
+
+  it('replaces a pen animal and refunds half of the old one', () => {
+    let state = createShopState(richSave(), PORTRAIT_MAP)
+    state = installProducerAt(state, 'milk', 0).state
+    const before = state.coins
+    const outcome = installProducerAt(state, 'cheese', 0)
+    expect(outcome.result).toBe('ok')
+    expect(outcome.state.producers.find((producer) => producer.slot === 0)?.product).toBe('cheese')
+    expect(outcome.state.coins).toBe(before - 700 + 175)
+    expect(
+      outcome.events.some(
+        (event) => event.type === 'producerReplaced' && event.previous === 'milk',
+      ),
+    ).toBe(true)
+  })
+
+  it('replaces a kitchen machine with the new recipe', () => {
+    let state = createShopState(richSave(), PORTRAIT_MAP)
+    state = installProducerAt(state, 'cake', 1).state
+    const before = state.coins
+    const outcome = installProducerAt(state, 'jam', 1)
+    expect(outcome.result).toBe('ok')
+    expect(outcome.state.producers.find((producer) => producer.slot === 1)?.product).toBe('jam')
+    expect(outcome.state.coins).toBe(before - 380)
+    expect(outcome.state.shelves.kitchen.bins.jam).toBe(true)
+    expect(outcome.state.shelves.kitchen.bins.cake).toBe(false)
+  })
+
+  it('reports no free slot when all four pens are full', () => {
+    let state = createShopState(richSave(), PORTRAIT_MAP)
+    for (const product of ['egg', 'milk', 'yarn', 'fish'] as const) {
+      const outcome = purchaseProducer(state, product)
+      expect(outcome.result).toBe('ok')
+      state = outcome.state
+    }
+    expect(purchaseProducer(state, 'cheese').result).toBe('noSlot')
+  })
+
+  it('keeps carried goods and shelf stock when a producer is swapped', () => {
+    let state = createShopState(richSave(), PORTRAIT_MAP)
+    state = installProducerAt(state, 'milk', 0).state
+    state = {
+      ...state,
+      player: { ...state.player, carry: { milk: 2 } },
+      shelves: {
+        ...state.shelves,
+        farm: { ...state.shelves.farm, stock: { ...state.shelves.farm.stock, milk: 3 } },
+      },
+    }
+    const outcome = installProducerAt(state, 'cheese', 0)
+    expect(outcome.result).toBe('ok')
+    expect(outcome.state.player.carry.milk).toBe(2)
+    expect(outcome.state.shelves.farm.stock.milk).toBe(3)
   })
 })

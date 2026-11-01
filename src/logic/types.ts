@@ -1,7 +1,7 @@
 export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry' | 'strawberry' | 'grape'
 export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin' | 'potato' | 'eggplant'
-export type AnimalProductKind = 'egg' | 'milk' | 'yarn' | 'fish'
-export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish' | 'juice'
+export type AnimalProductKind = 'egg' | 'milk' | 'yarn' | 'fish' | 'cheese' | 'honey'
+export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish' | 'juice' | 'jam' | 'iceCream'
 export type PlantKind = FruitKind | VegKind
 export type ProductKind = PlantKind | AnimalProductKind | ProcessedKind
 
@@ -13,7 +13,7 @@ export type ProducerKind = 'plant' | 'animal' | 'station'
 
 export type UpgradeKind = 'carry' | 'speed' | 'scan' | 'fertilizer'
 
-export type StaffKind = 'cashier' | 'picker'
+export type StaffKind = 'cashier' | 'picker' | 'chef'
 export type DrinkKind = 'appleSoda' | 'milkTea' | 'lemonTea'
 
 export type SpeciesId = 'bear' | 'cat' | 'rabbit' | 'fox' | 'panda' | 'frog' | 'pig' | 'dog'
@@ -91,10 +91,16 @@ export interface ShopMap {
   readonly cropPlots: readonly Plot[]
   readonly plantSlots: Readonly<Record<'fruit' | 'veg', readonly Plot[]>>
   readonly plantAccess: Readonly<Record<'fruit' | 'veg', readonly Vec2[]>>
-  readonly animalPens: Readonly<Record<AnimalProductKind, Plot>>
-  readonly animalAccess: Readonly<Record<AnimalProductKind, Vec2>>
-  readonly stationSlots: Readonly<Record<ProcessedKind, Plot>>
-  readonly stationAccess: Readonly<Record<ProcessedKind, Vec2>>
+  /**
+   * Farm pens are generic slots. Any farm product, including the pond, can be
+   * installed in any of them, so the save stores a slot index instead of a
+   * product-keyed plot.
+   */
+  readonly animalPens: readonly Plot[]
+  readonly animalAccess: readonly Vec2[]
+  /** Kitchen stations are generic slots for the same reason. */
+  readonly stationSlots: readonly Plot[]
+  readonly stationAccess: readonly Vec2[]
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
   readonly facilities: FacilityLayout
   /** Solid props for every walker: shelves, counter, pens and stations. */
@@ -200,6 +206,9 @@ export type StaffPhase =
   | 'stock'
   | 'toTrough'
   | 'feed'
+  | 'toFetch'
+  | 'toLoad'
+  | 'load'
   | 'toDrink'
   | 'drinking'
   | 'resting'
@@ -220,6 +229,8 @@ export interface StaffState {
   readonly targetProducerId: number | null
   readonly targetShelf: ZoneId | null
   readonly targetTroughId: number | null
+  /** Ingredient a chef is walking to a shelf to pick up. Transient. */
+  readonly fetchProduct: ProductKind | null
   readonly carry: ProductKind | null
   readonly carryCount: number
   readonly timerMs: number
@@ -349,6 +360,11 @@ export type GameEvent =
   | {
       readonly type: 'plantPickerReady'
       readonly zone: 'fruit' | 'veg'
+      readonly slot: number
+    }
+  | {
+      readonly type: 'producerPickerReady'
+      readonly zone: 'farm' | 'kitchen'
       readonly slot: number
     }
   | {

@@ -2,6 +2,7 @@ import { type I18n, type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import {
   ANIMALS,
+  animalNeedsTrough,
   FEED_ORDER,
   isAnimalProductKind,
   isPlantKind,
@@ -17,7 +18,7 @@ import { feedTextureKey } from './fruitArt'
 import { drawClover, drawGrassTuft, drawTilledBed } from './groundArt'
 import { drawPlantCrop, plantGrowthScale } from './plantArt'
 import { productTextureKey } from './productArt'
-import { drawStation, drawStationFx } from './stationArt'
+import { drawStation, drawStationFx, drawStationPad } from './stationArt'
 
 export class ProducerView extends Phaser.GameObjects.Container {
   /**
@@ -63,6 +64,11 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.i18n = i18n
     this.ground = scene.add.graphics().setPosition(producer.pos.x, producer.pos.y)
     if (producer.kind === 'plant') drawPlantBed(this.ground, producer)
+    if (producer.kind === 'station' && isProcessedKind(producer.product)) {
+      // The work mat follows the installed machine, so a swapped station never
+      // keeps the old oven pad under a jam pot.
+      drawStationPad(this.ground, producer.product, 0, 0)
+    }
     this.art = scene.add.graphics()
     this.ring = scene.add.graphics()
     this.feedRing = scene.add.graphics()
@@ -255,7 +261,11 @@ export class ProducerView extends Phaser.GameObjects.Container {
         .setVisible(true)
     }
 
-    if (producer.kind === 'animal' && isAnimalProductKind(producer.product)) {
+    if (
+      producer.kind === 'animal' &&
+      isAnimalProductKind(producer.product) &&
+      animalNeedsTrough(producer.product)
+    ) {
       const capacity = troughCapacity(producer.product)
       const feeds = feedKinds(producer)
       this.feedIcons.forEach((icon, index) => {
@@ -279,6 +289,21 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.animalLastTime = time
 
     if (producer.product === 'fish') {
+      this.art.clear()
+      this.hungryRing.clear()
+      drawAnimalFrame(this.art, producer, {
+        dx: 0,
+        dy: 0,
+        facing: 1,
+        rest: false,
+        angry: false,
+        time,
+      })
+      return
+    }
+
+    if (producer.product === 'honey') {
+      // The hive is static; only the bees and the honey bubble animate.
       this.art.clear()
       this.hungryRing.clear()
       drawAnimalFrame(this.art, producer, {
@@ -549,6 +574,7 @@ function drawAnimalFrame(
   const width = 80
   const height = 56
   const isPond = producer.product === 'fish'
+  const isHive = producer.product === 'honey'
 
   g.fillStyle(0x3b2f3a, 0.15)
   g.fillEllipse(0, 25, width + 6, 14)
@@ -573,6 +599,11 @@ function drawAnimalFrame(
     return
   }
 
+  if (isHive) {
+    drawBeehive(g, producer.ready, frame.time)
+    return
+  }
+
   g.fillStyle(0x8f5734, 1)
   g.fillRoundedRect(-width / 2, -height / 2, width, height, 10)
   g.fillStyle(0xc98b5c, 1)
@@ -590,10 +621,13 @@ function drawAnimalFrame(
   if (frame.rest) g.scaleCanvas(1, 0.82)
   if (producer.product === 'egg') drawChicken(g, producer.ready, frame.rest, frame.angry)
   else if (producer.product === 'milk') drawCow(g, producer.ready, frame.rest, frame.angry)
-  else drawSheep(g, producer.ready, frame.rest, frame.angry)
+  else if (producer.product === 'yarn') drawSheep(g, producer.ready, frame.rest, frame.angry)
+  else drawGoat(g, producer.ready, frame.rest, frame.angry)
   g.restore()
 
-  drawTrough(g, producer)
+  if (isAnimalProductKind(producer.product) && animalNeedsTrough(producer.product)) {
+    drawTrough(g, producer)
+  }
 }
 
 function drawChicken(
@@ -742,5 +776,106 @@ function drawSheep(
   for (let index = 0; index < ready; index += 1) {
     g.fillStyle(0xd99ab9, 1)
     g.fillCircle(-20 + index * 9, 18, 4)
+  }
+}
+
+function drawGoat(
+  g: Phaser.GameObjects.Graphics,
+  ready: number,
+  rest: boolean,
+  angry: boolean,
+): void {
+  // Body.
+  g.fillStyle(0xf5f0e6, 1)
+  g.fillEllipse(-2, 2, 34, 23)
+  g.fillStyle(0xfffbf2, 1)
+  g.fillEllipse(-3, 0, 30, 19)
+  // Legs.
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillRoundedRect(-13, 12, 5, 8, 2)
+  g.fillRoundedRect(8, 12, 5, 8, 2)
+  // Head, ears and horns.
+  g.fillStyle(0xfffbf2, 1)
+  g.fillEllipse(16, -12, 17, 14)
+  g.fillStyle(0xf0e6d4, 1)
+  g.fillEllipse(10, -16, 8, 4)
+  g.fillEllipse(23, -16, 8, 4)
+  g.lineStyle(2.4, 0xb98a5c, 1)
+  g.beginPath()
+  g.arc(12, -20, 6, 3.4, 5.8)
+  g.strokePath()
+  g.beginPath()
+  g.arc(21, -20, 6, 3.7, 6.0)
+  g.strokePath()
+  // Beard and muzzle.
+  g.fillStyle(0xf0e6d4, 1)
+  g.fillTriangle(15, 2, 21, 2, 18, 10)
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillCircle(13, -13, 1.7)
+  g.fillCircle(20, -13, 1.7)
+  g.fillEllipse(17, -7, 7, 4)
+  if (rest) {
+    g.lineStyle(1.5, 0x3b2f3a, 0.9)
+    g.lineBetween(10, -14, 16, -14)
+    g.lineBetween(16, -14, 22, -14)
+  } else if (angry) {
+    g.lineStyle(1.7, 0x3b2f3a, 0.95)
+    g.lineBetween(9, -18, 15, -16)
+    g.lineBetween(24, -18, 19, -16)
+  }
+  // Cheese wheels from the ready batch, kept above the trough line.
+  for (let index = 0; index < ready; index += 1) {
+    g.fillStyle(0xffd166, 1)
+    g.fillCircle(-18 + index * 10, 12, 4.5)
+    g.fillStyle(0xe0a93d, 1)
+    g.fillCircle(-18 + index * 10, 11, 2.2)
+  }
+}
+
+function drawBeehive(g: Phaser.GameObjects.Graphics, ready: number, time: number): void {
+  // Flower patch instead of a pen and trough.
+  g.fillStyle(0x5aa96f, 0.9)
+  g.fillEllipse(-24, 20, 18, 6)
+  g.fillEllipse(24, 21, 16, 5)
+  g.fillStyle(0xf5a3b5, 1)
+  g.fillCircle(-28, 17, 2.4)
+  g.fillCircle(-21, 19, 2.2)
+  g.fillStyle(0xffd166, 1)
+  g.fillCircle(25, 17, 2.4)
+  g.fillCircle(30, 19, 2.1)
+
+  // Wooden hive box, lid and landing board.
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(-18, -22, 36, 40, 7)
+  g.fillStyle(0xc98b5c, 1)
+  g.fillRoundedRect(-16, -20, 32, 36, 6)
+  g.fillStyle(0xe0b45a, 1)
+  g.fillRoundedRect(-20, -25, 40, 8, 4)
+  g.lineStyle(2, 0x8f5734, 0.75)
+  for (let row = -10; row <= 10; row += 10) {
+    g.lineBetween(-14, row, 14, row)
+  }
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillRoundedRect(-5, 8, 10, 7, 3)
+  g.fillStyle(0x6f4b2e, 1)
+  g.fillRoundedRect(-8, 15, 16, 3, 1.5)
+
+  // Honey ready: amber drops on the landing board.
+  for (let index = 0; index < ready; index += 1) {
+    g.fillStyle(0xffb347, 1)
+    g.fillCircle(-10 + index * 10, 18, 3.4)
+  }
+
+  // A couple of bees orbit the hive, animated from the render clock.
+  for (let index = 0; index < 3; index += 1) {
+    const phase = time * 0.004 + index * 2.1
+    const x = Math.cos(phase) * (24 + index * 3)
+    const y = -14 + Math.sin(phase * 1.6) * 8
+    g.fillStyle(0xffd166, 1)
+    g.fillCircle(x, y, 2.4)
+    g.fillStyle(0x3b2f3a, 1)
+    g.fillRect(x - 2.2, y - 0.8, 4.4, 1.4)
+    g.fillStyle(0xffffff, 0.7)
+    g.fillEllipse(x - 2, y - 2.4, 3, 1.4)
   }
 }

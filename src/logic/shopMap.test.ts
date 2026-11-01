@@ -162,7 +162,7 @@ describe('remapping a run', () => {
           { product: 'milk', slot: 1 },
         ],
         zones: { fruit: true, veg: true, farm: true, kitchen: false },
-        staff: { cashier: 1, picker: 1 },
+        staff: { cashier: 1, picker: 1, chef: 0 },
       },
       PORTRAIT_MAP,
     )
@@ -197,7 +197,7 @@ describe('landscape simulation', () => {
         coins: 0,
         served: 3,
         producers: [{ product: 'apple', slot: 0 }],
-        staff: { cashier: 1, picker: 0 },
+        staff: { cashier: 1, picker: 0, chef: 0 },
       },
       LANDSCAPE_MAP,
     )

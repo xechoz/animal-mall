@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { blockedAt } from './collision'
-import {
-  ANIMAL_ORDER,
-  CUSTOMER_RADIUS,
-  LANDSCAPE_MAP,
-  PORTRAIT_MAP,
-  PROCESSED_ORDER,
-  ZONE_ORDER,
-} from './config'
+import { CUSTOMER_RADIUS, LANDSCAPE_MAP, PORTRAIT_MAP, ZONE_ORDER } from './config'
 import { findPath, lineWalkable } from './nav'
 import type { ShopMap } from './types'
 
@@ -21,8 +14,8 @@ for (const map of MAPS) {
       map.doorPoint,
       ...map.plantAccess.fruit,
       ...map.plantAccess.veg,
-      ...ANIMAL_ORDER.map((product) => map.animalAccess[product]),
-      ...PROCESSED_ORDER.map((product) => map.stationAccess[product]),
+      ...map.animalAccess,
+      ...map.stationAccess,
       map.facilities.trashAccess,
       map.facilities.vendingUse,
       ...map.facilities.restSpots,
@@ -70,12 +63,10 @@ for (const map of MAPS) {
           true,
         )
       }
-      for (const product of ANIMAL_ORDER) {
-        const pen = map.animalPens[product]
+      for (const pen of map.animalPens) {
         expect(blockedAt(pen.x, pen.y, CUSTOMER_RADIUS, map)).toBe(true)
       }
-      for (const product of PROCESSED_ORDER) {
-        const station = map.stationSlots[product]
+      for (const station of map.stationSlots) {
         expect(blockedAt(station.x, station.y, CUSTOMER_RADIUS, map)).toBe(true)
       }
       expect(

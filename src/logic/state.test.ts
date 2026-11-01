@@ -351,7 +351,7 @@ describe('shop simulation', () => {
 
   it('pours every carried plant into a trough and leaves other goods alone', () => {
     const base = createShopState(eggSave(), PORTRAIT_MAP)
-    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess[0])
     state = {
       ...state,
       player: { ...state.player, carry: { apple: 2, carrot: 1, milk: 2 } },
@@ -366,7 +366,7 @@ describe('shop simulation', () => {
 
   it('feeds while walking past a trough', () => {
     const base = createShopState(eggSave(), PORTRAIT_MAP)
-    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess[0])
     state = {
       ...state,
       player: { ...state.player, carry: { apple: 3 } },
@@ -379,7 +379,7 @@ describe('shop simulation', () => {
 
   it('collects an animal product while standing at its trough', () => {
     const base = createShopState(eggSave(), PORTRAIT_MAP)
-    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess[0])
     state = { ...state, player: { ...state.player, carry: { apple: 3 } } }
 
     const result = simulate(state, 260)
@@ -389,7 +389,7 @@ describe('shop simulation', () => {
 
   it('does not put a non-plant product in a trough', () => {
     const base = createShopState(eggSave(), PORTRAIT_MAP)
-    let state = withPlayer(base, PORTRAIT_MAP.animalAccess.egg)
+    let state = withPlayer(base, PORTRAIT_MAP.animalAccess[0])
     state = {
       ...state,
       player: { ...state.player, carry: { milk: 2 } },
@@ -443,7 +443,7 @@ describe('shop simulation', () => {
       producers: [{ product: 'cake', slot: 0 }],
     }
     let state = createShopState(save, PORTRAIT_MAP)
-    state = withPlayer(state, PORTRAIT_MAP.stationAccess.cake)
+    state = withPlayer(state, PORTRAIT_MAP.stationAccess[0])
     state = { ...state, player: { ...state.player, carry: { egg: 2, milk: 1 } } }
 
     const result = simulate(state, 270)
@@ -463,7 +463,7 @@ describe('shop simulation', () => {
       producers: [{ product: 'cake', slot: 0 }],
     }
     let state = createShopState(save, PORTRAIT_MAP)
-    state = withPlayer(state, PORTRAIT_MAP.stationAccess.cake)
+    state = withPlayer(state, PORTRAIT_MAP.stationAccess[0])
     state = { ...state, player: { ...state.player, carry: { egg: 6, milk: 3 } } }
 
     const result = simulate(state, 1, { input: { moveX: 1, moveY: 0 } })
@@ -476,5 +476,23 @@ describe('shop simulation', () => {
     )
     expect(result.state.player.carry.egg).toBeUndefined()
     expect(result.state.player.carry.milk).toBeUndefined()
+  })
+
+  it('lets a hired chef carry a finished dish to the kitchen shelf', () => {
+    const save: SaveData = {
+      ...initialSave(),
+      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      producers: [{ product: 'cake', slot: 0 }],
+      staff: { cashier: 0, picker: 0, chef: 1 },
+    }
+    let state = createShopState(save, PORTRAIT_MAP)
+    state = {
+      ...state,
+      producers: state.producers.map((producer) => ({ ...producer, ready: 1 })),
+    }
+
+    const result = simulate(state, 400)
+    expect(result.state.shelves.kitchen.stock.cake).toBeGreaterThan(0)
+    expect(result.state.producers.find((producer) => producer.product === 'cake')?.ready).toBe(0)
   })
 })
