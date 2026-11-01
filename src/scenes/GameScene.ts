@@ -80,6 +80,7 @@ import { Joystick } from '../ui/Joystick'
 import { computeGameLayout, type GameLayout, worldToScreen } from '../ui/layout'
 import { MapOffers } from '../ui/MapOffers'
 import { PauseOverlay } from '../ui/PauseOverlay'
+import { PlantBedView } from '../ui/PlantBedView'
 import { PlantPicker } from '../ui/PlantPicker'
 import { PlayerView } from '../ui/PlayerView'
 import { ProducerView } from '../ui/ProducerView'
@@ -144,6 +145,7 @@ export class GameScene extends Phaser.Scene {
   private staffStations!: Record<'cashier' | 'picker', StaffStationView>
   private zoneOverlay!: ZoneOverlay
   private sceneryView!: SceneryView
+  private plantBeds!: PlantBedView
   private coinPile!: CoinPileView
   private fishingView!: FishingView
   private trashView!: FacilityView
@@ -320,6 +322,10 @@ export class GameScene extends Phaser.Scene {
     )
     background.setDepth(0)
     this.world.add(background)
+
+    this.plantBeds = new PlantBedView(this)
+    this.plantBeds.setDepth(1)
+    this.world.add(this.plantBeds)
 
     this.sceneryView = new SceneryView(this, this.layout.map)
     this.sceneryView.setDepth(2)
@@ -678,6 +684,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateWorldViews(): void {
     this.zoneOverlay.updateZones(this.state)
+    this.plantBeds.updateBeds(this.state)
     const reach = stockReach(this.state)
     for (const zone of ZONE_ORDER) {
       this.shelfViews[zone].updateShelf(this.state.shelves[zone])

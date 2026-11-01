@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
-import { PEN_SIZE, PLOT_SIZE, STATION_SIZE, ZONE_ORDER } from '../logic/config'
+import { PEN_SIZE, STATION_SIZE, ZONE_ORDER } from '../logic/config'
 import type { ShopMap, Vec2 } from '../logic/types'
+import { drawClover, drawGrassTuft } from './groundArt'
 
 const GRASS = 0x7fb069
 const GRASS_DARK = 0x3f8454
@@ -17,7 +18,7 @@ export function drawIndoorScenery(g: Phaser.GameObjects.Graphics, map: ShopMap):
   for (const zone of ZONE_ORDER) {
     const area = map.zoneAreas[zone]
     if (zone === 'fruit') drawFruitGround(g, map, area)
-    else if (zone === 'veg') drawVegGround(g, map, area)
+    else if (zone === 'veg') drawVegGround(g, area)
     else if (zone === 'farm') drawFarmGround(g, map, area)
     else drawKitchenGround(g, map, area)
   }
@@ -109,41 +110,79 @@ function drawFruitGround(
   map: ShopMap,
   area: { x: number; y: number; w: number; h: number },
 ): void {
-  g.fillStyle(GRASS, 0.2)
-  g.fillRoundedRect(area.x + 6, area.y + 6, area.w - 12, area.h - 12, 16)
-  g.fillStyle(GRASS_LIGHT, 0.08)
-  g.fillRoundedRect(area.x + 14, area.y + 14, area.w - 28, area.h - 28, 12)
-  for (const plot of map.plots) {
-    drawGrassTuft(g, plot.x - PLOT_SIZE.w / 2 - 4, plot.y + 12, 0.8)
-    drawGrassTuft(g, plot.x + PLOT_SIZE.w / 2 + 4, plot.y + 8, 0.65)
+  const left = area.x + 6
+  const top = area.y + 6
+  const width = area.w - 12
+  const height = area.h - 12
+
+  // A proper lawn, not a green wash over the wooden floor.
+  g.fillStyle(0x7fae63, 0.5)
+  g.fillRoundedRect(left, top, width, height, 18)
+  g.fillStyle(0x9fd07f, 0.26)
+  g.fillRoundedRect(left + 8, top + 8, width - 16, height - 16, 14)
+  g.lineStyle(2, 0x5f9552, 0.32)
+  g.strokeRoundedRect(left, top, width, height, 18)
+
+  // Broad mowing bands suggest a tended orchard lawn.
+  g.fillStyle(0x5f9552, 0.1)
+  for (let y = top + 22; y < top + height - 20; y += 42) {
+    g.fillRect(left + 12, y, width - 24, 14)
   }
-  drawFlowers(g, area.x + 16, area.y + area.h - 18, 4)
-  drawPebbles(g, area.x + area.w - 24, area.y + 22, 3)
+
+  // Grass lives in the strips clear of the rectangular seedbeds.
+  const topBand = area.y + 54
+  const bottomBand = area.y + area.h - 18
+  for (let index = 0; index < 5; index += 1) {
+    drawGrassTuft(g, area.x + 30 + (index * (area.w - 60)) / 4, topBand + (index % 2) * 5, 0.75)
+  }
+  for (let index = 0; index < 4; index += 1) {
+    drawGrassTuft(g, area.x + 34 + (index * (area.w - 68)) / 3, bottomBand + (index % 2) * 4, 0.65)
+  }
+
+  const leftBed = map.plots[0]
+  const rightBed = map.plots[1]
+  if (leftBed !== undefined && rightBed !== undefined) {
+    const between = (leftBed.x + rightBed.x) / 2
+    for (const plot of map.plots) {
+      drawGrassTuft(g, between - 4, plot.y + 12, 0.55)
+      drawClover(g, between + 5, plot.y + 6, 0.65)
+    }
+  }
+
+  drawFlowers(g, area.x + 18, area.y + 58, 3)
+  drawFlowers(g, area.x + area.w - 36, area.y + area.h - 18, 3)
+  drawPebbles(g, area.x + area.w - 24, area.y + 60, 2)
 }
 
 function drawVegGround(
   g: Phaser.GameObjects.Graphics,
-  map: ShopMap,
   area: { x: number; y: number; w: number; h: number },
 ): void {
-  g.fillStyle(0x9c6b42, 0.2)
-  g.fillRoundedRect(area.x + 6, area.y + 6, area.w - 12, area.h - 12, 16)
-  for (const plot of map.cropPlots) {
-    g.fillStyle(0x8a5a2e, 0.18)
-    g.fillEllipse(plot.x, plot.y + 8, PLOT_SIZE.w + 14, PLOT_SIZE.h * 0.7)
-    g.lineStyle(1, 0x6f4b2e, 0.3)
-    for (let row = 0; row < 2; row += 1) {
-      g.lineBetween(
-        plot.x - PLOT_SIZE.w * 0.32,
-        plot.y + 2 + row * 7,
-        plot.x + PLOT_SIZE.w * 0.32,
-        plot.y + 2 + row * 7,
-      )
-    }
+  const left = area.x + 6
+  const top = area.y + 6
+  const width = area.w - 12
+  const height = area.h - 12
+
+  // Deep tilled earth over the whole vegetable field; the individual beds are
+  // drawn on top by PlantBedView so empty and planted rows stay in sync.
+  g.fillStyle(0x5f4028, 0.44)
+  g.fillRoundedRect(left, top, width, height, 14)
+  g.fillStyle(0x6f4b2e, 0.18)
+  g.fillRoundedRect(left + 6, top + 6, width - 12, height - 12, 10)
+  g.lineStyle(2, 0x3f2819, 0.3)
+  g.strokeRoundedRect(left, top, width, height, 14)
+
+  // Long furrow bands make the plot read as a field rather than a row of pads.
+  g.lineStyle(2, 0x3f2819, 0.2)
+  for (let y = area.y + 60; y < area.y + area.h - 12; y += 14) {
+    g.lineBetween(area.x + 14, y, area.x + area.w - 14, y)
   }
-  drawGrassTuft(g, area.x + 18, area.y + area.h - 16, 0.9)
-  drawGrassTuft(g, area.x + area.w - 18, area.y + area.h - 16, 0.9)
-  drawFlowers(g, area.x + area.w - 28, area.y + 22, 3)
+
+  // Grass is deliberately sparse here: a few tufts at the outer corners only.
+  drawGrassTuft(g, area.x + 16, area.y + area.h - 16, 0.8)
+  drawGrassTuft(g, area.x + area.w - 18, area.y + area.h - 15, 0.7)
+  drawGrassTuft(g, area.x + 36, area.y + area.h - 14, 0.55)
+  drawPebbles(g, area.x + area.w - 30, area.y + 58, 2)
 }
 
 function drawFarmGround(
@@ -235,15 +274,6 @@ function drawPottedTree(g: Phaser.GameObjects.Graphics, x: number, y: number, sc
   g.fillStyle(0xe25d5d, 0.9)
   g.fillCircle(x - 8 * scale, y - 27 * scale, 2.2 * scale)
   g.fillCircle(x + 9 * scale, y - 24 * scale, 2 * scale)
-}
-
-function drawGrassTuft(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
-  g.lineStyle(1.6 * scale, GRASS_DARK, 0.65)
-  g.lineBetween(x, y, x - 4 * scale, y - 8 * scale)
-  g.lineBetween(x, y, x + 1 * scale, y - 10 * scale)
-  g.lineBetween(x, y, x + 5 * scale, y - 6 * scale)
-  g.lineStyle(1.2 * scale, GRASS_LIGHT, 0.55)
-  g.lineBetween(x + 1, y, x + 2 * scale, y - 6 * scale)
 }
 
 function drawFlowers(

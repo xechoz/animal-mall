@@ -1,6 +1,5 @@
 import { type I18n, type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
-import { gameColors } from '../colors'
 import {
   ANIMALS,
   FEED_ORDER,
@@ -15,6 +14,7 @@ import {
 import { inputCapacity, recipeInputIcon, recipeInputTotal } from '../logic/production'
 import type { PlantKind, ProducerState, ShelfState, ZoneId } from '../logic/types'
 import { feedTextureKey } from './fruitArt'
+import { drawClover, drawGrassTuft, drawTilledBed } from './groundArt'
 import { drawPlantCrop, plantGrowthScale } from './plantArt'
 import { productTextureKey } from './productArt'
 import { drawStation, drawStationFx } from './stationArt'
@@ -454,38 +454,33 @@ function drawProgress(g: Phaser.GameObjects.Graphics, ratio: number, y: number):
 function drawPlantBed(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {
   if (!isPlantKind(producer.product)) return
   const isFruit = zoneOf(producer.product) === 'fruit'
-  const width = isFruit ? 54 : 60
+  drawTilledBed(g, 0, 0, isFruit ? 'fruit' : 'veg')
 
-  // A soft soil mound instead of a wooden planter box. The shadow and a couple
-  // of grass tufts sell the depth without adding collision.
-  g.fillStyle(0x3b2f3a, 0.14)
-  g.fillEllipse(0, 12, width + 8, 16)
-  g.fillStyle(gameColors.dirtDark, 1)
-  g.fillEllipse(0, 6, width, isFruit ? 22 : 20)
-  g.fillStyle(gameColors.dirt, 1)
-  g.fillEllipse(-2, 3, width - 8, isFruit ? 17 : 15)
-  g.fillStyle(0xb98a5c, 0.55)
-  g.fillEllipse(-10, 0, width * 0.34, 5)
-  g.fillStyle(0x8a5a2e, 0.5)
-  g.fillEllipse(10, 4, width * 0.28, 4)
-  g.fillStyle(gameColors.leafDark, 0.8)
-  g.fillEllipse(-width / 2 + 5, 8, 8, 4)
-  g.fillEllipse(width / 2 - 6, 10, 7, 3.5)
-
+  // Deterministic per-slot offsets keep the field from looking stamped without
+  // touching the simulation.
+  const wobble = (producer.slot % 3) - 1
   if (isFruit) {
-    g.fillStyle(0xc9a06a, 0.65)
-    g.fillCircle(-6, 5, 1.4)
-    g.fillCircle(8, 7, 1.1)
+    // Fruit grows out of a lawn: grass spills over the rectangular bed edge.
+    const tufts = [
+      [-30, 5, 0.8],
+      [-27, 15, 0.62],
+      [30, 7, 0.72],
+      [26, 16, 0.58],
+      [-16, 20, 0.55],
+      [15, 19, 0.5],
+      [1, 23, 0.48],
+      [-8, 13, 0.45],
+      [9, 12, 0.4],
+    ] as const
+    for (const [x, y, scale] of tufts) drawGrassTuft(g, x + wobble, y, scale)
+    drawClover(g, -23 + wobble, 9, 0.8)
+    drawClover(g, 22 - wobble, 12, 0.7)
+    drawClover(g, 1, 17, 0.6)
     return
   }
 
-  // Vegetable rows: three curved furrows, not a rectangular board.
-  g.lineStyle(2, 0x6f4b2e, 0.5)
-  for (let row = 0; row < 2; row += 1) {
-    g.beginPath()
-    g.arc(0, 2 + row * 8, width * 0.34, Math.PI * 0.15, Math.PI * 0.85)
-    g.strokePath()
-  }
+  // Vegetables stay on dark, mostly bare soil: at most one small weed.
+  if (producer.slot % 2 === 0) drawGrassTuft(g, 30 + wobble, 10, 0.5)
 }
 
 function drawTrough(g: Phaser.GameObjects.Graphics, producer: ProducerState): void {

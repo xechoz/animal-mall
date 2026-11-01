@@ -1,7 +1,7 @@
 import { displayTextStyle, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { ANIMAL_ORDER, PEN_SIZE, PLOT_SIZE, PROCESSED_ORDER, ZONE_ORDER } from '../logic/config'
+import { ANIMAL_ORDER, PEN_SIZE, PROCESSED_ORDER, ZONE_ORDER } from '../logic/config'
 import type { ShopMap, ZoneId } from '../logic/types'
 import { drawRestMat } from './facilitiesArt'
 import { drawIndoorScenery } from './scenery'
@@ -12,6 +12,14 @@ export const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
   veg: 0x7fb069,
   farm: 0xe0b45a,
   kitchen: 0x8fa6c9,
+}
+
+/** Growing zones own their floor art, so their tint stays a thin border cue. */
+const ZONE_FILL_ALPHA: Readonly<Record<ZoneId, number>> = {
+  fruit: 0.05,
+  veg: 0.05,
+  farm: 0.1,
+  kitchen: 0.1,
 }
 
 export function createShopBackground(
@@ -70,7 +78,7 @@ function createPortraitShopBackground(
   for (const zone of ZONE_ORDER) {
     const backRow = zone === 'farm' || zone === 'kitchen'
     const area = map.zoneAreas[zone]
-    g.fillStyle(ZONE_TINTS[zone], 0.1)
+    g.fillStyle(ZONE_TINTS[zone], ZONE_FILL_ALPHA[zone])
     g.fillRoundedRect(area.x, area.y, area.w, area.h, 18)
     g.lineStyle(2, ZONE_TINTS[zone], 0.22)
     g.strokeRoundedRect(area.x, area.y, area.w, area.h, 18)
@@ -210,7 +218,7 @@ function createLandscapeShopBackground(
     const area = map.zoneAreas[zone]
     const left = shelf.x
     const tint = ZONE_TINTS[zone]
-    g.fillStyle(tint, 0.1)
+    g.fillStyle(tint, ZONE_FILL_ALPHA[zone])
     g.fillRoundedRect(area.x, area.y, area.w, area.h, 18)
     g.lineStyle(2, tint, 0.22)
     g.strokeRoundedRect(area.x, area.y, area.w, area.h, 18)
@@ -348,18 +356,8 @@ function drawQueueMarkers(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
 }
 
 function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
-  for (const plot of [...map.plots, ...map.cropPlots]) {
-    // Empty beds read as soft soil patches, not rectangular cards.
-    g.fillStyle(0x8a5a2e, 0.1)
-    g.fillEllipse(plot.x, plot.y + 8, PLOT_SIZE.w + 14, PLOT_SIZE.h * 0.72)
-    g.fillStyle(0x9c6b42, 0.16)
-    g.fillEllipse(plot.x, plot.y + 4, PLOT_SIZE.w, PLOT_SIZE.h * 0.55)
-    g.fillStyle(0xb98a5c, 0.16)
-    g.fillEllipse(plot.x - 8, plot.y + 2, PLOT_SIZE.w * 0.42, PLOT_SIZE.h * 0.26)
-    g.lineStyle(1.5, 0x8f5734, 0.18)
-    g.strokeEllipse(plot.x, plot.y + 6, PLOT_SIZE.w + 2, PLOT_SIZE.h * 0.5)
-  }
-
+  // Crop beds are state-aware and drawn by PlantBedView / ProducerView, so
+  // only animal pens and kitchen stations keep a static placeholder here.
   for (const product of ANIMAL_ORDER) {
     const pen = map.animalPens[product]
     const left = pen.x - PEN_SIZE.w / 2

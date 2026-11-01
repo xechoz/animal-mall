@@ -6,6 +6,7 @@ import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quick
 import type { ShopState } from '../logic/types'
 import { animalTextureKey } from './animalArt'
 import { coinTextureKey } from './fruitArt'
+import { drawSeedPacket } from './groundArt'
 import { type GameLayout, worldToScreen } from './layout'
 import { productTextureKey } from './productArt'
 
@@ -131,16 +132,19 @@ export class MapOffers {
     const height = (compact ? 20 : HEIGHT) * ui
     // Crop labels sit above the canopy, not inside it. Animal and station
     // labels stay lower so they do not collide with the top HUD.
+    const compactLift = offer.type === 'plant' && offer.zone === 'fruit' ? 10 : 4
     const lift =
       (compact
-        ? 0
-        : offer.type === 'plant' || offer.type === 'swap'
+        ? compactLift
+        : offer.type === 'swap'
           ? this.layout.portrait
             ? 108
             : 82
-          : this.layout.portrait
-            ? 58
-            : 24) *
+          : offer.type === 'plant'
+            ? 22
+            : this.layout.portrait
+              ? 58
+              : 24) *
       this.layout.worldScale *
       ui
     const content = this.layout.content
@@ -254,17 +258,6 @@ export class MapOffers {
       label.dwell.strokePath()
     }
   }
-}
-
-function drawSeedPacket(g: Phaser.GameObjects.Graphics, x: number, y: number, ui: number): void {
-  g.fillStyle(0x8f5734, 1)
-  g.fillRoundedRect(x - 10 * ui, y - 12 * ui, 20 * ui, 24 * ui, 4 * ui)
-  g.fillStyle(0xf0c99b, 1)
-  g.fillRoundedRect(x - 7 * ui, y - 9 * ui, 14 * ui, 18 * ui, 3 * ui)
-  g.fillStyle(0x6f4b2e, 1)
-  g.fillEllipse(x, y - 2 * ui, 6 * ui, 8 * ui)
-  g.fillStyle(0x5aa96f, 1)
-  g.fillEllipse(x + 3 * ui, y - 10 * ui, 8 * ui, 4 * ui)
 }
 
 function drawSwapBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, ui: number): void {

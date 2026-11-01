@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Rework the orchard and vegetable plots: rectangular tilled beds, seed holes
+  and a small seed-packet marker on every empty slot, a proper grass lawn with
+  tufts around planted fruit trees, and a darker, mostly bare vegetable field
+  with far less grass. Empty-bed price chips now sit just above the soil, and
+  the old elliptical soil placeholders are gone.
 - Kitchen stations now load carried ingredients on contact while walking, with
   no dwell, and buffer three production batches per input slot. Output is still
   collected on contact, and the input chips show `have/capacity`.
