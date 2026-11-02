@@ -6,6 +6,7 @@ import { INTERACTION, PEN_SIZE, PLOT_SIZE, STATION_SIZE } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState, Vec2, ZoneId } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
+import { bakeLayer } from './bakeArt'
 import { coinTextureKey } from './fruitArt'
 import { drawSeedPacket } from './groundArt'
 import { JOYSTICK_PASS } from './Joystick'
@@ -16,9 +17,9 @@ import { type WorldCamera, worldToScreen } from './worldCamera'
 
 interface OfferLabel {
   readonly container: Phaser.GameObjects.Container
-  readonly bg: Phaser.GameObjects.Graphics
+  readonly bg: Phaser.GameObjects.Image
   readonly dwell: Phaser.GameObjects.Graphics
-  readonly badge: Phaser.GameObjects.Graphics
+  readonly badge: Phaser.GameObjects.Image
   readonly icon: Phaser.GameObjects.Image
   readonly coin: Phaser.GameObjects.Image
   readonly price: Phaser.GameObjects.Text
@@ -28,12 +29,16 @@ interface OfferLabel {
   downX?: number
   downY?: number
   interactive?: boolean
+  /** Signature of the last painted body, so idle frames skip the redraw. */
+  drawKey?: string
 }
 
 const WIDTH = 70
 const HEIGHT = 30
 const SWAP_TAG = 34
 const SWAP_HIT = 44
+/** Fixed bake box for the tool badge, in design units before the UI scale. */
+const BADGE_BOX = { w: 96, h: 52 }
 /** Tilt the tool like a working stroke instead of standing straight up. */
 const TAG_TILT = Math.PI / 4
 
@@ -47,6 +52,68 @@ function isSlotTag(
   offer: PurchaseOffer,
 ): offer is Extract<PurchaseOffer, { type: 'producerSlot' | 'producerSwap' }> {
   return offer.type === 'producerSlot' || offer.type === 'producerSwap'
+}
+
+interface ChipSpec {
+  /** Full draw signature; identical sprites share one texture. */
+  readonly key: string
+  readonly tag: boolean
+  readonly width: number
+  readonly height: number
+  readonly ui: number
+  readonly radius: number
+  readonly stroke: number
+  readonly affordable: boolean
+  readonly shadow: number
+  readonly panel: number
+  readonly accent: number
+  readonly borderSoft: number
+  readonly ink: number
+}
+
+/**
+ * Chips are identical across offers of the same size and affordability, so the
+ * body is baked once and shared by every label. A live Graphics would be
+ * re-walked by the renderer on every frame, roughly 900 entries per chip.
+ */
+function chipTexture(scene: Phaser.Scene, spec: ChipSpec): string {
+  const textureKey = `offer-chip|${spec.key}`
+  if (scene.textures.exists(textureKey)) return textureKey
+
+  const width = spec.tag ? SWAP_TAG * spec.ui : spec.width
+  const height = spec.tag ? SWAP_TAG * spec.ui : spec.height
+  const g = scene.add.graphics()
+  if (spec.tag) {
+    // A single round badge: the crop or machine is already visible on the slot,
+    // so a full chip would only repeat it.
+    g.fillStyle(spec.shadow, 0.16)
+    g.fillCircle(0, 3 * spec.ui, (SWAP_TAG / 2) * spec.ui)
+    g.fillStyle(spec.panel, 0.96)
+    g.fillCircle(0, 0, (SWAP_TAG / 2) * spec.ui)
+    g.lineStyle(spec.stroke, spec.ink, 0.8)
+    g.strokeCircle(0, 0, (SWAP_TAG / 2) * spec.ui)
+  } else {
+    g.fillStyle(spec.shadow, 0.16)
+    g.fillRoundedRect(-width / 2, -height / 2 + 3 * spec.ui, width, height, spec.radius)
+    g.fillStyle(spec.panel, 0.96)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, spec.radius)
+    g.lineStyle(spec.stroke, spec.affordable ? spec.accent : spec.borderSoft, 0.9)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, spec.radius)
+  }
+
+  const pad = 4
+  const image = bakeLayer(
+    scene,
+    g,
+    textureKey,
+    { x: -width / 2 - pad, y: -height / 2 - pad },
+    width + pad * 2,
+    height + pad * 2,
+    1,
+  )
+  g.destroy()
+  image.destroy()
+  return textureKey
 }
 
 export class MapOffers {
@@ -137,9 +204,9 @@ export class MapOffers {
     // enlarged beds and become too small to tap.
     const ui = this.layout.worldUi
     const container = this.scene.add.container(0, 0).setDepth(5200)
-    const bg = this.scene.add.graphics()
+    const bg = this.scene.add.image(0, 0, '__WHITE').setOrigin(0.5)
     const dwell = this.scene.add.graphics()
-    const badge = this.scene.add.graphics()
+    const badge = this.scene.add.image(0, 0, '__WHITE').setOrigin(0, 0)
     const icon = this.scene.add.image(0, 0, productTextureKey('apple')).setScale(0.55 * ui)
     const coin = this.scene.add.image(0, 0, coinTextureKey()).setScale(0.42 * ui)
     const price = this.scene.add
@@ -247,23 +314,44 @@ export class MapOffers {
         : undefined
 
     const affordable = isSwapTag(offer) ? true : state.coins >= offer.remaining
-    label.bg.clear()
-    if (tag) {
-      // A single round badge: the crop or machine is already visible on the
-      // slot, so a full chip would only repeat it.
-      label.bg.fillStyle(this.theme.shadow, 0.16)
-      label.bg.fillCircle(0, 3 * ui, (SWAP_TAG / 2) * ui)
-      label.bg.fillStyle(this.theme.panel, 0.96)
-      label.bg.fillCircle(0, 0, (SWAP_TAG / 2) * ui)
-      label.bg.lineStyle(2 * ui, gameColors.barkDark, 0.8)
-      label.bg.strokeCircle(0, 0, (SWAP_TAG / 2) * ui)
-    } else {
-      label.bg.fillStyle(this.theme.shadow, 0.16)
-      label.bg.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, 11 * ui)
-      label.bg.fillStyle(this.theme.panel, 0.96)
-      label.bg.fillRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
-      label.bg.lineStyle(2 * ui, affordable ? this.theme.accent : this.theme.borderSoft, 0.9)
-      label.bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+    // The chip body only changes when its offer, size or affordability does.
+    // Repainting it every frame would keep three Graphics objects dirty per chip
+    // for as long as it stays in range, which is up to a dozen chips on a mature
+    // map.
+    const drawKey = [
+      tag ? 't' : compact ? 'c' : 'f',
+      offer.type,
+      'zone' in offer ? offer.zone : '',
+      width,
+      height,
+      ui,
+      affordable ? 1 : 0,
+      'remaining' in offer ? offer.remaining : 0,
+      'deposit' in offer ? offer.deposit : 0,
+      'cost' in offer ? offer.cost : 0,
+    ].join('|')
+    const redraw = drawKey !== label.drawKey
+    label.drawKey = drawKey
+
+    if (redraw) {
+      label.bg.setTexture(
+        chipTexture(this.scene, {
+          key: drawKey,
+          tag,
+          width,
+          height,
+          ui,
+          radius: 11 * ui,
+          stroke: 2 * ui,
+          affordable,
+          shadow: this.theme.shadow,
+          panel: this.theme.panel,
+          accent: this.theme.accent,
+          borderSoft: this.theme.borderSoft,
+          ink: gameColors.barkDark,
+        }),
+      )
+      label.bg.setPosition(0, 0)
     }
 
     label.icon.setVisible(
@@ -275,23 +363,16 @@ export class MapOffers {
         tag ||
         offer.type === 'producerSlot',
     )
-    label.badge.clear()
     label.badge.setRotation(tag ? TAG_TILT : 0)
-    if (offer.type === 'plant' && offer.requiresChoice) {
-      drawSeedPacket(label.badge, -22 * ui, 0, ui)
-    }
-    if (offer.type === 'zone') {
-      drawLockBadge(label.badge, -22 * ui, 0, ui)
-    }
-    if (offer.type === 'swap') {
-      drawShovelBadge(label.badge, 0, 0, 1 * ui)
-    }
-    if (offer.type === 'producerSwap') {
-      if (offer.zone === 'farm') drawPitchforkBadge(label.badge, 0, 0, 1 * ui)
-      else drawWrenchBadge(label.badge, 0, 0, 1 * ui)
-    }
-    if (offer.type === 'producerSlot') {
-      drawPlusBadge(label.badge, -22 * ui, 0, ui)
+    if (redraw) {
+      label.badge.setTexture(
+        badgeTexture(this.scene, {
+          key: drawKey,
+          offer,
+          ui,
+        }),
+      )
+      label.badge.setPosition(-BADGE_BOX.w * 0.5 * ui, -BADGE_BOX.h * 0.5 * ui)
     }
     // A soft pulse marks the tool badge as the actionable part of an occupied
     // slot, without adding another text label over the art.
@@ -330,13 +411,15 @@ export class MapOffers {
     )
     label.price.setColor(affordable ? this.theme.text : this.theme.textMuted)
 
-    label.paid.clear()
-    if (offer.type !== 'swap' && offer.type !== 'producerSwap' && offer.deposit > 0) {
-      const ratio = Math.min(1, offer.deposit / Math.max(1, offer.cost))
-      label.paid.fillStyle(this.theme.ink, 0.12)
-      label.paid.fillRoundedRect(-26 * ui, 10 * ui, 52 * ui, 5 * ui, 2.5 * ui)
-      label.paid.fillStyle(this.theme.accentAlt, 1)
-      label.paid.fillRoundedRect(-26 * ui, 10 * ui, 52 * ui * ratio, 5 * ui, 2.5 * ui)
+    if (redraw) {
+      label.paid.clear()
+      if (offer.type !== 'swap' && offer.type !== 'producerSwap' && offer.deposit > 0) {
+        const ratio = Math.min(1, offer.deposit / Math.max(1, offer.cost))
+        label.paid.fillStyle(this.theme.ink, 0.12)
+        label.paid.fillRoundedRect(-26 * ui, 10 * ui, 52 * ui, 5 * ui, 2.5 * ui)
+        label.paid.fillStyle(this.theme.accentAlt, 1)
+        label.paid.fillRoundedRect(-26 * ui, 10 * ui, 52 * ui * ratio, 5 * ui, 2.5 * ui)
+      }
     }
 
     label.dwell.clear()
@@ -489,4 +572,46 @@ function drawLockBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, ui:
   g.fillStyle(0x2f2433, 1)
   g.fillCircle(x, y + 2 * s, 4 * s)
   g.fillRect(x - 2 * s, y + 2 * s, 4 * s, 8 * s)
+}
+
+interface BadgeSpec {
+  readonly key: string
+  readonly offer: PurchaseOffer
+  readonly ui: number
+}
+
+/**
+ * The tool badge is the most expensive part of a chip: the seed packet spends
+ * ~900 command-buffer entries on ellipses, and the renderer walks those on every
+ * frame. Bake each badge variant once and share the texture.
+ */
+function badgeTexture(scene: Phaser.Scene, spec: BadgeSpec): string {
+  const textureKey = `offer-badge|${spec.key}`
+  if (scene.textures.exists(textureKey)) return textureKey
+
+  const { offer, ui } = spec
+  const g = scene.add.graphics()
+  if (offer.type === 'plant' && offer.requiresChoice) {
+    drawSeedPacket(g, -22 * ui, 0, ui)
+  }
+  if (offer.type === 'zone') {
+    drawLockBadge(g, -22 * ui, 0, ui)
+  }
+  if (offer.type === 'swap') {
+    drawShovelBadge(g, 0, 0, 1 * ui)
+  }
+  if (offer.type === 'producerSwap') {
+    if (offer.zone === 'farm') drawPitchforkBadge(g, 0, 0, 1 * ui)
+    else drawWrenchBadge(g, 0, 0, 1 * ui)
+  }
+  if (offer.type === 'producerSlot') {
+    drawPlusBadge(g, -22 * ui, 0, ui)
+  }
+
+  const width = BADGE_BOX.w * ui
+  const height = BADGE_BOX.h * ui
+  const image = bakeLayer(scene, g, textureKey, { x: -width / 2, y: -height / 2 }, width, height, 1)
+  g.destroy()
+  image.destroy()
+  return textureKey
 }

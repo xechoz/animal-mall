@@ -3,6 +3,7 @@ import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import { PEN_SIZE, ZONE_ORDER } from '../logic/config'
 import type { ShopMap, ZoneId } from '../logic/types'
+import { bakeGraphics } from './bakeArt'
 import { drawRestMat } from './facilitiesArt'
 import {
   drawAntTrail,
@@ -30,6 +31,15 @@ export const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
   kitchen: 0x8a9098,
 }
 
+export interface ShopBackgroundOptions {
+  /**
+   * Bake the static floor plan into a texture at this pixel scale. The map is
+   * drawn once and never changes, so keeping it as a live Graphics would make
+   * the renderer re-walk ~190k command entries on every frame.
+   */
+  readonly bake?: { readonly key: string; readonly scale: number }
+}
+
 export function createShopBackground(
   scene: Phaser.Scene,
   theme: Theme,
@@ -38,10 +48,20 @@ export function createShopBackground(
   map: ShopMap,
   textScale: number,
   drawLabels = true,
+  options: ShopBackgroundOptions = {},
 ): Phaser.GameObjects.Container {
   return map.id === 'landscape'
-    ? createLandscapeShopBackground(scene, theme, title, labels, map, textScale, drawLabels)
-    : createPortraitShopBackground(scene, theme, title, labels, map, textScale, drawLabels)
+    ? createLandscapeShopBackground(
+        scene,
+        theme,
+        title,
+        labels,
+        map,
+        textScale,
+        drawLabels,
+        options,
+      )
+    : createPortraitShopBackground(scene, theme, title, labels, map, textScale, drawLabels, options)
 }
 
 function createPortraitShopBackground(
@@ -52,6 +72,7 @@ function createPortraitShopBackground(
   map: ShopMap,
   textScale: number,
   drawLabels: boolean,
+  options: ShopBackgroundOptions,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
   const g = scene.add.graphics()
@@ -73,6 +94,7 @@ function createPortraitShopBackground(
   if (drawLabels) drawZoneLabels(g, theme, labels, map, true, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
+  bakeBackground(scene, container, g, map, options)
 
   return container
 }
@@ -85,6 +107,7 @@ function createLandscapeShopBackground(
   map: ShopMap,
   textScale: number,
   drawLabels: boolean,
+  options: ShopBackgroundOptions,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
   const g = scene.add.graphics()
@@ -106,8 +129,29 @@ function createLandscapeShopBackground(
   if (drawLabels) drawZoneLabels(g, theme, labels, map, false, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
+  bakeBackground(scene, container, g, map, options)
 
   return container
+}
+
+/**
+ * The floor plan never changes after the first draw, so the live Graphics is
+ * replaced by a single textured quad. Without this the renderer re-walks the
+ * whole command buffer (about 190k entries on the landscape map) every frame.
+ */
+function bakeBackground(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  graphics: Phaser.GameObjects.Graphics,
+  map: ShopMap,
+  options: ShopBackgroundOptions,
+): void {
+  const bake = options.bake
+  if (bake === undefined) return
+  const image = bakeGraphics(scene, graphics, bake.key, map.room.w, map.room.h, bake.scale)
+  container.addAt(image, 0)
+  container.remove(graphics)
+  graphics.destroy()
 }
 
 function drawOuterBand(g: Phaser.GameObjects.Graphics, width: number, height: number): void {

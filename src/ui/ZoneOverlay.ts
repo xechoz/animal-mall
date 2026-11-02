@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import { gameColors } from '../colors'
 import { ZONE_ORDER, ZONES } from '../logic/config'
 import type { ShopMap, ShopState, ZoneId } from '../logic/types'
+import { bakeLayer } from './bakeArt'
 import { fillPolygon, strokePolygon, zonePatchPoints } from './forestArt'
 import { drawTagFrame } from './frames'
 
@@ -14,6 +15,7 @@ import { drawTagFrame } from './frames'
 export class ZoneOverlay extends Phaser.GameObjects.Container {
   private readonly map: ShopMap
   private readonly graphics: Phaser.GameObjects.Graphics
+  private image?: Phaser.GameObjects.Image
   private readonly prices = new Map<ZoneId, Phaser.GameObjects.Text>()
   private lastKey = ''
 
@@ -35,7 +37,7 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
     scene.add.existing(this)
   }
 
-  updateZones(state: ShopState): void {
+  updateZones(state: ShopState, bakeScale: number): void {
     const key = `${this.map.id}|${ZONE_ORDER.map((zone) => `${zone}:${state.zones[zone]}`).join('|')}`
     if (key === this.lastKey) return
     this.lastKey = key
@@ -77,6 +79,21 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       this.graphics.fillStyle(gameColors.sunbeam, 1)
       this.graphics.fillCircle(centerX - price.width / 2 - 11, priceY, 6)
     }
+
+    // Unlock dimming only changes when a zone opens, so bake the painted layer
+    // instead of keeping ~3k commands live for the whole run.
+    const bounds = zoneBounds(this.map)
+    this.image?.destroy()
+    this.image = bakeLayer(
+      this.scene,
+      this.graphics,
+      'zone-overlay',
+      { x: bounds.x, y: bounds.y },
+      bounds.w,
+      bounds.h,
+      bakeScale,
+    )
+    this.addAt(this.image, 0)
   }
 }
 
@@ -92,4 +109,15 @@ function drawLock(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
   g.fillStyle(0x2f2433, 1)
   g.fillCircle(x, y + 2, 4)
   g.fillRect(x - 2, y + 2, 4, 8)
+}
+
+/** Union of the four zone rectangles, padded for the wobbly patch edge. */
+function zoneBounds(map: ShopMap): { x: number; y: number; w: number; h: number } {
+  const areas = ZONE_ORDER.map((zone) => map.zoneAreas[zone])
+  const minX = Math.min(...areas.map((area) => area.x))
+  const minY = Math.min(...areas.map((area) => area.y))
+  const maxX = Math.max(...areas.map((area) => area.x + area.w))
+  const maxY = Math.max(...areas.map((area) => area.y + area.h))
+  const pad = 16
+  return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 }
 }

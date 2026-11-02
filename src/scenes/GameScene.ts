@@ -77,6 +77,7 @@ import type {
 import { progressSave } from '../save'
 import { createAnimalTextures } from '../ui/animalArt'
 import { BuffBar } from '../ui/BuffBar'
+import { bakeGraphics } from '../ui/bakeArt'
 import { CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
 import { DaylightView } from '../ui/DaylightView'
@@ -179,7 +180,8 @@ export class GameScene extends Phaser.Scene {
   private rng!: Rng
   private layout!: GameLayout
   private viewCamera!: WorldCamera
-  private backdrop!: Phaser.GameObjects.Graphics
+  private backdrop!: Phaser.GameObjects.Image
+  private backgroundKey = ''
   private daylight!: DaylightView
   private dayReport?: DayReportView
   private world!: Phaser.GameObjects.Container
@@ -326,8 +328,18 @@ export class GameScene extends Phaser.Scene {
     this.render(alpha, time, delta)
   }
 
+  /**
+   * The floor plan is baked once per layout, so its texture resolution has to
+   * follow the on-screen scale of the world container. Half steps keep the
+   * cache from churning while the camera stays near a whole pixel ratio.
+   */
+  private backgroundBakeScale(): number {
+    const raw = this.viewCamera.scale
+    return Math.max(1, Math.min(2, Math.round(raw * 2) / 2))
+  }
+
   private drawBackdrop(): void {
-    const g = this.add.graphics().setDepth(-100)
+    const g = this.add.graphics()
     const { width, height } = this.layout
     const room = this.layout.room
     g.fillStyle(gameColors.canopy, 1)
@@ -363,7 +375,12 @@ export class GameScene extends Phaser.Scene {
       const y = height * (0.14 + ((index * 19) % 30) / 100)
       drawFirefly(g, x, y, index * 1.7)
     }
-    this.backdrop = g
+
+    // The backdrop is screen furniture: it is drawn once and never changes, so
+    // it is baked instead of being re-walked by the renderer every frame.
+    const key = 'game-backdrop'
+    this.backdrop = bakeGraphics(this, g, key, width, height, 1).setDepth(-100)
+    g.destroy()
   }
 
   private buildWorld(): void {
@@ -380,6 +397,12 @@ export class GameScene extends Phaser.Scene {
       farm: i18n.t('zone.farm'),
       kitchen: i18n.t('zone.kitchen'),
     }
+    const bakeScale = this.backgroundBakeScale()
+    const bakeKey = `shop-bg-${this.layout.map.id}-${bakeScale}`
+    if (this.backgroundKey !== '' && this.backgroundKey !== bakeKey) {
+      this.textures.remove(this.backgroundKey)
+    }
+    this.backgroundKey = bakeKey
     const background = createShopBackground(
       this,
       theme,
@@ -388,6 +411,7 @@ export class GameScene extends Phaser.Scene {
       this.layout.map,
       this.layout.worldText,
       false,
+      { bake: { key: bakeKey, scale: bakeScale } },
     )
     background.setDepth(0)
     this.world.add(background)
@@ -414,6 +438,7 @@ export class GameScene extends Phaser.Scene {
       this.layout.map,
       '',
       this.layout.worldText,
+      this.backgroundBakeScale(),
     )
     this.vendingView = new FacilityView(
       this,
@@ -422,6 +447,7 @@ export class GameScene extends Phaser.Scene {
       this.layout.map,
       i18n.t('facility.drinks'),
       this.layout.worldText,
+      this.backgroundBakeScale(),
     )
     this.world.add(this.trashView)
     this.world.add(this.vendingView)
@@ -432,14 +458,21 @@ export class GameScene extends Phaser.Scene {
       this.layout.map,
       i18n.t('facility.dining'),
       this.layout.worldText,
+      this.backgroundBakeScale(),
       (seat) => this.trySit(seat),
     )
     diningView.addTo(this.world)
 
     this.shelfViews = Object.fromEntries(
       ZONE_ORDER.map((zone) => {
-        const view = new ShelfView(this, theme, zone, this.layout.map, this.layout.worldText, () =>
-          this.buyShelfUpgrade(zone),
+        const view = new ShelfView(
+          this,
+          theme,
+          zone,
+          this.layout.map,
+          this.layout.worldText,
+          this.backgroundBakeScale(),
+          () => this.buyShelfUpgrade(zone),
         )
         const rect = this.layout.map.shelves[zone]
         view.setDepth(rect.y + rect.h)
@@ -957,8 +990,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateWorldViews(): void {
-    this.zoneOverlay.updateZones(this.state)
-    this.plantBeds.updateBeds(this.state)
+    this.zoneOverlay.updateZones(this.state, this.backgroundBakeScale())
+    this.plantBeds.updateBeds(this.state, this.backgroundBakeScale())
     const reach = stockReach(this.state)
     for (const zone of ZONE_ORDER) {
       this.shelfViews[zone].updateShelf(this.state.shelves[zone])

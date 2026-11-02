@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Bake the static shop art into textures instead of keeping it live. Phaser walks
+  a Graphics command buffer on every rendered frame, and the floor plan alone was
+  about 193k buffer entries, so the renderer rebuilt the whole map, shelves, beds,
+  lock overlays, facility props, price chips and tool badges every frame. Those
+  layers now render as a handful of textured quads: ~258k entries per frame drop
+  to ~10k, which removes the sustained frame-time spike on desktop and the heavy
+  stutter on phones. Re-baked only when the art actually changes (zone unlock,
+  planted bed, layout change).
+
 - Let the steering stick start on beds, pens, stations and price chips. Touching
   inside any of the four product bays used to be swallowed by the slot hit area,
   so the long press blocked movement; those world tap targets now let the drag

@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import { gameColors } from '../colors'
 import { INTERACTION, plantSlotCount, ZONE_PRODUCTS } from '../logic/config'
 import type { ProductKind, ShelfState, ShopMap, ZoneId } from '../logic/types'
+import { bakeLayer } from './bakeArt'
 import { productTextureKey } from './productArt'
 
 export class ShelfView extends Phaser.GameObjects.Container {
@@ -31,6 +32,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
     zone: ZoneId,
     map: ShopMap,
     textScale: number,
+    bakeScale: number,
     onUpgrade: () => void,
   ) {
     const rect = map.shelves[zone]
@@ -95,24 +97,23 @@ export class ShelfView extends Phaser.GameObjects.Container {
     for (let index = 0; index < this.slotCount; index += 1) {
       const product = this.bins[index]
       const x = -width / 2 + pad + index * (binWidth + gap) + binWidth / 2
-      const bin = scene.add.graphics()
-      // Wicker produce basket instead of a flat white slot.
-      bin.fillStyle(0x3b2f3a, 0.12)
-      bin.fillRoundedRect(x - binWidth / 2, -height / 2 + 8, binWidth, height - 12, 5)
-      bin.fillStyle(0xe4cfa9, 0.55)
-      bin.fillRoundedRect(x - binWidth / 2, -height / 2 + 6, binWidth, height - 13, 5)
-      bin.fillStyle(0xf0dcb8, 0.6)
-      bin.fillRoundedRect(x - binWidth / 2 + 2, -height / 2 + 7, binWidth - 4, 6, 3)
-      bin.lineStyle(1, 0x8f6b45, 0.3)
+      // Wicker produce basket instead of a flat white slot. It shares the shelf
+      // body's Graphics so the whole stall bakes into one texture.
+      g.fillStyle(0x3b2f3a, 0.12)
+      g.fillRoundedRect(x - binWidth / 2, -height / 2 + 8, binWidth, height - 12, 5)
+      g.fillStyle(0xe4cfa9, 0.55)
+      g.fillRoundedRect(x - binWidth / 2, -height / 2 + 6, binWidth, height - 13, 5)
+      g.fillStyle(0xf0dcb8, 0.6)
+      g.fillRoundedRect(x - binWidth / 2 + 2, -height / 2 + 7, binWidth - 4, 6, 3)
+      g.lineStyle(1, 0x8f6b45, 0.3)
       for (let row = 1; row < 3; row += 1) {
-        bin.lineBetween(
+        g.lineBetween(
           x - binWidth / 2 + 3,
           -height / 2 + 8 + row * 6,
           x + binWidth / 2 - 3,
           -height / 2 + 8 + row * 6,
         )
       }
-      this.add(bin)
 
       const icon = scene.add
         .image(
@@ -141,6 +142,22 @@ export class ShelfView extends Phaser.GameObjects.Container {
       .text(width / 2 - 7, height / 2 - 10, '', textStyle(theme, 9 * textScale, '#fff7e8', true))
       .setOrigin(1, 0.5)
     this.add(this.countText)
+
+    // The stall body never changes after this point, so it is baked into one
+    // quad instead of being re-tessellated from ~1600 commands every frame.
+    const baked = bakeLayer(
+      scene,
+      g,
+      `shelf-${map.id}-${zone}`,
+      { x: -width / 2 - 10, y: -height / 2 - 10 },
+      width + 20,
+      height + 20,
+      bakeScale,
+    )
+    const index = this.getIndex(g)
+    this.remove(g)
+    this.addAt(baked, Math.max(0, index))
+    g.destroy()
 
     this.lockOverlay = scene.add.container(0, 0)
     const lockBg = scene.add.graphics()

@@ -1,6 +1,7 @@
 import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { ShopMap } from '../logic/types'
+import { bakeLayer } from './bakeArt'
 import { drawTrashBin, drawVendingMachine } from './facilitiesArt'
 
 export type FacilityKind = 'trash' | 'vending'
@@ -16,6 +17,7 @@ export class FacilityView extends Phaser.GameObjects.Container {
     map: ShopMap,
     label: string,
     textScale: number,
+    bakeScale: number,
   ) {
     const rect = kind === 'trash' ? map.facilities.trashRect : map.facilities.vendingRect
     super(scene, rect.x + rect.w / 2, rect.y + rect.h / 2)
@@ -28,7 +30,20 @@ export class FacilityView extends Phaser.GameObjects.Container {
     } else {
       drawVendingMachine(art, local)
     }
-    this.add(art)
+    // The bin and the machine never change once built, so bake their art into
+    // one quad instead of letting the renderer re-walk the command buffer.
+    this.add(
+      bakeLayer(
+        scene,
+        art,
+        `facility-${map.id}-${kind}`,
+        { x: local.x - 6, y: local.y - 6 },
+        local.w + 12,
+        local.h + 12,
+        bakeScale,
+      ),
+    )
+    art.destroy()
     if (kind === 'vending') {
       this.add(
         scene.add
