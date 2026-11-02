@@ -2,14 +2,15 @@ import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import { distance } from '../logic/collision'
-import { INTERACTION, PEN_SIZE, PLOT_SIZE, STAFF, STATION_SIZE } from '../logic/config'
+import { INTERACTION, PEN_SIZE, PLOT_SIZE, STATION_SIZE } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState, Vec2, ZoneId } from '../logic/types'
-import { ANIMAL_SCALE, animalTextureKey } from './animalArt'
+import { ANIMAL_SCALE } from './animalArt'
 import { coinTextureKey } from './fruitArt'
 import { drawSeedPacket } from './groundArt'
 import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
+import { staffPortraitKey } from './staffArt'
 import { type WorldCamera, worldToScreen } from './worldCamera'
 
 interface OfferLabel {
@@ -303,7 +304,7 @@ export class MapOffers {
     if (offer.type === 'staff') {
       label.icon
         .setVisible(true)
-        .setTexture(animalTextureKey(STAFF[offer.kind].species))
+        .setTexture(staffPortraitKey(offer.kind))
         .setPosition(-22 * ui, 1 * ui)
         .setScale(0.21 * ui * ANIMAL_SCALE)
     }

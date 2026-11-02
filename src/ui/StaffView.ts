@@ -2,15 +2,14 @@ import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import type { StaffState } from '../logic/types'
 import { AnimalRig } from './AnimalRig'
+import { ANIMAL_SCALE } from './animalArt'
 import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
+import { staffBodyKey, staffHatKey } from './staffArt'
 
 const BODY_SCALE = 0.78
-const APRON = {
-  cashier: 0x5fbf9f,
-  picker: 0x7fa65a,
-  chef: 0xf3ebe0,
-} as const
+/** The rig shrinks 128-unit part art to the long-standing 96-unit footprint. */
+const PART_SCALE = BODY_SCALE * ANIMAL_SCALE
 
 /** Staff carry goods in the hand too, so the pile matches the player's. */
 const CARRY_HAND_X = 15
@@ -22,8 +21,7 @@ const CARRY_BADGE_Y = -3
 
 export class StaffView extends AnimalRig {
   readonly hit: Phaser.GameObjects.Zone
-  private readonly apron: Phaser.GameObjects.Graphics
-  private readonly hat: Phaser.GameObjects.Graphics
+  private readonly hatImage: Phaser.GameObjects.Image
   private readonly carrying: Phaser.GameObjects.Image[] = []
   private readonly carryCount: Phaser.GameObjects.Text
   private readonly mood: Phaser.GameObjects.Graphics
@@ -32,7 +30,6 @@ export class StaffView extends AnimalRig {
   private carryKey = ''
   private carryFacing: -1 | 1 = 1
   private lastPhase: StaffState['phase'] | '' = ''
-  private hatKind: StaffState['kind'] | '' = ''
 
   constructor(scene: Phaser.Scene, theme: Theme, member: StaffState, textScale: number) {
     super(scene, {
@@ -41,13 +38,12 @@ export class StaffView extends AnimalRig {
       scale: BODY_SCALE,
       seed: member.id,
       shadow: { width: 40, height: 11, alpha: 0.18 },
+      parts: { body: staffBodyKey(member.kind) },
     })
 
-    this.apron = scene.add.graphics()
-    this.addBodyLayer(this.apron)
-
-    this.hat = scene.add.graphics()
-    this.addAbove(this.hat)
+    // The hat sits under the head so ears stay in front of the brim.
+    this.hatImage = scene.add.image(0, 0, staffHatKey(member.kind)).setOrigin(0.5, 0.9)
+    this.addBodyLayer(this.hatImage)
 
     for (let index = 0; index < 4; index += 1) {
       const icon = scene.add
@@ -129,21 +125,9 @@ export class StaffView extends AnimalRig {
     }
     this.mood.setPosition(frame.headX, frame.headY)
 
-    this.apron.clear()
-    this.apron.fillStyle(APRON[member.kind], 0.9)
-    this.apron.fillRoundedRect(-13, -34, 26, 25, 6)
-    this.apron.fillStyle(0xffffff, 0.35)
-    this.apron.fillRoundedRect(-11, -32, 8, 6, 3)
-
-    if (member.kind === 'chef') {
-      if (this.hatKind !== 'chef') {
-        this.hatKind = 'chef'
-        this.drawChefHat()
-      }
-      this.hat.setPosition(frame.headX, frame.headY).setVisible(true)
-    } else {
-      this.hat.setVisible(false)
-    }
+    this.hatImage
+      .setPosition(frame.headX, frame.headY)
+      .setScale(member.facing * PART_SCALE, PART_SCALE)
 
     if (member.phase !== this.lastPhase) {
       this.lastPhase = member.phase
@@ -183,19 +167,6 @@ export class StaffView extends AnimalRig {
     this.carryCount
       .setOrigin(facing > 0 ? 0 : 1, 0.5)
       .setPosition(facing * (CARRY_HAND_X + CARRY_BADGE_X), CARRY_HAND_Y + CARRY_BADGE_Y)
-  }
-
-  private drawChefHat(): void {
-    this.hat.clear()
-    this.hat.fillStyle(0xffffff, 1)
-    this.hat.fillRoundedRect(-11, -62, 22, 9, 3)
-    this.hat.fillCircle(-9, -64, 5)
-    this.hat.fillCircle(0, -67, 6)
-    this.hat.fillCircle(9, -64, 5)
-    this.hat.lineStyle(1.5, 0xd9cbb5, 0.9)
-    this.hat.strokeRoundedRect(-11, -62, 22, 9, 3)
-    this.hat.fillStyle(0xe8b04c, 1)
-    this.hat.fillRoundedRect(-12, -54, 24, 3, 1.5)
   }
 
   private drawMood(phase: StaffState['phase']): void {

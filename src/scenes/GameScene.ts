@@ -115,6 +115,7 @@ import { StaffView } from '../ui/StaffView'
 import { readCssShortSide } from '../ui/scale'
 import { SceneryView } from '../ui/scenery'
 import { createShopBackground } from '../ui/shopArt'
+import { createStaffTextures } from '../ui/staffArt'
 import { Toast } from '../ui/Toast'
 import { TutorialOverlay } from '../ui/TutorialOverlay'
 import {
@@ -244,6 +245,7 @@ export class GameScene extends Phaser.Scene {
     this.suppressAutoPauseUntil = performance.now() + 2_500
     startMusic(this)
     createAnimalTextures(this)
+    createStaffTextures(this)
     createProductTextures(this)
     this.saveStore = progressSave(this.services)
     const viewport = readViewport(this)

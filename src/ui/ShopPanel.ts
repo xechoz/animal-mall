@@ -10,7 +10,6 @@ import {
   PLANTS,
   productPrice,
   RECIPES,
-  STAFF,
   STAFF_ORDER,
   shelfCapacity,
   shelfUpgradeCost,
@@ -31,11 +30,12 @@ import type {
   UpgradeKind,
   ZoneId,
 } from '../logic/types'
-import { ANIMAL_SCALE, animalTextureKey } from './animalArt'
+import { ANIMAL_SCALE } from './animalArt'
 import { drawHeaderRibbon, drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
 import { productTextureKey } from './productArt'
+import { staffPortraitKey } from './staffArt'
 import { drawToolIcon } from './toolArt'
 
 /** Cards stop growing past this height so portrait panels stay balanced. */
@@ -994,7 +994,7 @@ export class ShopPanel {
 
     card.add(
       scene.add
-        .image(-width / 2 + 48 * ui, -height / 2 + 58 * ui, animalTextureKey(STAFF[kind].species))
+        .image(-width / 2 + 48 * ui, -height / 2 + 58 * ui, staffPortraitKey(kind))
         .setScale(0.66 * ui * ANIMAL_SCALE),
     )
     card.add(

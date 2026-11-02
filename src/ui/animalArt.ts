@@ -33,6 +33,9 @@ export type AnimalPart = 'body' | 'head' | 'tail' | 'paw'
 type Layer = 'shadow' | 'tail' | 'feet' | 'body' | 'head'
 
 const ALL_LAYERS: ReadonlySet<Layer> = new Set(['shadow', 'tail', 'feet', 'body', 'head'])
+/** Everything below the head, in drawing order. */
+const BODY_LAYERS: ReadonlySet<Layer> = new Set(['shadow', 'tail', 'feet', 'body'])
+
 const PART_LAYERS: Readonly<Record<Exclude<AnimalPart, 'paw'>, ReadonlySet<Layer>>> = {
   body: new Set(['body']),
   head: new Set(['head']),
@@ -390,8 +393,18 @@ function drawAnimal(
   player: boolean,
   layers: ReadonlySet<Layer>,
 ): Phaser.GameObjects.Graphics {
-  const style = STYLES[species]
   const g = scene.add.graphics()
+  drawAnimalInto(g, species, player, layers)
+  return g
+}
+
+function drawAnimalInto(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  player: boolean,
+  layers: ReadonlySet<Layer>,
+): void {
+  const style = STYLES[species]
 
   if (layers.has('shadow')) {
     g.fillStyle(INK, 0.16)
@@ -404,7 +417,36 @@ function drawAnimal(
   }
   if (layers.has('body')) drawBody(g, species, style, player)
   if (layers.has('head')) drawHead(g, species, style, player)
+}
 
+/**
+ * A role's body piece with clothing baked in: the staff rig swaps this texture
+ * in for the bare `body` part so the uniform inherits every gait transform.
+ */
+export function drawClothedBody(
+  scene: Phaser.Scene,
+  species: SpeciesId,
+  dress: (graphics: Phaser.GameObjects.Graphics) => void,
+): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics()
+  drawAnimalInto(g, species, false, PART_LAYERS.body)
+  dress(g)
+  return g
+}
+
+/**
+ * A full portrait with the clothing slipped underneath the head, so a collar
+ * never covers the muzzle. Used by shop cards and staff signs.
+ */
+export function drawClothedPortrait(
+  scene: Phaser.Scene,
+  species: SpeciesId,
+  dress: (graphics: Phaser.GameObjects.Graphics) => void,
+): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics()
+  drawAnimalInto(g, species, false, BODY_LAYERS)
+  dress(g)
+  drawAnimalInto(g, species, false, PART_LAYERS.head)
   return g
 }
 

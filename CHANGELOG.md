@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Give the staff a real uniform instead of the flat apron rectangle. The
+  cashier wears a teal shirt with a cream apron and name badge, the picker green
+  overalls, and the chef a white double-breasted jacket with a coral neckerchief;
+  the clothing is baked into the body texture so it turns, bobs and squashes
+  with the gait. Every role also gets a work hat (bucket cap, straw hat, toque)
+  layered behind the head so the ears stay in front, and the same dressed
+  portrait now appears on the shop cards, the map offers and the staff signs.
+
 - Redraw every shop animal with a species-specific silhouette instead of one
   shared body template. Customers and staff now split into body/head/tail/paw
   textures so the existing gait rig keeps working while each species gets its

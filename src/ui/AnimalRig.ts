@@ -26,6 +26,8 @@ export interface RigOptions {
   readonly scale: number
   readonly seed: number
   readonly shadow: RigShadow
+  /** Role-specific part art, e.g. a staff body already wearing its uniform. */
+  readonly parts?: Partial<Record<AnimalPart, string>>
 }
 
 /** Extra pose layered on top of the gait (drink, eat, seated, angry shake). */
@@ -77,7 +79,7 @@ export class AnimalRig extends Phaser.GameObjects.Container {
     const displayScale = scale * ANIMAL_SCALE
     this.baseScale = displayScale
     const keyFor = (part: AnimalPart): string =>
-      player ? playerPartKey(part) : animalPartKey(species, part)
+      options.parts?.[part] ?? (player ? playerPartKey(part) : animalPartKey(species, part))
 
     this.shadowArt = scene.add.graphics()
     this.shadowArt.fillStyle(0x3b2f3a, shadow.alpha)
