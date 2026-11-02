@@ -127,10 +127,33 @@ describe('production', () => {
     expect(shelves.veg.stock.tomato).toBe(0)
   })
 
-  it('turns fish into grilled fish and immediately starts the next batch', () => {
-    const { producer, shelves } = run('grilledFish', { fish: 2 }, 210)
+  it('grills a mixed skewer from any two pool ingredients', () => {
+    const { producer, shelves } = run('skewer', { fish: 1, tomato: 1 }, 210)
     expect(producer.ready).toBe(1)
     expect(shelves.farm.stock.fish).toBe(0)
+    expect(shelves.veg.stock.tomato).toBe(0)
+  })
+
+  it('waits for a second ingredient before grilling a skewer', () => {
+    const { producer, shelves } = run('skewer', { fish: 1 }, 210)
+    expect(producer.ready).toBe(0)
+    expect(shelves.farm.stock.fish).toBe(1)
+  })
+
+  it('spends hopper ingredients before shelf stock for a pooled recipe', () => {
+    let shelves = shelvesWith({ tomato: 4 })
+    let producer = {
+      ...createProducer('skewer', 0, 1, PORTRAIT_MAP),
+      hopper: { fish: 2 },
+    }
+    for (let tick = 0; tick < 200; tick += 1) {
+      const result = stepProduction([producer], shelves, 50, 1)
+      producer = result.producers[0] as typeof producer
+      shelves = result.shelves
+    }
+    expect(producer.ready).toBe(1)
+    expect(producer.hopper.fish ?? 0).toBe(0)
+    expect(shelves.veg.stock.tomato).toBe(4)
   })
 
   it('turns yarn into a sweater', () => {

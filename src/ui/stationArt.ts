@@ -21,7 +21,7 @@ export function drawStation(g: Phaser.GameObjects.Graphics, producer: ProducerSt
     case 'sweater':
       drawLoom(g)
       break
-    case 'grilledFish':
+    case 'skewer':
       drawGrill(g)
       break
     case 'juice':
@@ -69,7 +69,7 @@ export function drawStationFx(
       drawSmoke(g, 24, -40, time, 3, 0x8d817c)
       return
     }
-    case 'grilledFish': {
+    case 'skewer': {
       const flicker = 0.6 + Math.sin(time * 0.02) * 0.25
       g.fillStyle(0xf08a3c, flicker)
       g.fillEllipse(0, 2, 30, 9)
@@ -164,7 +164,7 @@ export function drawStationPad(
     return
   }
 
-  if (product === 'grilledFish') {
+  if (product === 'skewer') {
     // Charcoal grill pad with stones and a bucket.
     g.fillStyle(0x5a5f66, 0.18)
     g.fillRoundedRect(x - 42, y - 30, 84, 62, 12)

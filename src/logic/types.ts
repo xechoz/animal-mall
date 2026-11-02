@@ -1,7 +1,7 @@
 export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry' | 'strawberry' | 'grape'
 export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin' | 'potato' | 'eggplant'
 export type AnimalProductKind = 'egg' | 'milk' | 'yarn' | 'fish' | 'cheese' | 'honey'
-export type ProcessedKind = 'cake' | 'sweater' | 'grilledFish' | 'juice' | 'jam' | 'iceCream'
+export type ProcessedKind = 'cake' | 'sweater' | 'skewer' | 'juice' | 'jam' | 'iceCream'
 export type PlantKind = FruitKind | VegKind
 export type ProductKind = PlantKind | AnimalProductKind | ProcessedKind
 

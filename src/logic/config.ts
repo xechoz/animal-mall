@@ -46,11 +46,17 @@ export const ANIMAL_ORDER: readonly AnimalProductKind[] = [
 export const PROCESSED_ORDER: readonly ProcessedKind[] = [
   'cake',
   'sweater',
-  'grilledFish',
+  'skewer',
   'juice',
   'jam',
   'iceCream',
 ]
+/**
+ * The grill accepts any two of these per skewer, in any mix. Vegetables come
+ * first so a tie in shelf stock spends the cheap garden surplus, and so hand
+ * loading pours vegetables before the scarcer farm goods.
+ */
+export const GRILL_POOL: readonly ProductKind[] = [...VEG_ORDER, 'fish', 'egg', 'cheese']
 export const PLANT_ORDER: readonly PlantKind[] = [...FRUIT_ORDER, ...VEG_ORDER]
 export const PRODUCT_ORDER: readonly ProductKind[] = [
   ...FRUIT_ORDER,
@@ -184,6 +190,11 @@ export type RecipeInput =
       readonly category: 'fruit' | 'veg'
       readonly count: number
     }
+  | {
+      /** Any mix of these products fills the input; the batch may mix kinds. */
+      readonly pool: readonly ProductKind[]
+      readonly count: number
+    }
 
 export interface RecipeConfig {
   readonly cost: number
@@ -211,12 +222,12 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
     capacity: 3,
     inputs: [{ product: 'yarn', count: 2 }],
   },
-  grilledFish: {
+  skewer: {
     cost: 320,
     price: 55,
     craftMs: 10_000,
     capacity: 3,
-    inputs: [{ product: 'fish', count: 1 }],
+    inputs: [{ pool: GRILL_POOL, count: 2 }],
   },
   juice: {
     cost: 320,
@@ -635,5 +646,5 @@ export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   kitchen: 2,
 }
 
-export const SAVE_VERSION = 8
+export const SAVE_VERSION = 9
 export const STARTING_COINS = 100

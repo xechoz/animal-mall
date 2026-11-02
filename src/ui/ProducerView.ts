@@ -9,6 +9,7 @@ import {
   isProcessedKind,
   PLANTS,
   RECIPES,
+  type RecipeInput,
   troughCapacity,
   zoneOf,
 } from '../logic/config'
@@ -17,7 +18,7 @@ import type { PlantKind, ProducerState, ShelfState, ZoneId } from '../logic/type
 import { feedTextureKey } from './fruitArt'
 import { drawClover, drawGrassTuft, drawTilledBed } from './groundArt'
 import { drawPlantCrop, plantGrowthScale } from './plantArt'
-import { productTextureKey } from './productArt'
+import { MIXED_INPUT_TEXTURE, productTextureKey } from './productArt'
 import { drawStation, drawStationFx, drawStationPad } from './stationArt'
 
 export class ProducerView extends Phaser.GameObjects.Container {
@@ -204,7 +205,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
           const available = recipeInputTotal(producer, shelves, input)
           const capacity = inputCapacity(input)
           icon
-            .setTexture(productTextureKey(recipeInputIcon(input)))
+            .setTexture(inputChipTexture(input))
             .setVisible(true)
             .setAlpha(crafting ? 0.45 : 1)
           count
@@ -429,6 +430,15 @@ export class ProducerView extends Phaser.GameObjects.Container {
   }
 }
 
+/** A pool input shows one mixed-food chip instead of a single product icon. */
+function inputChipTexture(input: RecipeInput): string {
+  return 'pool' in input ? MIXED_INPUT_TEXTURE : productTextureKey(recipeInputIcon(input))
+}
+
+function inputKey(input: RecipeInput): string {
+  return 'pool' in input ? 'pool' : recipeInputIcon(input)
+}
+
 function producerKey(
   producer: ProducerState,
   shelves: Readonly<Record<ZoneId, ShelfState>>,
@@ -436,7 +446,7 @@ function producerKey(
   const station =
     producer.kind === 'station' && isProcessedKind(producer.product)
       ? RECIPES[producer.product].inputs
-          .map((input) => `${recipeInputIcon(input)}${recipeInputTotal(producer, shelves, input)}`)
+          .map((input) => `${inputKey(input)}${recipeInputTotal(producer, shelves, input)}`)
           .join(',')
       : ''
   return [

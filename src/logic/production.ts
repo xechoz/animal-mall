@@ -389,12 +389,14 @@ interface ResolvedInput {
 /** The concrete product kinds that satisfy one recipe input. */
 export function recipeInputProducts(input: RecipeInput): readonly ProductKind[] {
   if ('product' in input) return [input.product]
+  if ('pool' in input) return input.pool
   return input.category === 'fruit' ? FRUIT_ORDER : VEG_ORDER
 }
 
-/** Representative icon for a category input, used by the HUD and shop cards. */
+/** Representative icon for a category or pool input, used by the HUD and cards. */
 export function recipeInputIcon(input: RecipeInput): ProductKind {
   if ('product' in input) return input.product
+  if ('pool' in input) return input.pool[0]
   return input.category === 'fruit' ? 'apple' : 'carrot'
 }
 
@@ -451,18 +453,58 @@ function resolveRecipeInputs(
 ): readonly ResolvedInput[] | null {
   const resolved: ResolvedInput[] = []
   for (const input of recipe.inputs) {
-    let best: ProductKind | null = null
-    let bestCount = -1
-    for (const product of recipeInputProducts(input)) {
-      const available = availableCount(producer, shelves, product)
-      if (available < input.count || available <= bestCount) continue
-      best = product
-      bestCount = available
-    }
-    if (best === null) return null
-    resolved.push({ product: best, count: input.count })
+    const picks = resolveInput(producer, shelves, input)
+    if (picks === null) return null
+    resolved.push(...picks)
   }
   return resolved
+}
+
+/**
+ * Fills one input slot from the hand-loaded hopper first, then shelf stock.
+ * Within each source the largest pile goes first, so a surplus is spent before
+ * a rare item, and ties follow the input's product order. Pools may return
+ * several products for the same batch, which is how a skewer mixes foods.
+ */
+function resolveInput(
+  producer: ProducerState,
+  shelves: Readonly<Record<ZoneId, ShelfState>>,
+  input: RecipeInput,
+): readonly ResolvedInput[] | null {
+  const products = recipeInputProducts(input)
+  const hopper = new Map(products.map((product) => [product, producer.hopper[product] ?? 0]))
+  const shelf = new Map(products.map((product) => [product, stockOf(shelves, product)]))
+  const picked = new Map<ProductKind, number>()
+  let remaining = takeFromPile(products, hopper, input.count, picked)
+  remaining = takeFromPile(products, shelf, remaining, picked)
+  if (remaining > 0) return null
+  return [...picked].map(([product, count]) => ({ product, count }))
+}
+
+function takeFromPile(
+  products: readonly ProductKind[],
+  source: Map<ProductKind, number>,
+  needed: number,
+  picked: Map<ProductKind, number>,
+): number {
+  let remaining = needed
+  while (remaining > 0) {
+    let best: ProductKind | null = null
+    let bestCount = 0
+    for (const product of products) {
+      const count = source.get(product) ?? 0
+      if (count > bestCount) {
+        best = product
+        bestCount = count
+      }
+    }
+    if (best === null) return remaining
+    const amount = Math.min(remaining, bestCount)
+    picked.set(best, (picked.get(best) ?? 0) + amount)
+    source.set(best, bestCount - amount)
+    remaining -= amount
+  }
+  return remaining
 }
 
 function consumeResolvedInputs(

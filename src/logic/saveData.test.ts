@@ -134,6 +134,15 @@ describe('save data', () => {
     ])
   })
 
+  it('migrates the old grilled-fish grill into a skewer grill', () => {
+    const save = migrateSave({
+      coins: 100,
+      producers: [{ product: 'grilledFish', slot: 2 }],
+      zones: { kitchen: true },
+    })
+    expect(save.producers).toEqual([{ product: 'skewer', slot: 2 }])
+  })
+
   it('restores the newer fruit and vegetable kinds', () => {
     const save = migrateSave({
       coins: 100,

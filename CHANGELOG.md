@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Drop the landscape-phone HUD rail: every layout now shares one floating top
+  row with the coin pill on the left and the day clock, shop and pause buttons
+  anchored to the top-right safe-area corner. Landscape phones lose the reserved
+  column, so the world uses the full width, and the row floats over the map's
+  decorative edge instead of pushing it down.
+- Give the two in-game round buttons a light, 78%-opaque glass plate so they stay
+  readable over grass and floor, and stop the bag/pause glyphs from clearing the
+  plate they are drawn on. The "can afford something" dot now sits on the rim
+  instead of floating between the two buttons.
+- Replace the fish-only kitchen grill with a BBQ grill. One batch takes any two
+  vegetables, fish, eggs or cheese in any mix and always produces skewers, so
+  the kitchen gains a flexible sink for garden and farm surplus. Existing saves
+  migrate the old grill in place to the `skewer` product (save version 9).
 - Spread the landscape shop across a wider 1280-unit room: the four product
   bays keep their 240-unit footprint while the aisles between them grow from
   56 to 80 units, so Fruit, Vegetables, Farm and Kitchen read as separate zones

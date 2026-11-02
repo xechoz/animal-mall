@@ -4,7 +4,7 @@ A cozy endless management game built with Phaser 4 on
 [`xechoz/mg-platform`](https://github.com/xechoz/mg-platform).
 
 Grow six fruits and six vegetables, raise chickens, cows, sheep, goats and bees,
-then fish at the pond and turn the produce into cakes, sweaters, grilled fish,
+then fish at the pond and turn the produce into cakes, sweaters, skewers,
 juice, jam and ice cream. Stock four zone shelves and serve the neighborhood
 animals at the counter. Each land animal has a trough: put produce in it
 yourself or let a picker fill it, and the animal eats the cheapest item first.
@@ -88,10 +88,10 @@ morning.
   or filling the basket stops it; freeing basket space resumes it without
   walking away. Pickers do not fish and the pond has no trough. Replacing the
   pond removes fishing until it is installed again.
-- Kitchen stations pull eggs, milk, yarn, fish, fruit or vegetables from the
-  matching shelf and leave one of each for customers. Walking past a machine with
+- Kitchen stations pull eggs, milk, yarn, fish, cheese, fruit or vegetables from
+  the matching shelf and leave one of each for customers. Walking past a machine with
   matching goods loads its hopper automatically, up to three production batches;
-  finished cakes, sweaters, grilled fish, juice, jam and ice cream wait on the
+  finished cakes, sweaters, skewers, juice, jam and ice cream wait on the
   station tray and are collected on contact, ready to stock the kitchen shelf. A hired chef does
   that loop for you: finished dishes go to the kitchen shelf, and idle stations
   get their hoppers topped up from shelf stock.
@@ -156,11 +156,11 @@ carrot, tomato, corn, pumpkin, potato and eggplant. Vegetables unlock
 automatically after the first sale; stand anywhere inside the locked farm or
 kitchen zone for half a second to buy it, or unlock it in the shop. Farm
 animals are chicken, cow, sheep, goat, beehive and the pond; kitchen machines
-are oven, loom, grill, juicer, jam pot and churn.
+are oven, loom, BBQ grill, juicer, jam pot and churn.
 
 ## Save and language
 
-- Progress is stored as `mg:animal-mall:progress`, save version `8`.
+- Progress is stored as `mg:animal-mall:progress`, save version `9`.
 - Coins, pending counter coins, earned coins, served customers, the day number,
   zones, planted crops, animals, stations, tool levels, per-zone shelf levels,
   staff levels and non-refundable deposits persist. Shelf stock, station hoppers,
@@ -173,7 +173,9 @@ are oven, loom, grill, juicer, jam pot and churn.
   staff slot at level 0. Version 7 makes pens and stations generic slots: old
   fixed pens keep their slot index 1:1, duplicate products are rejected and a
   repeated slot is moved to the first free pen or station. Version 8 adds the day
-  counter; older saves start on day 1.
+  counter; older saves start on day 1. Version 9 turns the fish-only grill into
+  a BBQ grill: the old `grilledFish` machine keeps its station slot and becomes
+  a `skewer` grill.
 - English is the default language. Chinese is available from the language picker
   or with `?lang=zh`; other supported picker languages fall back to English.
 - All art is drawn procedurally with Phaser Graphics; the soundtrack, drink

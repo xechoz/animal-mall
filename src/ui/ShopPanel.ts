@@ -1233,11 +1233,11 @@ export class ShopPanel {
     }
     if (isProcessedKind(product)) {
       const inputs = RECIPES[product].inputs
-        .map((input) =>
-          'product' in input
-            ? `${input.count}× ${this.productName(input.product)}`
-            : `${input.count}× ${i18n.t(input.category === 'fruit' ? 'shop.anyFruit' : 'shop.anyVeg')}`,
-        )
+        .map((input) => {
+          if ('product' in input) return `${input.count}× ${this.productName(input.product)}`
+          if ('pool' in input) return `${input.count}× ${i18n.t('shop.anyGrill')}`
+          return `${input.count}× ${i18n.t(input.category === 'fruit' ? 'shop.anyFruit' : 'shop.anyVeg')}`
+        })
         .join(', ')
       return i18n.t('shop.recipe', { items: inputs })
     }

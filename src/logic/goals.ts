@@ -16,7 +16,7 @@ const CHAIN: readonly Goal[] = [
   { type: 'producer', product: 'yarn' },
   { type: 'producer', product: 'sweater' },
   { type: 'producer', product: 'fish' },
-  { type: 'producer', product: 'grilledFish' },
+  { type: 'producer', product: 'skewer' },
 ]
 
 export function nextGoal(state: ShopState): Goal {

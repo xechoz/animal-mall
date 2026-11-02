@@ -146,6 +146,10 @@ submodule. Do not copy platform source into this repo.
   `producerPosition` and `producerAccess` index by `slot`, never by product.
   Save version 7 stores the slot, rejects a duplicate product and relocates a
   duplicate slot instead of losing the producer.
+- The kitchen's BBQ grill is the only pooled recipe: one batch consumes any two
+  of the six vegetables, fish, eggs or cheese, may mix them, and always produces
+  `skewer`. Save version 9 renames the old `grilledFish` producer to `skewer`;
+  keep that alias in `migrateSave`.
 - Producer swapping follows the crop rule: long press the pen/station or tap its
   pitchfork/wrench tag, never a proximity dwell. The tag appears after the
   player stops, fades over the last ~35 units, and only the tag itself is

@@ -334,10 +334,17 @@ function pickerStat(options: SlotPickerOptions, product: ProductKind): string {
   if (isProcessedKind(product)) {
     return RECIPES[product].inputs
       .map((input) => {
-        const name =
-          'product' in input
-            ? i18n.t(`product.${input.product}`)
-            : i18n.t(input.category === 'fruit' ? 'picker.fruit' : 'picker.veg')
+        if ('product' in input) {
+          const name = i18n.t(`product.${input.product}`)
+          return input.count > 1 ? `${input.count}× ${name}` : name
+        }
+        const name = i18n.t(
+          'pool' in input
+            ? 'picker.grill'
+            : input.category === 'fruit'
+              ? 'picker.fruit'
+              : 'picker.veg',
+        )
         return input.count > 1 ? `${input.count}× ${name}` : name
       })
       .join(' + ')

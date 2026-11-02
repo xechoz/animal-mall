@@ -5,6 +5,9 @@ import { createFruitTextures, fruitTextureKey } from './fruitArt'
 
 const SIZE = 40
 
+/** Chip icon for a recipe that accepts a mix of foods instead of one product. */
+export const MIXED_INPUT_TEXTURE = 'input-mixed'
+
 export function productTextureKey(product: ProductKind): string {
   return isFruitKind(product) ? fruitTextureKey(product) : `product-${product}`
 }
@@ -19,6 +22,27 @@ export function createProductTextures(scene: Phaser.Scene): void {
     graphics.generateTexture(key, SIZE, SIZE)
     graphics.destroy()
   }
+  if (!scene.textures.exists(MIXED_INPUT_TEXTURE)) {
+    const graphics = scene.add.graphics()
+    drawMixedInput(graphics)
+    graphics.generateTexture(MIXED_INPUT_TEXTURE, SIZE, SIZE)
+    graphics.destroy()
+  }
+}
+
+function drawMixedInput(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0x3b2f3a, 0.16)
+  g.fillEllipse(20, 34, 18, 5)
+  g.lineStyle(2.5, 0x8f5734, 1)
+  g.lineBetween(10, 33, 30, 7)
+  g.fillStyle(0xf08a3c, 1)
+  g.fillRoundedRect(12, 23, 12, 8, 2)
+  g.fillStyle(0x7fb069, 1)
+  g.fillRoundedRect(17, 15, 12, 8, 2)
+  g.fillStyle(0xffd166, 1)
+  g.fillRoundedRect(22, 8, 9, 7, 2)
+  g.fillStyle(0xfff7e8, 0.5)
+  g.fillCircle(15, 26, 1.5)
 }
 
 function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void {
@@ -207,21 +231,20 @@ function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void
       g.fillStyle(0x5f8442, 1)
       g.fillRoundedRect(15, 11, 10, 4, 2)
       break
-    case 'grilledFish':
-      g.fillStyle(0xffffff, 1)
-      g.fillEllipse(20, 24, 30, 16)
-      g.fillStyle(0x6fa8c9, 1)
-      g.fillEllipse(19, 21, 22, 11)
-      g.fillStyle(0x9ac9df, 1)
-      g.fillEllipse(18, 20, 16, 8)
-      g.fillStyle(0x6fa8c9, 1)
-      g.fillTriangle(31, 21, 36, 15, 36, 27)
-      g.lineStyle(1.5, 0x4f6b3f, 0.8)
-      g.lineBetween(13, 17, 22, 25)
-      g.lineBetween(17, 16, 26, 24)
-      g.lineBetween(21, 16, 28, 22)
-      g.fillStyle(0x3b2f3a, 1)
-      g.fillCircle(11, 19, 1.5)
+    case 'skewer':
+      g.lineStyle(2.5, 0x8f5734, 1)
+      g.lineBetween(10, 34, 30, 6)
+      g.fillStyle(0xf08a3c, 1)
+      g.fillRoundedRect(13, 22, 11, 8, 2)
+      g.fillStyle(0x7fb069, 1)
+      g.fillRoundedRect(18, 15, 11, 8, 2)
+      g.fillStyle(0xe0a93d, 1)
+      g.fillRoundedRect(23, 8, 8, 7, 2)
+      g.fillStyle(0xffd166, 1)
+      g.fillCircle(16, 26, 1.6)
+      g.fillCircle(21, 19, 1.6)
+      g.fillStyle(0xfff7e8, 0.5)
+      g.fillCircle(18, 24, 1)
       break
     case 'cheese':
       g.fillStyle(0xe0a93d, 1)

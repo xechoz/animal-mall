@@ -37,4 +37,11 @@ describe('game copy', () => {
       expect(gameI18n.zh[key as keyof typeof gameI18n.zh]).toBeTruthy()
     }
   })
+
+  it('names the BBQ grill and its pooled recipe in both languages', () => {
+    for (const key of ['product.skewer', 'producer.skewer', 'shop.anyGrill', 'picker.grill']) {
+      expect(gameI18n.en[key as keyof typeof gameI18n.en]).toBeTruthy()
+      expect(gameI18n.zh[key as keyof typeof gameI18n.zh]).toBeTruthy()
+    }
+  })
 })

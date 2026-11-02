@@ -220,26 +220,29 @@ function parseProducers(record: Record<string, unknown>): SaveProducer[] {
   const usedProducts = new Set<ProductKind>()
 
   const add = (product: unknown, rawSlot: unknown): void => {
-    if (!isProductKind(product)) return
-    if (!isPlantKind(product) && usedProducts.has(product)) return
-    const slot = normalizeSlot(product, rawSlot)
+    // Version 9 turns the fish-only grill into a BBQ grill whose product is a
+    // skewer, so an older kitchen keeps its machine in the same slot.
+    const kind = product === 'grilledFish' ? 'skewer' : product
+    if (!isProductKind(kind)) return
+    if (!isPlantKind(kind) && usedProducts.has(kind)) return
+    const slot = normalizeSlot(kind, rawSlot)
     if (slot === null) return
-    const zone = producerZone(product)
+    const zone = producerZone(kind)
     if (zone === null) return
 
-    if (isPlantKind(product)) {
+    if (isPlantKind(kind)) {
       const key = `${zone}:${slot}`
       if (usedSlots.has(key)) return
       usedSlots.add(key)
-      producers.push({ product, slot })
+      producers.push({ product: kind, slot })
       return
     }
 
     const free = firstFreeProducerSlot(zone, usedSlots, slot)
     if (free === null) return
     usedSlots.add(`${zone}:${free}`)
-    usedProducts.add(product)
-    producers.push({ product, slot: free })
+    usedProducts.add(kind)
+    producers.push({ product: kind, slot: free })
   }
 
   if (Array.isArray(record.producers)) {
