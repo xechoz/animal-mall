@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Spread the landscape shop across a wider 1280-unit room: the four product
+  bays keep their 240-unit footprint while the aisles between them grow from
+  56 to 80 units, so Fruit, Vegetables, Farm and Kitchen read as separate zones
+  instead of one packed counter. Shelves, beds, pens, stations, staff signs and
+  the cross aisle follow the new bay grid; the portrait plan is unchanged.
 - Give the staff a real uniform instead of the flat apron rectangle. The
   cashier wears a teal shirt with a cream apron and name badge, the picker green
   overalls, and the chef a white double-breasted jacket with a coral neckerchief;

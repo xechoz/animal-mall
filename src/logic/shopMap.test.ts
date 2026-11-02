@@ -201,6 +201,19 @@ for (const map of MAPS) {
   })
 }
 
+describe('landscape zone spacing', () => {
+  it('separates the four product bays with a full aisle', () => {
+    const areas = ZONE_ORDER.map((zone) => LANDSCAPE_MAP.zoneAreas[zone]).sort(
+      (left, right) => left.x - right.x,
+    )
+    for (let index = 1; index < areas.length; index += 1) {
+      const left = areas[index - 1]
+      const right = areas[index]
+      expect(right.x - (left.x + left.w)).toBeGreaterThanOrEqual(64)
+    }
+  })
+})
+
 function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
