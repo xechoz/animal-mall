@@ -49,6 +49,7 @@ export class DrinkPicker {
     this.state = options.state
     const { scene, layout, theme, i18n } = options
     const ui = layout.ui
+    const font = layout.text
     const panelW = PANEL_W * ui
     const panelH = PANEL_H * ui
     const centerX = layout.room.x + layout.room.w / 2
@@ -83,12 +84,12 @@ export class DrinkPicker {
           0,
           -panelH / 2 + 30 * ui,
           i18n.t('drink.title'),
-          textStyle(theme, 24 * ui, theme.text, true),
+          textStyle(theme, font.title, theme.text, true),
         )
         .setOrigin(0.5),
     )
     this.balance = scene.add
-      .text(0, -panelH / 2 + 60 * ui, '', textStyle(theme, 15 * ui, theme.textMuted, true))
+      .text(0, -panelH / 2 + 60 * ui, '', textStyle(theme, font.body, theme.textMuted, true))
       .setOrigin(0.5)
     this.panel.add(this.balance)
 
@@ -97,7 +98,7 @@ export class DrinkPicker {
         panelW / 2 - 22 * ui,
         -panelH / 2 + 24 * ui,
         '×',
-        textStyle(theme, 26 * ui, theme.textMuted, true),
+        textStyle(theme, font.title, theme.textMuted, true),
       )
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
@@ -130,6 +131,7 @@ export class DrinkPicker {
   private createRow(index: number, kind: DrinkKind): DrinkRow {
     const { scene, theme, i18n } = this.options
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     const rowW = ROW_W * ui
     const container = scene.add.container(0, (-PANEL_H / 2 + 108 + index * 84) * ui)
     const bg = scene.add.graphics()
@@ -144,7 +146,7 @@ export class DrinkPicker {
         -rowW / 2 + 62 * ui,
         -12 * ui,
         i18n.t(`drink.${kind}`),
-        textStyle(theme, 17 * ui, theme.text, true),
+        textStyle(theme, font.label, theme.text, true),
       )
       .setOrigin(0, 0.5)
     container.add(name)
@@ -154,7 +156,7 @@ export class DrinkPicker {
         -rowW / 2 + 62 * ui,
         15 * ui,
         this.describe(kind),
-        textStyle(theme, 12 * ui, theme.textMuted, false),
+        textStyle(theme, font.body, theme.textMuted, false),
       )
       .setOrigin(0, 0.5)
     container.add(desc)
@@ -166,18 +168,23 @@ export class DrinkPicker {
         86 * ui,
         -12 * ui,
         String(drinkPrice(kind)),
-        textStyle(theme, 14 * ui, theme.text, true),
+        textStyle(theme, font.body, theme.text, true),
       )
       .setOrigin(0, 0.5)
     container.add(price)
 
     const active = scene.add
-      .text(76 * ui, 14 * ui, '', textStyle(theme, 11 * ui, cssColor(theme.accentAlt), true))
+      .text(76 * ui, 14 * ui, '', textStyle(theme, font.caption, cssColor(theme.accentAlt), true))
       .setOrigin(0, 0.5)
     container.add(active)
 
     const buy = scene.add
-      .text(rowW / 2 - 48 * ui, 0, i18n.t('drink.buy'), textStyle(theme, 14 * ui, theme.text, true))
+      .text(
+        rowW / 2 - 48 * ui,
+        0,
+        i18n.t('drink.buy'),
+        textStyle(theme, font.body, theme.text, true),
+      )
       .setOrigin(0.5)
     container.add(buy)
 

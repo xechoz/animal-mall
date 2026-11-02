@@ -58,6 +58,7 @@ export class SlotPicker {
   constructor(options: SlotPickerOptions) {
     const { scene, layout, camera, theme, state, zone, slot, i18n } = options
     const ui = layout.ui
+    const font = layout.text
     const products = pickerProducts(zone)
     // Recommend the same purchase the shop cards do, so the pill and the
     // highlighted frame point at one product instead of leaving a stale hint
@@ -127,13 +128,13 @@ export class SlotPicker {
         0,
         -height / 2 + 21 * ui,
         i18n.t(pickerTitle(zone, current !== undefined)),
-        textStyle(theme, 18 * ui, theme.text, true),
+        textStyle(theme, font.label, theme.text, true),
       )
       .setOrigin(0.5)
     panel.add(title)
 
     const sub = scene.add
-      .text(0, -height / 2 + 42 * ui, subtitle, textStyle(theme, 13 * ui, theme.textMuted, false))
+      .text(0, -height / 2 + 42 * ui, subtitle, textStyle(theme, font.body, theme.textMuted, false))
       .setOrigin(0.5)
     panel.add(sub)
 
@@ -142,7 +143,7 @@ export class SlotPicker {
         width / 2 - 17 * ui,
         -height / 2 + 17 * ui,
         '×',
-        textStyle(theme, 22 * ui, theme.textMuted, true),
+        textStyle(theme, font.label, theme.textMuted, true),
       )
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
@@ -205,6 +206,7 @@ export class SlotPicker {
   ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = options
     const ui = options.layout.ui
+    const font = options.layout.text
     const buttonW = BUTTON_W * ui
     const buttonH = BUTTON_H * ui
     const button = scene.add.container(x, y)
@@ -240,7 +242,7 @@ export class SlotPicker {
         -26 * ui,
         -17 * ui,
         producerName(options, product),
-        textStyle(theme, 10.5 * ui, enabled ? theme.text : theme.textMuted, true),
+        textStyle(theme, font.body, enabled ? theme.text : theme.textMuted, true),
       )
       .setOrigin(0, 0.5)
     button.add(name)
@@ -259,7 +261,7 @@ export class SlotPicker {
             -26 * ui,
             5 * ui,
             i18n.t('picker.installed'),
-            textStyle(theme, 9 * ui, theme.textMuted, true),
+            textStyle(theme, font.caption, theme.textMuted, true),
           )
           .setOrigin(0, 0.5),
       )
@@ -273,7 +275,7 @@ export class SlotPicker {
             -17 * ui,
             7 * ui,
             String(price),
-            textStyle(theme, 13 * ui, enabled ? theme.text : theme.textMuted, true),
+            textStyle(theme, font.body, enabled ? theme.text : theme.textMuted, true),
           )
           .setOrigin(0, 0.5),
       )
@@ -285,7 +287,7 @@ export class SlotPicker {
           -26 * ui,
           22 * ui,
           pickerStat(options, product),
-          textStyle(theme, 9 * ui, theme.textMuted, false),
+          textStyle(theme, font.caption, theme.textMuted, false),
         )
         .setOrigin(0, 0.5),
     )

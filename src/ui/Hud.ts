@@ -63,11 +63,11 @@ export class Hud {
     this.clockBg = scene.add.graphics().setDepth(6003)
     this.clockIcon = scene.add.graphics().setDepth(6004)
     this.dayText = scene.add
-      .text(0, 0, '', textStyle(theme, 12 * layout.ui, theme.textMuted, true))
+      .text(0, 0, '', textStyle(theme, layout.text.caption, theme.textMuted, true))
       .setOrigin(0, 0.5)
       .setDepth(6004)
     this.clockText = scene.add
-      .text(0, 0, '', textStyle(theme, 16 * layout.ui, theme.text, true))
+      .text(0, 0, '', textStyle(theme, layout.text.body, theme.text, true))
       .setOrigin(0, 0.5)
       .setDepth(6004)
 
@@ -174,8 +174,8 @@ export class Hud {
     this.clockBg.strokeRoundedRect(x, y, hud.clockWidth, hud.clockHeight, hud.clockHeight / 2)
 
     const textX = x + 27 * ui
-    this.dayText.setPosition(textX, hud.clock.y - 8 * ui).setFontSize(12 * ui)
-    this.clockText.setPosition(textX, hud.clock.y + 8 * ui).setFontSize(16 * ui)
+    this.dayText.setPosition(textX, hud.clock.y - 10 * ui).setFontSize(this.layout.text.caption)
+    this.clockText.setPosition(textX, hud.clock.y + 10 * ui).setFontSize(this.layout.text.body)
   }
 
   private updateClock(state: ShopState): void {

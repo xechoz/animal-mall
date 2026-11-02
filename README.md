@@ -177,7 +177,8 @@ are oven, loom, BBQ grill, juicer, jam pot and churn.
   a BBQ grill: the old `grilledFish` machine keeps its station slot and becomes
   a `skewer` grill.
 - English is the default language. Chinese is available from the language picker
-  or with `?lang=zh`; other supported picker languages fall back to English.
+  or with `?lang=zh`. French, Italian, German, Spanish, Turkish, Japanese,
+  Korean, Portuguese and Russian are fully translated in the picker as well.
 - All art is drawn procedurally with Phaser Graphics; the soundtrack, drink
   gulp, fish cast and fish splash are CC0 audio assets (see
   `src/assets/audio/*.LICENSE.txt`). The runtime makes no external requests.
@@ -221,7 +222,9 @@ Source layout:
 - `src/ui/` — procedural art, responsive layout, joystick, HUD, map offers, plant
   chooser, producer/shelf views, staff and coin-pile views, facility and drink
   overlays, the dev tuning panel, panels and dialogues.
-- `src/i18n.ts` — English and Chinese copy.
+- `src/i18n.ts` — English and Chinese copy plus dictionary wiring.
+- `src/i18n/` — complete dictionaries for French, Italian, German, Spanish,
+  Turkish, Japanese, Korean, Portuguese and Russian.
 - `src/save.ts` — versioned save adapter.
 
 ## Platform updates

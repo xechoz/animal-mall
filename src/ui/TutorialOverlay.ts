@@ -44,7 +44,7 @@ export class TutorialOverlay {
     this.pill = scene.add.graphics().setDepth(6200)
     this.text = scene.add
       .text(0, 0, '', {
-        ...textStyle(theme, 15 * layout.ui, theme.text, true),
+        ...textStyle(theme, 18 * layout.ui, theme.text, true),
         align: 'center',
         wordWrap: { width: Math.min(460 * layout.ui, layout.content.w - 80 * layout.ui) },
       })
@@ -153,7 +153,7 @@ export class TutorialOverlay {
     )
     this.pill.fillStyle(this.theme.panel, 0.96)
     this.pill.fillRoundedRect(x - pillWidth / 2, y - pillHeight / 2, pillWidth, pillHeight, 18 * ui)
-    this.pill.lineStyle(2 * ui, this.theme.accent, 0.7)
+    this.pill.lineStyle(2 * ui, this.theme.borderSoft, 1)
     this.pill.strokeRoundedRect(
       x - pillWidth / 2,
       y - pillHeight / 2,

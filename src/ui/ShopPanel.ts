@@ -1,4 +1,4 @@
-import { Button, type I18n, type Theme, textStyle } from '@mg/core'
+import { Button, type I18n, Modal, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import {
   ANIMALS,
@@ -62,6 +62,7 @@ type Tab = 'production' | 'tools' | 'staff'
 
 interface DynamicButton {
   readonly button: Button
+  readonly face: Phaser.GameObjects.Graphics
   readonly cost: number
   readonly deposit: number
   readonly format: (remaining: number) => string
@@ -87,6 +88,7 @@ export class ShopPanel {
   private readonly zoneButtons = new Map<ZoneId, Button>()
   private readonly dynamicButtons: DynamicButton[] = []
   private zoneChips?: Phaser.GameObjects.Container
+  private removeModal?: Modal
   private tabHighlight?: Phaser.GameObjects.Graphics
   private zoneHighlight?: Phaser.GameObjects.Graphics
   /** Vertical rhythm shared by the chrome and the body, rebuilt per render. */
@@ -133,12 +135,51 @@ export class ShopPanel {
 
   destroy(): void {
     this.closed = true
+    this.removeModal?.destroy(true)
     this.root.destroy(true)
+  }
+
+  private confirmRemove(id: number, refund: number): void {
+    if (this.removeModal !== undefined) return
+    const { scene, theme, i18n } = this.options
+    const modal = new Modal(scene, theme, {
+      title: i18n.t('shop.removeTitle'),
+      body: i18n.t('shop.removeBody', { refund }),
+      width: 560,
+      height: 360,
+      actionsLayout: 'column',
+      actionHeight: 70,
+      actionFontSize: 26,
+      actions: [
+        {
+          label: i18n.t('shop.cancel'),
+          variant: 'soft',
+          onClick: () => {
+            this.removeModal?.destroy(true)
+            this.removeModal = undefined
+          },
+        },
+        {
+          label: i18n.t('shop.removeConfirm'),
+          variant: 'danger',
+          onClick: () => {
+            const next = this.options.onRemove(id)
+            this.removeModal?.destroy(true)
+            this.removeModal = undefined
+            this.setState(next)
+          },
+        },
+      ],
+    })
+    modal.setDepth(7300)
+    this.removeModal = modal
   }
 
   close(): void {
     if (this.closed) return
     this.closed = true
+    this.removeModal?.destroy(true)
+    this.removeModal = undefined
     this.options.onClose()
     this.root.destroy(true)
   }
@@ -153,6 +194,7 @@ export class ShopPanel {
     this.balanceText = undefined
 
     const ui = layout.ui
+    const font = layout.text
     const w = layout.panelWidth
     const h = layout.panelHeight
     const g = scene.add.graphics()
@@ -161,7 +203,7 @@ export class ShopPanel {
     this.chrome.add(g)
 
     const title = scene.add
-      .text(30 * ui, 38, i18n.t('shop.title'), textStyle(theme, 26 * ui, '#fff7e8', true))
+      .text(30 * ui, 38, i18n.t('shop.title'), textStyle(theme, font.title, '#fff7e8', true))
       .setOrigin(0, 0.5)
     this.chrome.add(title)
 
@@ -170,7 +212,7 @@ export class ShopPanel {
         w - 96 * ui,
         38,
         i18n.t('shop.balance', { coins: this.state.coins }),
-        textStyle(theme, 18 * ui, '#fff7e8', true),
+        textStyle(theme, font.label, '#fff7e8', true),
       )
       .setOrigin(1, 0.5)
     this.chrome.add(this.balanceText)
@@ -206,6 +248,7 @@ export class ShopPanel {
   private renderTabs(w: number): void {
     const { scene, theme, i18n } = this.options
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     const y = this.tabY
     const gap = 6 * ui
     const tabWidth = (w - 60 * ui - gap * 2) / 3
@@ -224,7 +267,7 @@ export class ShopPanel {
         {
           width: tabWidth,
           height: this.tabHeight,
-          fontSize: 15 * ui,
+          fontSize: font.label,
           minHitSize: 64 * ui,
           variant: 'soft',
           onClick: () => this.setTab(entry.tab),
@@ -241,6 +284,7 @@ export class ShopPanel {
     this.zoneChips = container
     this.chrome.add(container)
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     const y = this.chipY
     const gap = 6 * ui
     const chipWidth = (w - 60 * ui - gap * 3) / 4
@@ -254,7 +298,7 @@ export class ShopPanel {
         {
           width: chipWidth,
           height: this.chipHeight,
-          fontSize: 13 * ui,
+          fontSize: font.body,
           minHitSize: 64 * ui,
           variant: 'soft',
           onClick: () => this.setZone(zone),
@@ -386,6 +430,7 @@ export class ShopPanel {
   ): void {
     const { scene, theme, i18n } = this.options
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     const config = ZONES[zone]
     const height = Math.min(220 * ui, bottom - top)
     const card = scene.add.container(30 * ui + (w - 60 * ui) / 2, top + height / 2)
@@ -409,7 +454,7 @@ export class ShopPanel {
           0,
           -height / 2 + 36 * ui,
           i18n.t(`zone.${zone}`),
-          textStyle(theme, 20 * ui, theme.text, true),
+          textStyle(theme, font.title, theme.text, true),
         )
         .setOrigin(0.5),
     )
@@ -421,7 +466,7 @@ export class ShopPanel {
           zone === 'veg'
             ? i18n.t('shop.zoneHint')
             : i18n.t('shop.zoneLocked', { zone: i18n.t(`zone.${zone}`) }),
-          textStyle(theme, 13 * ui, theme.textMuted),
+          textStyle(theme, font.body, theme.textMuted),
         )
         .setOrigin(0.5),
     )
@@ -433,7 +478,7 @@ export class ShopPanel {
             0,
             -height / 2 + 104 * ui,
             i18n.t('shop.includes', { name: this.productName(includes) }),
-            textStyle(theme, 13 * ui, theme.textMuted),
+            textStyle(theme, font.body, theme.textMuted),
           )
           .setOrigin(0.5),
       )
@@ -443,7 +488,7 @@ export class ShopPanel {
       const button = new Button(scene, 0, height / 2 - 36 * ui, i18n.t('shop.unlockFree'), theme, {
         width: w - 120 * ui,
         height: 48 * ui,
-        fontSize: 15 * ui,
+        fontSize: font.body,
         minHitSize: 64,
         variant: locked ? 'soft' : 'primary',
         onClick: () => {
@@ -452,7 +497,10 @@ export class ShopPanel {
         },
       })
       button.setEnabled(!locked)
-      if (locked) button.setText(i18n.t('shop.afterFirstSale'))
+      if (locked) {
+        button.setText(i18n.t('shop.afterFirstSale'))
+        button.setAlpha(1)
+      }
       card.add(button)
     } else {
       const cost = config.unlockCost
@@ -465,7 +513,7 @@ export class ShopPanel {
         {
           width: w - 120 * ui,
           height: 48 * ui,
-          fontSize: 15 * ui,
+          fontSize: font.body,
           minHitSize: 64,
           variant: 'primary',
           onClick: () => {
@@ -474,7 +522,14 @@ export class ShopPanel {
           },
         },
       )
-      this.track(button, cost, 0, (remaining) => i18n.t('shop.unlockZone', { cost: remaining }))
+      this.track(
+        button,
+        cost,
+        0,
+        (remaining) => i18n.t('shop.unlockZone', { cost: remaining }),
+        w - 120 * ui,
+        48 * ui,
+      )
       card.add(button)
     }
     parent.add(card)
@@ -489,7 +544,7 @@ export class ShopPanel {
   ): void {
     const ui = this.options.layout.ui
     const gap = 10 * ui
-    const gridTop = bottom - top >= 360 * ui ? this.renderShelfRow(parent, zone, w, top) : top
+    const gridTop = this.renderShelfRow(parent, zone, w, top)
     const products = PLANT_SHOP_ORDER.filter((product) => zoneOf(product) === zone)
     const columns = w > 700 ? 3 : 2
     const rows = Math.ceil(products.length / columns)
@@ -515,6 +570,8 @@ export class ShopPanel {
     const { scene, theme, i18n } = this.options
     const card = scene.add.container(x, y)
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
+    const compact = height < 150 * ui
     const g = scene.add.graphics()
     const goal = this.isGoalProduct(product)
     this.drawCardFace(g, width, height, goal)
@@ -523,16 +580,20 @@ export class ShopPanel {
 
     card.add(
       scene.add
-        .image(-width / 2 + 34 * ui, -height / 2 + 38 * ui, productTextureKey(product))
-        .setScale(0.72 * ui),
+        .image(
+          -width / 2 + 34 * ui,
+          -height / 2 + (compact ? 32 : 38) * ui,
+          productTextureKey(product),
+        )
+        .setScale((compact ? 0.58 : 0.72) * ui),
     )
     card.add(
       scene.add
         .text(
           -width / 2 + 64 * ui,
-          -height / 2 + 28 * ui,
+          -height / 2 + (compact ? 24 : 28) * ui,
           this.productName(product),
-          textStyle(theme, 17 * ui, theme.text, true),
+          textStyle(theme, font.label, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -540,45 +601,61 @@ export class ShopPanel {
       scene.add
         .text(
           -width / 2 + 64 * ui,
-          -height / 2 + 54 * ui,
+          -height / 2 + (compact ? 48 : 54) * ui,
           i18n.t('shop.planted', { count: plantedCount(this.state, product) }),
-          textStyle(theme, 12 * ui, theme.textMuted, true),
+          textStyle(theme, font.caption, theme.textMuted, true),
         )
         .setOrigin(0, 0.5),
     )
 
     const config = PLANTS[product]
-    card.add(
-      scene.add
-        .text(
-          -width / 2 + 20 * ui,
-          -height / 2 + 72 * ui,
-          i18n.t('shop.stats.plant', {
-            price: config.price,
-            grow: Math.round(config.growMs / 1000),
-          }),
-          textStyle(theme, 12 * ui, theme.textMuted),
-        )
-        .setOrigin(0, 0.5),
-    )
+    if (!compact) {
+      card.add(
+        scene.add
+          .text(
+            -width / 2 + 20 * ui,
+            -height / 2 + 72 * ui,
+            i18n.t('shop.stats.plant', {
+              price: config.price,
+              grow: Math.round(config.growMs / 1000),
+            }),
+            textStyle(theme, font.body, theme.textMuted),
+          )
+          .setOrigin(0, 0.5),
+      )
+    }
 
     const cost = config.cost
-    const buy = new Button(scene, 0, height / 2 - 34 * ui, i18n.t('shop.plant', { cost }), theme, {
-      width: width - 36 * ui,
-      height: 46 * ui,
-      fontSize: 14 * ui,
-      minHitSize: 64,
-      variant: 'primary',
-      onClick: () => {
-        const next = this.options.onPurchasePlant(product)
-        this.setState(next)
+    const buy = new Button(
+      scene,
+      0,
+      height / 2 - (compact ? 30 : 34) * ui,
+      i18n.t('shop.plant', { cost }),
+      theme,
+      {
+        width: width - 36 * ui,
+        height: (compact ? 40 : 46) * ui,
+        fontSize: font.body,
+        minHitSize: 64,
+        variant: 'primary',
+        onClick: () => {
+          const next = this.options.onPurchasePlant(product)
+          this.setState(next)
+        },
       },
-    })
-    this.track(buy, cost, 0, (remaining) => i18n.t('shop.plant', { cost: remaining }))
+    )
+    this.track(
+      buy,
+      cost,
+      0,
+      (remaining) => i18n.t('shop.plant', { cost: remaining }),
+      width - 36 * ui,
+      (compact ? 40 : 46) * ui,
+    )
     card.add(buy)
 
     const planted = this.state.producers.find((producer) => producer.product === product)
-    if (planted !== undefined) {
+    if (planted !== undefined && !compact) {
       const refund = Math.floor(cost * 0.5)
       // Narrow cards have no room beside the name, so the refund sits below the stats.
       const narrowRemove = width < 380
@@ -592,13 +669,10 @@ export class ShopPanel {
           {
             width: 86 * ui,
             height: 36 * ui,
-            fontSize: 11 * ui,
+            fontSize: font.caption,
             minHitSize: 56 * ui,
             variant: 'soft',
-            onClick: () => {
-              const next = this.options.onRemove(planted.id)
-              this.setState(next)
-            },
+            onClick: () => this.confirmRemove(planted.id, refund),
           },
         ),
       )
@@ -617,7 +691,9 @@ export class ShopPanel {
     if (zone !== 'farm' && zone !== 'kitchen') return
     const ui = this.options.layout.ui
     const gap = 10 * ui
-    const gridTop = bottom - top >= 360 * ui ? this.renderShelfRow(parent, zone, w, top) : top
+    // Keep the shelf upgrade reachable on short landscape panels; the card
+    // layout below switches to a compact variant when it has to share height.
+    const gridTop = this.renderShelfRow(parent, zone, w, top)
     const slots =
       zone === 'farm' ? this.options.layout.map.animalPens : this.options.layout.map.stationSlots
     // Four physical slots read best as a 2 x 2 grid; a 3 + 1 row wastes width
@@ -658,9 +734,11 @@ export class ShopPanel {
   ): Phaser.GameObjects.Container {
     const { scene, theme, i18n } = this.options
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     // Short landscape cards have no room for a diet/recipe line once the
     // button is placed; the picker still shows the essential output stats.
-    const showDetail = height >= 190 * ui
+    const compact = height < 150 * ui
+    const showDetail = !compact
     const producer = this.state.producers.find(
       (candidate) => candidate.slot === slot && zoneOf(candidate.product) === zone,
     )
@@ -675,7 +753,7 @@ export class ShopPanel {
     card.add(
       scene.add
         .text(-width / 2 + 20 * ui, -height / 2 + 18 * ui, slotName, {
-          ...textStyle(theme, 11 * ui, theme.textMuted, true),
+          ...textStyle(theme, font.caption, theme.textMuted, true),
         })
         .setOrigin(0, 0.5),
     )
@@ -685,9 +763,9 @@ export class ShopPanel {
         scene.add
           .text(
             -width / 2 + 20 * ui,
-            -height / 2 + 52 * ui,
+            -height / 2 + (compact ? 36 : 52) * ui,
             i18n.t(zone === 'farm' ? 'shop.emptyPen' : 'shop.emptyStation'),
-            textStyle(theme, 18 * ui, theme.text, true),
+            textStyle(theme, font.label, theme.text, true),
           )
           .setOrigin(0, 0.5),
       )
@@ -699,7 +777,7 @@ export class ShopPanel {
               -height / 2 + 80 * ui,
               i18n.t(zone === 'farm' ? 'shop.emptyPenHint' : 'shop.emptyStationHint'),
               {
-                ...textStyle(theme, 12 * ui, theme.textMuted),
+                ...textStyle(theme, font.body, theme.textMuted),
                 wordWrap: { width: width - 40 * ui },
               },
             )
@@ -710,13 +788,13 @@ export class ShopPanel {
         new Button(
           scene,
           0,
-          height / 2 - 32 * ui,
+          height / 2 - (compact ? 28 : 32) * ui,
           i18n.t(zone === 'farm' ? 'shop.chooseAnimal' : 'shop.chooseMachine'),
           theme,
           {
             width: width - 40 * ui,
-            height: 46 * ui,
-            fontSize: 14 * ui,
+            height: (compact ? 40 : 46) * ui,
+            fontSize: font.body,
             minHitSize: 64,
             variant: 'primary',
             onClick: () => this.options.onOpenProducerPicker(zone, slot),
@@ -728,16 +806,20 @@ export class ShopPanel {
 
     card.add(
       scene.add
-        .image(-width / 2 + 34 * ui, -height / 2 + 54 * ui, productTextureKey(producer.product))
-        .setScale(0.68 * ui),
+        .image(
+          -width / 2 + 34 * ui,
+          -height / 2 + (compact ? 40 : 54) * ui,
+          productTextureKey(producer.product),
+        )
+        .setScale((compact ? 0.56 : 0.68) * ui),
     )
     card.add(
       scene.add
         .text(
           -width / 2 + 62 * ui,
-          -height / 2 + 44 * ui,
+          -height / 2 + (compact ? 32 : 44) * ui,
           this.producerName(producer.product),
-          textStyle(theme, 17 * ui, theme.text, true),
+          textStyle(theme, font.label, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -745,9 +827,9 @@ export class ShopPanel {
       scene.add
         .text(
           -width / 2 + 62 * ui,
-          -height / 2 + 68 * ui,
+          -height / 2 + (compact ? 56 : 68) * ui,
           this.producerStats(producer.product),
-          textStyle(theme, 12 * ui, theme.textMuted),
+          textStyle(theme, font.body, theme.textMuted),
         )
         .setOrigin(0, 0.5),
     )
@@ -759,7 +841,7 @@ export class ShopPanel {
             -height / 2 + 94 * ui,
             this.producerDetail(producer.product),
             {
-              ...textStyle(theme, 12 * ui, theme.textMuted),
+              ...textStyle(theme, font.body, theme.textMuted),
               wordWrap: { width: width - 40 * ui },
             },
           )
@@ -767,10 +849,10 @@ export class ShopPanel {
       )
     }
     card.add(
-      new Button(scene, 0, height / 2 - 32 * ui, i18n.t('shop.replace'), theme, {
+      new Button(scene, 0, height / 2 - (compact ? 28 : 32) * ui, i18n.t('shop.replace'), theme, {
         width: width - 40 * ui,
-        height: 46 * ui,
-        fontSize: 14 * ui,
+        height: (compact ? 40 : 46) * ui,
+        fontSize: font.body,
         minHitSize: 64,
         variant: 'soft',
         onClick: () => this.options.onOpenProducerPicker(zone, slot),
@@ -788,6 +870,7 @@ export class ShopPanel {
   ): number {
     const { scene, theme, i18n } = this.options
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     const height = 52 * ui
     const width = w - 60 * ui
     const card = scene.add.container(30 * ui + width / 2, top + height / 2)
@@ -814,7 +897,7 @@ export class ShopPanel {
             level,
             max,
           })}`,
-          textStyle(theme, 14 * ui, theme.text, true),
+          textStyle(theme, font.body, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -824,13 +907,26 @@ export class ShopPanel {
           -width / 2 + 52 * ui,
           -height / 2 + 34 * ui,
           i18n.t('shelf.capacity', { capacity }),
-          textStyle(theme, 11 * ui, theme.textMuted, true),
+          textStyle(theme, font.caption, theme.textMuted, true),
         )
         .setOrigin(0, 0.5),
     )
 
-    const cost = shelfUpgradeCost(level)
     const buttonWidth = Math.min(176 * ui, width * 0.36)
+    if (this.state.producers.length === 0) {
+      card.add(
+        scene.add
+          .text(width / 2 - 12 * ui, 0, i18n.t('shelf.plantFirst'), {
+            ...textStyle(theme, font.body, theme.textMuted, true),
+            align: 'right',
+            wordWrap: { width: buttonWidth },
+          })
+          .setOrigin(1, 0.5),
+      )
+      parent.add(card)
+      return top + height + 8 * ui
+    }
+    const cost = shelfUpgradeCost(level)
     const buy = new Button(
       scene,
       width / 2 - buttonWidth / 2 - 12 * ui,
@@ -840,7 +936,7 @@ export class ShopPanel {
       {
         width: buttonWidth,
         height: 36 * ui,
-        fontSize: 12 * ui,
+        fontSize: font.caption,
         minHitSize: 56,
         variant: cost === null ? 'soft' : 'primary',
         onClick: () => {
@@ -851,8 +947,16 @@ export class ShopPanel {
     )
     if (cost === null) {
       buy.setEnabled(false)
+      buy.setAlpha(1)
     } else {
-      this.track(buy, cost, 0, (remaining) => i18n.t('shelf.upgrade', { cost: remaining }))
+      this.track(
+        buy,
+        cost,
+        0,
+        (remaining) => i18n.t('shelf.upgrade', { cost: remaining }),
+        buttonWidth,
+        36 * ui,
+      )
     }
     card.add(buy)
     parent.add(card)
@@ -891,6 +995,7 @@ export class ShopPanel {
     const { scene, theme, i18n } = this.options
     const card = scene.add.container(x, y)
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     const g = scene.add.graphics()
     const goal = this.isGoalUpgrade(kind)
     this.drawCardFace(g, width, height, goal)
@@ -906,7 +1011,7 @@ export class ShopPanel {
           -width / 2 + 64 * ui,
           -height / 2 + 26 * ui,
           i18n.t(`tool.${kind}`),
-          textStyle(theme, 16 * ui, theme.text, true),
+          textStyle(theme, font.label, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -919,7 +1024,7 @@ export class ShopPanel {
           narrow ? -width / 2 + 64 * ui : width / 2 - 18 * ui,
           narrow ? -height / 2 + 50 * ui : -height / 2 + 26 * ui,
           i18n.t('shop.level', { level, max }),
-          textStyle(theme, 12 * ui, theme.textMuted, true),
+          textStyle(theme, font.body, theme.textMuted, true),
         )
         .setOrigin(narrow ? 0 : 1, 0.5),
     )
@@ -929,7 +1034,7 @@ export class ShopPanel {
           -width / 2 + 18 * ui,
           -height / 2 + 62 * ui,
           i18n.t(`tool.${kind}.desc`, { value: UPGRADE_EFFECT[kind] }),
-          { ...textStyle(theme, 12 * ui, theme.textMuted), wordWrap: { width: width - 36 * ui } },
+          { ...textStyle(theme, font.body, theme.textMuted), wordWrap: { width: width - 36 * ui } },
         )
         .setOrigin(0, 0),
     )
@@ -939,7 +1044,7 @@ export class ShopPanel {
     const buy = new Button(scene, 0, height / 2 - 32 * ui, label, theme, {
       width: width - 36 * ui,
       height: 44 * ui,
-      fontSize: 14 * ui,
+      fontSize: font.body,
       minHitSize: 64,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {
@@ -949,8 +1054,16 @@ export class ShopPanel {
     })
     if (cost === null) {
       buy.setEnabled(false)
+      buy.setAlpha(1)
     } else {
-      this.track(buy, cost, 0, (remaining) => i18n.t('shop.upgrade', { cost: remaining }))
+      this.track(
+        buy,
+        cost,
+        0,
+        (remaining) => i18n.t('shop.upgrade', { cost: remaining }),
+        width - 36 * ui,
+        44 * ui,
+      )
     }
     card.add(buy)
     return card
@@ -987,6 +1100,7 @@ export class ShopPanel {
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, 1)
     const ui = this.options.layout.ui
+    const font = this.options.layout.text
     g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
     g.lineStyle(2 * ui, theme.borderSoft, 1)
     g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
@@ -1003,7 +1117,7 @@ export class ShopPanel {
           -width / 2 + 84 * ui,
           -height / 2 + 34 * ui,
           i18n.t(`staff.${kind}`),
-          textStyle(theme, 18 * ui, theme.text, true),
+          textStyle(theme, font.label, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -1016,14 +1130,14 @@ export class ShopPanel {
           narrow ? -width / 2 + 84 * ui : width / 2 - 18 * ui,
           narrow ? -height / 2 + 60 * ui : -height / 2 + 34 * ui,
           i18n.t('shop.level', { level, max }),
-          textStyle(theme, 12 * ui, theme.textMuted, true),
+          textStyle(theme, font.body, theme.textMuted, true),
         )
         .setOrigin(narrow ? 0 : 1, 0.5),
     )
     card.add(
       scene.add
         .text(-width / 2 + 20 * ui, -height / 2 + 108 * ui, i18n.t(`staff.${kind}.desc`), {
-          ...textStyle(theme, 13 * ui, theme.textMuted),
+          ...textStyle(theme, font.body, theme.textMuted),
           wordWrap: { width: width - 40 * ui },
         })
         .setOrigin(0, 0),
@@ -1038,7 +1152,7 @@ export class ShopPanel {
             -width / 2 + 20 * ui,
             -height / 2 + 172 * ui,
             i18n.t('shop.depositLine', { paid: deposit, remaining: Math.max(0, cost - deposit) }),
-            textStyle(theme, 12 * ui, theme.textMuted, true),
+            textStyle(theme, font.body, theme.textMuted, true),
           )
           .setOrigin(0, 0),
       )
@@ -1048,7 +1162,7 @@ export class ShopPanel {
     const buy = new Button(scene, 0, height / 2 - 36 * ui, label, theme, {
       width: width - 36 * ui,
       height: 46 * ui,
-      fontSize: 14 * ui,
+      fontSize: font.body,
       minHitSize: 64,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {
@@ -1058,8 +1172,16 @@ export class ShopPanel {
     })
     if (cost === null) {
       buy.setEnabled(false)
+      buy.setAlpha(1)
     } else {
-      this.track(buy, cost, deposit, (value) => i18n.t('shop.hire', { cost: value }))
+      this.track(
+        buy,
+        cost,
+        deposit,
+        (value) => i18n.t('shop.hire', { cost: value }),
+        width - 36 * ui,
+        46 * ui,
+      )
     }
     card.add(buy)
     return card
@@ -1070,11 +1192,27 @@ export class ShopPanel {
     cost: number,
     deposit: number,
     format: (remaining: number) => string,
+    faceWidth: number,
+    faceHeight: number,
     locked = false,
     lockedLabel?: string,
   ): void {
+    const { scene, theme } = this.options
+    const ui = this.options.layout.ui
+    // The shared Button fades its whole container when disabled, which makes
+    // the "Need X coins" label unreadable. A soft overlay keeps the label at
+    // full contrast while still reading as unavailable.
+    const face = scene.add.graphics()
+    const radius = Math.min(theme.radius, faceHeight / 2)
+    face.fillStyle(theme.surfaceAlt, 1)
+    face.fillRoundedRect(-faceWidth / 2, -faceHeight / 2, faceWidth, faceHeight, radius)
+    face.lineStyle(Math.max(1, 2 * ui), theme.borderSoft, 1)
+    face.strokeRoundedRect(-faceWidth / 2, -faceHeight / 2, faceWidth, faceHeight, radius)
+    face.setVisible(false)
+    button.addAt(face, 1)
     this.dynamicButtons.push({
       button,
+      face,
       cost,
       deposit,
       format,
@@ -1156,6 +1294,8 @@ export class ShopPanel {
         if (entry.enabled) {
           entry.enabled = false
           entry.button.setEnabled(false)
+          entry.button.setAlpha(1)
+          entry.face.setVisible(true)
         }
         continue
       }
@@ -1164,6 +1304,8 @@ export class ShopPanel {
       if (entry.enabled !== affordable) {
         entry.enabled = affordable
         entry.button.setEnabled(affordable)
+        entry.button.setAlpha(1)
+        entry.face.setVisible(!affordable)
       }
       const text = affordable
         ? entry.format(remaining)

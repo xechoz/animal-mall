@@ -1,7 +1,7 @@
 import { type Insets, NO_INSETS } from '@mg/core'
 import { shopMapFor } from '../logic/config'
 import type { Rect, ShopMap, Vec2 } from '../logic/types'
-import { computeUiScale, computeWorldTextScale, computeWorldZoom } from './scale'
+import { computeUiScale, computeWorldTextScale, computeWorldZoom, DESIGN_BASE } from './scale'
 
 export interface HudLayout {
   /** Top row shared by every layout; only the floating pills paint a surface. */
@@ -36,6 +36,17 @@ export interface GameLayout {
   readonly worldUi: number
   /** Multiplier for labels drawn inside the world container. */
   readonly worldText: number
+  /**
+   * UI font sizes in design units. These are derived from a CSS-pixel floor so
+   * secondary copy stays readable when 720 design units are squeezed into a
+   * phone's short side.
+   */
+  readonly text: {
+    readonly caption: number
+    readonly body: number
+    readonly label: number
+    readonly title: number
+  }
   readonly hud: HudLayout
   readonly panelWidth: number
   readonly panelHeight: number
@@ -90,6 +101,16 @@ export function computeGameLayout(
   )
   const worldZoom = computeWorldZoom(scale, options.cssShortSide ?? 0)
   const worldUi = Math.min(MAX_WORLD_UI_SCALE, ui * worldZoom)
+  const cssPerDesign =
+    options.cssShortSide !== undefined && options.cssShortSide > 0
+      ? options.cssShortSide / DESIGN_BASE
+      : 1
+  const text = {
+    caption: Math.max(12 * ui, 11 / cssPerDesign),
+    body: Math.max(14 * ui, 13 / cssPerDesign),
+    label: Math.max(16 * ui, 15 / cssPerDesign),
+    title: Math.max(26 * ui, 22 / cssPerDesign),
+  }
   const content: Rect = {
     x: contentLeft,
     y: top,
@@ -119,7 +140,7 @@ export function computeGameLayout(
   }
   const shop: Vec2 = { x: pause.x - buttonSize - HUD_BUTTON_GAP * ui, y: actionY }
   const clockWidth = 104 * ui
-  const clockHeight = 40 * ui
+  const clockHeight = 46 * ui
   const clock: Vec2 = { x: shop.x - buttonSize * 1.55, y: actionY }
 
   return {
@@ -135,6 +156,7 @@ export function computeGameLayout(
     ui,
     worldUi,
     worldText: computeWorldTextScale(scale, options.cssShortSide ?? 0),
+    text,
     hud: {
       bar,
       coins: { x: bar.x + 36 * ui, y: actionY },

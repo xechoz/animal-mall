@@ -955,6 +955,7 @@ export class GameScene extends Phaser.Scene {
       const canUpgrade =
         this.mode === 'playing' &&
         this.state.zones[zone] &&
+        this.state.producers.length > 0 &&
         cost !== null &&
         this.state.coins >= cost
       this.shelfViews[zone].setUpgrade(canUpgrade ? cost : null)
@@ -1907,6 +1908,7 @@ export class GameScene extends Phaser.Scene {
     else if (result === 'locked') this.toast.show(this.services.i18n.t('toast.locked'))
     else if (result === 'lockedZone') this.toast.show(this.services.i18n.t('toast.lockedZone'))
     else if (result === 'lastProducer') this.toast.show(this.services.i18n.t('toast.lastProducer'))
+    else if (result === 'needsProducer') this.toast.show(this.services.i18n.t('toast.plantFirst'))
   }
 
   private showDayReport(report: DayReportData): void {

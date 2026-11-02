@@ -23,7 +23,9 @@ submodule. Do not copy platform source into this repo.
 - `src/scenes/` — Phaser scenes and rendering. Read state, never write rules.
 - `src/ui/` — reusable drawing/interaction helpers.
 - `src/main.ts` — `createGame()` composition root.
-- `src/i18n.ts`, `src/save.ts` — localized copy and versioned save migration.
+- `src/i18n.ts`, `src/i18n/`, `src/save.ts` — localized copy (English and
+  Chinese in `src/i18n.ts`, the other nine picker languages under `src/i18n/`)
+  and versioned save migration.
 - `game.manifest.json` — site card metadata. Keep `id` stable.
 - `public/` — icons, manifest, static files.
 

@@ -20,6 +20,10 @@ const CHAIN: readonly Goal[] = [
 ]
 
 export function nextGoal(state: ShopState): Goal {
+  // The first-sale tutorial is the only guide until the player has served a
+  // customer. Advertising the vegetable zone before it unlocks sends players
+  // into a shop tab whose button cannot be used.
+  if (state.tutorial !== 'done') return null
   for (const goal of CHAIN) {
     if (goal === null) continue
     if (goal.type === 'zone' && !state.zones[goal.zone]) return goal

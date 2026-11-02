@@ -1,4 +1,13 @@
 import type { Dictionary, Lang } from '@mg/core'
+import { de } from './i18n/de'
+import { es } from './i18n/es'
+import { fr } from './i18n/fr'
+import { it } from './i18n/it'
+import { ja } from './i18n/ja'
+import { ko } from './i18n/ko'
+import { pt } from './i18n/pt'
+import { ru } from './i18n/ru'
+import { tr } from './i18n/tr'
 
 const en = {
   'game.title': 'Animal Mall',
@@ -11,11 +20,11 @@ const en = {
   'menu.iosHint': 'Add to Home Screen for fullscreen',
   'menu.iframeHint': 'Open in a new tab for fullscreen',
   'menu.openSign': 'OPEN',
-  'tutorial.buyTree': 'Plant',
-  'tutorial.grow': 'Wait',
-  'tutorial.harvest': 'Harvest',
-  'tutorial.stock': 'Stock',
-  'tutorial.checkout': 'Serve',
+  'tutorial.buyTree': 'Move with WASD or drag. Stand still on a glowing bed to plant.',
+  'tutorial.grow': 'Your crop is growing. Wait for the ring to fill.',
+  'tutorial.harvest': 'The crop is ripe. Walk over it to harvest.',
+  'tutorial.stock': 'Carry it to the matching shelf and walk into the shelf area.',
+  'tutorial.checkout': 'A customer is waiting. Stand at the register to check out.',
   'zone.fruit': 'Fruit',
   'zone.veg': 'Vegetables',
   'zone.farm': 'Farm',
@@ -134,6 +143,7 @@ const en = {
   'tool.fertilizer': 'Growth Boost',
   'shelf.name': '{zone} Shelf',
   'shelf.capacity': 'Capacity {capacity}',
+  'shelf.plantFirst': 'Plant a crop first',
   'shelf.upgrade': 'Upgrade · {cost}',
   'shelf.desc': 'Every bin holds {value} more',
   'tool.carry.desc': 'Carry +{value} goods',
@@ -216,6 +226,7 @@ const en = {
   'toast.max': 'Already at max level',
   'toast.lastTree': 'Keep enough coins for a new plant',
   'toast.lastProducer': 'Keep enough coins for a new plant',
+  'toast.plantFirst': 'Plant a crop before upgrading the shelf',
   'toast.locked': 'Finish the deposit first',
   'toast.lockedZone': 'Unlock this zone first',
   'toast.staff': '{name} hired',
@@ -272,11 +283,11 @@ const zh: Dictionary = {
   'menu.iosHint': '添加到主屏幕可全屏',
   'menu.iframeHint': '在新标签页打开可全屏',
   'menu.openSign': '营业中',
-  'tutorial.buyTree': '种植',
-  'tutorial.grow': '等待',
-  'tutorial.harvest': '采摘',
-  'tutorial.stock': '补货',
-  'tutorial.checkout': '收银',
+  'tutorial.buyTree': '用 WASD 或拖动移动。站在发光的种植床上停住即可种植。',
+  'tutorial.grow': '作物正在生长，等进度环走完。',
+  'tutorial.harvest': '作物成熟了，走过去就能采摘。',
+  'tutorial.stock': '把它带到对应货架，走进货架范围即可补货。',
+  'tutorial.checkout': '顾客在等结账，站到收银台前即可。',
   'zone.fruit': '水果区',
   'zone.veg': '蔬菜区',
   'zone.farm': '养殖区',
@@ -395,6 +406,7 @@ const zh: Dictionary = {
   'tool.fertilizer': '生长加速',
   'shelf.name': '{zone}货架',
   'shelf.capacity': '容量 {capacity}',
+  'shelf.plantFirst': '先种一株作物',
   'shelf.upgrade': '升级 · {cost}',
   'shelf.desc': '每个货位多放 {value} 件',
   'tool.carry.desc': '携带上限 +{value}',
@@ -475,6 +487,7 @@ const zh: Dictionary = {
   'toast.max': '已经满级',
   'toast.lastTree': '留够重新种植的钱',
   'toast.lastProducer': '留够重新种植的钱',
+  'toast.plantFirst': '先种一株作物，再升级货架',
   'toast.locked': '先完成当前定金',
   'toast.lockedZone': '先解锁这个区域',
   'toast.staff': '已雇佣{name}',
@@ -522,16 +535,16 @@ const zh: Dictionary = {
 
 const dictionaries: Record<Lang, Dictionary> = {
   en,
-  fr: en,
-  it: en,
-  de: en,
-  es: en,
-  tr: en,
+  fr,
+  it,
+  de,
+  es,
+  tr,
   zh,
-  ja: en,
-  ko: en,
-  pt: en,
-  ru: en,
+  ja,
+  ko,
+  pt,
+  ru,
 }
 
 export const gameI18n: Record<Lang, Dictionary> = dictionaries

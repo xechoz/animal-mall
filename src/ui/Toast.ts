@@ -9,6 +9,9 @@ export class Toast {
   private readonly bg: Phaser.GameObjects.Graphics
   private readonly text: Phaser.GameObjects.Text
   private timer?: Phaser.Time.TimerEvent
+  private readonly queue: string[] = []
+  private showing = false
+  private lastMessage = ''
 
   constructor(scene: Phaser.Scene, layout: GameLayout, theme: Theme) {
     this.scene = scene
@@ -16,14 +19,25 @@ export class Toast {
     this.layout = layout
     this.bg = scene.add.graphics().setDepth(6300).setVisible(false)
     this.text = scene.add
-      .text(0, 0, '', textStyle(theme, 15 * layout.ui, theme.text, true))
+      .text(0, 0, '', textStyle(theme, layout.text.body, theme.text, true))
       .setOrigin(0.5)
       .setDepth(6301)
       .setVisible(false)
   }
 
   show(message: string): void {
-    this.timer?.remove()
+    if (message === this.lastMessage) return
+    if (this.showing) {
+      if (this.queue[this.queue.length - 1] !== message) this.queue.push(message)
+      if (this.queue.length > 3) this.queue.shift()
+      return
+    }
+    this.render(message)
+  }
+
+  private render(message: string): void {
+    this.showing = true
+    this.lastMessage = message
     const hud = this.layout.hud
     const content = this.layout.content
     const ui = this.layout.ui
@@ -54,6 +68,10 @@ export class Toast {
         onComplete: () => {
           this.bg.setVisible(false)
           this.text.setVisible(false)
+          this.showing = false
+          this.lastMessage = ''
+          const next = this.queue.shift()
+          if (next !== undefined) this.render(next)
         },
       })
     })
@@ -61,6 +79,7 @@ export class Toast {
 
   destroy(): void {
     this.timer?.remove()
+    this.queue.length = 0
     this.bg.destroy()
     this.text.destroy()
   }

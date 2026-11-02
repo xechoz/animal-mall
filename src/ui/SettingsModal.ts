@@ -86,6 +86,7 @@ export class SettingsModal {
       },
     )
     this.fullscreenButton.setEnabled(options.fullscreenAvailable)
+    if (!options.fullscreenAvailable) this.fullscreenButton.setAlpha(1)
     const languageButton = new Button(
       scene,
       0,
@@ -107,7 +108,7 @@ export class SettingsModal {
         width: cardW - 70 * ui,
         height: 48 * ui,
         fontSize: 17 * ui,
-        variant: 'primary',
+        variant: 'soft',
         onClick: () => this.close(),
       }),
     )

@@ -44,6 +44,7 @@ export type PurchaseResult =
   | 'locked'
   | 'lockedZone'
   | 'lastProducer'
+  | 'needsProducer'
 
 export interface PurchaseOutcome {
   readonly state: ShopState
@@ -389,6 +390,9 @@ export function purchaseUpgrade(state: ShopState, kind: UpgradeKind): PurchaseOu
 /** Each zone's shelf has its own level and capacity. */
 export function purchaseShelfUpgrade(state: ShopState, zone: ZoneId): PurchaseOutcome {
   if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
+  // A shelf upgrade before the first plant can spend the only coins the player
+  // needs to start earning. Keep the first purchase focused on a producer.
+  if (state.producers.length === 0) return { state, result: 'needsProducer', events: [] }
   const level = state.shelfLevels[zone]
   const cost = shelfUpgradeCost(level)
   if (cost === null) return { state, result: 'maxed', events: [] }

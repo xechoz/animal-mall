@@ -96,6 +96,21 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(20)
 
+    const zoneCount = Object.values(save.zones).filter(Boolean).length
+    this.add
+      .text(
+        width / 2,
+        titleY + 46 * ui,
+        i18n.t('menu.stats', {
+          coins: save.coins,
+          zones: zoneCount,
+          served: save.served,
+        }),
+        textStyle(theme, layout.text.body, '#e6d8bd', true),
+      )
+      .setOrigin(0.5)
+      .setDepth(20)
+
     const startY = portrait ? height * 0.72 : height * 0.8
     this.startButton = new Button(
       this,

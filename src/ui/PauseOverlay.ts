@@ -80,7 +80,7 @@ export class PauseOverlay {
       width: buttonWidth,
       height: 48 * ui,
       fontSize: 16 * ui,
-      variant: 'ghost',
+      variant: 'soft',
       onClick: options.onMenu,
     })
     card.add([resume, shop, menu])

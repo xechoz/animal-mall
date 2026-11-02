@@ -56,8 +56,17 @@ describe('purchases', () => {
     expect(state.shelves.fruit.bins.peach).toBe(false)
   })
 
+  it('refuses a shelf upgrade before the first plant', () => {
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
+    const outcome = purchaseShelfUpgrade(state, 'fruit')
+    expect(outcome.result).toBe('needsProducer')
+    expect(outcome.state.coins).toBe(state.coins)
+    expect(outcome.state.shelfLevels.fruit).toBe(0)
+  })
+
   it('upgrades each shelf zone on its own and enforces the cap', () => {
     let state = createShopState(saveWith(10_000), PORTRAIT_MAP)
+    state = purchasePlant(state, 'apple').state
     for (let level = 0; level < shelfUpgradeMaxLevel(); level += 1) {
       expect(shelfUpgradeCostFor(level)).not.toBeNull()
       const outcome = purchaseShelfUpgrade(state, 'fruit')

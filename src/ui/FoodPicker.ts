@@ -53,6 +53,7 @@ export class FoodPicker {
     this.state = options.state
     const { scene, layout, theme, i18n } = options
     const ui = layout.ui
+    const font = layout.text
     const panelW = PANEL_W * ui
     const rows = Math.min(
       5,
@@ -94,12 +95,12 @@ export class FoodPicker {
           0,
           -panelH / 2 + 30 * ui,
           i18n.t('dining.title'),
-          textStyle(theme, 24 * ui, theme.text, true),
+          textStyle(theme, font.title, theme.text, true),
         )
         .setOrigin(0.5),
     )
     this.subtitle = scene.add
-      .text(0, -panelH / 2 + 60 * ui, '', textStyle(theme, 14 * ui, theme.textMuted, true))
+      .text(0, -panelH / 2 + 60 * ui, '', textStyle(theme, font.body, theme.textMuted, true))
       .setOrigin(0.5)
     panel.add(this.subtitle)
 
@@ -108,7 +109,7 @@ export class FoodPicker {
         panelW / 2 - 22 * ui,
         -panelH / 2 + 24 * ui,
         '×',
-        textStyle(theme, 26 * ui, theme.textMuted, true),
+        textStyle(theme, font.title, theme.textMuted, true),
       )
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
@@ -116,7 +117,12 @@ export class FoodPicker {
     panel.add(close)
 
     this.empty = scene.add
-      .text(0, -20 * ui, i18n.t('dining.empty'), textStyle(theme, 17 * ui, theme.textMuted, true))
+      .text(
+        0,
+        -20 * ui,
+        i18n.t('dining.empty'),
+        textStyle(theme, font.label, theme.textMuted, true),
+      )
       .setOrigin(0.5)
       .setVisible(false)
     panel.add(this.empty)
@@ -140,7 +146,7 @@ export class FoodPicker {
         0,
         panelH / 2 - 36 * ui,
         i18n.t('dining.stand'),
-        textStyle(theme, 17 * ui, theme.text, true),
+        textStyle(theme, font.label, theme.text, true),
       )
       .setOrigin(0.5)
       .setBackgroundColor(cssColor(theme.accentAlt))
@@ -194,6 +200,7 @@ export class FoodPicker {
   private createCell(x: number, y: number, index: number): Cell {
     const { scene, layout, theme } = this.options
     const ui = layout.ui
+    const font = layout.text
     const container = scene.add.container(x, y)
     const bg = scene.add.graphics()
     const halfW = (CELL_W * ui) / 2
@@ -207,15 +214,15 @@ export class FoodPicker {
     const icon = scene.add.image(-42 * ui, 0, productTextureKey('apple')).setScale(0.52 * ui)
     container.add(icon)
     const name = scene.add
-      .text(-20 * ui, -12 * ui, '', textStyle(theme, 11 * ui, theme.text, true))
+      .text(-20 * ui, -12 * ui, '', textStyle(theme, font.body, theme.text, true))
       .setOrigin(0, 0.5)
     container.add(name)
     const count = scene.add
-      .text(52 * ui, -12 * ui, '', textStyle(theme, 10 * ui, cssColor(theme.accentInk), true))
+      .text(52 * ui, -12 * ui, '', textStyle(theme, font.caption, cssColor(theme.accentInk), true))
       .setOrigin(1, 0.5)
     container.add(count)
     const bonus = scene.add
-      .text(-20 * ui, 13 * ui, '', textStyle(theme, 9 * ui, theme.textMuted, false))
+      .text(-20 * ui, 13 * ui, '', textStyle(theme, font.caption, theme.textMuted, false))
       .setOrigin(0, 0.5)
     container.add(bonus)
 
