@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Let the steering stick start on beds, pens, stations and price chips. Touching
+  inside any of the four product bays used to be swallowed by the slot hit area,
+  so the long press blocked movement; those world tap targets now let the drag
+  through, and crossing `INTERACTION.tapSlop` cancels the hold ring instead of
+  opening the chooser.
 - Drop the landscape-phone HUD rail: every layout now shares one floating top
   row with the coin pill on the left and the day clock, shop and pause buttons
   anchored to the top-right safe-area corner. Landscape phones lose the reserved
