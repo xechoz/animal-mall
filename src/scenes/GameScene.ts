@@ -262,6 +262,12 @@ export class GameScene extends Phaser.Scene {
     this.viewCamera = createWorldCamera(this.layout, this.state.player.pos)
     const seed = Number(this.services.params.get('seed'))
     this.rng = createRng(Number.isFinite(seed) && seed > 0 ? seed : randomSeed())
+    // Phaser reuses this scene instance and destroys every display object on
+    // shutdown, so view caches from the previous run would point at views whose
+    // `scene` is already undefined.
+    this.resetSessionViews()
+    this.hungryNotified.clear()
+    this.hungryCueAt.clear()
 
     this.cameras.main.setBackgroundColor(gameColors.theme.bg)
 
@@ -2113,11 +2119,19 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private rebuildWorld(): void {
-    this.world.destroy(true)
+  /**
+   * Scene shutdown destroys the display list but keeps this instance, so the
+   * id-keyed view caches must be emptied before a new world is built.
+   */
+  private resetSessionViews(): void {
     this.producerViews.clear()
     this.customerViews.clear()
     this.staffViews.clear()
+  }
+
+  private rebuildWorld(): void {
+    this.world.destroy(true)
+    this.resetSessionViews()
     this.buildWorld()
     this.syncCustomers(1, 0)
     this.syncStaff(1, 0)
