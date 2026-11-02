@@ -321,7 +321,13 @@ export class MapOffers {
       label.coin.setPosition(-3 * ui, 0).setScale(0.42 * ui)
       label.price.setPosition(7 * ui, 0).setFontSize(13 * ui)
     }
-    label.price.setText(isSwapTag(offer) ? '' : String(offer.remaining))
+    label.price.setText(
+      isSwapTag(offer)
+        ? ''
+        : offer.type === 'plant' && offer.requiresChoice
+          ? `${offer.remaining}+`
+          : String(offer.remaining),
+    )
     label.price.setColor(affordable ? this.theme.text : this.theme.textMuted)
 
     label.paid.clear()

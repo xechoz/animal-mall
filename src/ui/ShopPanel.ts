@@ -86,6 +86,8 @@ export class ShopPanel {
   private balanceText?: Phaser.GameObjects.Text
   private readonly tabButtons = new Map<Tab, Button>()
   private readonly zoneButtons = new Map<ZoneId, Button>()
+  private readonly tabFaces = new Map<Tab, Phaser.GameObjects.Graphics>()
+  private readonly zoneFaces = new Map<ZoneId, Phaser.GameObjects.Graphics>()
   private readonly dynamicButtons: DynamicButton[] = []
   private zoneChips?: Phaser.GameObjects.Container
   private removeModal?: Modal
@@ -191,6 +193,8 @@ export class ShopPanel {
     this.chrome.setPosition(panelX, panelY)
     this.tabButtons.clear()
     this.zoneButtons.clear()
+    this.tabFaces.clear()
+    this.zoneFaces.clear()
     this.balanceText = undefined
 
     const ui = layout.ui
@@ -275,7 +279,26 @@ export class ShopPanel {
       )
       this.tabButtons.set(entry.tab, button)
       this.chrome.add(button)
+      this.tabFaces.set(entry.tab, this.addSelectionFace(button, tabWidth, this.tabHeight, ui))
     })
+  }
+
+  private addSelectionFace(
+    button: Button,
+    width: number,
+    height: number,
+    ui: number,
+  ): Phaser.GameObjects.Graphics {
+    const { theme } = this.options
+    const face = this.options.scene.add.graphics()
+    const radius = Math.min(12 * ui, height / 2)
+    face.fillStyle(theme.accent, 0.16)
+    face.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
+    face.lineStyle(2 * ui, theme.accent, 0.9)
+    face.strokeRoundedRect(-width / 2, -height / 2, width, height, radius)
+    face.setVisible(false)
+    button.addAt(face, 1)
+    return face
   }
 
   private renderZoneChips(w: number): void {
@@ -307,6 +330,7 @@ export class ShopPanel {
       button.setName(`chip-${zone}`)
       this.zoneButtons.set(zone, button)
       container.add(button)
+      this.zoneFaces.set(zone, this.addSelectionFace(button, chipWidth, this.chipHeight, ui))
     })
   }
 
@@ -332,16 +356,7 @@ export class ShopPanel {
     const gap = 6 * ui
     const tabWidth = (w - 60 * ui - gap * 2) / 3
     const tabOrder: readonly Tab[] = ['production', 'tools', 'staff']
-    const tabIndex = tabOrder.indexOf(this.tab)
     this.tabHighlight?.clear()
-    this.tabHighlight?.fillStyle(theme.accent, 1)
-    this.tabHighlight?.fillRoundedRect(
-      30 * ui + tabIndex * (tabWidth + gap) + 12 * ui,
-      this.tabY + this.tabHeight / 2 - 4 * ui,
-      tabWidth - 24 * ui,
-      4 * ui,
-      2 * ui,
-    )
     // The NEXT pill lives on the card itself; a dot on the owning tab tells the
     // player where to look before that card is on screen.
     if (this.goal()?.type === 'upgrade' && this.tab !== 'tools') {
@@ -353,19 +368,17 @@ export class ShopPanel {
         4 * ui,
       )
     }
+    for (const [tab, face] of this.tabFaces) face.setVisible(tab === this.tab)
+    for (const [tab, button] of this.tabButtons) {
+      button.setAlpha(tab === this.tab ? 1 : 0.85)
+    }
 
     this.zoneHighlight?.clear()
+    for (const [zone, face] of this.zoneFaces) {
+      face.setVisible(this.tab === 'production' && zone === this.zone)
+    }
     if (this.tab !== 'production') return
     const chipWidth = (w - 60 * ui - gap * 3) / 4
-    const zoneIndex = ZONE_ORDER.indexOf(this.zone)
-    this.zoneHighlight?.fillStyle(theme.accent, 1)
-    this.zoneHighlight?.fillRoundedRect(
-      30 * ui + zoneIndex * (chipWidth + gap) + 12 * ui,
-      this.chipY + this.chipHeight / 2 - 4 * ui,
-      chipWidth - 24 * ui,
-      4 * ui,
-      2 * ui,
-    )
     const goalZone = this.goalZone()
     if (goalZone !== null && goalZone !== this.zone) {
       const goalIndex = ZONE_ORDER.indexOf(goalZone)
@@ -376,13 +389,9 @@ export class ShopPanel {
         4 * ui,
       )
     }
-
-    for (const [tab, button] of this.tabButtons) {
-      button.setAlpha(this.tab === tab ? 1 : 0.7)
-    }
     for (const [zone, button] of this.zoneButtons) {
-      const inactive = this.state.zones[zone] ? 0.7 : 0.4
-      button.setAlpha(this.zone === zone ? 1 : inactive)
+      const inactive = this.state.zones[zone] ? 0.8 : 0.55
+      button.setAlpha(zone === this.zone ? 1 : inactive)
     }
   }
 
@@ -574,7 +583,8 @@ export class ShopPanel {
     const compact = height < 150 * ui
     const g = scene.add.graphics()
     const goal = this.isGoalProduct(product)
-    this.drawCardFace(g, width, height, goal)
+    const primary = this.primaryPlant() === product
+    this.drawCardFace(g, width, height, goal || primary)
     card.add(g)
     if (goal) this.addNextTag(card, width, height)
 
@@ -637,7 +647,7 @@ export class ShopPanel {
         height: (compact ? 40 : 46) * ui,
         fontSize: font.body,
         minHitSize: 64 * ui,
-        variant: 'primary',
+        variant: primary ? 'primary' : 'soft',
         onClick: () => {
           const next = this.options.onPurchasePlant(product)
           this.setState(next)
@@ -746,7 +756,8 @@ export class ShopPanel {
     const g = scene.add.graphics()
     // An empty slot in the recommended zone is where the next purchase goes;
     // the picker itself names the product with the NEXT pill.
-    this.drawCardFace(g, width, height, producer === undefined && this.goalZone() === zone)
+    const primaryEmpty = producer === undefined && this.firstEmptySlot(zone) === slot
+    this.drawCardFace(g, width, height, primaryEmpty)
     card.add(g)
 
     const slotName = i18n.t(zone === 'farm' ? 'shop.pen' : 'shop.station', { n: slot + 1 })
@@ -796,7 +807,7 @@ export class ShopPanel {
             height: (compact ? 40 : 46) * ui,
             fontSize: font.body,
             minHitSize: 64 * ui,
-            variant: 'primary',
+            variant: primaryEmpty ? 'primary' : 'soft',
             onClick: () => this.options.onOpenProducerPicker(zone, slot),
           },
         ),
@@ -938,7 +949,7 @@ export class ShopPanel {
         height: 36 * ui,
         fontSize: font.caption,
         minHitSize: 56 * ui,
-        variant: cost === null ? 'soft' : 'primary',
+        variant: 'soft',
         onClick: () => {
           const next = this.options.onShelfUpgrade(zone)
           this.setState(next)
@@ -998,6 +1009,7 @@ export class ShopPanel {
     const font = this.options.layout.text
     const g = scene.add.graphics()
     const goal = this.isGoalUpgrade(kind)
+    const primary = goal
     this.drawCardFace(g, width, height, goal)
     card.add(g)
     if (goal) this.addNextTag(card, width, height)
@@ -1046,7 +1058,7 @@ export class ShopPanel {
       height: 44 * ui,
       fontSize: font.body,
       minHitSize: 64 * ui,
-      variant: cost === null ? 'soft' : 'primary',
+      variant: cost === null ? 'soft' : primary ? 'primary' : 'soft',
       onClick: () => {
         const next = this.options.onUpgrade(kind)
         this.setState(next)
@@ -1164,7 +1176,7 @@ export class ShopPanel {
       height: 46 * ui,
       fontSize: font.body,
       minHitSize: 64 * ui,
-      variant: cost === null ? 'soft' : 'primary',
+      variant: 'soft',
       onClick: () => {
         const next = this.options.onStaff(kind)
         this.setState(next)
@@ -1238,6 +1250,34 @@ export class ShopPanel {
   private isGoalProduct(product: ProductKind): boolean {
     const goal = this.goal()
     return goal !== null && goal.type === 'producer' && goal.product === product
+  }
+
+  /** One orange purchase button per plant tab: the goal crop, or the cheapest. */
+  private primaryPlant(): PlantKind | null {
+    if (this.zone !== 'fruit' && this.zone !== 'veg') return null
+    const goal = this.goal()
+    if (
+      goal !== null &&
+      goal.type === 'producer' &&
+      isPlantKind(goal.product) &&
+      zoneOf(goal.product) === this.zone
+    ) {
+      return goal.product
+    }
+    return PLANT_SHOP_ORDER.find((product) => zoneOf(product) === this.zone) ?? null
+  }
+
+  /** The first empty pen/station is the one primary "choose" action. */
+  private firstEmptySlot(zone: 'farm' | 'kitchen'): number | null {
+    const slots =
+      zone === 'farm' ? this.options.layout.map.animalPens : this.options.layout.map.stationSlots
+    for (const slot of slots) {
+      const occupied = this.state.producers.some(
+        (producer) => producer.slot === slot.index && zoneOf(producer.product) === zone,
+      )
+      if (!occupied) return slot.index
+    }
+    return null
   }
 
   private isGoalUpgrade(kind: UpgradeKind): boolean {

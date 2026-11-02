@@ -84,12 +84,36 @@ export class LanguageModal {
       const row = Math.floor(index / columns)
       const x = -cardW / 2 + 20 * ui + column * (buttonWidth + gap) + buttonWidth / 2
       const y = startY + row * (buttonHeight + gap) + buttonHeight / 2
+      const selected = lang === options.current
       card.add(
         new Button(scene, x, y, LANG_LABELS[lang], theme, {
           width: buttonWidth,
           height: buttonHeight,
           fontSize: 16 * ui,
-          variant: lang === options.current ? 'primary' : 'soft',
+          variant: 'soft',
+          decoration: selected
+            ? (faceScene, size) => {
+                const g = faceScene.add.graphics()
+                const radius = Math.min(12 * ui, size.height / 2)
+                g.fillStyle(theme.accent, 0.16)
+                g.fillRoundedRect(
+                  -size.width / 2,
+                  -size.height / 2,
+                  size.width,
+                  size.height,
+                  radius,
+                )
+                g.lineStyle(2 * ui, theme.accent, 0.9)
+                g.strokeRoundedRect(
+                  -size.width / 2,
+                  -size.height / 2,
+                  size.width,
+                  size.height,
+                  radius,
+                )
+                return g
+              }
+            : undefined,
           onClick: () => {
             this.close()
             options.onSelect(lang)
