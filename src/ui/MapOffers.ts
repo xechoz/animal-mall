@@ -8,6 +8,7 @@ import type { ShopState, Vec2, ZoneId } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
 import { coinTextureKey } from './fruitArt'
 import { drawSeedPacket } from './groundArt'
+import { JOYSTICK_PASS } from './Joystick'
 import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
 import { staffPortraitKey } from './staffArt'
@@ -146,6 +147,7 @@ export class MapOffers {
       .setOrigin(0, 0.5)
     const paid = this.scene.add.graphics()
     const hit = this.scene.add.zone(0, 0, WIDTH, HEIGHT).setInteractive({ useHandCursor: true })
+    hit.setData(JOYSTICK_PASS, true)
     const label: OfferLabel = { container, bg, dwell, badge, icon, coin, price, paid, hit }
     // The label is the most obvious thing to tap, so it mirrors the slot tap.
     // A drag across the screen must not open a paid chooser.

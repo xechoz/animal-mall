@@ -99,7 +99,7 @@ import {
 } from '../ui/forestArt'
 import { coinTextureKey } from '../ui/fruitArt'
 import { Hud } from '../ui/Hud'
-import { Joystick } from '../ui/Joystick'
+import { JOYSTICK_PASS, Joystick } from '../ui/Joystick'
 import { computeGameLayout, type GameLayout } from '../ui/layout'
 import { MapOffers } from '../ui/MapOffers'
 import { PauseOverlay } from '../ui/PauseOverlay'
@@ -160,6 +160,17 @@ function moveKeyCode(event: KeyboardEvent): string | null {
 
 type Mode = 'playing' | 'paused' | 'shop' | 'countdown' | 'report'
 
+interface BedPress {
+  readonly zone: ZoneId
+  readonly slot: number
+  readonly timer: Phaser.Time.TimerEvent
+  readonly pointer: Phaser.Input.Pointer
+  readonly startX: number
+  readonly startY: number
+  readonly startedAt: number
+  fired: boolean
+}
+
 export class GameScene extends Phaser.Scene {
   private services!: GameServices
   private saveStore!: ReturnType<typeof progressSave>
@@ -188,15 +199,7 @@ export class GameScene extends Phaser.Scene {
   private buffBar!: BuffBar
   private mapOffers?: MapOffers
   private bedHits: Phaser.GameObjects.Zone[] = []
-  private bedPress?: {
-    readonly zone: ZoneId
-    readonly slot: number
-    readonly timer: Phaser.Time.TimerEvent
-    readonly startX: number
-    readonly startY: number
-    readonly startedAt: number
-    fired: boolean
-  }
+  private bedPress?: BedPress
   private bedPressRing?: Phaser.GameObjects.Graphics
   private bedPressLabel?: Phaser.GameObjects.Text
   private slotPicker?: SlotPicker
@@ -495,12 +498,14 @@ export class GameScene extends Phaser.Scene {
     height: number,
   ): void {
     const hit = this.add.zone(slot.x, slot.y, width, height).setInteractive({ useHandCursor: true })
+    hit.setData(JOYSTICK_PASS, true)
     hit.on('pointerdown', (pointer: Phaser.Input.Pointer) =>
       this.beginBedPress(zone, slot.index, pointer),
     )
-    hit.on('pointerup', (pointer: Phaser.Input.Pointer) =>
-      this.endBedPress(zone, slot.index, pointer),
-    )
+    hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.id !== this.bedPress?.pointer.id) return
+      this.endBedPress(zone, slot.index)
+    })
     hit.on('pointerout', () => this.cancelBedPress(zone, slot.index))
     this.bedHits.push(hit)
     this.world.add(hit)
@@ -527,14 +532,20 @@ export class GameScene extends Phaser.Scene {
     this.cancelBedPress(zone, slot)
     const startedAt = this.time.now
     const timer = this.time.delayedCall(INTERACTION.holdMs, () => {
-      if (this.bedPress?.timer !== timer) return
-      this.bedPress.fired = true
+      const press = this.bedPress
+      if (press === undefined || press.timer !== timer) return
+      if (this.bedPressMoved(press)) {
+        this.cancelAnyBedPress()
+        return
+      }
+      press.fired = true
       this.tryOpenSlot(zone, slot)
     })
     this.bedPress = {
       zone,
       slot,
       timer,
+      pointer,
       startX: pointer.x,
       startY: pointer.y,
       startedAt,
@@ -552,14 +563,14 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private endBedPress(zone: ZoneId, slot: number, pointer: Phaser.Input.Pointer): void {
+  private endBedPress(zone: ZoneId, slot: number): void {
     const press = this.bedPress
     this.bedPress = undefined
     this.destroyBedPressRing()
     if (press === undefined || press.zone !== zone || press.slot !== slot) return
     press.timer.remove()
     if (press.fired) return
-    if (Math.hypot(pointer.x - press.startX, pointer.y - press.startY) > INTERACTION.tapSlop) return
+    if (this.bedPressMoved(press)) return
     // A short tap only opens an empty slot. Replacing an existing crop, animal
     // or machine needs the hold (or its tool tag), so a stray tap while
     // harvesting never opens a paid chooser.
@@ -583,6 +594,18 @@ export class GameScene extends Phaser.Scene {
     this.destroyBedPressRing()
   }
 
+  /**
+   * A drag is a steering gesture, not a hold. The moment the finger travels
+   * past the tap slop the long press is abandoned and the joystick owns the
+   * pointer.
+   */
+  private bedPressMoved(press: BedPress): boolean {
+    return (
+      Math.hypot(press.pointer.x - press.startX, press.pointer.y - press.startY) >
+      INTERACTION.tapSlop
+    )
+  }
+
   private destroyBedPressRing(): void {
     this.bedPressRing?.destroy()
     this.bedPressRing = undefined
@@ -594,6 +617,10 @@ export class GameScene extends Phaser.Scene {
     const press = this.bedPress
     const ring = this.bedPressRing
     if (press === undefined || ring === undefined) return
+    if (this.bedPressMoved(press)) {
+      this.cancelAnyBedPress()
+      return
+    }
     const slot = this.slotAt(press.zone, press.slot)
     if (slot === undefined) return
     const point = worldToScreen(this.viewCamera, slot)

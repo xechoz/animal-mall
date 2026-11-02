@@ -8,6 +8,13 @@ const KNOB_RADIUS = 26
 const VISUAL_DEPTH = 5900
 
 /**
+ * World tap targets that must not swallow a steering drag. Mark a hit zone
+ * with this key so a touch on a bed, pen or price chip can still become the
+ * origin of the virtual stick; real UI (HUD, modals) keeps blocking the stick.
+ */
+export const JOYSTICK_PASS = 'joystickPass'
+
+/**
  * Drag steering. A press on empty play-field space becomes the origin of a
  * virtual stick; dragging away from that point drives movement. Touch presses
  * draw the stick under the finger, mouse drags stay invisible.
@@ -65,7 +72,8 @@ export class Joystick {
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
     if (!this.enabled || this.pointerId !== null || !pointer.primaryDown) return
-    if (this.scene.input.hitTestPointer(pointer).length > 0) return
+    const hits = this.scene.input.hitTestPointer(pointer)
+    if (hits.some((hit) => hit.getData(JOYSTICK_PASS) !== true)) return
 
     this.pointerId = pointer.id
     this.activePointer = pointer
