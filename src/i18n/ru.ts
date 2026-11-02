@@ -222,6 +222,7 @@ export const ru: Dictionary = {
   'toast.noPlot': 'Все грядки заняты',
   'toast.noSlot': 'Нет свободного места',
   'toast.notEnough': 'Не хватает монет',
+  'toast.standToBuy': 'Постой здесь, чтобы купить',
   'toast.max': 'Уже максимальный уровень',
   'toast.lastTree': 'Оставь монеты на новое растение',
   'toast.lastProducer': 'Оставь монеты на новое растение',

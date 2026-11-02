@@ -1,5 +1,6 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { INTERACTION } from '../logic/config'
 import type { ShopMap } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { drawDiningChair, drawDiningRug, drawDiningTable } from './diningArt'
@@ -108,7 +109,25 @@ export class DiningView {
         .zone(seat.seat.x, seat.seat.y, 60, 40)
         .setDepth(5000)
         .setInteractive({ useHandCursor: true })
-      zone.on('pointerup', () => onSeat(seat.index))
+      let downX: number | undefined
+      let downY: number | undefined
+      zone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        downX = pointer.x
+        downY = pointer.y
+      })
+      zone.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        const startX = downX
+        const startY = downY
+        downX = undefined
+        downY = undefined
+        if (startX === undefined || startY === undefined) return
+        if (Math.hypot(pointer.x - startX, pointer.y - startY) > INTERACTION.tapSlop) return
+        onSeat(seat.index)
+      })
+      zone.on('pointerout', () => {
+        downX = undefined
+        downY = undefined
+      })
       return zone
     })
   }

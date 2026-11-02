@@ -57,6 +57,12 @@ describe('game copy', () => {
     }
   })
 
+  it('explains dwell purchases in every language', () => {
+    for (const dictionary of Object.values(gameI18n)) {
+      expect(dictionary['toast.standToBuy']).toBeTruthy()
+    }
+  })
+
   it('names the BBQ grill and its pooled recipe in both languages', () => {
     for (const key of ['product.skewer', 'producer.skewer', 'shop.anyGrill', 'picker.grill']) {
       expect(gameI18n.en[key as keyof typeof gameI18n.en]).toBeTruthy()

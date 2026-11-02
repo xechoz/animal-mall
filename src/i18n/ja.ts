@@ -220,6 +220,7 @@ export const ja: Dictionary = {
   'toast.noPlot': '畑がいっぱいです',
   'toast.noSlot': '空きがありません',
   'toast.notEnough': 'コインが足りません',
+  'toast.standToBuy': 'ここで立ち止まると購入できます',
   'toast.max': 'すでに最大レベルです',
   'toast.lastTree': '新しい作物を植えるお金を残して',
   'toast.lastProducer': '新しい作物を植えるお金を残して',

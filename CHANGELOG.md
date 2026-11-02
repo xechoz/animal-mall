@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Make every unavailable action answer a tap. Locked zones, staff signs, planted
+  beds, chooser cards, maxed or shortfall shop buttons and unaffordable drinks
+  now explain themselves with a toast instead of swallowing the click. Toasts
+  render above the shop and pickers and grow with wrapped copy, so failures
+  inside a modal are finally visible.
+
+- Use capsule corners for long action bars across the menu, pause, settings, day
+  report, shop tabs and purchase rows. Product cards, chooser tiles and list
+  rows keep the card radius.
+
 - Sit empty-bed price chips on the soil at the plot centre instead of floating
   above the bed. The automatic 500 ms dwell no longer opens the crop chooser
   when the player cannot afford the cheapest crop in that zone; tapping the bed

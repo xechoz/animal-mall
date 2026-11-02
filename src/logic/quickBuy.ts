@@ -533,6 +533,11 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
         ? purchaseZone(state, offer.zone)
         : purchaseStaff(state, offer.kind, true)
 
+  const nextEvents: GameEvent[] = [...events, ...outcome.events]
+  if (outcome.result !== 'ok' && outcome.result !== 'deposited') {
+    // A completed dwell that cannot pay must not vanish silently.
+    nextEvents.push({ type: 'purchaseBlocked', result: outcome.result })
+  }
   return {
     state: {
       ...outcome.state,
@@ -542,6 +547,6 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
         armed: false,
       },
     },
-    events: [...events, ...outcome.events],
+    events: nextEvents,
   }
 }

@@ -115,6 +115,15 @@ submodule. Do not copy platform source into this repo.
   Every dwell must cancel on movement and show a visible ring. A dwell must never
   fire because the world changed under a stationary player, and it must never
   replace an existing crop: proximity advertises, it does not destroy.
+- Every unavailable action answers a tap. Locked zone areas, staff signs,
+  planted beds, disabled chooser cards, maxed or shortfall shop buttons and
+  unaffordable drinks show a toast explaining the requirement; they never
+  swallow the tap. A tap on a locked zone or staff sign only explains the
+  gesture, it does not purchase: the dwell remains the purchase path.
+- Toasts draw above every modal and picker and size themselves to their wrapped
+  copy, so a failure caused inside the shop is still visible.
+- Long action bars use capsule corners (`height / 2`). Product cards, chooser
+  tiles and list rows keep the card radius; do not turn content cards into pills.
 - Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
   slot. Walking past a machine pours matching carried goods in until the buffer
   is full; the output tray is collected on contact.

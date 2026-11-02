@@ -144,19 +144,28 @@ export class FoodPicker {
       return cell
     })
 
+    const standY = panelH / 2 - 36 * ui
     const stand = scene.add
-      .text(
-        0,
-        panelH / 2 - 36 * ui,
-        i18n.t('dining.stand'),
-        textStyle(theme, font.label, theme.text, true),
-      )
+      .text(0, standY, i18n.t('dining.stand'), textStyle(theme, font.label, theme.text, true))
       .setOrigin(0.5)
-      .setBackgroundColor(cssColor(theme.accentAlt))
-      .setPadding(18 * ui, 6 * ui, 18 * ui, 6 * ui)
-      .setInteractive({ useHandCursor: true })
-    stand.on('pointerdown', () => options.onClose())
+    const standWidth = Math.max(150 * ui, stand.width + 38 * ui)
+    const standHeight = 40 * ui
+    const standBg = scene.add.graphics()
+    standBg.fillStyle(theme.accentAlt, 1)
+    standBg.fillRoundedRect(
+      -standWidth / 2,
+      standY - standHeight / 2,
+      standWidth,
+      standHeight,
+      standHeight / 2,
+    )
+    panel.add(standBg)
     panel.add(stand)
+    const standHit = scene.add
+      .zone(0, standY, standWidth, standHeight)
+      .setInteractive({ useHandCursor: true })
+    standHit.on('pointerdown', () => options.onClose())
+    panel.add(standHit)
 
     this.update(this.state)
   }

@@ -28,23 +28,14 @@ import type {
   PlantKind,
   ProducerState,
   ProductKind,
+  PurchaseFailure,
   ShopState,
   StaffKind,
   UpgradeKind,
   ZoneId,
 } from './types'
 
-export type PurchaseResult =
-  | 'ok'
-  | 'insufficient'
-  | 'noSlot'
-  | 'maxed'
-  | 'missing'
-  | 'deposited'
-  | 'locked'
-  | 'lockedZone'
-  | 'lastProducer'
-  | 'needsProducer'
+export type PurchaseResult = 'ok' | 'deposited' | PurchaseFailure
 
 export interface PurchaseOutcome {
   readonly state: ShopState
@@ -348,7 +339,7 @@ export function firstFreeProducerSlot(state: ShopState, zone: 'farm' | 'kitchen'
 
 export function purchaseZone(state: ShopState, zone: ZoneId): PurchaseOutcome {
   if (state.zones[zone]) return { state, result: 'maxed', events: [] }
-  if (zone === 'veg' && state.served === 0) return { state, result: 'locked', events: [] }
+  if (zone === 'veg' && state.served === 0) return { state, result: 'firstSale', events: [] }
   const config = ZONES[zone]
   if (state.coins < config.unlockCost) return { state, result: 'insufficient', events: [] }
 

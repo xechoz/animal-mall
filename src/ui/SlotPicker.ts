@@ -35,6 +35,8 @@ export interface SlotPickerOptions {
   /** Shop-originated pickers sit in the middle of the panel instead of the slot. */
   readonly centered?: boolean
   readonly onSelect: (product: ProductKind) => void
+  /** Explains a disabled card without closing the chooser. */
+  readonly onBlocked: (reason: 'insufficient' | 'installed') => void
   readonly onClose: () => void
 }
 
@@ -325,7 +327,10 @@ export class SlotPicker {
 
     const zone = scene.add.zone(0, 0, buttonW, buttonH).setInteractive({ useHandCursor: true })
     zone.on('pointerdown', () => {
-      if (!enabled) return
+      if (!enabled) {
+        options.onBlocked(installedElsewhere ? 'installed' : 'insufficient')
+        return
+      }
       options.onSelect(product)
     })
     button.add(zone)

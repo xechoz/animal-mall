@@ -193,16 +193,19 @@ export class DrinkPicker {
 
     const zone = scene.add.zone(0, 0, rowW, ROW_H * ui).setInteractive({ useHandCursor: true })
     zone.on('pointerdown', () => {
-      if (this.state.coins < drinkPrice(kind)) return
-      scene.tweens.killTweensOf(container)
-      scene.tweens.add({
-        targets: container,
-        scaleX: 0.98,
-        scaleY: 0.98,
-        duration: 70,
-        yoyo: true,
-        ease: 'Quad.easeOut',
-      })
+      // Buy anyway; the scene owns the failure toast so an unaffordable row
+      // still answers the tap instead of swallowing it.
+      if (this.state.coins >= drinkPrice(kind)) {
+        scene.tweens.killTweensOf(container)
+        scene.tweens.add({
+          targets: container,
+          scaleX: 0.98,
+          scaleY: 0.98,
+          duration: 70,
+          yoyo: true,
+          ease: 'Quad.easeOut',
+        })
+      }
       this.options.onBuy(kind)
     })
     container.add(zone)
@@ -242,7 +245,7 @@ export class DrinkPicker {
     row.bg.lineStyle(2 * ui, affordable ? theme.borderSoft : theme.ink, affordable ? 1 : 0.18)
     row.bg.strokeRoundedRect(-halfW, -halfH, rowW, rowH, 13 * ui)
     row.bg.fillStyle(affordable ? theme.accent : theme.borderSoft, affordable ? 0.18 : 0.12)
-    row.bg.fillRoundedRect(halfW - 96 * ui, -18 * ui, 80 * ui, 36 * ui, 10 * ui)
+    row.bg.fillRoundedRect(halfW - 96 * ui, -18 * ui, 80 * ui, 36 * ui, 18 * ui)
 
     row.name.setColor(affordable ? theme.text : theme.textMuted)
     row.desc.setColor(theme.textMuted)

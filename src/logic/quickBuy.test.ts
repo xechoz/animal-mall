@@ -227,6 +227,17 @@ describe('quick buy', () => {
     expect(hired.state.coins).toBe(60)
   })
 
+  it('reports a blocked dwell when the staff hire is unaffordable', () => {
+    const station = PORTRAIT_MAP.staffStations.picker.station
+    const state = createShopState({ ...initialSave(), coins: 0 }, PORTRAIT_MAP)
+    const result = simulate(withPlayer(state, { x: station.x, y: station.y + 20 }), 30)
+    expect(
+      result.events.some(
+        (event) => event.type === 'purchaseBlocked' && event.result === 'insufficient',
+      ),
+    ).toBe(true)
+  })
+
   it('hires the cashier from near the sign beside the counter', () => {
     const station = PORTRAIT_MAP.staffStations.cashier.station
     const state = createShopState(appleSave(400), PORTRAIT_MAP)

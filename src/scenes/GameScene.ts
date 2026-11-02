@@ -39,6 +39,7 @@ import {
   STATION_SIZE,
   shelfUpgradeCost,
   ZONE_ORDER,
+  ZONES,
   zoneOf,
 } from '../logic/config'
 import { eatCarried, sitAtSeat, standUp } from '../logic/dining'
@@ -60,7 +61,7 @@ import {
   replacePlantAt,
   slotPlantDeposit,
 } from '../logic/purchase'
-import { nearestOffer } from '../logic/quickBuy'
+import { nearestOffer, type PurchaseOffer, staffOfferFor } from '../logic/quickBuy'
 import { urgeStaff } from '../logic/staff'
 import { createShopState, remapShopState, stepShop, stockReach, toSave } from '../logic/state'
 import type {
@@ -204,6 +205,7 @@ export class GameScene extends Phaser.Scene {
   private buffBar!: BuffBar
   private mapOffers?: MapOffers
   private bedHits: Phaser.GameObjects.Zone[] = []
+  private readonly zoneHits = new Map<ZoneId, Phaser.GameObjects.Zone>()
   private bedPress?: BedPress
   private bedPressRing?: Phaser.GameObjects.Graphics
   private bedPressLabel?: Phaser.GameObjects.Text
@@ -387,6 +389,7 @@ export class GameScene extends Phaser.Scene {
   private buildWorld(): void {
     const { theme, i18n } = this.services
     this.bedHits = []
+    this.zoneHits.clear()
     this.bedPress = undefined
     this.destroyBedPressRing()
     this.world = this.add.container(this.viewCamera.x, this.viewCamera.y)
@@ -474,7 +477,9 @@ export class GameScene extends Phaser.Scene {
 
     this.staffStations = Object.fromEntries(
       STAFF_ORDER.map((kind) => {
-        const view = new StaffStationView(this, theme, kind, this.layout.map)
+        const view = new StaffStationView(this, theme, kind, this.layout.map, () =>
+          this.showStaffNotice(kind),
+        )
         view.setDepth(this.layout.map.staffStations[kind].station.y + 26)
         this.world.add(view)
         return [kind, view]
@@ -489,6 +494,7 @@ export class GameScene extends Phaser.Scene {
     this.playerView.landHandler = (x, y) => this.spawnDust(x, y)
     this.world.add(this.playerView)
     this.buildSlotHits()
+    this.buildZoneHits()
     this.updateWorldViews()
   }
 
@@ -507,6 +513,42 @@ export class GameScene extends Phaser.Scene {
     }
     this.addProducerHits('farm', this.layout.map.animalPens, PEN_SIZE.w, PEN_SIZE.h)
     this.addProducerHits('kitchen', this.layout.map.stationSlots, STATION_SIZE.w, STATION_SIZE.h)
+  }
+
+  /**
+   * Locked zones are drawn as one tinted patch with a name and price, but the
+   * patch itself was not tappable. This hit area turns any tap inside it into
+   * an explanation instead of a dead click while the zone is still locked.
+   */
+  private buildZoneHits(): void {
+    for (const zone of ZONE_ORDER) {
+      const area = this.layout.map.zoneAreas[zone]
+      const hit = this.add
+        .zone(area.x + area.w / 2, area.y + area.h / 2, area.w, area.h)
+        .setDepth(60)
+        .setInteractive({ useHandCursor: true })
+      hit.setData(JOYSTICK_PASS, true)
+      hit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        hit.setData('downX', pointer.x)
+        hit.setData('downY', pointer.y)
+      })
+      hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        const startX = hit.getData('downX') as number | undefined
+        const startY = hit.getData('downY') as number | undefined
+        hit.setData('downX', undefined)
+        hit.setData('downY', undefined)
+        if (startX === undefined || startY === undefined) return
+        if (Math.hypot(pointer.x - startX, pointer.y - startY) > INTERACTION.tapSlop) return
+        if (this.mode !== 'playing') return
+        this.showZoneNotice(zone)
+      })
+      hit.on('pointerout', () => {
+        hit.setData('downX', undefined)
+        hit.setData('downY', undefined)
+      })
+      this.zoneHits.set(zone, hit)
+      this.world.add(hit)
+    }
   }
 
   private addProducerHits(
@@ -603,9 +645,24 @@ export class GameScene extends Phaser.Scene {
     if (this.bedPressMoved(press)) return
     // A short tap only opens an empty slot. Replacing an existing crop, animal
     // or machine needs the hold (or its tool tag), so a stray tap while
-    // harvesting never opens a paid chooser.
-    if (this.producerAt(zone, slot) !== undefined) return
+    // harvesting never opens a paid chooser. The tap still explains the
+    // gesture once onboarding has taught swapping.
+    if (this.producerAt(zone, slot) !== undefined) {
+      if (this.state.tutorial === 'done') {
+        this.toast.show(
+          this.services.i18n.t(
+            zone === 'farm'
+              ? 'toast.animalSwapHint'
+              : zone === 'kitchen'
+                ? 'toast.machineSwapHint'
+                : 'toast.swapHint',
+          ),
+        )
+      }
+      return
+    }
     if ((zone === 'fruit' || zone === 'veg') && slotPlantDeposit(this.state, zone, slot) !== null) {
+      this.toast.show(this.services.i18n.t('toast.locked'))
       return
     }
     this.tryOpenSlot(zone, slot)
@@ -708,7 +765,10 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.devPanel !== undefined) return
     if (this.state.dining.playerSeat !== null) return
-    if (!this.state.zones[zone]) return
+    if (!this.state.zones[zone]) {
+      this.showZoneNotice(zone)
+      return
+    }
     const current = this.producerAt(zone, slot)
     // A bed that already holds a partial payment keeps its dwell-to-pay flow;
     // opening the full chooser here would offer crops the deposit cannot buy.
@@ -717,6 +777,7 @@ export class GameScene extends Phaser.Scene {
       (zone === 'fruit' || zone === 'veg') &&
       slotPlantDeposit(this.state, zone, slot) !== null
     ) {
+      this.toast.show(this.services.i18n.t('toast.locked'))
       return
     }
     this.openSlotPicker(zone, slot, this.mode === 'shop')
@@ -745,6 +806,7 @@ export class GameScene extends Phaser.Scene {
       this.viewCamera,
       this.services.theme,
       (zone, slot) => this.tryOpenSlot(zone, slot),
+      (offer) => this.handleOfferTap(offer),
     )
     this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
     this.facilityOverlay = new FacilityOverlay(
@@ -976,6 +1038,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateWorldViews(): void {
+    for (const zone of ZONE_ORDER) {
+      const hit = this.zoneHits.get(zone)
+      if (hit !== undefined && hit.input !== null) hit.input.enabled = !this.state.zones[zone]
+    }
     this.zoneOverlay.updateZones(this.state, this.artBakeScale())
     this.zoneOverlay.updateFocus(this.state.player.pos)
     this.plantBeds.updateBeds(this.state, this.artBakeScale())
@@ -989,9 +1055,9 @@ export class GameScene extends Phaser.Scene {
         this.mode === 'playing' &&
         this.state.zones[zone] &&
         this.state.producers.length > 0 &&
-        cost !== null &&
-        this.state.coins >= cost
-      this.shelfViews[zone].setUpgrade(canUpgrade ? cost : null)
+        cost !== null
+      const affordable = cost !== null && this.state.coins >= cost
+      this.shelfViews[zone].setUpgrade(canUpgrade ? cost : null, affordable)
     }
 
     const alive = new Set<number>()
@@ -1074,7 +1140,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleEvents(events: readonly GameEvent[]): void {
-    this.toast.setBottom(this.state.tutorial !== 'done')
+    this.syncToastPlacement()
     for (const event of events) {
       switch (event.type) {
         case 'harvest':
@@ -1338,6 +1404,9 @@ export class GameScene extends Phaser.Scene {
             this.services.platform.happyTime()
           }
           break
+        case 'purchaseBlocked':
+          this.showPurchaseFailure(event.result)
+          break
         case 'dayEnded':
           // Day-end is the last useful event of this tick. Staff and quick-buy
           // events were generated after it; opening a picker over the report
@@ -1389,6 +1458,12 @@ export class GameScene extends Phaser.Scene {
       ...(current !== undefined ? { current: current.product } : {}),
       ...(centered ? { centered: true } : {}),
       onSelect: (product) => this.chooseSlotProduct(zone, slot, product),
+      onBlocked: (reason) => {
+        this.syncToastPlacement()
+        this.toast.show(
+          this.services.i18n.t(reason === 'installed' ? 'picker.installed' : 'toast.notEnough'),
+        )
+      },
       onClose: () => this.closeSlotPicker(),
     })
   }
@@ -1568,7 +1643,10 @@ export class GameScene extends Phaser.Scene {
 
   private buyDrink(drink: DrinkKind): void {
     const outcome = purchaseDrink(this.state, drink)
-    if (outcome.result !== 'ok') return
+    if (outcome.result !== 'ok') {
+      this.showPurchaseFailure(outcome.result)
+      return
+    }
     this.state = outcome.state
     this.handleEvents(outcome.events)
     this.saveGame()
@@ -1584,7 +1662,14 @@ export class GameScene extends Phaser.Scene {
   private urgeStaffById(staffId: number): void {
     const member = this.state.staffMembers.find((candidate) => candidate.id === staffId)
     if (member === undefined || member.phase !== 'resting') return
-    if (distance(this.state.player.pos, member.pos) > REST.urgeRadius) return
+    if (distance(this.state.player.pos, member.pos) > REST.urgeRadius) {
+      this.toast.show(
+        this.services.i18n.t('toast.staffLazy', {
+          name: this.services.i18n.t(`staff.${member.kind}`),
+        }),
+      )
+      return
+    }
     const result = urgeStaff(this.state, staffId)
     this.state = result.state
     this.handleEvents(result.events)
@@ -1946,14 +2031,59 @@ export class GameScene extends Phaser.Scene {
     this.applyPurchase(purchaseShelfUpgrade(this.state, zone))
   }
 
+  private syncToastPlacement(): void {
+    // The onboarding prompt owns the strip under the HUD, but the shop is a
+    // full-screen modal: keep its feedback at the top so it does not cover the
+    // bottom purchase rows.
+    this.toast.setBottom(this.state.tutorial !== 'done' && this.mode === 'playing')
+    this.toast.setHeader(this.mode === 'shop')
+  }
+
   private showPurchaseFailure(result: PurchaseResult): void {
+    this.syncToastPlacement()
     if (result === 'noSlot') this.toast.show(this.services.i18n.t('toast.noSlot'))
     else if (result === 'insufficient') this.toast.show(this.services.i18n.t('toast.notEnough'))
     else if (result === 'maxed') this.toast.show(this.services.i18n.t('toast.max'))
     else if (result === 'locked') this.toast.show(this.services.i18n.t('toast.locked'))
+    else if (result === 'firstSale') this.toast.show(this.services.i18n.t('shop.zoneHint'))
     else if (result === 'lockedZone') this.toast.show(this.services.i18n.t('toast.lockedZone'))
     else if (result === 'lastProducer') this.toast.show(this.services.i18n.t('toast.lastProducer'))
     else if (result === 'needsProducer') this.toast.show(this.services.i18n.t('toast.plantFirst'))
+  }
+
+  /**
+   * A locked zone advertises a price but purchases by standing still. Tapping
+   * it must still answer with the reason it cannot open yet, never a dead tap.
+   */
+  private showZoneNotice(zone: ZoneId): void {
+    if (this.state.zones[zone]) return
+    this.syncToastPlacement()
+    if (zone === 'veg' && this.state.served === 0) {
+      this.toast.show(this.services.i18n.t('shop.zoneHint'))
+      return
+    }
+    if (this.state.coins < ZONES[zone].unlockCost) {
+      this.toast.show(this.services.i18n.t('toast.notEnough'))
+      return
+    }
+    this.toast.show(this.services.i18n.t('toast.standToBuy'))
+  }
+
+  /** Staff signs buy by dwell, so a tap explains the shortfall or the gesture. */
+  private showStaffNotice(kind: StaffKind): void {
+    const offer = staffOfferFor(this.state, kind)
+    if (offer === null) return
+    this.syncToastPlacement()
+    if (this.state.coins < offer.remaining) {
+      this.toast.show(this.services.i18n.t('toast.notEnough'))
+      return
+    }
+    this.toast.show(this.services.i18n.t('toast.standToBuy'))
+  }
+
+  private handleOfferTap(offer: PurchaseOffer): void {
+    if (offer.type === 'zone') this.showZoneNotice(offer.zone)
+    else if (offer.type === 'staff') this.showStaffNotice(offer.kind)
   }
 
   private showDayReport(report: DayReportData): void {
@@ -2062,6 +2192,7 @@ export class GameScene extends Phaser.Scene {
   private setPlaying(): void {
     this.resetMovementInput()
     this.mode = 'playing'
+    this.syncToastPlacement()
     this.accumulator = 0
     this.hud.setEnabled(true)
     this.joystick.setEnabled(true)
@@ -2124,6 +2255,7 @@ export class GameScene extends Phaser.Scene {
       this.viewCamera,
       this.services.theme,
       (zone, slot) => this.tryOpenSlot(zone, slot),
+      (offer) => this.handleOfferTap(offer),
     )
     this.buffBar = new BuffBar(this, this.layout, this.services.theme, this.services.i18n)
     this.facilityOverlay = new FacilityOverlay(

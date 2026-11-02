@@ -65,6 +65,7 @@ export class MapOffers {
   private readonly camera: WorldCamera
   private readonly theme: Theme
   private readonly onSlotTap: (zone: ZoneId, slot: number) => void
+  private readonly onOfferTap: (offer: PurchaseOffer) => void
   private readonly labels = new Map<string, OfferLabel>()
   private stillSince = 0
   private tagAlpha = 0
@@ -75,12 +76,14 @@ export class MapOffers {
     camera: WorldCamera,
     theme: Theme,
     onSlotTap: (zone: ZoneId, slot: number) => void,
+    onOfferTap: (offer: PurchaseOffer) => void,
   ) {
     this.scene = scene
     this.layout = layout
     this.camera = camera
     this.theme = theme
     this.onSlotTap = onSlotTap
+    this.onOfferTap = onOfferTap
   }
 
   update(state: ShopState): void {
@@ -264,12 +267,18 @@ export class MapOffers {
         else label.hit.disableInteractive()
       }
     }
-    label.action =
-      isSwapTag(offer) ||
-      (offer.type === 'plant' && offer.requiresChoice) ||
-      offer.type === 'producerSlot'
-        ? () => this.onSlotTap(offer.zone, offer.slot)
-        : undefined
+    if (offer.type === 'staff' || offer.type === 'zone') {
+      // Dwell is still the purchase path; the tap explains what is missing or
+      // how to buy instead of silently doing nothing.
+      label.action = () => this.onOfferTap(offer)
+    } else {
+      label.action =
+        isSwapTag(offer) ||
+        (offer.type === 'plant' && offer.requiresChoice) ||
+        offer.type === 'producerSlot'
+          ? () => this.onSlotTap(offer.zone, offer.slot)
+          : undefined
+    }
 
     const affordable = isSwapTag(offer) ? true : state.coins >= offer.remaining
     // The body stays vector on purpose: it is a handful of rounded rectangles,
@@ -413,12 +422,13 @@ function drawChipBody(g: Phaser.GameObjects.Graphics, body: ChipBody): void {
     g.strokeCircle(0, 0, (SWAP_TAG / 2) * ui)
     return
   }
+  const radius = height / 2
   g.fillStyle(theme.shadow, 0.16)
-  g.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, 11 * ui)
+  g.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, radius)
   g.fillStyle(theme.panel, 0.96)
-  g.fillRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+  g.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
   g.lineStyle(2 * ui, affordable ? theme.accent : theme.borderSoft, 0.9)
-  g.strokeRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+  g.strokeRoundedRect(-width / 2, -height / 2, width, height, radius)
 }
 
 function drawShovelBadge(

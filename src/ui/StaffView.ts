@@ -89,6 +89,9 @@ export class StaffView extends AnimalRig {
   }
 
   updateStaff(member: StaffState, alpha: number, time: number): void {
+    // Only a resting worker can be nudged. Showing a hand cursor on a working
+    // one promised an action that `urgeStaffById` silently rejected.
+    if (this.hit.input !== null) this.hit.input.enabled = member.phase === 'resting'
     const x = member.prevPos.x + (member.pos.x - member.prevPos.x) * alpha
     const y = member.prevPos.y + (member.pos.y - member.prevPos.y) * alpha
     const dining = member.phase === 'dining'

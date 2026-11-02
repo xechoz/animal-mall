@@ -123,7 +123,7 @@ describe('purchases', () => {
 
   it('requires the first sale before vegetables unlock', () => {
     const state = createShopState(initialSave(), PORTRAIT_MAP)
-    expect(purchaseZone(state, 'veg').result).toBe('locked')
+    expect(purchaseZone(state, 'veg').result).toBe('firstSale')
     const served = createShopState({ ...initialSave(), served: 1 }, PORTRAIT_MAP)
     const outcome = purchaseZone(served, 'veg')
     expect(outcome.result).toBe('ok')

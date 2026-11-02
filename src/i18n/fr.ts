@@ -223,6 +223,7 @@ export const fr: Dictionary = {
   'toast.noPlot': 'Toutes les parcelles sont prises',
   'toast.noSlot': 'Aucun emplacement libre',
   'toast.notEnough': 'Pas assez de pièces',
+  'toast.standToBuy': 'Reste immobile ici pour acheter',
   'toast.max': 'Niveau max atteint',
   'toast.lastTree': 'Garde assez de pièces pour une nouvelle plante',
   'toast.lastProducer': 'Garde assez de pièces pour une nouvelle plante',

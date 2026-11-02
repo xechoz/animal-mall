@@ -1,19 +1,21 @@
 import type { Theme } from '@mg/core'
 import Phaser from 'phaser'
-import { STAFF } from '../logic/config'
+import { INTERACTION, STAFF } from '../logic/config'
 import type { ShopMap, StaffKind } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
 import { coinTextureKey } from './fruitArt'
+import { JOYSTICK_PASS } from './Joystick'
 import { productTextureKey } from './productArt'
 import { staffPortraitKey } from './staffArt'
 
 export class StaffStationView extends Phaser.GameObjects.Container {
   private readonly kind: StaffKind
   private readonly level: Phaser.GameObjects.Graphics
+  private readonly hit: Phaser.GameObjects.Zone
   private lastLevel = -1
   private lastAvailable = true
 
-  constructor(scene: Phaser.Scene, theme: Theme, kind: StaffKind, map: ShopMap) {
+  constructor(scene: Phaser.Scene, theme: Theme, kind: StaffKind, map: ShopMap, onTap: () => void) {
     const station = map.staffStations[kind].station
     super(scene, station.x, station.y)
     this.kind = kind
@@ -54,6 +56,31 @@ export class StaffStationView extends Phaser.GameObjects.Container {
     if (kind === 'chef') badge.setTexture(productTextureKey('cake')).setScale(0.42)
     this.add(badge)
 
+    // The sign is the visible hiring affordance. It stays tappable so a player
+    // who cannot afford the hire gets the reason instead of a dead click.
+    this.hit = scene.add.zone(0, -22, 68, 50).setInteractive({ useHandCursor: true })
+    this.hit.setData(JOYSTICK_PASS, true)
+    let downX: number | undefined
+    let downY: number | undefined
+    this.hit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      downX = pointer.x
+      downY = pointer.y
+    })
+    this.hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      const startX = downX
+      const startY = downY
+      downX = undefined
+      downY = undefined
+      if (startX === undefined || startY === undefined) return
+      if (Math.hypot(pointer.x - startX, pointer.y - startY) > INTERACTION.tapSlop) return
+      onTap()
+    })
+    this.hit.on('pointerout', () => {
+      downX = undefined
+      downY = undefined
+    })
+    this.add(this.hit)
+
     this.level = scene.add.graphics()
     this.add(this.level)
 
@@ -65,7 +92,10 @@ export class StaffStationView extends Phaser.GameObjects.Container {
     this.lastLevel = level
     this.lastAvailable = available
     const maxed = level >= STAFF[this.kind].costs.length
-    this.setVisible(available && !maxed)
+    const visible = available && !maxed
+    this.setVisible(visible)
+    if (visible) this.hit.setInteractive({ useHandCursor: true })
+    else this.hit.disableInteractive()
     this.level.clear()
     if (!available || level <= 0) return
     for (let index = 0; index < level; index += 1) {

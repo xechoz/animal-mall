@@ -219,6 +219,7 @@ export const tr: Dictionary = {
   'toast.noPlot': 'Tüm tarhlar dolu',
   'toast.noSlot': 'Boş yer yok',
   'toast.notEnough': 'Yeterli altın yok',
+  'toast.standToBuy': 'Satın almak için burada dur',
   'toast.max': 'Zaten maksimum seviyede',
   'toast.lastTree': 'Yeni ekin için biraz altın bırak',
   'toast.lastProducer': 'Yeni ekin için biraz altın bırak',

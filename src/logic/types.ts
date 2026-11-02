@@ -386,6 +386,17 @@ export interface ShopState {
   readonly day: DayState
 }
 
+export type PurchaseFailure =
+  | 'insufficient'
+  | 'noSlot'
+  | 'maxed'
+  | 'missing'
+  | 'locked'
+  | 'firstSale'
+  | 'lockedZone'
+  | 'lastProducer'
+  | 'needsProducer'
+
 export type GameEvent =
   | { readonly type: 'harvest'; readonly product: ProductKind; readonly amount: number }
   | { readonly type: 'stock'; readonly product: ProductKind; readonly amount: number }
@@ -496,6 +507,7 @@ export type GameEvent =
   | { readonly type: 'staffUrged'; readonly staffId: number }
   | { readonly type: 'tutorial'; readonly step: TutorialStep }
   | { readonly type: 'dayEnded'; readonly report: DayReport }
+  | { readonly type: 'purchaseBlocked'; readonly result: PurchaseFailure }
 
 export interface StepInput {
   readonly moveX: number

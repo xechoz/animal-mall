@@ -222,6 +222,7 @@ export const pt: Dictionary = {
   'toast.noPlot': 'Todos os canteiros estão cheios',
   'toast.noSlot': 'Sem espaço livre',
   'toast.notEnough': 'Moedas insuficientes',
+  'toast.standToBuy': 'Fica parado aqui para comprar',
   'toast.max': 'Já está no nível máximo',
   'toast.lastTree': 'Guarda moedas suficientes para uma nova planta',
   'toast.lastProducer': 'Guarda moedas suficientes para uma nova planta',

@@ -21,6 +21,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private readonly upgradeBaseY: number
   private readonly onUpgrade: () => void
   private upgradeCost: number | null = null
+  private upgradeAffordable = true
   private upgradeDownX?: number
   private upgradeDownY?: number
   private bins: (ProductKind | null)[]
@@ -216,9 +217,10 @@ export class ShelfView extends Phaser.GameObjects.Container {
    * Shows a tap-to-buy arrow above this shelf while the next level is
    * affordable. Each zone owns its own shelf level.
    */
-  setUpgrade(cost: number | null): void {
-    if (cost === this.upgradeCost) return
+  setUpgrade(cost: number | null, affordable = true): void {
+    if (cost === this.upgradeCost && affordable === this.upgradeAffordable) return
     this.upgradeCost = cost
+    this.upgradeAffordable = affordable
     this.scene.tweens.killTweensOf(this.upgrade)
     if (cost === null) {
       this.upgrade.setVisible(false)
@@ -226,8 +228,17 @@ export class ShelfView extends Phaser.GameObjects.Container {
       return
     }
     this.upgradePrice.setText(String(cost))
-    this.upgrade.setVisible(true).setY(this.upgradeBaseY)
+    // Keep the price visible when the player cannot pay yet: hiding it removed
+    // the only clue that the shelf can be upgraded at all.
+    this.upgrade
+      .setVisible(true)
+      .setY(this.upgradeBaseY)
+      .setAlpha(affordable ? 1 : 0.62)
     this.upgradeHit.setInteractive({ useHandCursor: true })
+    if (!affordable) {
+      this.upgrade.setY(this.upgradeBaseY)
+      return
+    }
     this.scene.tweens.add({
       targets: this.upgrade,
       y: this.upgradeBaseY - 3,

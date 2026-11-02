@@ -26,7 +26,9 @@ export const gameColors = {
     highlight: 0xffffff,
     overlay: 0x16241d,
     shadow: 0x2b241d,
-    radius: 16,
+    // Shared Button radius. It is clamped to half the button height, so this
+    // value makes every action bar a capsule while cards keep their own radius.
+    radius: 32,
     radiusLarge: 24,
   } satisfies Partial<Theme>,
   floor: 0xe3c79a,

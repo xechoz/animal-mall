@@ -218,6 +218,7 @@ export const ko: Dictionary = {
   'toast.noPlot': '밭이 모두 찼어요',
   'toast.noSlot': '빈 자리가 없어요',
   'toast.notEnough': '코인이 부족해요',
+  'toast.standToBuy': '여기서 잠시 멈추면 구매할 수 있어요',
   'toast.max': '이미 최고 레벨이에요',
   'toast.lastTree': '새로 심을 코인은 남겨 둬요',
   'toast.lastProducer': '새로 들일 코인은 남겨 둬요',

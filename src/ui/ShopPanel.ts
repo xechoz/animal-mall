@@ -110,6 +110,9 @@ export class ShopPanel {
     const blocker = scene.add
       .rectangle(0, 0, options.layout.width, options.layout.height, options.theme.overlay, 0.68)
       .setOrigin(0)
+      // The shop is modal. Swallow taps outside the panel so world price chips
+      // behind the dimmer cannot open a chooser on top of the shop.
+      .setInteractive()
     this.root.add(blocker)
 
     this.chrome = scene.add.container(0, 0)
@@ -120,6 +123,7 @@ export class ShopPanel {
   }
 
   setState(state: ShopState): void {
+    if (state === this.state) return
     this.state = state
     if (!this.closed) this.bodyDirty = true
   }
@@ -291,7 +295,7 @@ export class ShopPanel {
   ): Phaser.GameObjects.Graphics {
     const { theme } = this.options
     const face = this.options.scene.add.graphics()
-    const radius = Math.min(12 * ui, height / 2)
+    const radius = height / 2
     face.fillStyle(theme.accent, 0.16)
     face.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
     face.lineStyle(2 * ui, theme.accent, 0.9)
@@ -505,11 +509,9 @@ export class ShopPanel {
           this.setState(next)
         },
       })
-      button.setEnabled(!locked)
-      if (locked) {
-        button.setText(i18n.t('shop.afterFirstSale'))
-        button.setAlpha(1)
-      }
+      if (locked) button.setText(i18n.t('shop.afterFirstSale'))
+      // Keep the disabled-looking state tappable: the tap explains the
+      // first-sale requirement instead of doing nothing.
       card.add(button)
     } else {
       const cost = config.unlockCost
@@ -934,6 +936,16 @@ export class ShopPanel {
           })
           .setOrigin(1, 0.5),
       )
+      // The hint is still a purchase attempt: tapping it explains why the
+      // shelf cannot be upgraded yet instead of leaving a dead area.
+      const hintHit = scene.add
+        .zone(width / 2 - buttonWidth / 2 - 12 * ui, 0, buttonWidth, height)
+        .setInteractive({ useHandCursor: true })
+      hintHit.on('pointerdown', () => {
+        const next = this.options.onShelfUpgrade(zone)
+        this.setState(next)
+      })
+      card.add(hintHit)
       parent.add(card)
       return top + height + 8 * ui
     }
@@ -956,10 +968,7 @@ export class ShopPanel {
         },
       },
     )
-    if (cost === null) {
-      buy.setEnabled(false)
-      buy.setAlpha(1)
-    } else {
+    if (cost !== null) {
       this.track(
         buy,
         cost,
@@ -1064,10 +1073,7 @@ export class ShopPanel {
         this.setState(next)
       },
     })
-    if (cost === null) {
-      buy.setEnabled(false)
-      buy.setAlpha(1)
-    } else {
+    if (cost !== null) {
       this.track(
         buy,
         cost,
@@ -1182,10 +1188,7 @@ export class ShopPanel {
         this.setState(next)
       },
     })
-    if (cost === null) {
-      buy.setEnabled(false)
-      buy.setAlpha(1)
-    } else {
+    if (cost !== null) {
       this.track(
         buy,
         cost,
@@ -1333,7 +1336,6 @@ export class ShopPanel {
         }
         if (entry.enabled) {
           entry.enabled = false
-          entry.button.setEnabled(false)
           entry.button.setAlpha(1)
           entry.face.setVisible(true)
         }
@@ -1343,7 +1345,8 @@ export class ShopPanel {
       const affordable = this.state.coins >= remaining
       if (entry.enabled !== affordable) {
         entry.enabled = affordable
-        entry.button.setEnabled(affordable)
+        // Keep the hit area alive even when the price is out of reach, so the
+        // existing purchase callback can surface a "not enough coins" toast.
         entry.button.setAlpha(1)
         entry.face.setVisible(!affordable)
       }

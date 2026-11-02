@@ -94,7 +94,7 @@ export class LanguageModal {
           decoration: selected
             ? (faceScene, size) => {
                 const g = faceScene.add.graphics()
-                const radius = Math.min(12 * ui, size.height / 2)
+                const radius = size.height / 2
                 g.fillStyle(theme.accent, 0.16)
                 g.fillRoundedRect(
                   -size.width / 2,
