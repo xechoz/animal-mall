@@ -548,6 +548,12 @@ export const CUSTOMER_SPECIES: readonly SpeciesId[] = [
   'frog',
   'pig',
   'dog',
+  'squirrel',
+  'hedgehog',
+  'raccoon',
+  'deer',
+  'owl',
+  'duck',
 ]
 
 export const CUSTOMER_TUNING = {

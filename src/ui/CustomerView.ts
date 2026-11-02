@@ -2,6 +2,7 @@ import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { CustomerState } from '../logic/types'
 import { AnimalRig } from './AnimalRig'
+import { ANIMAL_SCALE, type AnimalFace, animalFace } from './animalArt'
 import { productTextureKey } from './productArt'
 
 const BODY_SCALE = 0.74
@@ -16,6 +17,7 @@ export class CustomerView extends AnimalRig {
   private readonly patienceFill: Phaser.GameObjects.Rectangle
   private readonly basket: Phaser.GameObjects.Container
   private readonly basketText: Phaser.GameObjects.Text
+  private readonly face: AnimalFace
   private readonly theme: Theme
   private bubbleKey = ''
   private basketKey = ''
@@ -36,16 +38,21 @@ export class CustomerView extends AnimalRig {
       shadow: { width: 34, height: 10, alpha: 0.16 },
     })
     this.theme = theme
+    this.face = animalFace(species, BODY_SCALE * ANIMAL_SCALE)
 
     this.moodArt = scene.add.graphics()
     this.addAbove(this.moodArt)
 
-    this.patienceBg = scene.add.rectangle(0, -66, 46, 6, 0x3b2f3a, 0.28).setOrigin(0.5)
-    this.patienceFill = scene.add.rectangle(-23, -66, 46, 6, 0x5fbf9f, 1).setOrigin(0, 0.5)
+    this.patienceBg = scene.add
+      .rectangle(0, this.face.topY - 12, 46, 6, 0x3b2f3a, 0.28)
+      .setOrigin(0.5)
+    this.patienceFill = scene.add
+      .rectangle(-23, this.face.topY - 12, 46, 6, 0x5fbf9f, 1)
+      .setOrigin(0, 0.5)
     this.addAbove(this.patienceBg)
     this.addAbove(this.patienceFill)
 
-    this.bubble = scene.add.container(0, -94)
+    this.bubble = scene.add.container(0, this.face.topY - 40)
     this.bubbleBg = scene.add.graphics()
     this.bubble.add(this.bubbleBg)
     for (let index = 0; index < 3; index += 1) {
@@ -125,20 +132,27 @@ export class CustomerView extends AnimalRig {
 
     const twitch = Math.sin(time * 0.012 + customer.id) * 0.7
     const g = this.moodArt
+    const browY = this.face.browY
+    const mouthY = this.face.mouthY
+    const blushY = this.face.blushY
 
     // Angry brows scowl inward, and the mouth turns into a frown.
     g.lineStyle(2.6, 0x3b2f3a, 0.92)
-    g.lineBetween(-12, -55 - twitch, -4, -58 + twitch)
-    g.lineBetween(12, -55 + twitch, 4, -58 - twitch)
+    g.lineBetween(-12, browY + 3 - twitch, -4, browY + twitch)
+    g.lineBetween(12, browY + 3 + twitch, 4, browY - twitch)
+
+    // Mask the resting smile, then draw a frown in its place.
+    g.fillStyle(this.face.mouthColor, 1)
+    g.fillEllipse(0, mouthY, 15, 7)
     g.lineStyle(2.2, 0x3b2f3a, 0.92)
-    g.lineBetween(-6, -34, 0, -37)
-    g.lineBetween(0, -37, 6, -34)
+    g.lineBetween(-6, mouthY + 3, 0, mouthY - 1)
+    g.lineBetween(0, mouthY - 1, 6, mouthY + 3)
     g.fillStyle(0xe25d5d, 0.4)
-    g.fillEllipse(-14, -41, 8, 4.5)
-    g.fillEllipse(14, -41, 8, 4.5)
+    g.fillEllipse(-14, blushY, 8, 4.5)
+    g.fillEllipse(14, blushY, 8, 4.5)
 
     // Comic anger vein on the temple, matching the flames above the head.
-    drawAngerMark(g, 25, -56, 6, 0xd94b4b)
+    drawAngerMark(g, 25, browY + 1, 6, 0xd94b4b)
     this.drawFlames(customer.id, time)
   }
 
@@ -151,16 +165,17 @@ export class CustomerView extends AnimalRig {
     const g = this.moodArt
     const t = time * 0.006 + customerId
     const glow = 0.1 + Math.abs(Math.sin(t * 1.9)) * 0.05
+    const base = this.face.topY - 17
 
     g.fillStyle(0xff6a3d, glow)
-    g.fillCircle(0, -86, 20)
+    g.fillCircle(0, base - 15, 20)
     g.fillStyle(0xffb45c, glow * 0.85)
-    g.fillCircle(0, -82, 12)
+    g.fillCircle(0, base - 11, 12)
 
     const tongues = [
-      { x: -13, base: -72, height: 17, width: 9, seed: 0.4 },
-      { x: 0, base: -70, height: 27, width: 11, seed: 2.1 },
-      { x: 13, base: -72, height: 15, width: 8, seed: 3.7 },
+      { x: -13, base: base - 1, height: 17, width: 9, seed: 0.4 },
+      { x: 0, base: base + 1, height: 27, width: 11, seed: 2.1 },
+      { x: 13, base: base - 1, height: 15, width: 8, seed: 3.7 },
     ]
     for (const tongue of tongues) {
       const flick = Math.sin(t * 3.1 + tongue.seed) * 3
@@ -200,7 +215,11 @@ export class CustomerView extends AnimalRig {
     for (let index = 0; index < 4; index += 1) {
       const phase = (t * 0.55 + index * 0.27) % 1
       g.fillStyle(0xffc46b, (1 - phase) * 0.8)
-      g.fillCircle(Math.sin(t * 2 + index * 2.2) * 11, -78 - phase * 26, 1.6 + (1 - phase) * 1.2)
+      g.fillCircle(
+        Math.sin(t * 2 + index * 2.2) * 11,
+        base - 7 - phase * 26,
+        1.6 + (1 - phase) * 1.2,
+      )
     }
   }
 

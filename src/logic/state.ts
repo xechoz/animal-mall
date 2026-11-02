@@ -672,7 +672,14 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     queue.length < CUSTOMER_TUNING.maxQueue &&
     eligible.length > 0
 
+  // Prefer a species that is not already shopping, so a full queue never looks
+  // like the same animal repeated. Once every species is present, fall back to
+  // the whole list.
   if (canSpawn) {
+    const takenSpecies = new Set(customers.map((customer) => customer.species))
+    const freeSpecies = CUSTOMER_SPECIES.filter((species) => !takenSpecies.has(species))
+    const speciesPool = freeSpecies.length > 0 ? freeSpecies : CUSTOMER_SPECIES
+
     if (tutorial === 'checkout' && served === 0 && customers.length === 0) {
       const product = eligible[0] as ProductKind
       customers = [
@@ -684,6 +691,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           CUSTOMER_TUNING.tutorialPatienceMs,
           radius,
           map,
+          speciesPool,
         ),
       ]
       nextCustomerId += 1
@@ -694,7 +702,15 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       const wanted = wantList(rng, eligible, clearance, shelves, count)
       customers = [
         ...customers,
-        createCustomer(nextCustomerId, rng, wanted, CUSTOMER_TUNING.patienceMs, radius, map),
+        createCustomer(
+          nextCustomerId,
+          rng,
+          wanted,
+          CUSTOMER_TUNING.patienceMs,
+          radius,
+          map,
+          speciesPool,
+        ),
       ]
       nextCustomerId += 1
       day = { ...day, entered: day.entered + 1 }
@@ -993,8 +1009,9 @@ function createCustomer(
   patienceMs: number,
   radius: number,
   map: ShopMap,
+  speciesPool: readonly SpeciesId[],
 ): CustomerState {
-  const species = rng.pick(CUSTOMER_SPECIES) as SpeciesId
+  const species = rng.pick(speciesPool)
   const first = wanted[0] as ProductKind
   return {
     id,

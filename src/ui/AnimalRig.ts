@@ -1,7 +1,9 @@
 import Phaser from 'phaser'
 import type { SpeciesId } from '../logic/types'
 import {
+  ANIMAL_FOOT_GAP,
   ANIMAL_ORIGIN_Y,
+  ANIMAL_SCALE,
   ANIMAL_TEXTURE_SIZE,
   type AnimalPart,
   animalPartKey,
@@ -36,8 +38,6 @@ export interface RigPose {
 }
 
 const TEXTURE_ANCHOR_Y = ANIMAL_TEXTURE_SIZE * ANIMAL_ORIGIN_Y
-/** The split paw texture holds the left foot; the right one sits 16px later. */
-const FOOT_GAP = 16
 const BASE_SCALE = 0.82
 
 /**
@@ -72,7 +72,10 @@ export class AnimalRig extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, options: RigOptions) {
     super(scene, 0, 0)
     const { species, player, scale, seed, shadow } = options
-    this.baseScale = scale
+    // Views keep passing the old 96-unit footprint; the larger textures render
+    // at a proportionally smaller scale so world positions do not move.
+    const displayScale = scale * ANIMAL_SCALE
+    this.baseScale = displayScale
     const keyFor = (part: AnimalPart): string =>
       player ? playerPartKey(part) : animalPartKey(species, part)
 
@@ -85,36 +88,42 @@ export class AnimalRig extends Phaser.GameObjects.Container {
     this.add(this.lift)
 
     const pivot = tailPivot(species)
-    this.tailLocalX = (pivot.x - ANIMAL_TEXTURE_SIZE / 2) * scale
-    this.tailLocalY = (pivot.y - TEXTURE_ANCHOR_Y) * scale
+    this.tailLocalX = (pivot.x - ANIMAL_TEXTURE_SIZE / 2) * displayScale
+    this.tailLocalY = (pivot.y - TEXTURE_ANCHOR_Y) * displayScale
     this.tailImage = scene.add
       .image(this.tailLocalX, this.tailLocalY, keyFor('tail'))
       .setOrigin(pivot.x / ANIMAL_TEXTURE_SIZE, pivot.y / ANIMAL_TEXTURE_SIZE)
-      .setScale(scale)
+      .setScale(displayScale)
     this.lift.add(this.tailImage)
 
     this.feet = scene.add.container(0, 0)
-    this.pawLeft = scene.add.image(0, 0, keyFor('paw')).setOrigin(0.5, 0.9).setScale(scale)
+    this.pawLeft = scene.add.image(0, 0, keyFor('paw')).setOrigin(0.5, 0.9).setScale(displayScale)
     this.pawRight = scene.add
-      .image(FOOT_GAP * scale, 0, keyFor('paw'))
+      .image(ANIMAL_FOOT_GAP * displayScale, 0, keyFor('paw'))
       .setOrigin(0.5, 0.9)
-      .setScale(scale)
+      .setScale(displayScale)
     this.feet.add([this.pawLeft, this.pawRight])
     this.lift.add(this.feet)
 
-    this.bodyImage = scene.add.image(0, 0, keyFor('body')).setOrigin(0.5, 0.9).setScale(scale)
+    this.bodyImage = scene.add
+      .image(0, 0, keyFor('body'))
+      .setOrigin(0.5, 0.9)
+      .setScale(displayScale)
     this.lift.add(this.bodyImage)
 
-    this.headImage = scene.add.image(0, 0, keyFor('head')).setOrigin(0.5, 0.9).setScale(scale)
+    this.headImage = scene.add
+      .image(0, 0, keyFor('head'))
+      .setOrigin(0.5, 0.9)
+      .setScale(displayScale)
     this.lift.add(this.headImage)
 
     this.blinkArt = scene.add.graphics()
     this.lift.add(this.blinkArt)
 
     this.blinkAnchors = blinkEyes(species).map((eye) => ({
-      x: (eye.x - ANIMAL_TEXTURE_SIZE / 2) * scale,
-      y: (eye.y - TEXTURE_ANCHOR_Y) * scale,
-      r: eye.r * scale,
+      x: (eye.x - ANIMAL_TEXTURE_SIZE / 2) * displayScale,
+      y: (eye.y - TEXTURE_ANCHOR_Y) * displayScale,
+      r: eye.r * displayScale,
     }))
     this.eyeColor = eyeCoverColor(species)
     this.motion = new GaitAnimator(gaitProfile(species, player), seed, scale / BASE_SCALE)
@@ -169,7 +178,7 @@ export class AnimalRig extends Phaser.GameObjects.Container {
 
     this.feet.setScale(facing, 1)
     this.placeFoot(this.pawLeft, 0, frame.footLeft)
-    this.placeFoot(this.pawRight, FOOT_GAP * this.baseScale, frame.footRight)
+    this.placeFoot(this.pawRight, ANIMAL_FOOT_GAP * this.baseScale, frame.footRight)
 
     this.bodyImage.setScale(facing * this.baseScale, this.baseScale)
     this.headImage

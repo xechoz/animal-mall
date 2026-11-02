@@ -5,7 +5,7 @@ import { distance } from '../logic/collision'
 import { INTERACTION, PEN_SIZE, PLOT_SIZE, STAFF, STATION_SIZE } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState, Vec2, ZoneId } from '../logic/types'
-import { animalTextureKey } from './animalArt'
+import { ANIMAL_SCALE, animalTextureKey } from './animalArt'
 import { coinTextureKey } from './fruitArt'
 import { drawSeedPacket } from './groundArt'
 import type { GameLayout } from './layout'
@@ -305,7 +305,7 @@ export class MapOffers {
         .setVisible(true)
         .setTexture(animalTextureKey(STAFF[offer.kind].species))
         .setPosition(-22 * ui, 1 * ui)
-        .setScale(0.21 * ui)
+        .setScale(0.21 * ui * ANIMAL_SCALE)
     }
 
     const showPrice = !tag

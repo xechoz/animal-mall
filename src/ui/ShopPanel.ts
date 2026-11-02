@@ -31,7 +31,7 @@ import type {
   UpgradeKind,
   ZoneId,
 } from '../logic/types'
-import { animalTextureKey } from './animalArt'
+import { ANIMAL_SCALE, animalTextureKey } from './animalArt'
 import { drawHeaderRibbon, drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
@@ -995,7 +995,7 @@ export class ShopPanel {
     card.add(
       scene.add
         .image(-width / 2 + 48 * ui, -height / 2 + 58 * ui, animalTextureKey(STAFF[kind].species))
-        .setScale(0.66 * ui),
+        .setScale(0.66 * ui * ANIMAL_SCALE),
     )
     card.add(
       scene.add

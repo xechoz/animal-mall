@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Redraw every shop animal with a species-specific silhouette instead of one
+  shared body template. Customers and staff now split into body/head/tail/paw
+  textures so the existing gait rig keeps working while each species gets its
+  own proportions, ears, muzzle, markings and props. Add six new customer
+  species (squirrel, hedgehog, raccoon, deer, owl, duck) with their own gaits,
+  and prefer a species that is not already in the shop when spawning a shopper.
+- Rework the farm pens: the chicken gets a comb, wattle, tail feathers and a
+  pecking idle; the cow gets horns, black patches, an udder, tail swishes and
+  cud chewing; the sheep gets cloud wool, a dark face and grazing; the goat gets
+  curved horns, a beard, long ears and hoof scraping. Each land pen also shows
+  a cosmetic chick, calf, lamb or kid, and the pond gains a jumping koi and
+  lily flower.
+
 - Add a working-day cycle. A shift lasts five minutes of shop time shown as
   09:00–21:00; dawn, dusk and night tint the forest, the shop gets a warm lamp
   pool after 19:30, and a floating clock shows the day and time. New customers

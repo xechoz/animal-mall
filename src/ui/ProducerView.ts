@@ -586,9 +586,39 @@ function drawAnimalFrame(
     g.fillStyle(0x4a8f5d, 1)
     g.fillEllipse(-20, -10, 14, 8)
     g.fillEllipse(20, 8, 12, 7)
+    g.fillStyle(0xf5a3b5, 1)
+    g.fillCircle(-23, -14, 2.2)
+    g.fillStyle(0xfff3dd, 1)
+    g.fillCircle(-23, -14, 1)
     const ripple = Math.sin(frame.time * 0.003) * 2
     g.fillStyle(0xffffff, 0.38)
     g.fillEllipse(10, -14 + ripple, 10, 4)
+    g.lineStyle(1.4, 0xffffff, 0.35)
+    g.strokeEllipse(10, -14 + ripple, 22, 8)
+
+    // A koi jumps out of the pond every few seconds, then splashes back.
+    const t = frame.time * 0.001 + producer.id * 0.9
+    const jumpPhase = (t % 4.2) / 0.9
+    if (jumpPhase < 1) {
+      const arc = Math.sin(jumpPhase * Math.PI)
+      const jumpX = -4 + jumpPhase * 14
+      const jumpY = 2 - arc * 17
+      g.save()
+      g.translateCanvas(jumpX, jumpY)
+      g.rotateCanvas(0.5 - jumpPhase * 1.2)
+      g.fillStyle(0xf08a3c, 1)
+      g.fillEllipse(0, 0, 14, 7)
+      g.fillStyle(0xffb066, 1)
+      g.fillEllipse(-1, -1, 9, 4)
+      g.fillStyle(0xffffff, 1)
+      g.fillEllipse(0, -2, 5, 2)
+      g.fillStyle(0xf08a3c, 1)
+      g.fillTriangle(7, 0, 12, -4, 12, 4)
+      g.restore()
+      g.lineStyle(1.6, 0xffffff, 0.55 * (1 - jumpPhase))
+      g.strokeEllipse(jumpX, 4, 16 + jumpPhase * 12, 5)
+    }
+
     for (let index = 0; index < Math.max(2, producer.ready); index += 1) {
       const bob = Math.sin(frame.time * 0.004 + index) * 1.5
       g.fillStyle(0xf08a3c, 1)
@@ -619,11 +649,15 @@ function drawAnimalFrame(
   g.translateCanvas(frame.dx, frame.dy)
   if (frame.facing < 0) g.scaleCanvas(-1, 1)
   if (frame.rest) g.scaleCanvas(1, 0.82)
-  if (producer.product === 'egg') drawChicken(g, producer.ready, frame.rest, frame.angry)
-  else if (producer.product === 'milk') drawCow(g, producer.ready, frame.rest, frame.angry)
-  else if (producer.product === 'yarn') drawSheep(g, producer.ready, frame.rest, frame.angry)
-  else drawGoat(g, producer.ready, frame.rest, frame.angry)
+  if (producer.product === 'egg') drawChicken(g, producer.ready, frame, producer.id)
+  else if (producer.product === 'milk') drawCow(g, producer.ready, frame, producer.id)
+  else if (producer.product === 'yarn') drawSheep(g, producer.ready, frame, producer.id)
+  else drawGoat(g, producer.ready, frame, producer.id)
   g.restore()
+
+  if (isAnimalProductKind(producer.product) && animalNeedsTrough(producer.product)) {
+    drawPenBaby(g, producer, frame)
+  }
 
   if (isAnimalProductKind(producer.product) && animalNeedsTrough(producer.product)) {
     drawTrough(g, producer)
@@ -633,117 +667,226 @@ function drawAnimalFrame(
 function drawChicken(
   g: Phaser.GameObjects.Graphics,
   ready: number,
-  rest: boolean,
-  angry: boolean,
+  frame: AnimalFrame,
+  seed: number,
 ): void {
-  g.fillStyle(0xe6dccb, 1)
-  g.fillEllipse(0, 1, 34, 26)
-  g.fillStyle(0xffffff, 1)
-  g.fillEllipse(-1, -1, 30, 22)
-  g.fillStyle(0xfff3dd, 1)
-  g.fillEllipse(-4, 2, 18, 13)
-  g.fillStyle(0xffffff, 0.7)
-  g.fillEllipse(-6, 0, 10, 7)
-  // Tail feathers.
-  g.fillStyle(0xf7ead6, 1)
-  g.fillTriangle(-15, -2, -24, -10, -14, -10)
-  g.fillTriangle(-15, 2, -25, 4, -14, -4)
-  g.fillStyle(0xffffff, 1)
-  g.fillCircle(14, -14, 10)
-  g.fillStyle(0xe25d5d, 1)
-  g.fillCircle(10, -23, 3)
-  g.fillCircle(14, -25, 3.4)
-  g.fillCircle(18, -23, 3)
-  g.fillTriangle(10, -24, 16, -24, 13, -31)
-  g.fillEllipse(17, -7, 4, 6)
-  g.fillStyle(0xf2a93b, 1)
-  g.fillTriangle(23, -13, 31, -10, 23, -7)
-  g.fillStyle(0x3b2f3a, 1)
-  g.fillCircle(17, -17, 1.8)
-  if (rest) {
-    g.lineStyle(1.6, 0x3b2f3a, 0.9)
-    g.lineBetween(14, -17, 20, -17)
-  } else if (angry) {
-    g.lineStyle(1.8, 0x3b2f3a, 0.95)
-    g.lineBetween(12, -21, 18, -19)
-    g.lineBetween(22, -21, 17, -19)
-  }
-  g.fillStyle(0xf2a93b, 1)
-  g.fillRoundedRect(-8, 10, 5, 8, 2)
-  g.fillRoundedRect(6, 10, 5, 8, 2)
+  const t = frame.time * 0.001 + seed * 1.7
+  const peckPhase = (t % 3.6) / 0.75
+  const peck = frame.rest || frame.angry ? 0 : peckPhase < 1 ? Math.sin(peckPhase * Math.PI) : 0
+  const flap = frame.angry ? Math.abs(Math.sin(frame.time * 0.02 + seed)) : 0
+  const bodyX = peck * 2
+  const headX = 12 + peck * 5
+  const headY = -14 + peck * 9
+
+  // Straw nest and the finished eggs.
+  g.fillStyle(0xd9b25a, 0.9)
+  g.fillEllipse(-15, 19, 30, 10)
+  g.fillStyle(0xf0d08a, 1)
+  g.fillEllipse(-16, 17, 24, 7)
   for (let index = 0; index < ready; index += 1) {
     g.fillStyle(0xfff3dd, 1)
-    g.fillEllipse(-20 + index * 8, 18, 7, 9)
+    g.fillEllipse(-20 + index * 8, 16, 7, 9)
+    g.fillStyle(0xe8d9bd, 1)
+    g.fillEllipse(-20 + index * 8, 15, 4, 5)
+  }
+
+  // Legs and feet.
+  if (!frame.rest) {
+    g.fillStyle(0xf2a93b, 1)
+    g.fillRoundedRect(-8 + bodyX, 10, 5, 9, 2)
+    g.fillRoundedRect(6 + bodyX, 10, 5, 9, 2)
+    g.lineStyle(1.6, 0xc98b2f, 1)
+    g.lineBetween(-8 + bodyX, 19, -11 + bodyX, 21)
+    g.lineBetween(-6 + bodyX, 19, -6 + bodyX, 21)
+    g.lineBetween(6 + bodyX, 19, 3 + bodyX, 21)
+    g.lineBetween(8 + bodyX, 19, 8 + bodyX, 21)
+  }
+
+  // Tail feathers fan out behind the body.
+  g.fillStyle(0xf7ead6, 1)
+  g.fillTriangle(-15 + bodyX, -2, -25 + bodyX, -10, -14 + bodyX, -10)
+  g.fillTriangle(-15 + bodyX, 2, -26 + bodyX, 4, -14 + bodyX, -4)
+  g.fillTriangle(-14 + bodyX, 6, -24 + bodyX, 10, -12 + bodyX, 0)
+
+  // Plump body and folded wing.
+  g.fillStyle(0xe6dccb, 1)
+  g.fillEllipse(bodyX, 2, 34, 27)
+  g.fillStyle(0xffffff, 1)
+  g.fillEllipse(-1 + bodyX, 0, 30, 23)
+  g.fillStyle(0xfff3dd, 1)
+  g.fillEllipse(-5 + bodyX, 3, 18, 13)
+  g.fillStyle(0xffffff, 0.7)
+  g.fillEllipse(-7 + bodyX, 0, 10, 7)
+  g.fillStyle(0xf7ead6, 1)
+  g.fillEllipse(4 + bodyX + flap * 3, 1, 13, 10)
+  g.lineStyle(1.2, 0xdccbb4, 0.8)
+  g.beginPath()
+  g.arc(4 + bodyX, 2, 5, 0.3, 2.8)
+  g.strokePath()
+
+  // Neck and head.
+  g.fillStyle(0xffffff, 1)
+  g.fillEllipse(8 + bodyX, -7, 14, 13)
+  g.fillCircle(headX, headY, 10)
+  g.fillStyle(0xfff3dd, 0.7)
+  g.fillEllipse(headX - 3, headY + 2, 9, 7)
+
+  // Red comb and wattle.
+  g.fillStyle(0xe25d5d, 1)
+  g.fillCircle(headX - 4, headY - 11, 3)
+  g.fillCircle(headX, headY - 13, 3.4)
+  g.fillCircle(headX + 4, headY - 11, 3)
+  g.fillTriangle(headX - 4, headY - 12, headX + 2, headY - 12, headX - 1, headY - 19)
+  g.fillEllipse(headX + 3, headY + 7, 4, 6)
+
+  // Beak and eye.
+  g.fillStyle(0xf2a93b, 1)
+  g.fillTriangle(headX + 8, headY - 2, headX + 17, headY + 1, headX + 8, headY + 5)
+  g.fillStyle(0xc98b2f, 1)
+  g.lineBetween(headX + 9, headY + 1, headX + 16, headY + 1)
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillCircle(headX + 3, headY - 3, 1.8)
+  if (frame.rest) {
+    g.lineStyle(1.6, 0x3b2f3a, 0.9)
+    g.lineBetween(headX, headY - 3, headX + 6, headY - 3)
+  } else if (frame.angry) {
+    g.lineStyle(1.8, 0x3b2f3a, 0.95)
+    g.lineBetween(headX - 2, headY - 7, headX + 4, headY - 5)
+    g.lineBetween(headX + 9, headY - 7, headX + 4, headY - 5)
+  }
+
+  if (peck > 0) {
+    g.fillStyle(0xffffff, 0.45)
+    g.fillCircle(headX + 18, headY + 8, 1.5)
+    g.fillCircle(headX + 20, headY + 12, 1.1)
   }
 }
 
 function drawCow(
   g: Phaser.GameObjects.Graphics,
   ready: number,
-  rest: boolean,
-  angry: boolean,
+  frame: AnimalFrame,
+  seed: number,
 ): void {
-  g.fillStyle(0xe9e2d6, 1)
-  g.fillEllipse(0, 1, 42, 28)
-  g.fillStyle(0xffffff, 1)
-  g.fillEllipse(-1, -1, 40, 25)
-  g.fillStyle(0xffffff, 0.7)
-  g.fillEllipse(-12, -7, 14, 8)
+  const t = frame.time * 0.001 + seed
+  const chew = frame.rest ? 0 : 0.5 + Math.sin(t * 6.5) * 0.5
+  const swish = Math.sin(t * 1.8) * 4
+  const headY = -14 + chew * 1.2
+
+  // Tail with a tuft, swishing behind the body.
+  g.lineStyle(3, 0x8f5734, 1)
+  g.beginPath()
+  g.moveTo(21, 4)
+  g.lineTo(27 + swish * 0.4, 8)
+  g.lineTo(30 + swish, 16)
+  g.strokePath()
   g.fillStyle(0x3b2f3a, 1)
-  g.fillEllipse(-10, -2, 12, 10)
-  g.fillEllipse(12, 4, 10, 8)
-  g.fillStyle(0xffffff, 1)
-  g.fillCircle(18, -14, 11)
-  g.fillStyle(0xf2cf9e, 1)
-  g.fillEllipse(8, -13, 7, 5)
-  g.fillEllipse(28, -13, 7, 5)
-  g.fillStyle(0xf2a8b4, 1)
-  g.fillEllipse(22, -10, 10, 7)
-  g.fillStyle(0xc95b70, 0.75)
-  g.fillCircle(20, -9, 1.1)
-  g.fillCircle(24, -9, 1.1)
-  g.fillStyle(0x3b2f3a, 1)
-  g.fillCircle(15, -17, 1.8)
-  g.fillCircle(21, -17, 1.8)
-  if (rest) {
-    g.lineStyle(1.6, 0x3b2f3a, 0.9)
-    g.lineBetween(12, -17, 18, -17)
-    g.lineBetween(18, -17, 24, -17)
-  } else if (angry) {
-    g.lineStyle(1.8, 0x3b2f3a, 0.95)
-    g.lineBetween(10, -21, 16, -19)
-    g.lineBetween(26, -21, 20, -19)
+  g.fillEllipse(30 + swish, 17, 5, 7)
+
+  // Legs and hooves.
+  if (!frame.rest) {
+    g.fillStyle(0xf5f1e8, 1)
+    g.fillRoundedRect(-14, 12, 6, 10, 2)
+    g.fillRoundedRect(-6, 12, 6, 10, 2)
+    g.fillRoundedRect(6, 12, 6, 10, 2)
+    g.fillRoundedRect(13, 12, 6, 10, 2)
+    g.fillStyle(0x3b2f3a, 1)
+    g.fillRoundedRect(-14, 20, 6, 4, 2)
+    g.fillRoundedRect(-6, 20, 6, 4, 2)
+    g.fillRoundedRect(6, 20, 6, 4, 2)
+    g.fillRoundedRect(13, 20, 6, 4, 2)
   }
-  g.fillStyle(0xf2cf9e, 1)
-  g.fillTriangle(9, -24, 13, -24, 11, -30)
-  g.fillTriangle(23, -24, 27, -24, 25, -30)
-  g.fillStyle(0xf2a93b, 1)
-  g.fillCircle(26, 10, 5)
+
+  // Udder and pink teats.
+  g.fillStyle(0xf2a8b4, 1)
+  g.fillEllipse(0, 14, 16, 8)
+  g.fillStyle(0xd06a7c, 1)
+  g.fillCircle(-4, 16, 1.6)
+  g.fillCircle(3, 16, 1.6)
+
+  // Broad, blocky body with black patches.
+  g.fillStyle(0xe9e2d6, 1)
+  g.fillEllipse(0, 2, 44, 30)
   g.fillStyle(0xffffff, 1)
-  g.fillRoundedRect(-14, 10, 6, 9, 2)
-  g.fillRoundedRect(8, 10, 6, 9, 2)
+  g.fillEllipse(-1, 0, 41, 27)
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillEllipse(-13, -4, 13, 10)
+  g.fillEllipse(9, 2, 11, 9)
+  g.fillEllipse(-2, 9, 8, 5)
+  g.fillStyle(0xffffff, 0.75)
+  g.fillEllipse(-14, -8, 10, 6)
+
+  // Head, ears and horns.
+  g.fillStyle(0xffffff, 1)
+  g.fillEllipse(16, headY, 20, 18)
+  g.fillStyle(0xe9e2d6, 1)
+  g.fillEllipse(8, headY - 5, 8, 5)
+  g.fillEllipse(24, headY - 5, 8, 5)
+  g.fillStyle(0xf2cf9e, 1)
+  g.fillTriangle(8, headY - 10, 12, headY - 10, 10, headY - 17)
+  g.fillTriangle(22, headY - 10, 26, headY - 10, 24, headY - 17)
+  g.fillStyle(0xf2cf9e, 1)
+  g.fillEllipse(18, headY + 4, 12, 9)
+  g.fillStyle(0xf2a8b4, 1)
+  g.fillEllipse(20, headY + 5, 7, 5)
+  g.fillStyle(0xc95b70, 0.8)
+  g.fillCircle(18, headY + 5, 1.1)
+  g.fillCircle(22, headY + 5, 1.1)
+
+  // Eyes and a chewing cheek.
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillCircle(12, headY - 3, 1.8)
+  g.fillCircle(20, headY - 3, 1.8)
+  g.fillStyle(0xf2a8b4, 0.45)
+  g.fillEllipse(24, headY + 1 + chew, 5, 3)
+  if (frame.rest) {
+    g.lineStyle(1.6, 0x3b2f3a, 0.9)
+    g.lineBetween(10, headY - 3, 15, headY - 3)
+    g.lineBetween(19, headY - 3, 24, headY - 3)
+  } else if (frame.angry) {
+    g.lineStyle(1.8, 0x3b2f3a, 0.95)
+    g.lineBetween(8, headY - 7, 14, headY - 5)
+    g.lineBetween(26, headY - 7, 20, headY - 5)
+  }
+
+  // Milk bottles from the ready batch.
   for (let index = 0; index < ready; index += 1) {
+    const x = -20 + index * 9
     g.fillStyle(0xdfe9f2, 1)
-    g.fillRoundedRect(-20 + index * 9, 16, 6, 10, 2)
+    g.fillRoundedRect(x, 16, 7, 11, 2)
+    g.fillStyle(0xffffff, 1)
+    g.fillRoundedRect(x + 1, 17, 5, 4, 1.5)
+    g.fillStyle(0xf2a93b, 1)
+    g.fillRect(x + 1, 23, 5, 2)
   }
 }
 
 function drawSheep(
   g: Phaser.GameObjects.Graphics,
   ready: number,
-  rest: boolean,
-  angry: boolean,
+  frame: AnimalFrame,
+  seed: number,
 ): void {
+  const t = frame.time * 0.001 + seed * 1.3
+  const grazePhase = (t % 4.4) / 0.9
+  const graze = frame.rest || frame.angry ? 0 : grazePhase < 1 ? Math.sin(grazePhase * Math.PI) : 0
+  const headX = 16 + graze * 2
+  const headY = -12 + graze * 11
+  const wool = 1 + Math.sin(frame.time * 0.004 + seed) * 0.02
+
+  // Cloud-like wool body.
   g.fillStyle(0xf0e6d4, 1)
-  g.fillCircle(-10, -1, 15)
-  g.fillCircle(8, -5, 16)
-  g.fillCircle(16, 5, 12)
-  g.fillCircle(-2, 9, 14)
+  g.fillCircle(-12, 1, 15 * wool)
+  g.fillCircle(6, -4, 16 * wool)
+  g.fillCircle(16, 5, 12 * wool)
+  g.fillCircle(-2, 9, 14 * wool)
+  g.fillCircle(-20, -7, 10 * wool)
   g.fillStyle(0xfff7e9, 1)
-  g.fillCircle(-11, -3, 12)
-  g.fillCircle(7, -7, 13)
-  g.fillCircle(14, 3, 9)
-  g.fillCircle(-2, 7, 11)
+  g.fillCircle(-12, -1, 12 * wool)
+  g.fillCircle(6, -6, 13 * wool)
+  g.fillCircle(14, 3, 9 * wool)
+  g.fillCircle(-2, 7, 11 * wool)
+  g.fillCircle(-19, -8, 7.5 * wool)
   g.lineStyle(1.4, 0xe0cfb6, 0.8)
   g.beginPath()
   g.arc(-8, -4, 5, 0.2, 3.6)
@@ -751,85 +894,221 @@ function drawSheep(
   g.beginPath()
   g.arc(8, -3, 4.5, -0.4, 3.0)
   g.strokePath()
-  g.fillStyle(0xf7ddc0, 1)
-  g.fillCircle(18, -12, 9)
-  g.fillStyle(0xf7ddc0, 1)
-  g.fillEllipse(10, -13, 6, 4)
-  g.fillEllipse(26, -13, 6, 4)
-  g.fillStyle(0x3b2f3a, 1)
-  g.fillCircle(15, -15, 1.7)
-  g.fillCircle(21, -15, 1.7)
-  if (rest) {
-    g.lineStyle(1.5, 0x3b2f3a, 0.9)
-    g.lineBetween(12, -15, 18, -15)
-    g.lineBetween(18, -15, 24, -15)
-  } else if (angry) {
-    g.lineStyle(1.7, 0x3b2f3a, 0.95)
-    g.lineBetween(10, -19, 16, -17)
-    g.lineBetween(26, -19, 20, -17)
+
+  // Small tail tuft.
+  g.fillStyle(0xfff7e9, 1)
+  g.fillCircle(-25, 2, 5)
+
+  // Dark legs and hooves.
+  if (!frame.rest) {
+    g.fillStyle(0x4a3f36, 1)
+    g.fillRoundedRect(-14, 12, 5, 9, 2)
+    g.fillRoundedRect(8, 12, 5, 9, 2)
+    g.fillStyle(0x3b2f3a, 1)
+    g.fillRoundedRect(-14, 19, 5, 3, 1.5)
+    g.fillRoundedRect(8, 19, 5, 3, 1.5)
   }
-  g.fillStyle(0xf2a8b4, 1)
-  g.fillEllipse(24, -9, 5, 4)
+
+  // Neck and dark face.
+  g.fillStyle(0xf0e6d4, 1)
+  g.fillEllipse(12, -6, 13, 12)
+  g.fillStyle(0x5a4a3e, 1)
+  g.fillCircle(headX, headY, 9)
+  g.fillStyle(0xfff7e9, 1)
+  g.fillCircle(headX - 2, headY - 7, 5)
+  g.fillStyle(0x5a4a3e, 1)
+  g.fillEllipse(headX - 8, headY - 1, 7, 4)
+  g.fillEllipse(headX + 8, headY - 1, 7, 4)
+  g.fillStyle(0xf7ddc0, 1)
+  g.fillEllipse(headX + 3, headY + 3, 8, 6)
   g.fillStyle(0x3b2f3a, 1)
-  g.fillRoundedRect(-14, 12, 5, 8, 2)
-  g.fillRoundedRect(8, 12, 5, 8, 2)
+  g.fillEllipse(headX + 5, headY + 2, 3, 2)
+
+  // Eyes.
+  g.fillStyle(0xffffff, 1)
+  g.fillCircle(headX - 1, headY - 2, 2.2)
+  g.fillCircle(headX + 5, headY - 2, 2.2)
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillCircle(headX - 1, headY - 2, 1.1)
+  g.fillCircle(headX + 5, headY - 2, 1.1)
+  if (frame.rest) {
+    g.lineStyle(1.5, 0x3b2f3a, 0.9)
+    g.lineBetween(headX - 4, headY - 2, headX + 1, headY - 2)
+    g.lineBetween(headX + 3, headY - 2, headX + 8, headY - 2)
+  } else if (frame.angry) {
+    g.lineStyle(1.7, 0x3b2f3a, 0.95)
+    g.lineBetween(headX - 5, headY - 6, headX, headY - 4)
+    g.lineBetween(headX + 9, headY - 6, headX + 4, headY - 4)
+  }
+
+  // Yarn balls from the ready batch.
   for (let index = 0; index < ready; index += 1) {
     g.fillStyle(0xd99ab9, 1)
     g.fillCircle(-20 + index * 9, 18, 4)
+    g.lineStyle(1, 0xa85a72, 0.8)
+    g.beginPath()
+    g.arc(-20 + index * 9, 18, 3, 0.3, 3.4)
+    g.strokePath()
   }
 }
 
 function drawGoat(
   g: Phaser.GameObjects.Graphics,
   ready: number,
-  rest: boolean,
-  angry: boolean,
+  frame: AnimalFrame,
+  seed: number,
 ): void {
-  // Body.
+  const t = frame.time * 0.001 + seed * 1.9
+  const pawPhase = (t % 5.2) / 0.55
+  const paw = frame.rest || frame.angry || pawPhase >= 1 ? 0 : Math.sin(pawPhase * Math.PI)
+  const lean = frame.angry ? 2 : paw * 1.5
+  const headX = 16 + lean
+  const headY = -12 + paw * 2
+
+  // Upright tail and long legs.
   g.fillStyle(0xf5f0e6, 1)
-  g.fillEllipse(-2, 2, 34, 23)
-  g.fillStyle(0xfffbf2, 1)
-  g.fillEllipse(-3, 0, 30, 19)
-  // Legs.
+  g.fillTriangle(-20, 0, -27, -8, -22, 7)
   g.fillStyle(0x3b2f3a, 1)
-  g.fillRoundedRect(-13, 12, 5, 8, 2)
-  g.fillRoundedRect(8, 12, 5, 8, 2)
-  // Head, ears and horns.
+  g.fillTriangle(-21, 0, -25, -6, -22, 5)
+
+  if (!frame.rest) {
+    g.fillStyle(0xf5f0e6, 1)
+    g.fillRoundedRect(-13, 12, 5, 10, 2)
+    g.fillRoundedRect(8, 12, 5, 10, 2)
+    g.fillStyle(0x3b2f3a, 1)
+    g.fillRoundedRect(-13, 20, 5, 3, 1.5)
+    g.fillRoundedRect(8, 20, 5, 3, 1.5)
+    if (paw > 0) {
+      g.fillStyle(0xfffbf2, 1)
+      g.fillRoundedRect(6, 12 - paw * 5, 5, 9, 2)
+      g.lineStyle(1.4, 0xb98a5c, 1)
+      g.lineBetween(6, 21 - paw * 5, 2, 22 - paw * 5)
+    }
+  }
+
+  // Slender body.
+  g.fillStyle(0xf5f0e6, 1)
+  g.fillEllipse(-2, 2, 38, 24)
   g.fillStyle(0xfffbf2, 1)
-  g.fillEllipse(16, -12, 17, 14)
+  g.fillEllipse(-3, 0, 34, 20)
+  g.fillStyle(0xffffff, 0.35)
+  g.fillEllipse(-12, -6, 12, 7)
+
+  // Long ears.
+  g.fillStyle(0xfffbf2, 1)
+  g.fillEllipse(8, headY - 6, 10, 4)
+  g.fillEllipse(24, headY - 6, 10, 4)
   g.fillStyle(0xf0e6d4, 1)
-  g.fillEllipse(10, -16, 8, 4)
-  g.fillEllipse(23, -16, 8, 4)
+  g.fillEllipse(8, headY - 5, 7, 2.5)
+  g.fillEllipse(24, headY - 5, 7, 2.5)
+
+  // Curved horns.
   g.lineStyle(2.4, 0xb98a5c, 1)
   g.beginPath()
-  g.arc(12, -20, 6, 3.4, 5.8)
+  g.arc(11, headY - 11, 6, 3.3, 5.9)
   g.strokePath()
   g.beginPath()
-  g.arc(21, -20, 6, 3.7, 6.0)
+  g.arc(21, headY - 11, 6, 3.6, 6.1)
   g.strokePath()
-  // Beard and muzzle.
+
+  // Head and beard.
+  g.fillStyle(0xfffbf2, 1)
+  g.fillEllipse(headX, headY, 17, 15)
   g.fillStyle(0xf0e6d4, 1)
-  g.fillTriangle(15, 2, 21, 2, 18, 10)
+  g.fillTriangle(headX - 3, headY + 6, headX + 3, headY + 6, headX, headY + 14)
   g.fillStyle(0x3b2f3a, 1)
-  g.fillCircle(13, -13, 1.7)
-  g.fillCircle(20, -13, 1.7)
-  g.fillEllipse(17, -7, 7, 4)
-  if (rest) {
+  g.fillCircle(headX - 3, headY - 3, 1.8)
+  g.fillCircle(headX + 4, headY - 3, 1.8)
+  g.fillEllipse(headX + 1, headY + 4, 7, 4)
+  if (frame.rest) {
     g.lineStyle(1.5, 0x3b2f3a, 0.9)
-    g.lineBetween(10, -14, 16, -14)
-    g.lineBetween(16, -14, 22, -14)
-  } else if (angry) {
+    g.lineBetween(headX - 6, headY - 3, headX - 1, headY - 3)
+    g.lineBetween(headX + 2, headY - 3, headX + 7, headY - 3)
+  } else if (frame.angry) {
     g.lineStyle(1.7, 0x3b2f3a, 0.95)
-    g.lineBetween(9, -18, 15, -16)
-    g.lineBetween(24, -18, 19, -16)
+    g.lineBetween(headX - 7, headY - 7, headX - 1, headY - 5)
+    g.lineBetween(headX + 9, headY - 7, headX + 4, headY - 5)
   }
-  // Cheese wheels from the ready batch, kept above the trough line.
+
+  // Hoof-scrape dust while pawing.
+  if (paw > 0.2) {
+    g.fillStyle(0x8f5734, 0.35)
+    g.fillCircle(2 - paw * 4, 21, 1.6 + paw * 2)
+    g.fillCircle(-1 - paw * 6, 19, 1.2 + paw * 1.5)
+  }
+
+  // Cheese wheels from the ready batch.
   for (let index = 0; index < ready; index += 1) {
+    const x = -18 + index * 10
     g.fillStyle(0xffd166, 1)
-    g.fillCircle(-18 + index * 10, 12, 4.5)
+    g.fillCircle(x, 12, 4.5)
     g.fillStyle(0xe0a93d, 1)
-    g.fillCircle(-18 + index * 10, 11, 2.2)
+    g.fillCircle(x, 11, 2.2)
   }
+}
+
+/**
+ * A purely cosmetic companion for each land pen. It follows half of the adult
+ * patrol offset, bobs on its own rhythm and never touches the simulation.
+ */
+function drawPenBaby(
+  g: Phaser.GameObjects.Graphics,
+  producer: ProducerState,
+  frame: AnimalFrame,
+): void {
+  const x = -25 + frame.dx * 0.4
+  const bob = Math.sin(frame.time * 0.005 + producer.id * 1.4) * 1
+  const y = 15 + bob
+  if (producer.product === 'egg') {
+    g.fillStyle(0xf7ead6, 1)
+    g.fillEllipse(x, y, 13, 10)
+    g.fillStyle(0xfff3dd, 1)
+    g.fillEllipse(x, y - 1, 10, 8)
+    g.fillStyle(0xf2a93b, 1)
+    g.fillTriangle(x + 5, y - 1, x + 10, y + 1, x + 5, y + 3)
+    g.fillCircle(x + 1, y + 5, 1.4)
+    g.fillCircle(x - 3, y + 5, 1.4)
+    g.fillStyle(0x3b2f3a, 1)
+    g.fillCircle(x + 3, y - 3, 1.2)
+    return
+  }
+  if (producer.product === 'milk') {
+    g.fillStyle(0xffffff, 1)
+    g.fillEllipse(x, y, 19, 13)
+    g.fillStyle(0x3b2f3a, 1)
+    g.fillEllipse(x - 4, y - 1, 5, 4)
+    g.fillStyle(0xffffff, 1)
+    g.fillCircle(x + 6, y - 5, 5)
+    g.fillStyle(0xf2cf9e, 1)
+    g.fillEllipse(x + 9, y - 3, 4, 3)
+    g.fillStyle(0x3b2f3a, 1)
+    g.fillCircle(x + 6, y - 6, 1)
+    return
+  }
+  if (producer.product === 'yarn') {
+    g.fillStyle(0xf0e6d4, 1)
+    g.fillCircle(x - 3, y, 7)
+    g.fillCircle(x + 4, y - 2, 7)
+    g.fillCircle(x + 1, y + 4, 6)
+    g.fillStyle(0x5a4a3e, 1)
+    g.fillCircle(x + 8, y - 1, 4.5)
+    g.fillStyle(0xffffff, 1)
+    g.fillCircle(x + 7, y - 2, 1.1)
+    g.fillCircle(x + 10, y - 2, 1.1)
+    return
+  }
+  g.fillStyle(0xfffbf2, 1)
+  g.fillEllipse(x, y, 18, 11)
+  g.fillStyle(0xfffbf2, 1)
+  g.fillEllipse(x + 6, y - 5, 8, 8)
+  g.lineStyle(1.4, 0xb98a5c, 1)
+  g.lineBetween(x + 3, y - 10, x + 4, y - 13)
+  g.lineBetween(x + 9, y - 10, x + 8, y - 13)
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillCircle(x + 4, y - 5, 1)
+  g.fillCircle(x + 8, y - 5, 1)
+  g.fillStyle(0xf0e6d4, 1)
+  g.fillTriangle(x + 5, y - 1, x + 8, y - 1, x + 6, y + 4)
 }
 
 function drawBeehive(g: Phaser.GameObjects.Graphics, ready: number, time: number): void {

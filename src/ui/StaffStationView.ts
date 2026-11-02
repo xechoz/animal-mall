@@ -2,7 +2,7 @@ import type { Theme } from '@mg/core'
 import Phaser from 'phaser'
 import { STAFF } from '../logic/config'
 import type { ShopMap, StaffKind } from '../logic/types'
-import { animalTextureKey } from './animalArt'
+import { ANIMAL_SCALE, animalTextureKey } from './animalArt'
 import { coinTextureKey } from './fruitArt'
 import { productTextureKey } from './productArt'
 
@@ -45,7 +45,9 @@ export class StaffStationView extends Phaser.GameObjects.Container {
     board.strokeRoundedRect(-30, -43, 60, 42, 10)
     this.add(board)
 
-    const portrait = scene.add.image(0, -22, animalTextureKey(STAFF[kind].species)).setScale(0.34)
+    const portrait = scene.add
+      .image(0, -22, animalTextureKey(STAFF[kind].species))
+      .setScale(0.34 * ANIMAL_SCALE)
     this.add(portrait)
 
     const badge = scene.add.image(17, -8, coinTextureKey()).setScale(0.32)

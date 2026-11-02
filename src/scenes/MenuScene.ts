@@ -10,7 +10,7 @@ import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
 import { hasProgress, progressSave } from '../save'
-import { createAnimalTextures, playerTextureKey } from '../ui/animalArt'
+import { ANIMAL_SCALE, createAnimalTextures, playerTextureKey } from '../ui/animalArt'
 import {
   drawAntTrail,
   drawBird,
@@ -466,7 +466,10 @@ export class MenuScene extends Phaser.Scene {
     }
 
     // Waving shopkeeper and neighbors.
-    const player = this.add.image(-12, 132, playerTextureKey()).setOrigin(0.5, 0.9).setScale(0.9)
+    const player = this.add
+      .image(-12, 132, playerTextureKey())
+      .setOrigin(0.5, 0.9)
+      .setScale(0.9 * ANIMAL_SCALE)
     shop.add(player)
     this.tweens.add({
       targets: player,

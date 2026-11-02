@@ -16,7 +16,21 @@ export type UpgradeKind = 'carry' | 'speed' | 'scan' | 'fertilizer'
 export type StaffKind = 'cashier' | 'picker' | 'chef'
 export type DrinkKind = 'appleSoda' | 'milkTea' | 'lemonTea'
 
-export type SpeciesId = 'bear' | 'cat' | 'rabbit' | 'fox' | 'panda' | 'frog' | 'pig' | 'dog'
+export type SpeciesId =
+  | 'bear'
+  | 'cat'
+  | 'rabbit'
+  | 'fox'
+  | 'panda'
+  | 'frog'
+  | 'pig'
+  | 'dog'
+  | 'squirrel'
+  | 'hedgehog'
+  | 'raccoon'
+  | 'deer'
+  | 'owl'
+  | 'duck'
 
 export type CustomerPhase = 'toShelf' | 'picking' | 'toQueue' | 'inQueue' | 'leaving'
 
