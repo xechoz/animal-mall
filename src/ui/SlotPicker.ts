@@ -146,9 +146,12 @@ export class SlotPicker {
         textStyle(theme, font.label, theme.textMuted, true),
       )
       .setOrigin(0.5)
+    const closeHit = scene.add
+      .zone(width / 2 - 17 * ui, -height / 2 + 17 * ui, 56 * ui, 56 * ui)
       .setInteractive({ useHandCursor: true })
-    close.on('pointerdown', () => options.onClose())
+    closeHit.on('pointerdown', () => options.onClose())
     panel.add(close)
+    panel.add(closeHit)
 
     products.forEach((product, index) => {
       const column = index % COLUMNS

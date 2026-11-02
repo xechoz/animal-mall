@@ -112,9 +112,12 @@ export class FoodPicker {
         textStyle(theme, font.title, theme.textMuted, true),
       )
       .setOrigin(0.5)
+    const closeHit = scene.add
+      .zone(panelW / 2 - 22 * ui, -panelH / 2 + 24 * ui, 56 * ui, 56 * ui)
       .setInteractive({ useHandCursor: true })
-    close.on('pointerdown', () => options.onClose())
+    closeHit.on('pointerdown', () => options.onClose())
     panel.add(close)
+    panel.add(closeHit)
 
     this.empty = scene.add
       .text(

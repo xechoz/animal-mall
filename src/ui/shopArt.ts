@@ -37,10 +37,11 @@ export function createShopBackground(
   labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
   textScale: number,
+  drawLabels = true,
 ): Phaser.GameObjects.Container {
   return map.id === 'landscape'
-    ? createLandscapeShopBackground(scene, theme, title, labels, map, textScale)
-    : createPortraitShopBackground(scene, theme, title, labels, map, textScale)
+    ? createLandscapeShopBackground(scene, theme, title, labels, map, textScale, drawLabels)
+    : createPortraitShopBackground(scene, theme, title, labels, map, textScale, drawLabels)
 }
 
 function createPortraitShopBackground(
@@ -50,6 +51,7 @@ function createPortraitShopBackground(
   labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
   textScale: number,
+  drawLabels: boolean,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
   const g = scene.add.graphics()
@@ -68,7 +70,7 @@ function createPortraitShopBackground(
   drawQueueMarkers(g, map)
   drawCounter(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
-  drawZoneLabels(g, theme, labels, map, true, textScale, container, scene)
+  if (drawLabels) drawZoneLabels(g, theme, labels, map, true, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
 
@@ -82,6 +84,7 @@ function createLandscapeShopBackground(
   labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
   textScale: number,
+  drawLabels: boolean,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
   const g = scene.add.graphics()
@@ -100,7 +103,7 @@ function createLandscapeShopBackground(
   drawQueueMarkers(g, map)
   drawCounter(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
-  drawZoneLabels(g, theme, labels, map, false, textScale, container, scene)
+  if (drawLabels) drawZoneLabels(g, theme, labels, map, false, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
 

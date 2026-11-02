@@ -101,9 +101,12 @@ export class DrinkPicker {
         textStyle(theme, font.title, theme.textMuted, true),
       )
       .setOrigin(0.5)
+    const closeHit = scene.add
+      .zone(panelW / 2 - 22 * ui, -panelH / 2 + 24 * ui, 56 * ui, 56 * ui)
       .setInteractive({ useHandCursor: true })
-    close.on('pointerdown', () => options.onClose())
+    closeHit.on('pointerdown', () => options.onClose())
     this.panel.add(close)
+    this.panel.add(closeHit)
 
     this.rows = DRINK_ORDER.map((kind, index) => {
       const row = this.createRow(index, kind)

@@ -59,14 +59,10 @@ export class DayReport {
     )
 
     const ratingValue = report.rating === null ? '—' : String(report.rating)
-    const ratingColor =
-      report.rating === null
-        ? theme.textMuted
-        : report.rating >= 85
-          ? cssColor(theme.accentAlt)
-          : report.rating >= 70
-            ? cssColor(theme.accent)
-            : cssColor(theme.danger)
+    // Keep the big number on the same dark ink as the body; the tone is carried
+    // by the label and the five dots. Accent green on the cream panel is only
+    // 2.3:1, which is below the large-text threshold.
+    const ratingColor = report.rating === null ? theme.textMuted : theme.text
     card.add(
       scene.add
         .text(
@@ -118,7 +114,7 @@ export class DayReport {
           report.tip > 0
             ? `+${money(report.tip)} · ${report.tipPercent}%`
             : i18n.t('day.report.noTip'),
-        tone: report.tip > 0 ? cssColor(theme.accentAlt) : theme.textMuted,
+        tone: report.tip > 0 ? cssColor(theme.accentInk) : theme.textMuted,
       },
     ]
 

@@ -489,7 +489,7 @@ export class ShopPanel {
         width: w - 120 * ui,
         height: 48 * ui,
         fontSize: font.body,
-        minHitSize: 64,
+        minHitSize: 64 * ui,
         variant: locked ? 'soft' : 'primary',
         onClick: () => {
           const next = this.options.onUnlockZone(zone)
@@ -514,7 +514,7 @@ export class ShopPanel {
           width: w - 120 * ui,
           height: 48 * ui,
           fontSize: font.body,
-          minHitSize: 64,
+          minHitSize: 64 * ui,
           variant: 'primary',
           onClick: () => {
             const next = this.options.onUnlockZone(zone)
@@ -636,7 +636,7 @@ export class ShopPanel {
         width: width - 36 * ui,
         height: (compact ? 40 : 46) * ui,
         fontSize: font.body,
-        minHitSize: 64,
+        minHitSize: 64 * ui,
         variant: 'primary',
         onClick: () => {
           const next = this.options.onPurchasePlant(product)
@@ -795,7 +795,7 @@ export class ShopPanel {
             width: width - 40 * ui,
             height: (compact ? 40 : 46) * ui,
             fontSize: font.body,
-            minHitSize: 64,
+            minHitSize: 64 * ui,
             variant: 'primary',
             onClick: () => this.options.onOpenProducerPicker(zone, slot),
           },
@@ -853,7 +853,7 @@ export class ShopPanel {
         width: width - 40 * ui,
         height: (compact ? 40 : 46) * ui,
         fontSize: font.body,
-        minHitSize: 64,
+        minHitSize: 64 * ui,
         variant: 'soft',
         onClick: () => this.options.onOpenProducerPicker(zone, slot),
       }),
@@ -937,7 +937,7 @@ export class ShopPanel {
         width: buttonWidth,
         height: 36 * ui,
         fontSize: font.caption,
-        minHitSize: 56,
+        minHitSize: 56 * ui,
         variant: cost === null ? 'soft' : 'primary',
         onClick: () => {
           const next = this.options.onShelfUpgrade(zone)
@@ -1045,7 +1045,7 @@ export class ShopPanel {
       width: width - 36 * ui,
       height: 44 * ui,
       fontSize: font.body,
-      minHitSize: 64,
+      minHitSize: 64 * ui,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {
         const next = this.options.onUpgrade(kind)
@@ -1163,7 +1163,7 @@ export class ShopPanel {
       width: width - 36 * ui,
       height: 46 * ui,
       fontSize: font.body,
-      minHitSize: 64,
+      minHitSize: 64 * ui,
       variant: cost === null ? 'soft' : 'primary',
       onClick: () => {
         const next = this.options.onStaff(kind)
