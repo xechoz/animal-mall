@@ -71,6 +71,12 @@ submodule. Do not copy platform source into this repo.
   in-world unlock depend on opening the shop.
 - `veg` stays free after the first sale and is not part of the paid zone quick
   buy.
+- World captions are reserved for locked zones. `ZoneOverlay` draws the name,
+  lock and price inside the world container, so they scale and scroll with the
+  room and sit under `DaylightView` instead of floating above the day/night
+  wash. The name fades in only when the player is near. Unlocked zones carry no
+  text: beds, pens, stations and the shop panel identify them. Do not add
+  permanent screen-space zone labels back.
 - Plant beds are area triggers too: `distanceToRect(player, plotRect) <=
   QUICK_BUY.plotMargin`, never centre-point distance. A player standing between
   two rows must still reach both beds.

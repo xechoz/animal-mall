@@ -126,7 +126,6 @@ import {
   type WorldCamera,
   worldToScreen,
 } from '../ui/worldCamera'
-import { ZoneLabels } from '../ui/ZoneLabels'
 import { ZoneOverlay } from '../ui/ZoneOverlay'
 
 const STEP_MS = 1000 / 60
@@ -213,7 +212,6 @@ export class GameScene extends Phaser.Scene {
   private hud!: Hud
   private joystick!: Joystick
   private tutorial!: TutorialOverlay
-  private zoneLabels?: ZoneLabels
   private toast!: Toast
   private mode: Mode = 'playing'
   private pauseOverlay?: PauseOverlay
@@ -403,21 +401,11 @@ export class GameScene extends Phaser.Scene {
       this.textures.remove(this.backgroundKey)
     }
     this.backgroundKey = bakeKey
-    const background = createShopBackground(
-      this,
-      theme,
-      i18n.t('game.title'),
-      labels,
-      this.layout.map,
-      this.layout.worldText,
-      false,
-      { bake: { key: bakeKey, scale: bakeScale } },
-    )
+    const background = createShopBackground(this, theme, i18n.t('game.title'), this.layout.map, {
+      bake: { key: bakeKey, scale: bakeScale },
+    })
     background.setDepth(0)
     this.world.add(background)
-
-    this.zoneLabels?.destroy()
-    this.zoneLabels = new ZoneLabels(this, this.layout, this.viewCamera, theme, i18n)
 
     this.plantBeds = new PlantBedView(this)
     this.plantBeds.setDepth(1)
@@ -427,7 +415,7 @@ export class GameScene extends Phaser.Scene {
     this.sceneryView.setDepth(2)
     this.world.add(this.sceneryView)
 
-    this.zoneOverlay = new ZoneOverlay(this, theme, this.layout.map)
+    this.zoneOverlay = new ZoneOverlay(this, theme, this.layout.map, labels, this.layout.worldText)
     this.zoneOverlay.setDepth(50)
     this.world.add(this.zoneOverlay)
 
@@ -852,7 +840,6 @@ export class GameScene extends Phaser.Scene {
     )
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
     this.world.setScale(this.viewCamera.scale)
-    this.zoneLabels?.update()
     this.daylight.update(this.state.day, this.viewCamera)
     this.playerView.setDepth(this.state.player.pos.y + 1)
     this.syncCustomers(alpha, time)
@@ -991,6 +978,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateWorldViews(): void {
     this.zoneOverlay.updateZones(this.state, this.backgroundBakeScale())
+    this.zoneOverlay.updateFocus(this.state.player.pos)
     this.plantBeds.updateBeds(this.state, this.backgroundBakeScale())
     const reach = stockReach(this.state)
     for (const zone of ZONE_ORDER) {
@@ -2177,7 +2165,6 @@ export class GameScene extends Phaser.Scene {
     snapWorldCamera(this.layout, this.viewCamera, this.state.player.pos)
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
     this.world.setScale(this.viewCamera.scale)
-    this.zoneLabels?.relayout(this.layout)
     this.daylight.relayout(this.layout)
     this.hud.relayout(this.layout)
     this.joystick.reset()

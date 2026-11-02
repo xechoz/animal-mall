@@ -1,8 +1,8 @@
-import { displayTextStyle, type Theme, textStyle } from '@mg/core'
+import { displayTextStyle, type Theme } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { PEN_SIZE, ZONE_ORDER } from '../logic/config'
-import type { ShopMap, ZoneId } from '../logic/types'
+import { PEN_SIZE } from '../logic/config'
+import type { ShopMap } from '../logic/types'
 import { bakeGraphics } from './bakeArt'
 import { drawRestMat } from './facilitiesArt'
 import {
@@ -20,16 +20,8 @@ import {
   fillPolygon,
   strokePolygon,
 } from './forestArt'
-import { drawTagFrame } from './frames'
 import { drawClover, drawGrassTuft } from './groundArt'
 import { drawIndoorScenery } from './scenery'
-
-export const ZONE_TINTS: Readonly<Record<ZoneId, number>> = {
-  fruit: 0xd97757,
-  veg: 0x7fae63,
-  farm: 0xc9a45a,
-  kitchen: 0x8a9098,
-}
 
 export interface ShopBackgroundOptions {
   /**
@@ -44,34 +36,19 @@ export function createShopBackground(
   scene: Phaser.Scene,
   theme: Theme,
   title: string,
-  labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
-  textScale: number,
-  drawLabels = true,
   options: ShopBackgroundOptions = {},
 ): Phaser.GameObjects.Container {
   return map.id === 'landscape'
-    ? createLandscapeShopBackground(
-        scene,
-        theme,
-        title,
-        labels,
-        map,
-        textScale,
-        drawLabels,
-        options,
-      )
-    : createPortraitShopBackground(scene, theme, title, labels, map, textScale, drawLabels, options)
+    ? createLandscapeShopBackground(scene, theme, title, map, options)
+    : createPortraitShopBackground(scene, theme, title, map, options)
 }
 
 function createPortraitShopBackground(
   scene: Phaser.Scene,
   theme: Theme,
   title: string,
-  labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
-  textScale: number,
-  drawLabels: boolean,
   options: ShopBackgroundOptions,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
@@ -91,7 +68,6 @@ function createPortraitShopBackground(
   drawQueueMarkers(g, map)
   drawCounter(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
-  if (drawLabels) drawZoneLabels(g, theme, labels, map, true, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
   bakeBackground(scene, container, g, map, options)
@@ -103,10 +79,7 @@ function createLandscapeShopBackground(
   scene: Phaser.Scene,
   theme: Theme,
   title: string,
-  labels: Readonly<Record<ZoneId, string>>,
   map: ShopMap,
-  textScale: number,
-  drawLabels: boolean,
   options: ShopBackgroundOptions,
 ): Phaser.GameObjects.Container {
   const container = scene.add.container(0, 0)
@@ -126,7 +99,6 @@ function createLandscapeShopBackground(
   drawQueueMarkers(g, map)
   drawCounter(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
-  if (drawLabels) drawZoneLabels(g, theme, labels, map, false, textScale, container, scene)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
   bakeBackground(scene, container, g, map, options)
@@ -403,57 +375,6 @@ function drawSideFences(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
       seed: 37,
     },
   )
-}
-
-function drawZoneLabels(
-  g: Phaser.GameObjects.Graphics,
-  theme: Theme,
-  labels: Readonly<Record<ZoneId, string>>,
-  map: ShopMap,
-  portrait: boolean,
-  textScale: number,
-  container: Phaser.GameObjects.Container,
-  scene: Phaser.Scene,
-): void {
-  for (const zone of ZONE_ORDER) {
-    const area = map.zoneAreas[zone]
-    if (portrait) {
-      const labelX = area.x + 12
-      const labelY = area.y - 14
-      const label = scene.add
-        .text(labelX, labelY, labels[zone], textStyle(theme, 12 * textScale, theme.text, true))
-        .setOrigin(0, 0.5)
-      const tagHeight = Math.max(18, 10 * textScale + 10)
-      drawTagFrame(g, labelX - 9, labelY - tagHeight / 2, label.width + 18, tagHeight)
-      g.fillStyle(ZONE_TINTS[zone], 0.9)
-      g.fillCircle(labelX - 1, labelY, 2.5)
-      container.add(label)
-      continue
-    }
-
-    const shelf = map.shelves[zone]
-    const headerScale = Math.min(textScale, 1.3)
-    const centerX = shelf.x + shelf.w / 2
-    const centerY = shelf.y + shelf.h + 15
-    const label = scene.add
-      .text(centerX, centerY, labels[zone], textStyle(theme, 18 * headerScale, theme.text, true))
-      .setOrigin(0.5)
-    const tagWidth = Math.max(78 * headerScale, label.width + 40 * headerScale)
-    const tagHeight = 30 * headerScale
-    drawTagFrame(
-      g,
-      centerX - tagWidth / 2,
-      centerY - tagHeight / 2,
-      tagWidth,
-      tagHeight,
-      10 * headerScale,
-    )
-    g.fillStyle(ZONE_TINTS[zone], 0.95)
-    g.fillCircle(centerX - tagWidth / 2 + 14 * headerScale, centerY, 4.5 * headerScale)
-    g.fillStyle(gameColors.leafLight, 0.9)
-    g.fillEllipse(centerX + tagWidth / 2 - 13 * headerScale, centerY - 1, 9, 4)
-    container.add(label)
-  }
 }
 
 function drawCentralRug(

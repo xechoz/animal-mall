@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Stop painting four permanent zone captions over the shop. The always-on
+  "Fruit / Vegetables / Farm / Kitchen" tags were screen-space chrome that slid
+  away from their zone, sat above the day/night overlay and repeated what the
+  beds, pens, stations and shop panel already said. Locked zones now carry their
+  name, lock and price inside the world container, the name fades in only within
+  ~260 units, and unlocking a zone removes the caption for good. Portrait hangs
+  the name and price under its locked shelf instead of duplicating the shelf
+  lock mid-zone. Zone names stay in the shop panel, goals and toasts.
+
 - Bake the static shop art into textures instead of keeping it live. Phaser walks
   a Graphics command buffer on every rendered frame, and the floor plan alone was
   about 193k buffer entries, so the renderer rebuilt the whole map, shelves, beds,
