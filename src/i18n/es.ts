@@ -11,12 +11,17 @@ export const es: Dictionary = {
   'menu.iosHint': 'Añádela a la pantalla de inicio para jugar a pantalla completa',
   'menu.iframeHint': 'Ábrelo en una pestaña nueva para jugar a pantalla completa',
   'menu.openSign': 'ABIERTO',
-  'tutorial.buyTree':
-    'Muévete con WASD o arrastra. Quédate quieto sobre un bancal iluminado para plantar.',
-  'tutorial.grow': 'Tu cultivo está creciendo. Espera a que se llene el anillo.',
-  'tutorial.harvest': 'El cultivo está maduro. Pasa por encima para cosecharlo.',
-  'tutorial.stock': 'Llévalo al estante que le toca y entra en su zona.',
-  'tutorial.checkout': 'Un cliente espera. Ponte en la caja para cobrarle.',
+  'tutorial.buyTree.title': 'Planta tu primer cultivo',
+  'tutorial.buyTree.hintTouch': 'Ve a la parcela iluminada y detente allí. Arrastra para moverte.',
+  'tutorial.buyTree.hintKeys': 'Ve con WASD a la parcela iluminada y detente allí.',
+  'tutorial.grow.title': 'Creciendo…',
+  'tutorial.grow.hint': 'Tu cultivo madura solo.',
+  'tutorial.harvest.title': 'Recoge el cultivo maduro',
+  'tutorial.harvest.hint': 'Pasa por encima para recogerlo.',
+  'tutorial.stock.title': 'Repón el estante de fruta',
+  'tutorial.stock.hint': 'Entra en la zona del estante.',
+  'tutorial.checkout.title': 'Atiende al cliente',
+  'tutorial.checkout.hint': 'Ponte en la caja.',
   'zone.fruit': 'Frutas',
   'zone.veg': 'Verduras',
   'zone.farm': 'Granja',
@@ -192,7 +197,6 @@ export const es: Dictionary = {
   'toast.kitchenHint':
     'Cocina: los puestos toman ingredientes de los estantes; recoge lo terminado y repón el estante de cocina.',
   'toast.fishHint': 'Estanque: quédate delante 0,5 s para lanzar y pesca medio segundo después.',
-  'toast.tapBed': 'Toca un bancal vacío o espera 0,5 s sin moverte para elegir cultivo.',
   'toast.swapHint':
     'Mantén pulsado un bancal plantado o toca la etiqueta de la pala para cambiar de cultivo.',
   'toast.animalSwapHint':

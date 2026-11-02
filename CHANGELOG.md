@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- Sit empty-bed price chips on the soil at the plot centre instead of floating
+  above the bed. The automatic 500 ms dwell no longer opens the crop chooser
+  when the player cannot afford the cheapest crop in that zone; tapping the bed
+  remains an explicit way to inspect the options.
+
+- Hold the first-sale loop until the tree has its full fruit set. While the tree
+  ripens, a clock card beside it counts down the remaining real seconds instead
+  of showing the destination arrow. The tutorial shopper is placed at the till
+  as soon as the crop is planted, so the counter is never empty when the player
+  arrives, and checkout now guides to the standing spot on the fence side of the
+  counter rather than the register inside the solid counter. A shopper at full
+  anger also gets a five-second grace before walking out, and an empty shelf is
+  browsed for ten seconds before the item is marked missed. The apple sale price
+  rises from 6 to 10 so the first tree can fund the next unlock within the
+  opening day instead of stalling new players.
+
+- Rebuild the first-sale onboarding around the nearest target. The dashed path
+  and the hand-drawn finger are gone: the guide now outlines the real trigger
+  area, floats a short direction arrow beside the player, and marks the
+  destination with a landing arrow. The bed itself has no hand because standing
+  still opens the crop chooser; the CC0 pointing hand now marks the apple card
+  inside that chooser, where the player actually has to tap. It picks the
+  closest empty bed or ripe crop with a small switch margin instead of the first
+  plot in the array, keeps the prompt under the HUD with a
+  four-step progress row, and moves transient toasts to the bottom while
+  onboarding is active so they no longer cover the prompt. Swap tags and their
+  hints stay hidden until the first sale. Tool upgrades can no longer spend the
+  opening fund before the first plant, the first crop ripens twice as fast, and
+  empty-bed dwells pause after the first plant so the plant chooser cannot cover
+  the stock prompt.
+
 - Stop painting four permanent zone captions over the shop. The always-on
   "Fruit / Vegetables / Farm / Kitchen" tags were screen-space chrome that slid
   away from their zone, sat above the day/night overlay and repeated what the

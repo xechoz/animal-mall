@@ -38,6 +38,25 @@ describe('game copy', () => {
     }
   })
 
+  it('has onboarding copy in every language', () => {
+    const keys = [
+      'tutorial.buyTree.title',
+      'tutorial.buyTree.hintTouch',
+      'tutorial.buyTree.hintKeys',
+      'tutorial.grow.title',
+      'tutorial.grow.hint',
+      'tutorial.harvest.title',
+      'tutorial.harvest.hint',
+      'tutorial.stock.title',
+      'tutorial.stock.hint',
+      'tutorial.checkout.title',
+      'tutorial.checkout.hint',
+    ]
+    for (const dictionary of Object.values(gameI18n)) {
+      for (const key of keys) expect(dictionary[key]).toBeTruthy()
+    }
+  })
+
   it('names the BBQ grill and its pooled recipe in both languages', () => {
     for (const key of ['product.skewer', 'producer.skewer', 'shop.anyGrill', 'picker.grill']) {
       expect(gameI18n.en[key as keyof typeof gameI18n.en]).toBeTruthy()

@@ -14,6 +14,7 @@ import {
   isPlantKind,
   isProcessedKind,
   moveSpeed,
+  PLANTS,
   PLAYER_RADIUS,
   PRODUCT_ORDER,
   PRODUCT_WEIGHT,
@@ -22,6 +23,7 @@ import {
   RECIPES,
   REGISTER_RADIUS,
   scanIntervalMs,
+  TUTORIAL,
   WANDER,
   ZONE_ORDER,
   ZONE_PRODUCTS,
@@ -98,12 +100,15 @@ export function createShopState(save: SaveData, map: ShopMap): ShopState {
     nextShelves = markExistingStocked(nextShelves, producers)
   }
 
+  const savedPlants = producers.filter((producer) => isPlantKind(producer.product))
   const tutorial: TutorialStep =
     save.served > 0
       ? 'done'
-      : producers.some((producer) => producer.kind === 'plant')
+      : savedPlants.some((producer) => producer.mature)
         ? 'harvest'
-        : 'buyTree'
+        : savedPlants.length > 0
+          ? 'grow'
+          : 'buyTree'
 
   return {
     map,
@@ -221,7 +226,9 @@ export function toSave(state: ShopState): SaveData {
 export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: number): StepResult {
   const dt = Math.max(0, Math.min(dtMs, 50))
   const events: GameEvent[] = []
-  const growth = fertilizerMultiplier(state.upgrades.fertilizer)
+  const growth =
+    fertilizerMultiplier(state.upgrades.fertilizer) *
+    (state.tutorial === 'done' ? 1 : TUTORIAL.growthMultiplier)
   const carryMax =
     carryCapacity(state.upgrades.carry) + (state.buffs.milkTea > 0 ? DRINKS.milkTea.carryBonus : 0)
   const speed = Math.round(
@@ -423,7 +430,11 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       queue[0] === customer.id &&
       customer.phase === 'inQueue' &&
       (hasCashier || inRegisterZone(player.pos, map))
-    if (!beingServed) {
+    if (customer.tutorial === true) {
+      // The first-sale shopper waits for the player no matter how long the
+      // onboarding takes; losing the only customer would strand the tutorial.
+      customer = { ...customer, angerMs: 0 }
+    } else if (!beingServed) {
       const factor =
         customer.phase === 'inQueue' && customer.queueIndex > 0
           ? CUSTOMER_TUNING.queuePatienceFactor
@@ -432,22 +443,34 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       const angerMs = waitingInQueue
         ? Math.min(3_000, customer.angerMs + dt * 0.45)
         : Math.max(0, customer.angerMs - dt * 0.6)
+      const patienceMs = Math.max(0, customer.patienceMs - dt * factor)
       customer = {
         ...customer,
-        patienceMs: customer.patienceMs - dt * factor,
-        angerMs:
-          customer.patienceMs / customer.maxPatienceMs < 0.35 ? Math.max(angerMs, 1_200) : angerMs,
+        patienceMs,
+        angerMs: patienceMs / customer.maxPatienceMs < 0.35 ? Math.max(angerMs, 1_200) : angerMs,
       }
     } else {
       customer = { ...customer, angerMs: Math.max(0, customer.angerMs - dt) }
     }
 
-    if (customer.patienceMs <= 0) {
-      customer = leaveCustomer(customer, map)
-      if (queue.includes(customer.id)) {
-        queue = queue.filter((id) => id !== customer.id)
-        queueChanged = true
-        if (register.customerId === customer.id) register = { customerId: null, scanMs: 0 }
+    // Full anger is not an instant exit: give the shopper a short, visibly
+    // angry grace period so a player arriving at the till can still serve them.
+    if (
+      customer.tutorial !== true &&
+      customer.phase !== 'leaving' &&
+      customer.patienceMs <= 0 &&
+      !beingServed
+    ) {
+      const angryWaitMs = (customer.angryWaitMs ?? 0) + dt
+      if (angryWaitMs >= CUSTOMER_TUNING.leaveGraceMs) {
+        customer = leaveCustomer(customer, map)
+        if (queue.includes(customer.id)) {
+          queue = queue.filter((id) => id !== customer.id)
+          queueChanged = true
+          if (register.customerId === customer.id) register = { customerId: null, scanMs: 0 }
+        }
+      } else {
+        customer = { ...customer, angryWaitMs, angerMs: Math.max(customer.angerMs, 3_000) }
       }
     }
 
@@ -460,6 +483,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
             ...customer,
             phase: 'picking',
             waitMs: CUSTOMER_TUNING.pickMs,
+            shelfWaitActive: false,
           }
         } else if (customer.phase === 'toQueue') {
           customer = { ...customer, phase: 'inQueue' }
@@ -472,6 +496,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           const target = customer.target
           const available =
             target !== null && shelves[zoneOf(target)].active && stockOf(shelves, target) > 0
+          let browsingEmptyShelf = false
           if (target !== null && available) {
             const zone = zoneOf(target)
             const shelf = shelves[zone]
@@ -486,6 +511,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
               ...customer,
               basket: [...customer.basket, target],
               wanted: customer.wanted.slice(1),
+              shelfWaitActive: false,
             }
             events.push({
               type: 'customerPick',
@@ -493,54 +519,69 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
               product: target,
             })
           } else if (target !== null) {
-            customer = {
-              ...customer,
-              wanted: customer.wanted.slice(1),
-              missed: customer.missed + 1,
-              angerMs: Math.max(customer.angerMs, 2_400),
-            }
-            day = { ...day, missed: day.missed + 1 }
-            events.push({
-              type: 'customerMissed',
-              customerId: customer.id,
-              product: target,
-            })
-          }
-
-          if (customer.wanted.length > 0) {
-            const next = customer.wanted[0] as ProductKind
-            customer = {
-              ...customer,
-              target: next,
-              phase: 'toShelf',
-              path: wanderPath(
-                customer.pos,
-                map.shelfAccess[zoneOf(next)],
-                radius,
-                map,
-                rng,
-                WANDER.customer,
-              ),
-              pathIndex: 0,
-            }
-          } else if (customer.basket.length > 0) {
-            if (queue.length < CUSTOMER_TUNING.maxQueue) {
-              const index = queue.length
-              queue = [...queue, customer.id]
-              queueChanged = true
+            // Give the player a window to restock instead of turning every
+            // empty shelf into an instant miss.
+            if (customer.shelfWaitActive !== true) {
               customer = {
                 ...customer,
-                target: null,
-                phase: 'toQueue',
-                queueIndex: index,
-                path: pathTo(customer.pos, map.queueSlots[index] as Vec2, radius, map),
+                waitMs: CUSTOMER_TUNING.shelfWaitMs,
+                shelfWaitActive: true,
+                angerMs: Math.max(customer.angerMs, 1_200),
+              }
+              browsingEmptyShelf = true
+            } else {
+              customer = {
+                ...customer,
+                wanted: customer.wanted.slice(1),
+                missed: customer.missed + 1,
+                angerMs: Math.max(customer.angerMs, 2_400),
+                shelfWaitActive: false,
+              }
+              day = { ...day, missed: day.missed + 1 }
+              events.push({
+                type: 'customerMissed',
+                customerId: customer.id,
+                product: target,
+              })
+            }
+          }
+
+          if (!browsingEmptyShelf) {
+            if (customer.wanted.length > 0) {
+              const next = customer.wanted[0] as ProductKind
+              customer = {
+                ...customer,
+                target: next,
+                phase: 'toShelf',
+                path: wanderPath(
+                  customer.pos,
+                  map.shelfAccess[zoneOf(next)],
+                  radius,
+                  map,
+                  rng,
+                  WANDER.customer,
+                ),
                 pathIndex: 0,
+              }
+            } else if (customer.basket.length > 0) {
+              if (queue.length < CUSTOMER_TUNING.maxQueue) {
+                const index = queue.length
+                queue = [...queue, customer.id]
+                queueChanged = true
+                customer = {
+                  ...customer,
+                  target: null,
+                  phase: 'toQueue',
+                  queueIndex: index,
+                  path: pathTo(customer.pos, map.queueSlots[index] as Vec2, radius, map),
+                  pathIndex: 0,
+                }
+              } else {
+                customer = leaveCustomer(customer, map)
               }
             } else {
               customer = leaveCustomer(customer, map)
             }
-          } else {
-            customer = leaveCustomer(customer, map)
           }
         }
       }
@@ -551,13 +592,66 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     customers.push(customer)
   }
 
+  // The first-sale shopper waits at the till from the moment the crop is in the
+  // ground. The player sees someone already there while the tree ripens, and
+  // never arrives at an empty counter after harvesting and stocking.
+  if (
+    tutorial !== 'buyTree' &&
+    tutorial !== 'done' &&
+    !customers.some((customer) => customer.tutorial === true)
+  ) {
+    const plant = producers.find((producer) => isPlantKind(producer.product))
+    if (plant !== undefined) {
+      const queueIndex = queue.length
+      const queueSlot = map.queueSlots[queueIndex]
+      if (queueSlot !== undefined) {
+        const created = createCustomer(
+          nextCustomerId,
+          rng,
+          [plant.product],
+          CUSTOMER_TUNING.tutorialPatienceMs,
+          radius,
+          map,
+          CUSTOMER_SPECIES,
+        )
+        customers = [
+          ...customers,
+          {
+            ...created,
+            tutorial: true,
+            pos: queueSlot,
+            prevPos: queueSlot,
+            path: [],
+            pathIndex: 0,
+            phase: 'inQueue',
+            wanted: [],
+            basket: [plant.product],
+            target: null,
+            waitMs: 0,
+            queueIndex,
+          },
+        ]
+        queue = [...queue, nextCustomerId]
+        nextCustomerId += 1
+        day = { ...day, entered: day.entered + 1 }
+        queueChanged = true
+      }
+    }
+  }
+
   if (queueChanged) customers = retargetQueue(customers, queue, radius, map)
 
   const frontId = queue[0]
   if (frontId !== undefined && (hasCashier || inRegisterZone(player.pos, map))) {
     const index = customers.findIndex((customer) => customer.id === frontId)
     const front = index >= 0 ? customers[index] : undefined
-    if (front !== undefined && front.phase === 'inQueue') {
+    if (
+      front !== undefined &&
+      front.phase === 'inQueue' &&
+      // The tutorial shopper waits at the till, but is only served once the
+      // stocking step is done; otherwise a curious player could skip the loop.
+      (front.tutorial !== true || tutorial === 'checkout')
+    ) {
       let customer = front
       let scanMs = register.customerId === customer.id ? register.scanMs + dt : dt
       let basket = customer.basket
@@ -566,6 +660,22 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       while (scanMs >= scanInterval && basket.length > 0) {
         const product = basket[0] as ProductKind
         basket = basket.slice(1)
+        // The tutorial shopper was placed in the queue before the shelf was
+        // stocked, so its basket was pre-filled. Take the matching unit off the
+        // shelf now, keeping the shelf count consistent with a normal pick.
+        if (customer.tutorial === true) {
+          const zone = zoneOf(product)
+          const shelf = shelves[zone]
+          if (shelf.stock[product] > 0) {
+            shelves = {
+              ...shelves,
+              [zone]: {
+                ...shelf,
+                stock: { ...shelf.stock, [product]: shelf.stock[product] - 1 },
+              },
+            }
+          }
+        }
         const price = productPrice(product)
         paid += price
         if (hasCashier && !inRegisterZone(player.pos, map)) {
@@ -642,16 +752,24 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
    * clears a shopper stuck on a broken path so the day can never wedge.
    */
   if (dayGraceOver(day.ms) && customers.length > 0) {
-    for (const customer of customers) {
-      events.push({
-        type: 'customerLeave',
-        customerId: customer.id,
-        sad: customer.phase !== 'leaving' || customer.sad,
-      })
+    const leaving = customers.filter((customer) => customer.tutorial !== true)
+    if (leaving.length > 0) {
+      for (const customer of leaving) {
+        events.push({
+          type: 'customerLeave',
+          customerId: customer.id,
+          sad: customer.phase !== 'leaving' || customer.sad,
+        })
+      }
+      customers = customers.filter((customer) => customer.tutorial === true)
+      queue = queue.filter((id) => customers.some((customer) => customer.id === id))
+      if (
+        register.customerId !== null &&
+        !customers.some((customer) => customer.id === register.customerId)
+      ) {
+        register = { customerId: null, scanMs: 0 }
+      }
     }
-    customers = []
-    queue = []
-    register = { customerId: null, scanMs: 0 }
   }
 
   if (dayPhase(day.ms) === 'closing' && customers.length === 0) {
@@ -684,15 +802,18 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
       const product = eligible[0] as ProductKind
       customers = [
         ...customers,
-        createCustomer(
-          nextCustomerId,
-          rng,
-          [product],
-          CUSTOMER_TUNING.tutorialPatienceMs,
-          radius,
-          map,
-          speciesPool,
-        ),
+        {
+          ...createCustomer(
+            nextCustomerId,
+            rng,
+            [product],
+            CUSTOMER_TUNING.tutorialPatienceMs,
+            radius,
+            map,
+            speciesPool,
+          ),
+          tutorial: true,
+        },
       ]
       nextCustomerId += 1
       day = { ...day, entered: day.entered + 1 }
@@ -952,10 +1073,15 @@ function advanceTutorial(
   }
   if (
     current === 'grow' &&
-    producers.some((producer) => isPlantKind(producer.product) && producer.mature)
+    producers.some(
+      (producer) =>
+        isPlantKind(producer.product) && producer.ready >= PLANTS[producer.product].maxFruit,
+    )
   ) {
     return 'harvest'
   }
+  // A player who picks early (before the tree fills) still moves on to stocking.
+  if (current === 'grow' && carryTotal(player.carry) > 0) return 'stock'
   if (current === 'harvest' && carryTotal(player.carry) > 0) return 'stock'
   if (
     current === 'stock' &&

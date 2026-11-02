@@ -7,6 +7,7 @@ import {
   purchasePlant,
   purchaseProducer,
   purchaseShelfUpgrade,
+  purchaseUpgrade,
   purchaseZone,
   removeProducer,
   replacePlantAt,
@@ -54,6 +55,18 @@ describe('purchases', () => {
     expect(state.shelves.fruit.bins.apple).toBe(true)
     expect(state.shelves.fruit.bins.pear).toBe(true)
     expect(state.shelves.fruit.bins.peach).toBe(false)
+  })
+
+  it('refuses a tool upgrade that would spend the opening fund', () => {
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
+    const outcome = purchaseUpgrade(state, 'carry')
+    expect(outcome.result).toBe('needsProducer')
+    expect(outcome.state.coins).toBe(state.coins)
+  })
+
+  it('allows tool upgrades once a producer can earn coins', () => {
+    const state = purchasePlant(createShopState(saveWith(1_000), PORTRAIT_MAP), 'apple').state
+    expect(purchaseUpgrade(state, 'carry').result).toBe('ok')
   })
 
   it('refuses a shelf upgrade before the first plant', () => {

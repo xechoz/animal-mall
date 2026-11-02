@@ -77,6 +77,21 @@ submodule. Do not copy platform source into this repo.
   wash. The name fades in only when the player is near. Unlocked zones carry no
   text: beds, pens, stations and the shop panel identify them. Do not add
   permanent screen-space zone labels back.
+- Onboarding marks the real interaction area, not a route. The guide picks the
+  nearest empty bed, ripe crop or shelf with a small switch margin, outlines the
+  trigger rectangle, floats a direction arrow beside the player and marks the
+  destination with a landing arrow. Empty beds carry no hand: standing still
+  opens the crop chooser, and the CC0 pointing hand belongs on the apple card
+  inside that chooser. Do not bring back the dashed path or the bed finger. Swap
+  tags and their hints stay
+  hidden until the first sale, and empty-bed dwells pause after the first plant
+  so the chooser cannot cover the stock or checkout prompt. Empty-bed price
+  chips sit at the plot centre, and an unaffordable bed never auto-opens the
+  chooser from the dwell (tapping it still does). The tutorial clock
+  waits for the full fruit set, the first-sale shopper is already queued at the
+  till while the tree grows, checkout points at the fence-side standing spot,
+  full anger grants `CUSTOMER_TUNING.leaveGraceMs` before a shopper leaves, and
+  an empty shelf is browsed for `CUSTOMER_TUNING.shelfWaitMs` before a miss.
 - Plant beds are area triggers too: `distanceToRect(player, plotRect) <=
   QUICK_BUY.plotMargin`, never centre-point distance. A player standing between
   two rows must still reach both beds.

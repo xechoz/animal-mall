@@ -11,11 +11,18 @@ export const it: Dictionary = {
   'menu.iosHint': 'Aggiungi alla schermata Home per lo schermo intero',
   'menu.iframeHint': 'Apri in una nuova scheda per lo schermo intero',
   'menu.openSign': 'APERTO',
-  'tutorial.buyTree': "Muoviti con WASD o trascina. Fermati su un'aiuola illuminata per piantare.",
-  'tutorial.grow': "La tua coltura sta crescendo. Aspetta che l'anello si riempia.",
-  'tutorial.harvest': 'La coltura è matura. Passaci sopra per raccogliere.',
-  'tutorial.stock': "Portala allo scaffale giusto e cammina nell'area dello scaffale.",
-  'tutorial.checkout': 'Un cliente sta aspettando. Mettiti alla cassa per fargli pagare.',
+  'tutorial.buyTree.title': 'Pianta il tuo primo raccolto',
+  'tutorial.buyTree.hintTouch':
+    "Raggiungi l'aiuola illuminata e fermati lì. Trascina per muoverti.",
+  'tutorial.buyTree.hintKeys': "Raggiungi l'aiuola illuminata con WASD e fermati lì.",
+  'tutorial.grow.title': 'In crescita…',
+  'tutorial.grow.hint': 'Il raccolto matura da solo.',
+  'tutorial.harvest.title': 'Raccogli il raccolto maturo',
+  'tutorial.harvest.hint': 'Passaci sopra per raccoglierlo.',
+  'tutorial.stock.title': 'Riempi lo scaffale della frutta',
+  'tutorial.stock.hint': "Entra nell'area dello scaffale.",
+  'tutorial.checkout.title': 'Servi il cliente',
+  'tutorial.checkout.hint': 'Mettiti alla cassa.',
   'zone.fruit': 'Frutta',
   'zone.veg': 'Verdura',
   'zone.farm': 'Fattoria',
@@ -194,7 +201,6 @@ export const it: Dictionary = {
     'Cucina: le postazioni prendono gli ingredienti dagli scaffali; ritira i prodotti finiti e rifornisci lo scaffale cucina.',
   'toast.fishHint':
     'Stagno: fermati davanti per 0,5s per lanciare; prendi il pesce mezzo secondo dopo.',
-  'toast.tapBed': "Tocca un'aiuola vuota, o resta fermo 0,5s, per scegliere una coltura.",
   'toast.swapHint':
     "Tieni premuta un'aiuola piantata, o tocca la sua etichetta a pala, per cambiare coltura.",
   'toast.animalSwapHint':

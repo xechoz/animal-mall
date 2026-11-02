@@ -98,6 +98,9 @@ export class MapOffers {
       .filter((offer) => {
         if (offer.type === 'zone') return true
         if (offer.type === 'plant' && offer.requiresChoice) return true
+        // A new player has not learned the loop yet; the shovel, pitchfork and
+        // wrench tags only add noise while the first-sale tutorial is running.
+        if (state.tutorial !== 'done' && isSwapTag(offer)) return false
         const range = offer.type === 'staff' ? 210 : isSwapTag(offer) ? 130 : 165
         return distance(state.player.pos, offer.pos) <= range
       })
@@ -209,23 +212,22 @@ export class MapOffers {
     // Four-digit zone prices need a little more room than product offers.
     const width = (tag ? SWAP_TAG : offer.type === 'zone' ? WIDTH + 14 : compact ? 44 : WIDTH) * ui
     const height = (tag ? SWAP_TAG : compact ? 20 : HEIGHT) * ui
-    // Crop labels sit above the canopy, not inside it. Animal/station labels
-    // hug the fixture base so they do not cover the animal or machine.
-    const compactLift = offer.type === 'plant' && offer.zone === 'fruit' ? 10 : 4
+    // Empty-bed price chips sit on the soil at the plot centre. Planted crops
+    // keep their labels above the canopy; animal/station labels hug the fixture
+    // base so they do not cover the animal or machine.
+    const centeredPlant = offer.type === 'plant' && offer.requiresChoice
     const lift =
-      (compact
-        ? compactLift
-        : tag
-          ? offer.type === 'swap'
-            ? PLOT_SIZE.h / 2 + 6
-            : -((offer.zone === 'farm' ? PEN_SIZE.h : STATION_SIZE.h) / 2 + 34)
-          : isSlotTag(offer)
-            ? -((offer.zone === 'farm' ? PEN_SIZE.h : STATION_SIZE.h) / 2 + 34)
-            : offer.type === 'plant'
-              ? 22
-              : this.layout.portrait
-                ? 58
-                : 24) * this.camera.scale
+      (tag
+        ? offer.type === 'swap'
+          ? PLOT_SIZE.h / 2 + 6
+          : -((offer.zone === 'farm' ? PEN_SIZE.h : STATION_SIZE.h) / 2 + 34)
+        : isSlotTag(offer)
+          ? -((offer.zone === 'farm' ? PEN_SIZE.h : STATION_SIZE.h) / 2 + 34)
+          : offer.type === 'plant'
+            ? 22
+            : this.layout.portrait
+              ? 58
+              : 24) * this.camera.scale
     const content = this.layout.content
     const tagX = isSlotTag(offer)
       ? ((offer.zone === 'farm' ? PEN_SIZE.w : STATION_SIZE.w) / 2 - 10) * this.camera.scale
@@ -236,7 +238,10 @@ export class MapOffers {
     )
     const y = Math.max(
       content.y + height / 2 + 8 * ui,
-      Math.min(content.y + content.h - height / 2 - 8 * ui, point.y - lift - 16 * ui),
+      Math.min(
+        content.y + content.h - height / 2 - 8 * ui,
+        centeredPlant ? point.y : point.y - lift - 16 * ui,
+      ),
     )
     label.container.setPosition(x, y)
     label.container.setAlpha(fade)

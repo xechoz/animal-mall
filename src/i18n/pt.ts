@@ -11,12 +11,17 @@ export const pt: Dictionary = {
   'menu.iosHint': 'Adiciona ao ecrã principal para ecrã inteiro',
   'menu.iframeHint': 'Abre num novo separador para ecrã inteiro',
   'menu.openSign': 'ABERTO',
-  'tutorial.buyTree':
-    'Move-te com WASD ou arrasta. Fica parado num canteiro iluminado para plantar.',
-  'tutorial.grow': 'A tua cultura está a crescer. Espera que o anel encha.',
-  'tutorial.harvest': 'A cultura está madura. Passa por cima para colher.',
-  'tutorial.stock': 'Leva-a à prateleira certa e entra na área da prateleira.',
-  'tutorial.checkout': 'Há um cliente à espera. Fica na caixa para cobrar.',
+  'tutorial.buyTree.title': 'Plante a sua primeira colheita',
+  'tutorial.buyTree.hintTouch': 'Vá até ao canteiro iluminado e pare lá. Arraste para mover.',
+  'tutorial.buyTree.hintKeys': 'Vá com WASD até ao canteiro iluminado e pare lá.',
+  'tutorial.grow.title': 'A crescer…',
+  'tutorial.grow.hint': 'A sua colheita amadurece sozinha.',
+  'tutorial.harvest.title': 'Colha a cultura madura',
+  'tutorial.harvest.hint': 'Passe por cima para colher.',
+  'tutorial.stock.title': 'Reponha a prateleira de frutas',
+  'tutorial.stock.hint': 'Entre na área da prateleira.',
+  'tutorial.checkout.title': 'Atenda o cliente',
+  'tutorial.checkout.hint': 'Fique na caixa.',
   'zone.fruit': 'Fruta',
   'zone.veg': 'Legumes',
   'zone.farm': 'Quinta',
@@ -193,7 +198,6 @@ export const pt: Dictionary = {
   'toast.kitchenHint':
     'Cozinha: os postos tiram ingredientes das prateleiras; recolhe os produtos prontos e reabastece a prateleira da cozinha.',
   'toast.fishHint': 'Lago: fica em frente 0,5 s para lançar; apanhas o peixe meio segundo depois.',
-  'toast.tapBed': 'Toca num canteiro vazio, ou fica parado 0,5 s, para escolher uma cultura.',
   'toast.swapHint':
     'Mantém premido um canteiro plantado, ou toca na etiqueta da pá, para trocar de cultura.',
   'toast.animalSwapHint':

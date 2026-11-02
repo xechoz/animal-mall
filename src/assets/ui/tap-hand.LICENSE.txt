@@ -1,0 +1,24 @@
+tap-hand.png
+============
+
+Based on "Cursor Pack" hand_thin_point (Outline) by Kenney.
+Source: https://kenney.nl/assets/cursor-pack
+License: Creative Commons Zero (CC0 1.0)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The source vector was recolored to the Animal Mall palette:
+  outline #000000 -> #2b241d
+  fill    #FFFFFF -> #f7edd8
+
+Kenney's original notice:
+
+	Cursor Pack (1.0)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 24-04-2024
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory).

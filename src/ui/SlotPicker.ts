@@ -18,6 +18,7 @@ import { coinTextureKey } from './fruitArt'
 import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
 import { productTextureKey } from './productArt'
+import { TapHint } from './TapHint'
 import { type WorldCamera, worldToScreen } from './worldCamera'
 
 export interface SlotPickerOptions {
@@ -53,6 +54,7 @@ function pickerProducts(zone: ZoneId): readonly ProductKind[] {
 
 export class SlotPicker {
   private readonly root: Phaser.GameObjects.Container
+  private readonly hint?: TapHint
   private destroyed = false
 
   constructor(options: SlotPickerOptions) {
@@ -187,6 +189,32 @@ export class SlotPicker {
         ),
       )
     })
+
+    // The first-sale guide has no hand over the bed: stopping there opens this
+    // chooser by itself. The finger belongs on the apple card, which is the
+    // only real tap the player has to make.
+    const appleIndex = products.indexOf('apple')
+    if (
+      state.tutorial === 'buyTree' &&
+      zone === 'fruit' &&
+      current === undefined &&
+      appleIndex >= 0
+    ) {
+      const column = appleIndex % COLUMNS
+      const row = Math.floor(appleIndex / COLUMNS)
+      const bx = -width / 2 + (PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2) * ui
+      const by = -height / 2 + (PADDING + HEADER_H + row * (BUTTON_H + GAP) + BUTTON_H / 2) * ui
+      this.hint = new TapHint(scene, theme, ui)
+      // Keep the fingertip on the empty right half of the card: the name and
+      // price sit on the left and must stay readable.
+      this.hint.setPosition(bx + 22 * ui, by + 2 * ui)
+      this.hint.addTo(panel)
+      this.hint.update(scene.time.now)
+    }
+  }
+
+  update(time: number): void {
+    this.hint?.update(time)
   }
 
   destroy(): void {

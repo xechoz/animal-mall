@@ -116,6 +116,7 @@ describe('quick buy', () => {
     // player keeps standing on it for four seconds.
     const result = simulate(withPlayer(state, plot), 80)
     expect(result.events.some((event) => event.type === 'harvest')).toBe(true)
+    expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(false)
     expect(result.events.some((event) => event.type === 'plantSwapReady')).toBe(false)
     expect(result.events.some((event) => event.type === 'producerReplaced')).toBe(false)
     expect(result.state.coins).toBe(1_000)
@@ -158,12 +159,39 @@ describe('quick buy', () => {
   })
 
   it('opens a bed while standing between two rows, not just at its centre', () => {
-    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
     const first = PORTRAIT_MAP.plots[0] as Vec2
     const below = PORTRAIT_MAP.plots[2] as Vec2
-    state = withPlayer(state, { x: first.x, y: (first.y + below.y) / 2 })
-    const result = simulate(state, 12)
+    const gap = (first.y + below.y) / 2
+    // Walk into the gap first: a bed that appears under a stationary player
+    // (for example after a harvest) must not start a dwell by itself.
+    const walked = simulate(withPlayer(state, { x: first.x, y: gap + 40 }), 8, {
+      input: { moveX: 0, moveY: -1 },
+    })
+    const result = simulate(walked.state, 12)
     expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(true)
+  })
+
+  it('does not open the chooser when the cheapest crop is unaffordable', () => {
+    const state = createShopState({ ...initialSave(), coins: 0 }, PORTRAIT_MAP)
+    const plot = PORTRAIT_MAP.plots[0] as Vec2
+    const result = simulate(withPlayer(state, plot), 30)
+    expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(false)
+  })
+
+  it('pauses empty-bed dwells while the first-sale tutorial is running', () => {
+    const state = createShopState(
+      {
+        ...initialSave(),
+        coins: 1_000,
+        producers: [{ product: 'apple', slot: 0 }],
+      },
+      PORTRAIT_MAP,
+    )
+    expect(state.tutorial).toBe('harvest')
+    const empty = PORTRAIT_MAP.plots[2] as Vec2
+    const result = simulate(withPlayer(state, empty), 30)
+    expect(result.events.some((event) => event.type === 'plantPickerReady')).toBe(false)
   })
 
   it('does not open while the player keeps moving', () => {

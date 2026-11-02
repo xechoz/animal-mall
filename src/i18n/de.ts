@@ -11,12 +11,18 @@ export const de: Dictionary = {
   'menu.iosHint': 'Zum Startbildschirm hinzufügen für Vollbild',
   'menu.iframeHint': 'In neuem Tab öffnen für Vollbild',
   'menu.openSign': 'GEÖFFNET',
-  'tutorial.buyTree':
-    'Bewege dich mit WASD oder Ziehen. Bleib auf einem leuchtenden Beet stehen, um zu pflanzen.',
-  'tutorial.grow': 'Deine Ernte wächst. Warte, bis der Ring voll ist.',
-  'tutorial.harvest': 'Die Ernte ist reif. Lauf darüber, um sie zu ernten.',
-  'tutorial.stock': 'Bring sie zum passenden Regal und lauf in den Regalbereich.',
-  'tutorial.checkout': 'Ein Kunde wartet. Stell dich an die Kasse, um abzukassieren.',
+  'tutorial.buyTree.title': 'Pflanze deine erste Ernte',
+  'tutorial.buyTree.hintTouch':
+    'Geh zum leuchtenden Beet und bleib dort stehen. Ziehen zum Bewegen.',
+  'tutorial.buyTree.hintKeys': 'Geh mit WASD zum leuchtenden Beet und bleib dort stehen.',
+  'tutorial.grow.title': 'Wächst…',
+  'tutorial.grow.hint': 'Deine Ernte reift von selbst.',
+  'tutorial.harvest.title': 'Ernte die reifen Früchte',
+  'tutorial.harvest.hint': 'Lauf darüber, um sie aufzuheben.',
+  'tutorial.stock.title': 'Fülle das Obstregal auf',
+  'tutorial.stock.hint': 'Lauf in den Regalbereich.',
+  'tutorial.checkout.title': 'Bediene den Kunden',
+  'tutorial.checkout.hint': 'Stell dich an die Kasse.',
   'zone.fruit': 'Obst',
   'zone.veg': 'Gemüse',
   'zone.farm': 'Farm',
@@ -194,7 +200,6 @@ export const de: Dictionary = {
     'Küche: Stationen holen Zutaten aus den Regalen; nimm die fertige Ware ab und fülle das Küchenregal.',
   'toast.fishHint':
     'Teich: Stell dich 0,5 s davor, um auszuwerfen; eine halbe Sekunde später beißt der Fisch an.',
-  'toast.tapBed': 'Tippe auf ein leeres Beet oder bleib 0,5 s stehen, um eine Ernte zu wählen.',
   'toast.swapHint':
     'Halte ein bepflanztes Beet gedrückt oder tippe auf sein Schaufel-Symbol, um die Ernte zu tauschen.',
   'toast.animalSwapHint':

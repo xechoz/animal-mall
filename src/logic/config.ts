@@ -113,7 +113,7 @@ export interface PlantConfig {
 }
 
 export const PLANTS: Readonly<Record<PlantKind, PlantConfig>> = {
-  apple: { cost: 80, price: 6, growMs: 8_000, fruitMs: 5_000, maxFruit: 3 },
+  apple: { cost: 80, price: 10, growMs: 8_000, fruitMs: 5_000, maxFruit: 3 },
   pear: { cost: 140, price: 9, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
   peach: { cost: 260, price: 12, growMs: 16_000, fruitMs: 9_000, maxFruit: 4 },
   cherry: { cost: 420, price: 15, growMs: 20_000, fruitMs: 11_000, maxFruit: 4 },
@@ -475,6 +475,15 @@ export const QUICK_BUY = {
   slotMargin: 42,
 } as const
 
+/**
+ * Onboarding-only tuning. The first crop is the only producer during the
+ * tutorial, so ripening it faster removes the long silent wait without
+ * touching the economy the player sees once the shop is running.
+ */
+export const TUTORIAL = {
+  growthMultiplier: 2,
+} as const
+
 export function carryCapacity(level: number): number {
   return 6 + level * 2
 }
@@ -570,13 +579,16 @@ export const CUSTOMER_SPECIES: readonly SpeciesId[] = [
 export const CUSTOMER_TUNING = {
   speed: 58,
   patienceMs: 60_000,
+  /** How long a furious shopper waits at full anger before walking out. */
+  leaveGraceMs: 5_000,
   tutorialPatienceMs: 120_000,
   spawnMs: 7_000,
   spawnJitterMs: 1_500,
   maxCustomers: 6,
   maxQueue: 4,
   pickMs: 450,
-  shelfWaitMs: 3_500,
+  /** An empty shelf is not an instant miss: shoppers browse it for this long. */
+  shelfWaitMs: 10_000,
   queuePatienceFactor: 0.65,
 } as const
 

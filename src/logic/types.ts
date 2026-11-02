@@ -255,6 +255,12 @@ export interface CustomerState {
   readonly target: ProductKind | null
   readonly patienceMs: number
   readonly maxPatienceMs: number
+  /** First-sale tutorial shopper: never loses patience or leaves. */
+  readonly tutorial?: boolean
+  /** Time spent furious after patience reached zero; leaves at the grace. */
+  readonly angryWaitMs?: number
+  /** True while browsing an empty shelf before marking the item missed. */
+  readonly shelfWaitActive?: boolean
   readonly waitMs: number
   readonly queueIndex: number
   readonly speed: number

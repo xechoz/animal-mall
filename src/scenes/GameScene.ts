@@ -220,7 +220,6 @@ export class GameScene extends Phaser.Scene {
   private pauseOverlay?: PauseOverlay
   private shopPanel?: ShopPanel
   private countdownText?: Phaser.GameObjects.Text
-  private hintTapBed = false
   private hintSwap = false
   private hintAnimalSwap = false
   private hintMachineSwap = false
@@ -486,12 +485,6 @@ export class GameScene extends Phaser.Scene {
     this.world.add(this.coinPile)
     this.fishingView = new FishingView(this, theme)
     this.world.add(this.fishingView)
-    this.time.delayedCall(1_400, () => {
-      if (this.mode !== 'playing' || this.hintTapBed || this.state.tutorial !== 'buyTree') return
-      this.hintTapBed = true
-      this.toast.show(this.services.i18n.t('toast.tapBed'))
-    })
-
     this.playerView = new PlayerView(this, theme)
     this.playerView.landHandler = (x, y) => this.spawnDust(x, y)
     this.world.add(this.playerView)
@@ -743,6 +736,7 @@ export class GameScene extends Phaser.Scene {
       this.viewCamera,
       this.services.theme,
       this.services.i18n,
+      isMobileDevice(),
     )
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(
@@ -892,6 +886,7 @@ export class GameScene extends Phaser.Scene {
       this.devPanel === undefined
     this.tutorial.setVisible(showTutorial)
     if (showTutorial) this.tutorial.update(this.state, time)
+    this.slotPicker?.update(time)
 
     const overlayEnabled =
       this.mode === 'playing' &&
@@ -1079,6 +1074,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleEvents(events: readonly GameEvent[]): void {
+    this.toast.setBottom(this.state.tutorial !== 'done')
     for (const event of events) {
       switch (event.type) {
         case 'harvest':
@@ -1854,15 +1850,26 @@ export class GameScene extends Phaser.Scene {
       this.toast.show(this.services.i18n.t('toast.diningHint'))
     }
     const offer = nearestOffer(this.state, this.state.player.pos)
-    if (!this.hintSwap && offer?.type === 'swap') {
+    const canSwap = this.state.tutorial === 'done'
+    if (canSwap && !this.hintSwap && offer?.type === 'swap') {
       this.hintSwap = true
       this.toast.show(this.services.i18n.t('toast.swapHint'))
     }
-    if (!this.hintAnimalSwap && offer?.type === 'producerSwap' && offer.zone === 'farm') {
+    if (
+      canSwap &&
+      !this.hintAnimalSwap &&
+      offer?.type === 'producerSwap' &&
+      offer.zone === 'farm'
+    ) {
       this.hintAnimalSwap = true
       this.toast.show(this.services.i18n.t('toast.animalSwapHint'))
     }
-    if (!this.hintMachineSwap && offer?.type === 'producerSwap' && offer.zone === 'kitchen') {
+    if (
+      canSwap &&
+      !this.hintMachineSwap &&
+      offer?.type === 'producerSwap' &&
+      offer.zone === 'kitchen'
+    ) {
       this.hintMachineSwap = true
       this.toast.show(this.services.i18n.t('toast.machineSwapHint'))
     }
@@ -2108,6 +2115,7 @@ export class GameScene extends Phaser.Scene {
       this.viewCamera,
       this.services.theme,
       this.services.i18n,
+      isMobileDevice(),
     )
     this.toast = new Toast(this, this.layout, this.services.theme)
     this.mapOffers = new MapOffers(

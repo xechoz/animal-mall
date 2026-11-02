@@ -435,23 +435,47 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
   const offer = nearestOffer(state, state.player.pos)
   const current = state.quickBuy
   const events: GameEvent[] = []
+  // The shelf front and the nearest empty bed overlap. During the first-sale
+  // tutorial the player is often sent to that shelf, so an empty-bed dwell
+  // would open the chooser over the stock/checkout prompt. Tapping the bed
+  // still works; only the automatic dwell is paused until the tutorial ends.
+  const tutorialPausesPlantDwell =
+    offer?.type === 'plant' &&
+    offer.requiresChoice &&
+    state.tutorial !== 'buyTree' &&
+    state.tutorial !== 'done'
+  // Do not pop the chooser open for a player who cannot afford even the
+  // cheapest crop in that zone. The bed's price chip still advertises it, and
+  // tapping the bed remains an explicit way to inspect the options.
+  const plantUnaffordable = offer?.type === 'plant' && state.coins < offer.remaining
 
   if (offer === null || offer.id !== current.targetKey) {
+    // Harvesting empties the bed the player is standing on. The swap offer
+    // turns into an empty-bed offer under a stationary player, so keep it
+    // disarmed until they step off (or tap the bed). Otherwise reading the
+    // next tutorial prompt would open the plant chooser by itself.
+    const emptiedUnderPlayer =
+      offer !== null &&
+      (offer.type === 'plant' || offer.type === 'producerSlot') &&
+      current.targetKey === `swap-${offer.zone}-${offer.slot}`
     return {
       state: {
         ...state,
         quickBuy: {
           targetKey: offer?.id ?? null,
           dwellMs: 0,
-          armed: true,
+          armed: !emptiedUnderPlayer && !tutorialPausesPlantDwell,
         },
       },
       events,
     }
   }
 
-  if (!current.armed) {
-    return { state, events }
+  if (!current.armed || tutorialPausesPlantDwell || plantUnaffordable) {
+    return {
+      state: { ...state, quickBuy: { ...current, dwellMs: 0 } },
+      events,
+    }
   }
 
   // Replacing a crop or a producer is destructive and paid, so proximity only

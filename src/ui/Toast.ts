@@ -12,6 +12,7 @@ export class Toast {
   private readonly queue: string[] = []
   private showing = false
   private lastMessage = ''
+  private bottom = false
 
   constructor(scene: Phaser.Scene, layout: GameLayout, theme: Theme) {
     this.scene = scene
@@ -23,6 +24,14 @@ export class Toast {
       .setOrigin(0.5)
       .setDepth(6301)
       .setVisible(false)
+  }
+
+  /**
+   * Onboarding uses the strip under the HUD for its prompt. Move transient
+   * toasts to the bottom while it is active so the two never stack.
+   */
+  setBottom(bottom: boolean): void {
+    this.bottom = bottom
   }
 
   show(message: string): void {
@@ -44,7 +53,9 @@ export class Toast {
     const width = Math.min(520 * ui, content.w - 40 * ui)
     const height = 44 * ui
     const x = content.x + content.w / 2
-    const y = hud.bar.y + hud.bar.h + 34 * ui
+    const y = this.bottom
+      ? this.layout.height - this.layout.insets.bottom - 30 * ui
+      : hud.bar.y + hud.bar.h + 34 * ui
     this.bg.clear()
     this.bg.fillStyle(0x3b2f3a, 0.16)
     this.bg.fillRoundedRect(x - width / 2, y - height / 2 + 4 * ui, width, height, 16 * ui)

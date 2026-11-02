@@ -52,6 +52,11 @@ export interface PurchaseOutcome {
   readonly events: readonly GameEvent[]
 }
 
+/** Opening fund guard: no income exists until the first crop is planted. */
+function cheapestFruitCost(): number {
+  return Math.min(...FRUIT_ORDER.map((kind) => PLANTS[kind].cost))
+}
+
 export function upgradeCost(kind: UpgradeKind, level: number): number | null {
   return UPGRADES[kind].costs[level] ?? null
 }
@@ -374,6 +379,11 @@ export function purchaseUpgrade(state: ShopState, kind: UpgradeKind): PurchaseOu
   const cost = upgradeCost(kind, level)
   if (cost === null) return { state, result: 'maxed', events: [] }
   if (state.coins < cost) return { state, result: 'insufficient', events: [] }
+  // Without a producer there is no income, so never let a tool upgrade spend
+  // the coins the player still needs for the first crop.
+  if (state.producers.length === 0 && state.coins - cost < cheapestFruitCost()) {
+    return { state, result: 'needsProducer', events: [] }
+  }
 
   const upgrades = {
     ...state.upgrades,
@@ -471,8 +481,7 @@ export function removeProducer(state: ShopState, id: number): PurchaseOutcome {
   const producer = state.producers.find((candidate) => candidate.id === id)
   if (producer === undefined) return { state, result: 'missing', events: [] }
   const refund = Math.floor(producerCost(producer.product) * 0.5)
-  const cheapest = Math.min(...FRUIT_ORDER.map((kind) => PLANTS[kind].cost))
-  if (state.producers.length === 1 && state.coins + refund < cheapest) {
+  if (state.producers.length === 1 && state.coins + refund < cheapestFruitCost()) {
     return { state, result: 'lastProducer', events: [] }
   }
   const next = {

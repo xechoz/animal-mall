@@ -4,6 +4,7 @@ import { gameI18n } from './i18n'
 import { GameScene } from './scenes/GameScene'
 import { MenuScene } from './scenes/MenuScene'
 
+const tutorialHand = new URL('./assets/ui/tap-hand.png', import.meta.url).href
 const music = new URL('./assets/audio/joyful-jungle.mp3', import.meta.url).href
 const eatSamples = [
   new URL('./assets/audio/eat-1.mp3', import.meta.url).href,
@@ -24,6 +25,7 @@ createGame({
   i18n: gameI18n,
   menuScene: 'Menu',
   assets: {
+    images: [{ key: 'tutorial-hand', url: tutorialHand }],
     audio: [{ key: 'music', urls: music }],
   },
   // Built-in slots can be overridden and games may register their own sound

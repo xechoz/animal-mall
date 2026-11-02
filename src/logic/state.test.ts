@@ -1,6 +1,6 @@
 import { createRng } from '@mg/core/rng'
 import { describe, expect, it } from 'vitest'
-import { DAY, INTERACT, LANDSCAPE_MAP, PORTRAIT_MAP } from './config'
+import { CUSTOMER_TUNING, DAY, INTERACT, LANDSCAPE_MAP, PORTRAIT_MAP } from './config'
 import { feedCount } from './production'
 import { purchasePlant, purchaseUpgrade } from './purchase'
 import { initialSave } from './saveData'
@@ -9,6 +9,7 @@ import {
   inRegisterZone,
   remapShopState,
   removeProducerFromState,
+  setTutorial,
   stepShop,
   stockReach,
   toSave,
@@ -91,6 +92,44 @@ describe('shop simulation', () => {
     expect(result.state.tutorial).toBe('harvest')
   })
 
+  it('ripens the first crop faster while onboarding', () => {
+    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    state = purchasePlant(state, 'apple').state
+    const result = simulate(state, 90)
+    expect(result.state.producers[0]?.mature).toBe(true)
+  })
+
+  it('waits for the full fruit set before the harvest step', () => {
+    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    state = purchasePlant(state, 'apple').state
+    const mature = simulate(state, 90)
+    expect(mature.state.producers[0]?.mature).toBe(true)
+    expect(mature.state.tutorial).toBe('grow')
+
+    const full = simulate(mature.state, 100)
+    expect(full.state.producers[0]?.ready).toBe(3)
+    expect(full.state.tutorial).toBe('harvest')
+  })
+
+  it('places the tutorial shopper at the till while the tree is growing', () => {
+    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    state = purchasePlant(state, 'apple').state
+    const result = simulate(state, 2)
+    expect(result.state.tutorial).toBe('grow')
+    expect(result.state.queue).toHaveLength(1)
+    expect(result.state.customers.some((customer) => customer.tutorial === true)).toBe(true)
+  })
+
+  it('returns to the normal growth speed after onboarding', () => {
+    let state = createShopState(initialSave(), PORTRAIT_MAP)
+    state = purchasePlant(state, 'apple').state
+    state = setTutorial(state, 'done')
+    const early = simulate(state, 90)
+    expect(early.state.producers[0]?.mature).toBe(false)
+    const done = simulate(early.state, 80)
+    expect(done.state.producers[0]?.mature).toBe(true)
+  })
+
   it('harvests, stocks and serves the first customer end to end', () => {
     let state = createShopState(appleSave({ coins: 0 }), PORTRAIT_MAP)
     expect(state.tutorial).toBe('harvest')
@@ -124,21 +163,104 @@ describe('shop simulation', () => {
     // The cashier hire sign sits beside the counter now, so checking out no
     // longer sweeps the earnings into the cashier deposit.
     expect(state.deposits['staff:cashier']).toBeUndefined()
-    expect(state.coins).toBe(6)
+    expect(state.coins).toBe(10)
     expect(state.zones.veg).toBe(true)
     expect(state.tutorial).toBe('done')
     expect(result.events.some((event) => event.type === 'sale')).toBe(true)
     expect(state.day.entered).toBeGreaterThanOrEqual(1)
     expect(state.day.served).toBe(1)
-    expect(state.day.revenue).toBe(6)
+    expect(state.day.revenue).toBe(10)
     expect(state.day.scoreSum).toBeGreaterThan(0)
   })
 
-  it('does not spawn customers before the first shelf is stocked', () => {
+  it('keeps the tutorial customer waiting until the player reaches the till', () => {
+    let state = createShopState(appleSave({ coins: 0 }), PORTRAIT_MAP)
+    state = withPlayer(state, state.producers[0]?.pos ?? PORTRAIT_MAP.playerStart)
+    state = simulate(state, 1).state
+    expect(state.tutorial).toBe('stock')
+    state = withPlayer(state, PORTRAIT_MAP.shelfAccess.fruit)
+    state = simulate(state, 2).state
+    expect(state.tutorial).toBe('checkout')
+
+    const spawned = simulate(state, 40).state
+    const customer = spawned.customers[0]
+    expect(customer?.tutorial).toBe(true)
+
+    // Well past the old 120-second patience and past the closing grace: the
+    // first-sale shopper must still be waiting for the player.
+    const waited = simulate(spawned, 8_000)
+    expect(waited.state.customers.some((candidate) => candidate.id === customer?.id)).toBe(true)
+    expect(
+      waited.events.some(
+        (event) => event.type === 'customerLeave' && event.customerId === customer?.id,
+      ),
+    ).toBe(false)
+    expect(waited.events.some((event) => event.type === 'dayEnded')).toBe(false)
+  })
+
+  it('lets a furious shopper wait a few seconds before leaving', () => {
+    let state = setTutorial(createShopState(appleSave({ coins: 0 }), PORTRAIT_MAP), 'done')
+    const customer: CustomerState = {
+      ...waitingCustomer(state, 1),
+      phase: 'inQueue',
+      queueIndex: 0,
+      path: [],
+      pathIndex: 0,
+      basket: ['apple'],
+      wanted: [],
+      target: null,
+      patienceMs: 0,
+      maxPatienceMs: 60_000,
+      angryWaitMs: 0,
+    }
+    state = { ...state, customers: [customer], queue: [1] }
+
+    const early = simulate(state, 80)
+    expect(early.state.customers.some((candidate) => candidate.id === 1)).toBe(true)
+    expect(early.events.some((event) => event.type === 'customerLeave')).toBe(false)
+
+    const late = simulate(early.state, 240)
+    expect(late.state.customers.some((candidate) => candidate.id === 1)).toBe(false)
+    expect(
+      late.events.some((event) => event.type === 'customerLeave' && event.customerId === 1),
+    ).toBe(true)
+  })
+
+  it('only places the tutorial shopper before the first shelf is stocked', () => {
     const state = createShopState(appleSave({ coins: 0 }), PORTRAIT_MAP)
     const result = simulate(state, 600)
-    expect(result.state.customers).toHaveLength(0)
+    expect(result.state.customers.filter((customer) => customer.tutorial !== true)).toHaveLength(0)
+    expect(result.state.customers.some((customer) => customer.tutorial === true)).toBe(true)
     expect(result.state.tutorial).toBe('harvest')
+  })
+
+  it('lets a shopper browse an empty shelf for ten seconds before missing it', () => {
+    let state = setTutorial(createShopState(appleSave({ coins: 0 }), PORTRAIT_MAP), 'done')
+    const shelf = PORTRAIT_MAP.shelfAccess.fruit
+    const customer: CustomerState = {
+      ...waitingCustomer(state, 1),
+      phase: 'picking',
+      pos: shelf,
+      prevPos: shelf,
+      path: [],
+      pathIndex: 0,
+      wanted: ['apple'],
+      target: 'apple',
+      basket: [],
+      waitMs: CUSTOMER_TUNING.pickMs,
+      shelfWaitActive: false,
+    }
+    state = { ...state, customers: [customer], queue: [] }
+
+    const early = simulate(state, 60)
+    expect(
+      early.events.some((event) => event.type === 'customerMissed' && event.customerId === 1),
+    ).toBe(false)
+
+    const late = simulate(early.state, 200)
+    expect(
+      late.events.some((event) => event.type === 'customerMissed' && event.customerId === 1),
+    ).toBe(true)
   })
 
   it('lets an empty shelf lose the sale without ending anything', () => {

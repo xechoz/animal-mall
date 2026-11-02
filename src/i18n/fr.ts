@@ -11,12 +11,18 @@ export const fr: Dictionary = {
   'menu.iosHint': "Ajoute à l'écran d'accueil pour le plein écran",
   'menu.iframeHint': 'Ouvre dans un nouvel onglet pour le plein écran',
   'menu.openSign': 'OUVERT',
-  'tutorial.buyTree':
-    'Déplace-toi avec WASD ou en glissant. Reste immobile sur une parcelle lumineuse pour planter.',
-  'tutorial.grow': "Ta culture pousse. Attends que l'anneau se remplisse.",
-  'tutorial.harvest': 'La culture est mûre. Passe dessus pour la récolter.',
-  'tutorial.stock': "Porte-la jusqu'à l'étagère correspondante et entre dans sa zone.",
-  'tutorial.checkout': "Un client attend. Place-toi à la caisse pour l'encaisser.",
+  'tutorial.buyTree.title': 'Plantez votre première culture',
+  'tutorial.buyTree.hintTouch':
+    'Rejoignez la parcelle lumineuse et arrêtez-vous dessus. Glissez pour bouger.',
+  'tutorial.buyTree.hintKeys': 'Rejoignez la parcelle lumineuse avec WASD et arrêtez-vous dessus.',
+  'tutorial.grow.title': 'En croissance…',
+  'tutorial.grow.hint': 'Votre culture mûrit toute seule.',
+  'tutorial.harvest.title': 'Récoltez la culture mûre',
+  'tutorial.harvest.hint': 'Passez dessus pour la ramasser.',
+  'tutorial.stock.title': "Remplissez l'étagère à fruits",
+  'tutorial.stock.hint': "Entrez dans la zone de l'étagère.",
+  'tutorial.checkout.title': 'Servez le client',
+  'tutorial.checkout.hint': 'Placez-vous à la caisse.',
   'zone.fruit': 'Fruits',
   'zone.veg': 'Légumes',
   'zone.farm': 'Ferme',
@@ -194,7 +200,6 @@ export const fr: Dictionary = {
     "Cuisine : les postes prennent les ingrédients sur les étagères ; récupère les plats finis et remplis l'étagère de la cuisine.",
   'toast.fishHint':
     'Étang : reste devant 0,5 s pour lancer la ligne ; attrape le poisson une demi-seconde après.',
-  'toast.tapBed': 'Touche une parcelle vide, ou reste immobile 0,5 s, pour choisir une culture.',
   'toast.swapHint':
     'Maintiens une parcelle plantée, ou touche son badge pelle, pour changer de culture.',
   'toast.animalSwapHint':
