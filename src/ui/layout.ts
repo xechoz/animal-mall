@@ -4,15 +4,14 @@ import type { Rect, ShopMap, Vec2 } from '../logic/types'
 import { computeUiScale, computeWorldTextScale, computeWorldZoom } from './scale'
 
 export interface HudLayout {
-  readonly vertical: boolean
-  /** Reserved HUD safe area. Only the mobile rail paints a surface here. */
+  /** Top row shared by every layout; only the floating pills paint a surface. */
   readonly bar: Rect
   readonly coins: Vec2
   /** Floating day/time pill; the only HUD surface besides coins and buttons. */
   readonly clock: Vec2
   readonly clockWidth: number
   readonly clockHeight: number
-  /** Active drink buff chips sit here, above the world and clear of the rail. */
+  /** Active drink buff chips sit here, under the coin pill. */
   readonly buffTop: number
   readonly shop: Vec2
   readonly pause: Vec2
@@ -25,7 +24,7 @@ export interface GameLayout {
   readonly portrait: boolean
   readonly insets: Insets
   readonly map: ShopMap
-  /** Visible play area between the rail/HUD and the screen edges. */
+  /** Visible play area between the HUD band and the screen edges. */
   readonly content: Rect
   readonly room: Rect
   readonly worldScale: number
@@ -43,7 +42,7 @@ export interface GameLayout {
 }
 
 export interface GameLayoutOptions {
-  /** Phones and tablets move the HUD into a vertical rail in landscape. */
+  /** Phones and tablets enlarge the HUD and let it float over the world. */
   readonly mobile?: boolean
   /** CSS viewport short side, used to scale the UI back up on phones. */
   readonly cssShortSide?: number
@@ -54,16 +53,11 @@ const MOBILE_TOP_GAP = 84
 const BAR_HEIGHT = 60
 const MOBILE_BAR_HEIGHT = 76
 const BUTTON_SIZE = 64
-const RAIL_WIDTH = 100
-const RAIL_GAP = 6
-const RAIL_ROOM_GAP = 6
 const EDGE_GAP = 4
-
-/** Vertical rail flow, in unscaled design units. */
-const RAIL_COIN_Y = 40
-const RAIL_BUFF_Y = 112
-const RAIL_BUTTON_GAP = 6
-const RAIL_BOTTOM_PAD = 10
+/** Safe-area inset for the corner action buttons. */
+const HUD_EDGE = 10
+/** Gap between shop and pause; keeps two 53px targets apart on a phone. */
+const HUD_BUTTON_GAP = 12
 /** World-anchored screen labels grow with the camera but stay tappable. */
 const MAX_WORLD_UI_SCALE = 2.2
 
@@ -76,13 +70,13 @@ export function computeGameLayout(
   const mobile = options.mobile === true
   const ui = computeUiScale(options.cssShortSide ?? 0)
   const portrait = height >= width
-  const vertical = mobile && !portrait
   const map = shopMapFor(width, height)
-  const contentLeft = vertical
-    ? insets.left + (RAIL_GAP + RAIL_WIDTH + RAIL_ROOM_GAP) * ui
-    : insets.left
+  const contentLeft = insets.left
   const contentWidth = Math.max(240, width - contentLeft - insets.right)
-  const top = insets.top + (vertical ? EDGE_GAP * ui : (mobile ? MOBILE_TOP_GAP : TOP_GAP) * ui)
+  // The HUD floats, so only desktop and portrait phones keep a band above the
+  // world. Landscape phones let the top row sit on the map's decorative edge.
+  const topGap = mobile ? (portrait ? MOBILE_TOP_GAP : EDGE_GAP) : TOP_GAP
+  const top = insets.top + topGap * ui
   const availableHeight = Math.max(240, height - top - insets.bottom - EDGE_GAP * ui)
   const fitScale = Math.min(contentWidth / map.room.w, availableHeight / map.room.h)
   const walkableWidth = Math.max(1, map.room.w - map.wall * 2)
@@ -109,33 +103,24 @@ export function computeGameLayout(
     h: map.room.h * scale,
   }
 
-  const bar: Rect = vertical
-    ? {
-        x: insets.left + RAIL_GAP * ui,
-        y: insets.top + RAIL_GAP * ui,
-        w: RAIL_WIDTH * ui,
-        h: Math.max(300, height - insets.top - insets.bottom - RAIL_GAP * 2 * ui),
-      }
-    : {
-        x: insets.left + (mobile ? 6 : 12) * ui,
-        y: insets.top + 8 * ui,
-        w: Math.max(240, contentWidth - (mobile ? 12 : 24) * ui),
-        h: (mobile ? MOBILE_BAR_HEIGHT : BAR_HEIGHT) * ui,
-      }
-  const centerY = bar.y + bar.h / 2
-  const centerX = bar.x + bar.w / 2
+  const bar: Rect = {
+    x: insets.left + (mobile ? 6 : 12) * ui,
+    y: insets.top + 8 * ui,
+    w: Math.max(240, contentWidth - (mobile ? 12 : 24) * ui),
+    h: (mobile ? MOBILE_BAR_HEIGHT : BAR_HEIGHT) * ui,
+  }
+  // One row on every layout: coins stay left, the clock follows the shop and
+  // pause buttons anchored to the top-right safe-area corner.
   const buttonSize = BUTTON_SIZE * ui
-  const pause: Vec2 = vertical
-    ? { x: centerX, y: bar.y + bar.h - RAIL_BOTTOM_PAD * ui - buttonSize / 2 }
-    : { x: bar.x + bar.w - buttonSize * 0.55, y: centerY }
-  const shop: Vec2 = vertical
-    ? { x: centerX, y: pause.y - buttonSize - RAIL_BUTTON_GAP * ui }
-    : { x: bar.x + bar.w - buttonSize * 1.55, y: centerY }
-  const clockWidth = vertical ? bar.w - 12 * ui : 104 * ui
-  const clockHeight = (vertical ? 42 : 40) * ui
-  const clock: Vec2 = vertical
-    ? { x: centerX, y: bar.y + 108 * ui }
-    : { x: shop.x - buttonSize * 1.55, y: centerY }
+  const actionY = insets.top + HUD_EDGE * ui + buttonSize / 2
+  const pause: Vec2 = {
+    x: width - insets.right - HUD_EDGE * ui - buttonSize / 2,
+    y: actionY,
+  }
+  const shop: Vec2 = { x: pause.x - buttonSize - HUD_BUTTON_GAP * ui, y: actionY }
+  const clockWidth = 104 * ui
+  const clockHeight = 40 * ui
+  const clock: Vec2 = { x: shop.x - buttonSize * 1.55, y: actionY }
 
   return {
     width,
@@ -151,15 +136,12 @@ export function computeGameLayout(
     worldUi,
     worldText: computeWorldTextScale(scale, options.cssShortSide ?? 0),
     hud: {
-      vertical,
       bar,
-      coins: vertical
-        ? { x: centerX, y: bar.y + RAIL_COIN_Y * ui }
-        : { x: bar.x + 36 * ui, y: centerY },
+      coins: { x: bar.x + 36 * ui, y: actionY },
       clock,
       clockWidth,
       clockHeight,
-      buffTop: vertical ? bar.y + RAIL_BUFF_Y * ui + 50 * ui : bar.y + bar.h + 14 * ui,
+      buffTop: bar.y + bar.h + 14 * ui,
       shop,
       pause,
       buttonSize,

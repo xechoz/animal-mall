@@ -30,7 +30,7 @@ export class Toast {
     const width = Math.min(520 * ui, content.w - 40 * ui)
     const height = 44 * ui
     const x = content.x + content.w / 2
-    const y = hud.vertical ? content.y + 52 * ui : hud.bar.y + hud.bar.h + 34 * ui
+    const y = hud.bar.y + hud.bar.h + 34 * ui
     this.bg.clear()
     this.bg.fillStyle(0x3b2f3a, 0.16)
     this.bg.fillRoundedRect(x - width / 2, y - height / 2 + 4 * ui, width, height, 16 * ui)

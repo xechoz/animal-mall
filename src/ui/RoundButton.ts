@@ -7,9 +7,12 @@ export interface RoundButtonOptions {
   readonly size?: number
   readonly icon: RoundButtonIcon
   readonly theme: Theme
-  readonly variant?: 'primary' | 'soft'
+  /** `glass` is a translucent plate for buttons floating over the world. */
+  readonly variant?: 'soft' | 'glass'
   readonly onClick: () => void
   readonly badge?: boolean
+  /** Overrides the icon colour; defaults to the theme ink. */
+  readonly iconColor?: number
 }
 
 function drawGear(g: Phaser.GameObjects.Graphics, size: number, color: number): void {
@@ -37,7 +40,8 @@ export class RoundButton extends Phaser.GameObjects.Container {
   private readonly theme: Theme
   private readonly icon: RoundButtonIcon
   private readonly buttonSize: number
-  private readonly variant: 'primary' | 'soft'
+  private readonly variant: 'soft' | 'glass'
+  private readonly iconColor?: number
   private readonly face: Phaser.GameObjects.Graphics
   private readonly zone: Phaser.GameObjects.Zone
   private readonly onClickHandler: () => void
@@ -52,6 +56,7 @@ export class RoundButton extends Phaser.GameObjects.Container {
     this.icon = options.icon
     this.buttonSize = options.size ?? 54
     this.variant = options.variant ?? 'soft'
+    this.iconColor = options.iconColor
     this.onClickHandler = options.onClick
     this.badgeVisible = options.badge ?? false
 
@@ -108,43 +113,63 @@ export class RoundButton extends Phaser.GameObjects.Container {
     const radius = size / 2
     const g = this.face
     g.clear()
-
-    const base = this.variant === 'primary' ? this.theme.accent : this.theme.surface
-    const hover =
-      this.variant === 'primary'
-        ? this.theme.accentHover
-        : mixColor(this.theme.surface, this.theme.accentWarm, 0.5)
-    const faceColor = !this.enabled
-      ? mixColor(base, this.theme.borderSoft, 0.55)
-      : this.pressed
-        ? mixColor(base, this.theme.ink, 0.12)
-        : this.hovered
-          ? hover
-          : base
-    const iconColor = this.variant === 'primary' ? this.theme.onAccent : this.theme.ink
+    const iconColor = this.iconColor ?? this.theme.ink
 
     // Both buttons float over the world with no bar behind them, so they carry
-    // their own shadow and a ring dark enough to read on grass and floor.
+    // their own shadow to lift off grass and floor.
     g.fillStyle(this.theme.shadow, 0.2)
     g.fillCircle(0, 5, radius)
-    g.fillStyle(faceColor, 1)
-    g.fillCircle(0, 0, radius)
-    g.lineStyle(3, this.theme.ink, this.variant === 'primary' ? 0.75 : 0.55)
-    g.strokeCircle(0, 0, radius - 1)
 
-    if (this.variant === 'primary') {
+    if (this.variant === 'glass') {
+      // Light, semi-transparent plate: keeps the icons readable over the shop
+      // floor and the night tint without turning into an opaque chip.
+      g.fillStyle(this.theme.surface, 0.78)
+      g.fillCircle(0, 0, radius)
+      const tint = !this.enabled
+        ? { color: this.theme.borderSoft, alpha: 0.4 }
+        : this.pressed
+          ? { color: this.theme.ink, alpha: 0.12 }
+          : this.hovered
+            ? { color: this.theme.accentWarm, alpha: 0.3 }
+            : null
+      if (tint !== null) {
+        g.fillStyle(tint.color, tint.alpha)
+        g.fillCircle(0, 0, radius)
+      }
+      g.lineStyle(Math.max(1.5, size * 0.023), this.theme.borderSoft, 0.95)
+      g.strokeCircle(0, 0, radius - 1)
+      g.fillStyle(this.theme.highlight, 0.22)
+      g.fillEllipse(0, -radius * 0.42, radius * 1.05, radius * 0.42)
+    } else {
+      const base = this.theme.surface
+      const faceColor = !this.enabled
+        ? mixColor(base, this.theme.borderSoft, 0.55)
+        : this.pressed
+          ? mixColor(base, this.theme.ink, 0.12)
+          : this.hovered
+            ? mixColor(base, this.theme.accentWarm, 0.5)
+            : base
+      g.fillStyle(faceColor, 1)
+      g.fillCircle(0, 0, radius)
+      g.lineStyle(3, this.theme.ink, 0.55)
+      g.strokeCircle(0, 0, radius - 1)
       g.fillStyle(this.theme.highlight, 0.16)
       g.fillEllipse(0, -radius * 0.34, radius * 1.15, radius * 0.58)
     }
 
+    // `false` keeps the plate above: drawIcon clears the target by default.
     if (this.icon === 'gear') drawGear(g, Math.round(size * 0.42), iconColor)
-    else drawIcon(g, this.icon, Math.round(size * 0.42), iconColor)
+    else drawIcon(g, this.icon, Math.round(size * 0.42), iconColor, false)
 
     if (this.badgeVisible) {
+      // 45° in at ~0.82r: on the rim, never spilling onto the neighbour button.
+      const dotX = radius * 0.58
+      const dotY = -radius * 0.58
+      const dot = Math.max(5, radius * 0.16)
       g.fillStyle(this.theme.accent, 1)
-      g.fillCircle(radius * 0.72, -radius * 0.72, 7)
+      g.fillCircle(dotX, dotY, dot)
       g.lineStyle(2, this.theme.panel, 1)
-      g.strokeCircle(radius * 0.72, -radius * 0.72, 7)
+      g.strokeCircle(dotX, dotY, dot)
     }
   }
 }

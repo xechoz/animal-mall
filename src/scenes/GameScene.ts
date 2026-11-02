@@ -2003,7 +2003,6 @@ export class GameScene extends Phaser.Scene {
     if (
       next.width === this.layout.width &&
       next.height === this.layout.height &&
-      next.hud.vertical === this.layout.hud.vertical &&
       next.content.x === this.layout.content.x &&
       next.content.y === this.layout.content.y &&
       next.content.w === this.layout.content.w &&

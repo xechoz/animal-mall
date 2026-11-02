@@ -16,7 +16,6 @@ export interface HudCallbacks {
 
 const COIN_PILL_HEIGHT = 44
 const COIN_PILL_INSET = 26
-const COIN_RAIL_HEIGHT = 84
 
 export class Hud {
   private readonly theme: Theme
@@ -33,7 +32,6 @@ export class Hud {
   private readonly devButton?: Button
   private devEnabled = true
   private layout: GameLayout
-  private vertical = false
   private coinBaseScale = 0.78
   private lastCoins = -1
   private lastAffordable = false
@@ -73,12 +71,13 @@ export class Hud {
       .setOrigin(0, 0.5)
       .setDepth(6004)
 
-    // Shop and pause carry their own circular faces, so the top bar needs no
+    // Shop and pause carry their own translucent faces, so the top row needs no
     // panel behind them: the world keeps the full width and the HUD floats.
     this.shopButton = new RoundButton(scene, 0, 0, {
       icon: 'bag',
       theme,
-      variant: 'primary',
+      variant: 'glass',
+      iconColor: theme.accentInk,
       size: layout.hud.buttonSize,
       onClick: callbacks.onShop,
     })
@@ -86,7 +85,7 @@ export class Hud {
     this.pauseButton = new RoundButton(scene, 0, 0, {
       icon: 'pause',
       theme,
-      variant: 'soft',
+      variant: 'glass',
       size: layout.hud.buttonSize,
       onClick: callbacks.onPause,
     })
@@ -108,34 +107,20 @@ export class Hud {
   relayout(layout: GameLayout): void {
     this.layout = layout
     const hud = layout.hud
-    const bar = hud.bar
     const ui = layout.ui
-    this.vertical = hud.vertical
     this.bar.clear()
 
-    if (hud.vertical) {
-      this.coinBaseScale = 0.7 * ui
-      this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
-      this.coinsText
-        .setOrigin(0.5, 0.5)
-        .setPosition(hud.coins.x, hud.coins.y + 27 * ui)
-        .setFontSize(22 * ui)
-    } else {
-      this.coinBaseScale = 0.78 * ui
-      this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
-      this.coinsText
-        .setOrigin(0, 0.5)
-        .setPosition(hud.coins.x + 20 * ui, hud.coins.y)
-        .setFontSize(22 * ui)
-    }
+    this.coinBaseScale = 0.78 * ui
+    this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
+    this.coinsText
+      .setOrigin(0, 0.5)
+      .setPosition(hud.coins.x + 20 * ui, hud.coins.y)
+      .setFontSize(22 * ui)
     this.drawCoinPill()
     this.layoutClock()
     this.shopButton.setPosition(hud.shop.x, hud.shop.y)
     this.pauseButton.setPosition(hud.pause.x, hud.pause.y)
-    this.devButton?.setPosition(
-      hud.vertical ? bar.x + bar.w / 2 : hud.pause.x,
-      hud.vertical ? hud.shop.y - hud.buttonSize : hud.pause.y + hud.buttonSize * 0.95,
-    )
+    this.devButton?.setPosition(hud.pause.x, hud.pause.y + hud.buttonSize * 0.95)
     this.lastCoins = -1
     this.lastAffordable = false
     this.lastClock = ''
@@ -151,12 +136,7 @@ export class Hud {
       this.lastCoins = state.coins
       const text = String(state.coins)
       this.coinsText.setText(text)
-      if (this.vertical) {
-        const size = Math.max(12, Math.min(22, Math.floor(72 / (0.62 * text.length))))
-        this.coinsText.setFontSize(size * this.layout.ui)
-      } else {
-        this.coinsText.setFontSize(22 * this.layout.ui)
-      }
+      this.coinsText.setFontSize(22 * this.layout.ui)
       // The pill hugs the number, so every digit count stays readable over the
       // world instead of floating as bare text.
       this.bar.clear()
@@ -244,13 +224,11 @@ export class Hud {
   private drawCoinPill(): void {
     const hud = this.layout.hud
     const ui = this.layout.ui
-    const radius = hud.vertical ? 16 * ui : (COIN_PILL_HEIGHT * ui) / 2
-    const height = hud.vertical ? COIN_RAIL_HEIGHT * ui : COIN_PILL_HEIGHT * ui
-    const x = hud.vertical ? hud.bar.x : hud.coins.x - COIN_PILL_INSET * ui
-    const y = hud.vertical ? hud.bar.y : hud.coins.y - height / 2
-    const width = hud.vertical
-      ? hud.bar.w
-      : Math.max(72 * ui, this.coinsText.x - x + this.coinsText.width + 16 * ui)
+    const radius = (COIN_PILL_HEIGHT * ui) / 2
+    const height = COIN_PILL_HEIGHT * ui
+    const x = hud.coins.x - COIN_PILL_INSET * ui
+    const y = hud.coins.y - height / 2
+    const width = Math.max(72 * ui, this.coinsText.x - x + this.coinsText.width + 16 * ui)
 
     this.bar.fillStyle(this.theme.shadow, 0.18)
     this.bar.fillRoundedRect(x, y + 3 * ui, width, height, radius)
