@@ -3,6 +3,7 @@ import {
   displayTextStyle,
   type GameServices,
   getServices,
+  getTextResolution,
   isMobileDevice,
   onAppHidden,
   onLayoutChange,
@@ -77,7 +78,7 @@ import type {
 import { progressSave } from '../save'
 import { createAnimalTextures } from '../ui/animalArt'
 import { BuffBar } from '../ui/BuffBar'
-import { bakeGraphics } from '../ui/bakeArt'
+import { bakeGraphics, screenBakeScale, worldBakeScale } from '../ui/bakeArt'
 import { CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
 import { DaylightView } from '../ui/DaylightView'
@@ -181,6 +182,8 @@ export class GameScene extends Phaser.Scene {
   private viewCamera!: WorldCamera
   private backdrop!: Phaser.GameObjects.Image
   private backgroundKey = ''
+  /** Canvas backing pixels per design unit when the world was last baked. */
+  private textResolution = 1
   private daylight!: DaylightView
   private dayReport?: DayReportView
   private world!: Phaser.GameObjects.Container
@@ -247,6 +250,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.services = getServices()
+    this.textResolution = getTextResolution()
     this.suppressAutoPauseUntil = performance.now() + 2_500
     startMusic(this)
     createAnimalTextures(this)
@@ -328,12 +332,12 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * The floor plan is baked once per layout, so its texture resolution has to
-   * follow the on-screen scale of the world container. Half steps keep the
-   * cache from churning while the camera stays near a whole pixel ratio.
+   * follow both the world container scale and the canvas backing density.
+   * Half steps keep the cache from churning while the camera stays near a
+   * whole pixel ratio.
    */
-  private backgroundBakeScale(): number {
-    const raw = this.viewCamera.scale
-    return Math.max(1, Math.min(2, Math.round(raw * 2) / 2))
+  private artBakeScale(): number {
+    return worldBakeScale(this.viewCamera.scale)
   }
 
   private drawBackdrop(): void {
@@ -377,7 +381,7 @@ export class GameScene extends Phaser.Scene {
     // The backdrop is screen furniture: it is drawn once and never changes, so
     // it is baked instead of being re-walked by the renderer every frame.
     const key = 'game-backdrop'
-    this.backdrop = bakeGraphics(this, g, key, width, height, 1).setDepth(-100)
+    this.backdrop = bakeGraphics(this, g, key, width, height, screenBakeScale()).setDepth(-100)
     g.destroy()
   }
 
@@ -395,7 +399,7 @@ export class GameScene extends Phaser.Scene {
       farm: i18n.t('zone.farm'),
       kitchen: i18n.t('zone.kitchen'),
     }
-    const bakeScale = this.backgroundBakeScale()
+    const bakeScale = this.artBakeScale()
     const bakeKey = `shop-bg-${this.layout.map.id}-${bakeScale}`
     if (this.backgroundKey !== '' && this.backgroundKey !== bakeKey) {
       this.textures.remove(this.backgroundKey)
@@ -426,7 +430,7 @@ export class GameScene extends Phaser.Scene {
       this.layout.map,
       '',
       this.layout.worldText,
-      this.backgroundBakeScale(),
+      this.artBakeScale(),
     )
     this.vendingView = new FacilityView(
       this,
@@ -435,7 +439,7 @@ export class GameScene extends Phaser.Scene {
       this.layout.map,
       i18n.t('facility.drinks'),
       this.layout.worldText,
-      this.backgroundBakeScale(),
+      this.artBakeScale(),
     )
     this.world.add(this.trashView)
     this.world.add(this.vendingView)
@@ -446,7 +450,7 @@ export class GameScene extends Phaser.Scene {
       this.layout.map,
       i18n.t('facility.dining'),
       this.layout.worldText,
-      this.backgroundBakeScale(),
+      this.artBakeScale(),
       (seat) => this.trySit(seat),
     )
     diningView.addTo(this.world)
@@ -459,7 +463,7 @@ export class GameScene extends Phaser.Scene {
           zone,
           this.layout.map,
           this.layout.worldText,
-          this.backgroundBakeScale(),
+          this.artBakeScale(),
           () => this.buyShelfUpgrade(zone),
         )
         const rect = this.layout.map.shelves[zone]
@@ -977,9 +981,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateWorldViews(): void {
-    this.zoneOverlay.updateZones(this.state, this.backgroundBakeScale())
+    this.zoneOverlay.updateZones(this.state, this.artBakeScale())
     this.zoneOverlay.updateFocus(this.state.player.pos)
-    this.plantBeds.updateBeds(this.state, this.backgroundBakeScale())
+    this.plantBeds.updateBeds(this.state, this.artBakeScale())
     const reach = stockReach(this.state)
     for (const zone of ZONE_ORDER) {
       this.shelfViews[zone].updateShelf(this.state.shelves[zone])
@@ -2077,16 +2081,26 @@ export class GameScene extends Phaser.Scene {
       next.room.h === this.layout.room.h &&
       next.worldZoom === this.layout.worldZoom
     ) {
-      return
+      // Moving the window to a denser display changes the canvas backing
+      // store without changing the layout, but every baked layer is now too
+      // small and must be rebuilt.
+      if (getTextResolution() === this.textResolution) return
     }
     const previousMode = this.mode
     const mapChanged = next.map.id !== this.layout.map.id
+    const densityChanged = getTextResolution() !== this.textResolution
+    const previousBakeScale = this.artBakeScale()
+    this.textResolution = getTextResolution()
 
     this.destroyFloatingUi()
     if (mapChanged) this.state = remapShopState(this.state, next.map)
     this.layout = next
     snapWorldCamera(this.layout, this.viewCamera, this.state.player.pos)
-    if (mapChanged) this.rebuildWorld()
+    // A resize changes the camera scale without changing the map, and the
+    // baked world art would then be magnified by the difference. The scale is
+    // quantized, so this only fires when the texture density really moved.
+    const bakeScaleChanged = this.artBakeScale() !== previousBakeScale
+    if (mapChanged || densityChanged || bakeScaleChanged) this.rebuildWorld()
     this.applyWorldLayout()
     this.tutorial = new TutorialOverlay(
       this,

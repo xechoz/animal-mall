@@ -14,11 +14,22 @@
 - Bake the static shop art into textures instead of keeping it live. Phaser walks
   a Graphics command buffer on every rendered frame, and the floor plan alone was
   about 193k buffer entries, so the renderer rebuilt the whole map, shelves, beds,
-  lock overlays, facility props, price chips and tool badges every frame. Those
+  lock overlays, facility props and tool badges every frame. Those
   layers now render as a handful of textured quads: ~258k entries per frame drop
   to ~10k, which removes the sustained frame-time spike on desktop and the heavy
   stutter on phones. Re-baked only when the art actually changes (zone unlock,
   planted bed, layout change).
+
+- Match baked texture density to the screen instead of the design space. The
+  canvas backing store is 1.5-3x the design resolution and the world container
+  adds its own scale, so the first bake pass drew price chips and shop art
+  1.5-1.7x larger than their textures, which read as soft and stair-stepped on
+  desktop and phones. UI badges now bake at twice the physical density (a Render
+  Texture has no MSAA) and world layers at the world scale times the physical
+  density; the price chip body is vector again so its rounded corners stay
+  crisp. Badge caches are keyed by appearance rather than price, so they no
+  longer grow with gameplay, and moving the window to a denser display rebuilds
+  the world.
 
 - Let the steering stick start on beds, pens, stations and price chips. Touching
   inside any of the four product bays used to be swallowed by the slot hit area,

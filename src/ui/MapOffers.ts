@@ -6,7 +6,7 @@ import { INTERACTION, PEN_SIZE, PLOT_SIZE, STATION_SIZE } from '../logic/config'
 import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState, Vec2, ZoneId } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
-import { bakeLayer } from './bakeArt'
+import { bakeLayer, uiBakeScale } from './bakeArt'
 import { coinTextureKey } from './fruitArt'
 import { drawSeedPacket } from './groundArt'
 import { JOYSTICK_PASS } from './Joystick'
@@ -17,7 +17,8 @@ import { type WorldCamera, worldToScreen } from './worldCamera'
 
 interface OfferLabel {
   readonly container: Phaser.GameObjects.Container
-  readonly bg: Phaser.GameObjects.Image
+  /** Vector body: rounded corners stay crisp at any device pixel ratio. */
+  readonly bg: Phaser.GameObjects.Graphics
   readonly dwell: Phaser.GameObjects.Graphics
   readonly badge: Phaser.GameObjects.Image
   readonly icon: Phaser.GameObjects.Image
@@ -31,6 +32,10 @@ interface OfferLabel {
   interactive?: boolean
   /** Signature of the last painted body, so idle frames skip the redraw. */
   drawKey?: string
+  /** Texture currently applied to the badge, keyed by look rather than price. */
+  badgeKey?: string
+  /** Deposit ratio currently painted into the progress bar. */
+  paidKey?: string
 }
 
 const WIDTH = 70
@@ -52,68 +57,6 @@ function isSlotTag(
   offer: PurchaseOffer,
 ): offer is Extract<PurchaseOffer, { type: 'producerSlot' | 'producerSwap' }> {
   return offer.type === 'producerSlot' || offer.type === 'producerSwap'
-}
-
-interface ChipSpec {
-  /** Full draw signature; identical sprites share one texture. */
-  readonly key: string
-  readonly tag: boolean
-  readonly width: number
-  readonly height: number
-  readonly ui: number
-  readonly radius: number
-  readonly stroke: number
-  readonly affordable: boolean
-  readonly shadow: number
-  readonly panel: number
-  readonly accent: number
-  readonly borderSoft: number
-  readonly ink: number
-}
-
-/**
- * Chips are identical across offers of the same size and affordability, so the
- * body is baked once and shared by every label. A live Graphics would be
- * re-walked by the renderer on every frame, roughly 900 entries per chip.
- */
-function chipTexture(scene: Phaser.Scene, spec: ChipSpec): string {
-  const textureKey = `offer-chip|${spec.key}`
-  if (scene.textures.exists(textureKey)) return textureKey
-
-  const width = spec.tag ? SWAP_TAG * spec.ui : spec.width
-  const height = spec.tag ? SWAP_TAG * spec.ui : spec.height
-  const g = scene.add.graphics()
-  if (spec.tag) {
-    // A single round badge: the crop or machine is already visible on the slot,
-    // so a full chip would only repeat it.
-    g.fillStyle(spec.shadow, 0.16)
-    g.fillCircle(0, 3 * spec.ui, (SWAP_TAG / 2) * spec.ui)
-    g.fillStyle(spec.panel, 0.96)
-    g.fillCircle(0, 0, (SWAP_TAG / 2) * spec.ui)
-    g.lineStyle(spec.stroke, spec.ink, 0.8)
-    g.strokeCircle(0, 0, (SWAP_TAG / 2) * spec.ui)
-  } else {
-    g.fillStyle(spec.shadow, 0.16)
-    g.fillRoundedRect(-width / 2, -height / 2 + 3 * spec.ui, width, height, spec.radius)
-    g.fillStyle(spec.panel, 0.96)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, spec.radius)
-    g.lineStyle(spec.stroke, spec.affordable ? spec.accent : spec.borderSoft, 0.9)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, spec.radius)
-  }
-
-  const pad = 4
-  const image = bakeLayer(
-    scene,
-    g,
-    textureKey,
-    { x: -width / 2 - pad, y: -height / 2 - pad },
-    width + pad * 2,
-    height + pad * 2,
-    1,
-  )
-  g.destroy()
-  image.destroy()
-  return textureKey
 }
 
 export class MapOffers {
@@ -196,6 +139,14 @@ export class MapOffers {
   destroy(): void {
     for (const label of this.labels.values()) label.container.destroy(true)
     this.labels.clear()
+    // Badge textures are keyed by UI scale, which changes on rotation and
+    // resize. Drop the old variants so a long session does not accumulate one
+    // set of textures per layout.
+    for (const key of this.scene.textures.getTextureKeys()) {
+      if (key.startsWith('offer-badge|') || key.startsWith('offer-chip|')) {
+        this.scene.textures.remove(key)
+      }
+    }
   }
 
   private createLabel(): OfferLabel {
@@ -204,9 +155,11 @@ export class MapOffers {
     // enlarged beds and become too small to tap.
     const ui = this.layout.worldUi
     const container = this.scene.add.container(0, 0).setDepth(5200)
-    const bg = this.scene.add.image(0, 0, '__WHITE').setOrigin(0.5)
+    const bg = this.scene.add.graphics()
     const dwell = this.scene.add.graphics()
-    const badge = this.scene.add.image(0, 0, '__WHITE').setOrigin(0, 0)
+    // Centred origin so the tag tilt pivots around the badge, not the texture
+    // corner. The plate is baked oversized and scaled back down on apply.
+    const badge = this.scene.add.image(0, 0, '__WHITE').setOrigin(0.5)
     const icon = this.scene.add.image(0, 0, productTextureKey('apple')).setScale(0.55 * ui)
     const coin = this.scene.add.image(0, 0, coinTextureKey()).setScale(0.42 * ui)
     const price = this.scene.add
@@ -314,65 +267,50 @@ export class MapOffers {
         : undefined
 
     const affordable = isSwapTag(offer) ? true : state.coins >= offer.remaining
-    // The chip body only changes when its offer, size or affordability does.
-    // Repainting it every frame would keep three Graphics objects dirty per chip
-    // for as long as it stays in range, which is up to a dozen chips on a mature
-    // map.
+    // The body stays vector on purpose: it is a handful of rounded rectangles,
+    // and drawing it straight into the antialiased canvas keeps the corners
+    // crisp at every device pixel ratio. The key tracks only the shape and
+    // affordability, never the price.
     const drawKey = [
       tag ? 't' : compact ? 'c' : 'f',
       offer.type,
       'zone' in offer ? offer.zone : '',
       width,
       height,
-      ui,
       affordable ? 1 : 0,
-      'remaining' in offer ? offer.remaining : 0,
-      'deposit' in offer ? offer.deposit : 0,
-      'cost' in offer ? offer.cost : 0,
     ].join('|')
-    const redraw = drawKey !== label.drawKey
-    label.drawKey = drawKey
-
-    if (redraw) {
-      label.bg.setTexture(
-        chipTexture(this.scene, {
-          key: drawKey,
-          tag,
-          width,
-          height,
-          ui,
-          radius: 11 * ui,
-          stroke: 2 * ui,
-          affordable,
-          shadow: this.theme.shadow,
-          panel: this.theme.panel,
-          accent: this.theme.accent,
-          borderSoft: this.theme.borderSoft,
-          ink: gameColors.barkDark,
-        }),
-      )
-      label.bg.setPosition(0, 0)
+    if (drawKey !== label.drawKey) {
+      label.drawKey = drawKey
+      drawChipBody(label.bg, {
+        tag,
+        width,
+        height,
+        ui,
+        affordable,
+        theme: this.theme,
+      })
     }
 
     label.icon.setVisible(
       (offer.type === 'plant' && !offer.requiresChoice) || offer.type === 'staff',
     )
-    label.badge.setVisible(
+    const showBadge =
       (offer.type === 'plant' && offer.requiresChoice && !compact) ||
-        offer.type === 'zone' ||
-        tag ||
-        offer.type === 'producerSlot',
-    )
+      offer.type === 'zone' ||
+      tag ||
+      offer.type === 'producerSlot'
+    label.badge.setVisible(showBadge)
     label.badge.setRotation(tag ? TAG_TILT : 0)
-    if (redraw) {
-      label.badge.setTexture(
-        badgeTexture(this.scene, {
-          key: drawKey,
-          offer,
-          ui,
-        }),
-      )
-      label.badge.setPosition(-BADGE_BOX.w * 0.5 * ui, -BADGE_BOX.h * 0.5 * ui)
+    if (showBadge) {
+      // Only the tool badge is baked: the seed packet alone is ~900 command
+      // entries. It is baked at the physical pixel density (x2 supersampled,
+      // because a Render Texture has no MSAA) and cached by look, not by price.
+      const badgeKey = badgeTextureKey(offer, ui)
+      if (badgeKey !== label.badgeKey) {
+        label.badgeKey = badgeKey
+        label.badge.setTexture(badgeTexture(this.scene, offer, ui))
+        label.badge.setDisplaySize(BADGE_BOX.w * ui, BADGE_BOX.h * ui)
+      }
     }
     // A soft pulse marks the tool badge as the actionable part of an occupied
     // slot, without adding another text label over the art.
@@ -411,7 +349,12 @@ export class MapOffers {
     )
     label.price.setColor(affordable ? this.theme.text : this.theme.textMuted)
 
-    if (redraw) {
+    const paidKey =
+      offer.type === 'swap' || offer.type === 'producerSwap' || offer.deposit <= 0
+        ? ''
+        : `${offer.deposit}/${offer.cost}`
+    if (paidKey !== label.paidKey) {
+      label.paidKey = paidKey
       label.paid.clear()
       if (offer.type !== 'swap' && offer.type !== 'producerSwap' && offer.deposit > 0) {
         const ratio = Math.min(1, offer.deposit / Math.max(1, offer.cost))
@@ -434,6 +377,43 @@ export class MapOffers {
       label.dwell.strokePath()
     }
   }
+}
+
+interface ChipBody {
+  readonly tag: boolean
+  readonly width: number
+  readonly height: number
+  readonly ui: number
+  readonly affordable: boolean
+  readonly theme: Theme
+}
+
+/**
+ * The chip body is deliberately drawn as vector graphics. It is only a few
+ * rounded rectangles, so keeping it live costs almost nothing, while a baked
+ * texture would be magnified by the device pixel ratio and lose the crisp
+ * corners the player reads as UI quality.
+ */
+function drawChipBody(g: Phaser.GameObjects.Graphics, body: ChipBody): void {
+  const { tag, width, height, ui, affordable, theme } = body
+  g.clear()
+  if (tag) {
+    // A single round badge: the crop or machine is already visible on the slot,
+    // so a full chip would only repeat it.
+    g.fillStyle(theme.shadow, 0.16)
+    g.fillCircle(0, 3 * ui, (SWAP_TAG / 2) * ui)
+    g.fillStyle(theme.panel, 0.96)
+    g.fillCircle(0, 0, (SWAP_TAG / 2) * ui)
+    g.lineStyle(2 * ui, gameColors.barkDark, 0.8)
+    g.strokeCircle(0, 0, (SWAP_TAG / 2) * ui)
+    return
+  }
+  g.fillStyle(theme.shadow, 0.16)
+  g.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, 11 * ui)
+  g.fillStyle(theme.panel, 0.96)
+  g.fillRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
+  g.lineStyle(2 * ui, affordable ? theme.accent : theme.borderSoft, 0.9)
+  g.strokeRoundedRect(-width / 2, -height / 2, width, height, 11 * ui)
 }
 
 function drawShovelBadge(
@@ -574,22 +554,26 @@ function drawLockBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, ui:
   g.fillRect(x - 2 * s, y + 2 * s, 4 * s, 8 * s)
 }
 
-interface BadgeSpec {
-  readonly key: string
-  readonly offer: PurchaseOffer
-  readonly ui: number
+/**
+ * Badge textures depend only on the offer kind and UI scale, so the cache stays
+ * bounded while prices and deposits change.
+ */
+function badgeTextureKey(offer: PurchaseOffer, ui: number): string {
+  const requiresChoice = offer.type === 'plant' && offer.requiresChoice ? 1 : 0
+  const zone = offer.type === 'producerSwap' ? offer.zone : ''
+  return `offer-badge|${offer.type}|${zone}|${requiresChoice}|${ui}|${uiBakeScale()}`
 }
 
 /**
  * The tool badge is the most expensive part of a chip: the seed packet spends
  * ~900 command-buffer entries on ellipses, and the renderer walks those on every
- * frame. Bake each badge variant once and share the texture.
+ * frame. Bake each badge variant once and share the texture. Render Textures
+ * have no MSAA, so the bake runs at twice the physical pixel density.
  */
-function badgeTexture(scene: Phaser.Scene, spec: BadgeSpec): string {
-  const textureKey = `offer-badge|${spec.key}`
+function badgeTexture(scene: Phaser.Scene, offer: PurchaseOffer, ui: number): string {
+  const textureKey = badgeTextureKey(offer, ui)
   if (scene.textures.exists(textureKey)) return textureKey
 
-  const { offer, ui } = spec
   const g = scene.add.graphics()
   if (offer.type === 'plant' && offer.requiresChoice) {
     drawSeedPacket(g, -22 * ui, 0, ui)
@@ -610,7 +594,15 @@ function badgeTexture(scene: Phaser.Scene, spec: BadgeSpec): string {
 
   const width = BADGE_BOX.w * ui
   const height = BADGE_BOX.h * ui
-  const image = bakeLayer(scene, g, textureKey, { x: -width / 2, y: -height / 2 }, width, height, 1)
+  const image = bakeLayer(
+    scene,
+    g,
+    textureKey,
+    { x: -width / 2, y: -height / 2 },
+    width,
+    height,
+    uiBakeScale(),
+  )
   g.destroy()
   image.destroy()
   return textureKey

@@ -1,3 +1,4 @@
+import { getTextResolution } from '@mg/core'
 import type Phaser from 'phaser'
 
 /**
@@ -5,8 +6,48 @@ import type Phaser from 'phaser'
  * units, so a 3x bake would already cost 30 MB of GPU memory on a phone.
  */
 const MAX_TEXTURE_EDGE = 4096
-/** Hard ceiling on supersampling; above 2x the cost outweighs the sharpness. */
-const MAX_BAKE_SCALE = 2
+/**
+ * One baked layer must not dominate GPU memory. 6M texels is ~24 MB of RGBA,
+ * which still lets the 1280x680 floor plan bake at 2.5x on a phone.
+ */
+const MAX_BAKE_TEXELS = 6_000_000
+
+/**
+ * Physical pixels per design unit. The canvas backing store is already larger
+ * than the design space on most screens, so a texture baked at 1 texel per
+ * design unit is magnified 1.5-3x and reads as blurry.
+ */
+export function screenBakeScale(): number {
+  // Screen furniture is generated through Canvas2D, which already antialiases,
+  // so exact physical density is enough. A full-screen layer should not pay for
+  // supersampling it does not need.
+  return Math.max(1, getTextResolution())
+}
+
+/**
+ * Physical pixels per world unit for art inside the scaled world container.
+ * The container scale and the canvas density multiply, so both belong in the
+ * factor. Half steps keep the texture cache from churning on tiny layout moves.
+ */
+export function worldBakeScale(cameraScale: number): number {
+  return Math.max(1, Math.ceil(cameraScale * getTextResolution() * 2) / 2)
+}
+
+/**
+ * Screen-space UI is small enough to supersample. Render Textures have no MSAA,
+ * so a 2x density bake is what keeps rounded corners and tool badges smooth.
+ */
+export function uiBakeScale(): number {
+  return Math.min(4, Math.max(1, Math.ceil(getTextResolution() * 2)))
+}
+
+/** Edge and memory limits shared by both bake paths. */
+function bakeFactor(width: number, height: number, scale: number): number {
+  const edge = Math.max(width, height)
+  const byEdge = MAX_TEXTURE_EDGE / Math.max(1, edge)
+  const byArea = Math.sqrt(MAX_BAKE_TEXELS / Math.max(1, width * height))
+  return Math.max(1, Math.min(scale, byEdge, byArea))
+}
 
 /**
  * Phaser walks a Graphics command buffer on every rendered frame, even when the
@@ -25,8 +66,7 @@ export function bakeGraphics(
   height: number,
   scale = 1,
 ): Phaser.GameObjects.Image {
-  const edge = Math.max(width, height)
-  const factor = Math.max(1, Math.min(scale, MAX_BAKE_SCALE, MAX_TEXTURE_EDGE / Math.max(1, edge)))
+  const factor = bakeFactor(width, height, scale)
   const textures = scene.textures
   if (textures.exists(key)) textures.remove(key)
 
@@ -60,8 +100,7 @@ export function bakeLayer(
   height: number,
   scale = 1,
 ): Phaser.GameObjects.Image {
-  const edge = Math.max(width, height)
-  const factor = Math.max(1, Math.min(scale, MAX_BAKE_SCALE, MAX_TEXTURE_EDGE / Math.max(1, edge)))
+  const factor = bakeFactor(width, height, scale)
   const textures = scene.textures
   if (textures.exists(key)) textures.remove(key)
 
