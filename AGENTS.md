@@ -143,8 +143,12 @@ submodule. Do not copy platform source into this repo.
   shelf food still drinks at the rest corner. Dining state is transient; it must
   not change the save version or shelf stock except for the fetched meal.
 - The shop runs in five-minute working days (`DAY` in `src/logic/config.ts`),
-  displayed as 09:00–21:00. Dawn, day, dusk and night drive `DaylightView`; the
-  overlay sits at depth 3900 so HUD, tutorial arrows and map offers stay readable.
+  displayed as 09:00–21:00. The lighting curve in `src/ui/lighting.ts` starts the
+  golden hour at 17:00 and deepens every hour to a full grey night at 21:00. The
+  wash and practical-light pools sit at depth 3900–3904; `NightLife` fireflies,
+  moths and the bat sit around 3910. All of it stays below the tutorial arrows,
+  map offers and HUD. Fence lanterns are unlit by day and light with the same
+  curve; never bring back the stacked coloured ellipse glow.
   New customers stop at `DAY.lastSpawnMs` (20:30), and the report appears only
   after the last shopper leaves. A 90 s grace clears a shopper stuck after
   closing. The report pauses the simulation, pays the tip and starts the next
@@ -154,6 +158,10 @@ submodule. Do not copy platform source into this repo.
   transient. Save version 8 stores only `day`; reloading starts that morning
   again. `remapShopState` must subtract unserved shoppers cleared by a rotation
   from `day.entered`, otherwise rotating invents lost customers.
+- After 19:30 the customer mix is weighted toward owl, raccoon, hedgehog and fox
+  through `NIGHT_SPECIES_WEIGHT` and `pickCustomerSpecies`. The 7 s spawn
+  cadence, the customer/queue caps and the "must have sellable stock" spawn gate
+  stay unchanged; the seeded RNG keeps a replay deterministic.
 - Satisfaction is scored per completed checkout: 100 minus 20 per skipped item
   and 20 when patience is below 30% at the till. Shoppers who leave without
   paying contribute 0 through the `entered` denominator. Tips are 2/5/8% at
@@ -217,6 +225,8 @@ submodule. Do not copy platform source into this repo.
 ```bash
 npm ci
 npm run dev          # local dev server
+# Dev builds and ?debug=1 show a bottom-right FPS chip in Menu and Game;
+# release packages do not.
 npm run check        # tsc + biome + game boundary checks
 npm run test
 npm run build

@@ -9,6 +9,7 @@ import {
   dayRating,
   finishDay,
   initialDayState,
+  isNightPhase,
   satisfactionScore,
   tipFor,
 } from './day'
@@ -30,6 +31,9 @@ describe('day clock', () => {
     expect(dayPhase(DAY.duskStartMs)).toBe('dusk')
     expect(dayPhase(DAY.nightStartMs)).toBe('night')
     expect(dayPhase(DAY.lengthMs)).toBe('closing')
+    expect(isNightPhase('night')).toBe(true)
+    expect(isNightPhase('closing')).toBe(true)
+    expect(isNightPhase('dusk')).toBe(false)
   })
 
   it('stops new shoppers before closing and keeps a grace window', () => {

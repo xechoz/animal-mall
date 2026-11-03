@@ -11,6 +11,7 @@ import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
 import { hasProgress, progressSave } from '../save'
 import { ANIMAL_SCALE, createAnimalTextures, playerTextureKey } from '../ui/animalArt'
+import { DebugFps } from '../ui/DebugFps'
 import {
   drawAntTrail,
   drawBird,
@@ -49,6 +50,7 @@ export class MenuScene extends Phaser.Scene {
   private services!: GameServices
   private settingsModal?: SettingsModal
   private languageModal?: LanguageModal
+  private debugFps?: DebugFps
   private startButton?: Button
   private restarting = false
   private starting = false
@@ -81,6 +83,9 @@ export class MenuScene extends Phaser.Scene {
       cssShortSide: readCssShortSide(this),
     })
     const ui = layout.ui
+    if (import.meta.env.DEV || this.services.debug) {
+      this.debugFps = new DebugFps(this, layout, theme)
+    }
 
     this.drawBackdrop(width, height)
     this.drawShopfront(width, height, portrait)
@@ -158,6 +163,8 @@ export class MenuScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this)
+      this.debugFps?.destroy()
+      this.debugFps = undefined
     })
   }
 

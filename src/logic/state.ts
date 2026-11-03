@@ -30,6 +30,7 @@ import {
   zeroBuffs,
   zoneOf,
 } from './config'
+import { pickCustomerSpecies } from './customers'
 import {
   dayAcceptsCustomers,
   dayGraceOver,
@@ -37,6 +38,7 @@ import {
   discountClearedCustomers,
   finishDay,
   initialDayState,
+  isNightPhase,
   satisfactionScore,
 } from './day'
 import { initialDiningState, stepDining } from './dining'
@@ -612,7 +614,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           CUSTOMER_TUNING.tutorialPatienceMs,
           radius,
           map,
-          CUSTOMER_SPECIES,
+          pickCustomerSpecies(rng, CUSTOMER_SPECIES, isNightPhase(dayPhase(day.ms))),
         )
         customers = [
           ...customers,
@@ -772,7 +774,8 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     }
   }
 
-  if (dayPhase(day.ms) === 'closing' && customers.length === 0) {
+  const phase = dayPhase(day.ms)
+  if (phase === 'closing' && customers.length === 0) {
     const closed = finishDay(day)
     day = { ...closed.day, report: closed.report }
     coins += closed.report.tip
@@ -797,6 +800,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
     const takenSpecies = new Set(customers.map((customer) => customer.species))
     const freeSpecies = CUSTOMER_SPECIES.filter((species) => !takenSpecies.has(species))
     const speciesPool = freeSpecies.length > 0 ? freeSpecies : CUSTOMER_SPECIES
+    const night = isNightPhase(phase)
 
     if (tutorial === 'checkout' && served === 0 && customers.length === 0) {
       const product = eligible[0] as ProductKind
@@ -810,7 +814,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
             CUSTOMER_TUNING.tutorialPatienceMs,
             radius,
             map,
-            speciesPool,
+            pickCustomerSpecies(rng, speciesPool, night),
           ),
           tutorial: true,
         },
@@ -830,7 +834,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
           CUSTOMER_TUNING.patienceMs,
           radius,
           map,
-          speciesPool,
+          pickCustomerSpecies(rng, speciesPool, night),
         ),
       ]
       nextCustomerId += 1
@@ -1135,9 +1139,8 @@ function createCustomer(
   patienceMs: number,
   radius: number,
   map: ShopMap,
-  speciesPool: readonly SpeciesId[],
+  species: SpeciesId,
 ): CustomerState {
-  const species = rng.pick(speciesPool)
   const first = wanted[0] as ProductKind
   return {
     id,

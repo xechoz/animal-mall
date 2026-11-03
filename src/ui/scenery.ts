@@ -90,8 +90,11 @@ export class SceneryView extends Phaser.GameObjects.Container {
     scene.add.existing(this)
   }
 
-  updateScenery(time: number): void {
+  updateScenery(time: number, night: boolean): void {
     this.art.clear()
+    // NightLife draws the glowing fireflies above the darkness layer, and the
+    // daytime insects are gone after dark.
+    if (night) return
     const t = time * 0.001
     this.drawButterfly(t, this.anchors[0], 0, 0xf2a8b4)
     this.drawButterfly(t, this.anchors[1], 1.7, 0xffd166)

@@ -576,6 +576,24 @@ export const CUSTOMER_SPECIES: readonly SpeciesId[] = [
   'duck',
 ]
 
+/**
+ * Species pressure after 19:30. Unlisted species keep weight 1; weights below
+ * 1 make a daytime shopper rarer once the lanterns are on. The seeded RNG still
+ * owns the roll, so a fixed seed replays the same evening.
+ */
+export const NIGHT_SPECIES_WEIGHT: Readonly<Partial<Record<SpeciesId, number>>> = {
+  owl: 5,
+  raccoon: 4.5,
+  hedgehog: 4,
+  fox: 3,
+  cat: 2,
+  frog: 1.5,
+  duck: 0.5,
+  squirrel: 0.6,
+  deer: 0.7,
+  panda: 0.7,
+}
+
 export const CUSTOMER_TUNING = {
   speed: 58,
   patienceMs: 60_000,

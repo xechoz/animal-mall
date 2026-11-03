@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Rework dusk and night lighting. The old flat blue tint and four hard-edged
+  centre ellipses are gone: `dayLighting` interpolates hourly keyframes from a
+  17:00 golden hour to full grey night at 21:00, the screen gets a neutral grey
+  multiply plus a combined veil/vignette, and soft camera-tracked pools sit on
+  the canopy lanterns, six new fence lanterns, the vending machine, installed
+  kitchen stations and the register. Fence lanterns stay unlit by day and light
+  with the same curve.
+
+- Add night-only wildlife: fireflies along the zone edges and forest margins,
+  moths around the lanterns and a low-contrast bat crossing the canopy. Daytime
+  butterflies, the bee and the dragonfly disappear after dark. After 19:30 the
+  shopper mix is weighted toward owl, raccoon, hedgehog and fox; spawn cadence,
+  queue limits and the sellable-stock gate are unchanged.
+
+- Show a small FPS chip in the bottom-right safe area in development builds and
+  `?debug=1`. It reads `game.loop.actualFps` four times per second; release
+  packages do not create it.
+
 - Make every unavailable action answer a tap. Locked zones, staff signs, planted
   beds, chooser cards, maxed or shortfall shop buttons and unaffordable drinks
   now explain themselves with a toast instead of swallowing the click. Toasts

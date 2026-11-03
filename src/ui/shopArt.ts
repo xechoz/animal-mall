@@ -5,6 +5,7 @@ import { PEN_SIZE } from '../logic/config'
 import type { ShopMap } from '../logic/types'
 import { bakeGraphics } from './bakeArt'
 import { drawRestMat } from './facilitiesArt'
+import { fenceLanterns } from './fenceLanterns'
 import {
   drawAntTrail,
   drawBarrel,
@@ -64,6 +65,7 @@ function createPortraitShopBackground(
   drawGhostFacilities(g, map)
   drawTopBand(g, theme, title, width, container, scene, 1)
   drawSideFences(g, map)
+  drawFenceLanterns(g, map)
   drawCentralRug(g, 282, 506, 108, 52)
   drawQueueMarkers(g, map)
   drawCounter(g, map)
@@ -96,6 +98,7 @@ function createLandscapeShopBackground(
   drawRestMat(g, map.facilities.restMat)
   drawTopBand(g, theme, title, width, container, scene, 1.15)
   drawSideFences(g, map)
+  drawFenceLanterns(g, map)
   drawQueueMarkers(g, map)
   drawCounter(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
@@ -375,6 +378,33 @@ function drawSideFences(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
       seed: 37,
     },
   )
+}
+
+/**
+ * Unlit lanterns on the perimeter fence. The glass stays dim in daylight; the
+ * night layer overlays a lit pane and a soft pool at the same anchors.
+ */
+function drawFenceLanterns(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
+  for (const lamp of fenceLanterns(map)) {
+    const s = lamp.scale
+    g.lineStyle(1.5 * s, gameColors.barkDark, 0.8)
+    if (lamp.facing === 'left') {
+      g.lineBetween(lamp.x - 8 * s, lamp.y, lamp.x, lamp.y)
+    } else if (lamp.facing === 'right') {
+      g.lineBetween(lamp.x, lamp.y, lamp.x + 8 * s, lamp.y)
+    } else {
+      g.lineBetween(lamp.x, lamp.y + 8 * s, lamp.x, lamp.y + 16 * s)
+    }
+
+    g.fillStyle(gameColors.barkDark, 1)
+    g.fillRoundedRect(lamp.x - 5 * s, lamp.y - 9 * s, 10 * s, 3 * s, 1 * s)
+    g.fillStyle(0xe2cfa2, 0.55)
+    g.fillRoundedRect(lamp.x - 4 * s, lamp.y - 6 * s, 8 * s, 11 * s, 2.5 * s)
+    g.fillStyle(0xfff3c4, 0.22)
+    g.fillRoundedRect(lamp.x - 2.4 * s, lamp.y - 4 * s, 2 * s, 6 * s, 1 * s)
+    g.fillStyle(gameColors.barkDark, 1)
+    g.fillRoundedRect(lamp.x - 5 * s, lamp.y + 5 * s, 10 * s, 2.5 * s, 1 * s)
+  }
 }
 
 function drawCentralRug(

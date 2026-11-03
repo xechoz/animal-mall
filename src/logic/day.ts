@@ -23,7 +23,12 @@ export function dayPhase(ms: number): DayPhase {
   return 'night'
 }
 
-/** 0 at 06:00, 1 at 22:00. Closing time stays pinned at 1. */
+/** Night and its closing wind-down share the nocturnal shop mix. */
+export function isNightPhase(phase: DayPhase): boolean {
+  return phase === 'night' || phase === 'closing'
+}
+
+/** 0 at 09:00, 1 at 21:00. Closing time stays pinned at 1. */
 export function dayProgress(ms: number): number {
   return Math.max(0, Math.min(1, ms / DAY.lengthMs))
 }

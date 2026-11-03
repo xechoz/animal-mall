@@ -42,6 +42,7 @@ import {
   ZONES,
   zoneOf,
 } from '../logic/config'
+import { dayPhase, isNightPhase } from '../logic/day'
 import { eatCarried, sitAtSeat, standUp } from '../logic/dining'
 import { nearestRestingStaff, purchaseDrink } from '../logic/facilities'
 import { feedSpace } from '../logic/production'
@@ -84,6 +85,7 @@ import { CoinPileView } from '../ui/CoinPileView'
 import { CustomerView } from '../ui/CustomerView'
 import { DaylightView } from '../ui/DaylightView'
 import { DayReport as DayReportView } from '../ui/DayReport'
+import { DebugFps } from '../ui/DebugFps'
 import { DevPanel } from '../ui/DevPanel'
 import { DiningView } from '../ui/DiningView'
 import { DrinkPicker } from '../ui/DrinkPicker'
@@ -105,6 +107,7 @@ import { Hud } from '../ui/Hud'
 import { JOYSTICK_PASS, Joystick } from '../ui/Joystick'
 import { computeGameLayout, type GameLayout } from '../ui/layout'
 import { MapOffers } from '../ui/MapOffers'
+import { NightLife } from '../ui/NightLife'
 import { PauseOverlay } from '../ui/PauseOverlay'
 import { PlantBedView } from '../ui/PlantBedView'
 import { PlayerView } from '../ui/PlayerView'
@@ -186,6 +189,8 @@ export class GameScene extends Phaser.Scene {
   /** Canvas backing pixels per design unit when the world was last baked. */
   private textResolution = 1
   private daylight!: DaylightView
+  private nightLife!: NightLife
+  private debugFps?: DebugFps
   private dayReport?: DayReportView
   private world!: Phaser.GameObjects.Container
   private shelfViews!: Record<ZoneId, ShelfView>
@@ -278,8 +283,12 @@ export class GameScene extends Phaser.Scene {
 
     this.drawBackdrop()
     this.daylight = new DaylightView(this, this.layout)
+    this.nightLife = new NightLife(this, this.layout)
     this.buildWorld()
     this.buildHudAndInput()
+    if (import.meta.env.DEV || this.services.debug) {
+      this.debugFps = new DebugFps(this, this.layout, this.services.theme)
+    }
     if (this.services.debug) {
       ;(window as Window & { __animalMall?: unknown }).__animalMall = {
         getLayout: () => this.layout,
@@ -900,13 +909,14 @@ export class GameScene extends Phaser.Scene {
     )
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
     this.world.setScale(this.viewCamera.scale)
-    this.daylight.update(this.state.day, this.viewCamera)
+    this.daylight.update(this.state.day, this.state.producers, this.viewCamera, time)
+    this.nightLife.update(this.state.day, this.viewCamera, time)
     this.playerView.setDepth(this.state.player.pos.y + 1)
     this.syncCustomers(alpha, time)
     this.syncStaff(alpha, time)
     this.updateWorldViews()
     this.updateHungryCues(this.time.now)
-    this.sceneryView.updateScenery(time)
+    this.sceneryView.updateScenery(time, isNightPhase(dayPhase(this.state.day.ms)))
     this.fishingView.updateFishing(this.state, time)
     // Container children ignore depth, so sort by the depth values refreshed
     // above to keep actors and scenery layered by their footprint.
@@ -2320,6 +2330,8 @@ export class GameScene extends Phaser.Scene {
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
     this.world.setScale(this.viewCamera.scale)
     this.daylight.relayout(this.layout)
+    this.nightLife.relayout(this.layout)
+    this.debugFps?.relayout(this.layout)
     this.hud.relayout(this.layout)
     this.joystick.reset()
   }
@@ -2352,6 +2364,8 @@ export class GameScene extends Phaser.Scene {
     this.inputCleanup?.()
     this.joystick?.destroy()
     this.daylight?.destroy()
+    this.nightLife?.destroy()
+    this.debugFps?.destroy()
     this.destroyFloatingUi()
   }
 }
