@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Rework dusk and night lighting. The old flat blue tint and four hard-edged
   centre ellipses are gone: `dayLighting` interpolates hourly keyframes from a
