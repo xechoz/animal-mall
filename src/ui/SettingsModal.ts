@@ -1,5 +1,6 @@
 import { Button, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 
 export interface SettingsOptions {
@@ -36,67 +37,68 @@ export class SettingsModal {
     this.root.add(backdrop)
 
     const cardW = Math.min(500 * ui, layout.width - 40 * ui)
-    const cardH = Math.min(390 * ui, layout.height - 40 * ui)
+    // Heading band, three setting rows, then Close as its own group. The card
+    // follows the unit scale so a narrow screen never adds a dead band.
+    const unit = Math.min(ui, cardW / 500, (layout.height - 40 * ui) / 347)
+    const cardH = 347 * unit
     const card = scene.add.container(layout.width / 2, layout.height / 2)
     this.root.add(card)
     const block = scene.add.rectangle(0, 0, cardW, cardH, 0, 0).setInteractive()
     card.add(block)
     const g = scene.add.graphics()
-    g.fillStyle(theme.shadow, 0.2)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2 + 9 * ui, cardW, cardH, 26 * ui)
-    g.fillStyle(theme.panel, 1)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 26 * ui)
-    g.lineStyle(3 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 26 * ui)
+    drawPanelFrame(g, -cardW / 2, -cardH / 2, cardW, cardH, theme, 26 * unit)
     card.add(g)
 
+    const headerY = -cardH / 2 + 40 * unit
     card.add(
       scene.add
-        .text(
-          0,
-          -cardH / 2 + 42 * ui,
-          i18n.t('settings.title'),
-          textStyle(theme, 26 * ui, theme.text, true),
-        )
+        .text(0, headerY, i18n.t('settings.title'), textStyle(theme, 26 * unit, theme.text, true))
         .setOrigin(0.5),
     )
+    card.add(
+      new Button(scene, cardW / 2 - 34 * unit, headerY, '×', theme, {
+        width: 44 * unit,
+        height: 44 * unit,
+        fontSize: 22 * unit,
+        variant: 'soft',
+        onClick: () => this.close(),
+      }),
+    )
 
-    this.soundButton = new Button(scene, 0, -cardH / 2 + 100 * ui, this.soundLabel(), theme, {
-      width: cardW - 70 * ui,
-      height: 48 * ui,
-      fontSize: 16 * ui,
+    const buttonWidth = cardW - 70 * unit
+    const buttonHeight = 48 * unit
+    const rowGap = 60 * unit
+    const firstY = -cardH / 2 + 105 * unit
+
+    this.soundButton = new Button(scene, 0, firstY, this.soundLabel(), theme, {
+      width: buttonWidth,
+      height: buttonHeight,
+      fontSize: 16 * unit,
       variant: 'soft',
       onClick: () => {
         const enabled = options.onToggleSound()
         this.soundButton.setText(this.soundLabel(enabled))
       },
     })
-    this.fullscreenButton = new Button(
-      scene,
-      0,
-      -cardH / 2 + 156 * ui,
-      this.fullscreenLabel(),
-      theme,
-      {
-        width: cardW - 70 * ui,
-        height: 48 * ui,
-        fontSize: 16 * ui,
-        variant: 'soft',
-        onClick: () => options.onToggleFullscreen(),
-      },
-    )
+    this.fullscreenButton = new Button(scene, 0, firstY + rowGap, this.fullscreenLabel(), theme, {
+      width: buttonWidth,
+      height: buttonHeight,
+      fontSize: 16 * unit,
+      variant: 'soft',
+      onClick: () => options.onToggleFullscreen(),
+    })
     this.fullscreenButton.setEnabled(options.fullscreenAvailable)
     if (!options.fullscreenAvailable) this.fullscreenButton.setAlpha(1)
     const languageButton = new Button(
       scene,
       0,
-      -cardH / 2 + 212 * ui,
+      firstY + rowGap * 2,
       i18n.t('menu.language'),
       theme,
       {
-        width: cardW - 70 * ui,
-        height: 48 * ui,
-        fontSize: 16 * ui,
+        width: buttonWidth,
+        height: buttonHeight,
+        fontSize: 16 * unit,
         variant: 'soft',
         onClick: () => options.onOpenLanguage(),
       },
@@ -104,10 +106,10 @@ export class SettingsModal {
     card.add([this.soundButton, this.fullscreenButton, languageButton])
 
     card.add(
-      new Button(scene, 0, cardH / 2 - 40 * ui, i18n.t('settings.close'), theme, {
-        width: cardW - 70 * ui,
-        height: 48 * ui,
-        fontSize: 17 * ui,
+      new Button(scene, 0, cardH / 2 - 48 * unit, i18n.t('settings.close'), theme, {
+        width: buttonWidth,
+        height: buttonHeight,
+        fontSize: 17 * unit,
         variant: 'soft',
         onClick: () => this.close(),
       }),

@@ -291,7 +291,8 @@ export class GameScene extends Phaser.Scene {
     this.buildWorld()
     this.buildHudAndInput()
     if (import.meta.env.DEV || this.services.debug) {
-      this.debugFps = new DebugFps(this, this.layout, this.services.theme)
+      // Clears the pause button and the DEV button stacked below it.
+      this.debugFps = new DebugFps(this, this.layout, this.services.theme, { topOffset: 129 })
     }
     if (this.services.debug) {
       ;(window as Window & { __animalMall?: unknown }).__animalMall = {
@@ -369,12 +370,6 @@ export class GameScene extends Phaser.Scene {
     drawCanopyBand(g, -30, -20, width + 60, Math.max(72, room.y + 18), 11)
     drawSunShaft(g, width * 0.12, Math.max(24, room.y - 18), 70, height * 0.55, 0.05)
     drawSunShaft(g, width * 0.66, Math.max(18, room.y - 30), 52, height * 0.5, 0.04)
-
-    // Mossy clearing lip behind the shop, visible only in the screen margins.
-    g.fillStyle(gameColors.mossDark, 0.55)
-    g.fillRoundedRect(room.x - 14, room.y - 14, room.w + 28, room.h + 28, 24)
-    g.fillStyle(gameColors.moss, 0.32)
-    g.fillRoundedRect(room.x - 6, room.y - 6, room.w + 12, room.h + 12, 18)
 
     const leftTree = room.x - 32
     if (leftTree > 16) drawTree(g, leftTree, room.y + room.h * 0.34, 0.9, 'oak', 'olive')

@@ -122,6 +122,11 @@ submodule. Do not copy platform source into this repo.
   gesture, it does not purchase: the dwell remains the purchase path.
 - Toasts draw above every modal and picker and size themselves to their wrapped
   copy, so a failure caused inside the shop is still visible.
+- Dialog headings are plain ink on the parchment. A filled ribbon behind a title
+  reads as an extra button and competes with the real actions, so titles are text
+  only. Shop tabs are bare labels with an accent underline and the zone chips are
+  the only capsule row in that panel. Pause keeps one button height and grades
+  its three choices by variant: filled, outlined, quiet.
 - Long action bars use capsule corners (`height / 2`). Product cards, chooser
   tiles and list rows keep the card radius; do not turn content cards into pills.
 - Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input

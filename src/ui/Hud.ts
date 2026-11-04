@@ -5,6 +5,7 @@ import { dayClockLabel, dayPhase, dayProgress } from '../logic/day'
 import { goalCost, nextGoal } from '../logic/goals'
 import type { DayPhase, ShopState, Vec2 } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
+import { drawHudGlass } from './hudGlass'
 import type { GameLayout } from './layout'
 import { type DaySkyTint, daySkyTint } from './lighting'
 import { RoundButton } from './RoundButton'
@@ -15,7 +16,7 @@ export interface HudCallbacks {
   readonly onDev?: () => void
 }
 
-const COIN_PILL_HEIGHT = 44
+const COIN_PILL_HEIGHT = 56
 const COIN_PILL_INSET = 26
 /** Layout of the day clock inside its capsule, in design units before `ui`. */
 const CLOCK_HORIZON_TOP = 7
@@ -223,10 +224,7 @@ export class Hud {
 
     const bg = this.clockBg
     bg.clear()
-    bg.fillStyle(this.theme.shadow, 0.18)
-    bg.fillRoundedRect(left, top + 3 * ui, width, height, radius)
-    bg.fillStyle(this.theme.panel, 0.96)
-    bg.fillRoundedRect(left, top, width, height, radius)
+    drawHudGlass(bg, { x: left, y: top, w: width, h: height }, this.theme, ui, 0.84)
 
     const horizonY = top + (CLOCK_HORIZON_TOP + CLOCK_HORIZON_HEIGHT) * ui
     bg.lineStyle(1.5 * ui, this.theme.muted, 0.22)
@@ -267,7 +265,7 @@ export class Hud {
       closing > 0
         ? mixColor(this.theme.borderSoft, this.theme.accent, closing * 0.85)
         : mixColor(this.theme.borderSoft, tint.band, 0.3 + pulse * 0.5)
-    bg.lineStyle(1.5 * ui + pulse * 0.8 * ui, edge, 0.9)
+    bg.lineStyle(1.2 * ui + pulse * 0.6 * ui, edge, 0.7 + pulse * 0.2)
     bg.strokeRoundedRect(left, top, width, height, radius)
 
     const point = clockArcPoint(arcLeft, arcRight, arcBaseY, arcApexY, progress)
@@ -322,22 +320,16 @@ export class Hud {
     }
   }
 
-  /** Floating coin pill: the only HUD surface left above the world. */
+  /** Floating coin pill: same frosted plate as the clock and the action buttons. */
   private drawCoinPill(): void {
     const hud = this.layout.hud
     const ui = this.layout.ui
-    const radius = (COIN_PILL_HEIGHT * ui) / 2
     const height = COIN_PILL_HEIGHT * ui
     const x = hud.coins.x - COIN_PILL_INSET * ui
     const y = hud.coins.y - height / 2
     const width = Math.max(72 * ui, this.coinsText.x - x + this.coinsText.width + 16 * ui)
 
-    this.bar.fillStyle(this.theme.shadow, 0.18)
-    this.bar.fillRoundedRect(x, y + 3 * ui, width, height, radius)
-    this.bar.fillStyle(this.theme.panel, 0.96)
-    this.bar.fillRoundedRect(x, y, width, height, radius)
-    this.bar.lineStyle(1.5 * ui, this.theme.borderSoft, 0.9)
-    this.bar.strokeRoundedRect(x, y, width, height, radius)
+    drawHudGlass(this.bar, { x, y, w: width, h: height }, this.theme, ui, 0.84)
   }
 
   setEnabled(enabled: boolean): void {

@@ -31,7 +31,7 @@ import type {
   ZoneId,
 } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
-import { drawHeaderRibbon, drawPanelFrame } from './frames'
+import { drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
 import { productTextureKey } from './productArt'
@@ -84,9 +84,11 @@ export class ShopPanel {
   private structureKey = ''
   private bodyDirty = false
   private balanceText?: Phaser.GameObjects.Text
-  private readonly tabButtons = new Map<Tab, Button>()
+  private readonly tabLabels = new Map<Tab, Phaser.GameObjects.Text>()
   private readonly zoneButtons = new Map<ZoneId, Button>()
   private readonly tabFaces = new Map<Tab, Phaser.GameObjects.Graphics>()
+  /** Desktop hover hint for the bare tab labels. */
+  private hoverTab: Tab | null = null
   private readonly zoneFaces = new Map<ZoneId, Phaser.GameObjects.Graphics>()
   private readonly dynamicButtons: DynamicButton[] = []
   private zoneChips?: Phaser.GameObjects.Container
@@ -150,6 +152,8 @@ export class ShopPanel {
     const { scene, theme, i18n } = this.options
     const modal = new Modal(scene, theme, {
       title: i18n.t('shop.removeTitle'),
+      // Plain heading, matching every other dialog in the game.
+      titleRibbon: false,
       body: i18n.t('shop.removeBody', { refund }),
       width: 560,
       height: 360,
@@ -195,10 +199,11 @@ export class ShopPanel {
     const panelX = (layout.width - layout.panelWidth) / 2
     const panelY = (layout.height - layout.panelHeight) / 2
     this.chrome.setPosition(panelX, panelY)
-    this.tabButtons.clear()
+    this.tabLabels.clear()
     this.zoneButtons.clear()
     this.tabFaces.clear()
     this.zoneFaces.clear()
+    this.hoverTab = null
     this.balanceText = undefined
 
     const ui = layout.ui
@@ -206,30 +211,33 @@ export class ShopPanel {
     const w = layout.panelWidth
     const h = layout.panelHeight
     const g = scene.add.graphics()
-    drawPanelFrame(g, 0, 0, w, h, theme, theme.radiusLarge)
-    drawHeaderRibbon(g, 18 * ui, 18, w - 36 * ui, Math.max(58, 26 * ui + 20), 14 * ui)
+    // Top leaves would sit under the heading, the balance and the close button.
+    drawPanelFrame(g, 0, 0, w, h, theme, theme.radiusLarge, false)
     this.chrome.add(g)
 
+    // The heading is plain text on the parchment. A filled ribbon here read as
+    // a fourth button and drowned out the real actions below it.
+    const headerY = 32 * ui
     const title = scene.add
-      .text(30 * ui, 38, i18n.t('shop.title'), textStyle(theme, font.title, '#fff7e8', true))
+      .text(34 * ui, headerY, i18n.t('shop.title'), textStyle(theme, font.title, theme.text, true))
       .setOrigin(0, 0.5)
     this.chrome.add(title)
 
     this.balanceText = scene.add
       .text(
-        w - 96 * ui,
-        38,
+        w - 92 * ui,
+        headerY + 1 * ui,
         i18n.t('shop.balance', { coins: this.state.coins }),
-        textStyle(theme, font.label, '#fff7e8', true),
+        textStyle(theme, font.label, theme.text, true),
       )
       .setOrigin(1, 0.5)
     this.chrome.add(this.balanceText)
 
     this.chrome.add(
-      new Button(scene, w - 38 * ui, 38, '×', theme, {
+      new Button(scene, w - 38 * ui, headerY, '×', theme, {
         width: 48 * ui,
         height: 48 * ui,
-        fontSize: 26 * ui,
+        fontSize: 24 * ui,
         minHitSize: 64 * ui,
         variant: 'soft',
         onClick: () => this.close(),
@@ -237,11 +245,13 @@ export class ShopPanel {
     )
 
     // Chrome keeps a compact, fixed vertical rhythm: scaled fonts still fit, and
-    // short landscape panels stay tall enough for the cards below.
+    // short landscape panels stay tall enough for the cards below. The heading
+    // owns its own band, so the gap down to the tabs stays wider than the gap
+    // between the tab row and the zone chips.
     this.tabHeight = 40 * ui
     this.chipHeight = 38 * ui
-    this.tabY = 58 + this.tabHeight / 2
-    this.chipY = this.tabY + this.tabHeight / 2 + 10 + this.chipHeight / 2
+    this.tabY = 92 * ui
+    this.chipY = this.tabY + this.tabHeight / 2 + 10 * ui + this.chipHeight / 2
     this.bodyTop = this.chipY + this.chipHeight / 2 + 12
     this.toolsTop = this.tabY + this.tabHeight / 2 + 14
 
@@ -253,6 +263,11 @@ export class ShopPanel {
     this.applyChromeSelection()
   }
 
+  /**
+   * Tabs are a bare text row with an accent underline for the active one. A
+   * button face here would create a second pill row right under the heading and
+   * make the filter hierarchy unreadable.
+   */
   private renderTabs(w: number): void {
     const { scene, theme, i18n } = this.options
     const ui = this.options.layout.ui
@@ -266,24 +281,37 @@ export class ShopPanel {
       { tab: 'staff', label: i18n.t('shop.staff') },
     ]
     tabs.forEach((entry, index) => {
-      const button = new Button(
-        scene,
-        30 * ui + tabWidth / 2 + index * (tabWidth + gap),
-        y,
-        entry.label,
-        theme,
-        {
-          width: tabWidth,
-          height: this.tabHeight,
-          fontSize: font.label,
-          minHitSize: 64 * ui,
-          variant: 'soft',
-          onClick: () => this.setTab(entry.tab),
-        },
+      const x = 30 * ui + tabWidth / 2 + index * (tabWidth + gap)
+      const label = scene.add
+        .text(x, y, entry.label, textStyle(theme, font.label, theme.text, true))
+        .setOrigin(0.5)
+      const underline = scene.add.graphics()
+      const barWidth = tabWidth * 0.56
+      const barHeight = 3 * ui
+      underline.fillStyle(theme.accent, 1)
+      underline.fillRoundedRect(
+        x - barWidth / 2,
+        y + this.tabHeight / 2 + 1 * ui,
+        barWidth,
+        barHeight,
+        barHeight / 2,
       )
-      this.tabButtons.set(entry.tab, button)
-      this.chrome.add(button)
-      this.tabFaces.set(entry.tab, this.addSelectionFace(button, tabWidth, this.tabHeight, ui))
+      underline.setVisible(false)
+      const hit = scene.add
+        .zone(x, y, Math.max(tabWidth, 64 * ui), Math.max(this.tabHeight, 64 * ui))
+        .setInteractive({ useHandCursor: true })
+      hit.on('pointerover', () => {
+        this.hoverTab = entry.tab
+        this.applyChromeSelection()
+      })
+      hit.on('pointerout', () => {
+        if (this.hoverTab === entry.tab) this.hoverTab = null
+        this.applyChromeSelection()
+      })
+      hit.on('pointerdown', () => this.setTab(entry.tab))
+      this.tabLabels.set(entry.tab, label)
+      this.tabFaces.set(entry.tab, underline)
+      this.chrome.add([label, underline, hit])
     })
   }
 
@@ -372,9 +400,14 @@ export class ShopPanel {
         4 * ui,
       )
     }
-    for (const [tab, face] of this.tabFaces) face.setVisible(tab === this.tab)
-    for (const [tab, button] of this.tabButtons) {
-      button.setAlpha(tab === this.tab ? 1 : 0.85)
+    for (const [tab, face] of this.tabFaces) {
+      // Idle tabs keep the underline hidden; hover only previews it faintly.
+      face.setVisible(tab === this.tab || tab === this.hoverTab)
+      face.setAlpha(tab === this.tab ? 1 : 0.3)
+    }
+    for (const [tab, label] of this.tabLabels) {
+      // 0.7 keeps the inactive labels readable on the parchment.
+      label.setAlpha(tab === this.tab ? 1 : tab === this.hoverTab ? 0.85 : 0.7)
     }
 
     this.zoneHighlight?.clear()
@@ -394,7 +427,7 @@ export class ShopPanel {
       )
     }
     for (const [zone, button] of this.zoneButtons) {
-      const inactive = this.state.zones[zone] ? 0.8 : 0.55
+      const inactive = this.state.zones[zone] ? 0.85 : 0.62
       button.setAlpha(zone === this.zone ? 1 : inactive)
     }
   }

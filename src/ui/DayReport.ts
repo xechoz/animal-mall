@@ -1,7 +1,7 @@
 import { Button, cssColor, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import type { DayReport as DayReportData } from '../logic/types'
-import { drawHeaderRibbon, drawPanelFrame } from './frames'
+import { drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 
 export interface DayReportOptions {
@@ -41,20 +41,12 @@ export class DayReport {
 
     const g = scene.add.graphics()
     drawPanelFrame(g, -cardW / 2, -cardH / 2, cardW, cardH, theme, 28 * unit)
-    drawHeaderRibbon(
-      g,
-      -cardW / 2 + 18 * unit,
-      -cardH / 2 + 16 * unit,
-      cardW - 36 * unit,
-      64 * unit,
-      14 * unit,
-    )
     card.add(g)
 
     const title = i18n.t('day.report.title', { day: report.day })
     card.add(
       scene.add
-        .text(0, -cardH / 2 + 48 * unit, title, textStyle(theme, 26 * unit, '#fff7e8', true))
+        .text(0, -cardH / 2 + 40 * unit, title, textStyle(theme, 26 * unit, theme.text, true))
         .setOrigin(0.5),
     )
 

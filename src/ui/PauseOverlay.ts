@@ -1,6 +1,6 @@
 import { Button, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { drawHeaderRibbon, drawPanelFrame } from './frames'
+import { drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 
 export interface PauseOptions {
@@ -13,9 +13,15 @@ export interface PauseOptions {
   readonly onMenu: () => void
 }
 
+/** Content height the card is designed around; used to shrink on short screens. */
+const CARD_CONTENT_HEIGHT = 282
+
 /**
  * In-run pause card. Sound, fullscreen and language live in the menu settings
  * so this stays a three-choice decision: resume, browse the shop or leave.
+ *
+ * The heading is plain text on the parchment. It used to sit in a filled
+ * ribbon, which read as a fourth button and competed with Resume.
  */
 export class PauseOverlay {
   private readonly root: Phaser.GameObjects.Container
@@ -33,56 +39,44 @@ export class PauseOverlay {
     this.root.add(backdrop)
 
     const cardW = Math.min(420 * ui, layout.width - 40 * ui)
-    const cardH = Math.min(390 * ui, layout.height - 40 * ui)
+    const unit = Math.min(ui, cardW / 420, (layout.height - 40 * ui) / CARD_CONTENT_HEIGHT)
+    const cardH = CARD_CONTENT_HEIGHT * unit
     const card = scene.add.container(layout.width / 2, layout.height / 2)
     this.root.add(card)
     const g = scene.add.graphics()
-    drawPanelFrame(g, -cardW / 2, -cardH / 2, cardW, cardH, theme, 28 * ui)
-    drawHeaderRibbon(
-      g,
-      -cardW / 2 + 18 * ui,
-      -cardH / 2 + 16 * ui,
-      cardW - 36 * ui,
-      64 * ui,
-      14 * ui,
-    )
+    drawPanelFrame(g, -cardW / 2, -cardH / 2, cardW, cardH, theme, 28 * unit)
     card.add(g)
 
+    const titleSize = 26 * unit
+    // Top padding + heading line + a group gap, then the action stack.
+    const titleY = -cardH / 2 + 30 * unit + titleSize / 2
     card.add(
       scene.add
-        .text(
-          0,
-          -cardH / 2 + 52 * ui,
-          i18n.t('pause.title'),
-          textStyle(theme, 30 * ui, '#fff7e8', true),
-        )
+        .text(0, titleY, i18n.t('pause.title'), textStyle(theme, titleSize, theme.text, true))
         .setOrigin(0.5),
     )
 
-    const buttonWidth = cardW - 80 * ui
-    const startY = -cardH / 2 + 122 * ui
-    const gap = 68 * ui
-    const resume = new Button(scene, 0, startY, i18n.t('pause.resume'), theme, {
-      width: buttonWidth,
-      height: 56 * ui,
-      fontSize: 20 * ui,
-      variant: 'primary',
-      onClick: options.onResume,
-    })
-    const shop = new Button(scene, 0, startY + gap, i18n.t('pause.shop'), theme, {
-      width: buttonWidth,
-      height: 52 * ui,
-      fontSize: 18 * ui,
-      variant: 'soft',
-      onClick: options.onShop,
-    })
-    const menu = new Button(scene, 0, startY + gap * 2, i18n.t('pause.menu'), theme, {
-      width: buttonWidth,
-      height: 48 * ui,
-      fontSize: 16 * ui,
-      variant: 'soft',
-      onClick: options.onMenu,
-    })
+    const buttonWidth = cardW - 80 * unit
+    const buttonHeight = 50 * unit
+    const gap = 62 * unit
+    const startY = titleY + titleSize / 2 + 24 * unit + buttonHeight / 2
+    const action = (
+      y: number,
+      label: string,
+      variant: 'primary' | 'soft' | 'ghost',
+      onClick: () => void,
+    ): Button =>
+      new Button(scene, 0, y, label, theme, {
+        width: buttonWidth,
+        height: buttonHeight,
+        fontSize: 18 * unit,
+        variant,
+        onClick,
+      })
+    const resume = action(startY, i18n.t('pause.resume'), 'primary', options.onResume)
+    const shop = action(startY + gap, i18n.t('pause.shop'), 'soft', options.onShop)
+    // Leaving the run is the quietest choice; only one action stays filled.
+    const menu = action(startY + gap * 2, i18n.t('pause.menu'), 'ghost', options.onMenu)
     card.add([resume, shop, menu])
   }
 

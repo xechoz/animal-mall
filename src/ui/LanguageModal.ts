@@ -8,6 +8,7 @@ import {
   textStyle,
 } from '@mg/core'
 import type Phaser from 'phaser'
+import { drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 
 export interface LanguageOptions {
@@ -38,17 +39,14 @@ export class LanguageModal {
     this.root.add(backdrop)
 
     const cardW = Math.min(620 * ui, layout.width - 32 * ui)
-    const cardH = Math.min(560 * ui, layout.height - 32 * ui)
+    // Heading, a group gap, then the language grid. The card hugs its content
+    // instead of leaving a blank band above and below the buttons.
+    const cardH = Math.min(357 * ui, layout.height - 32 * ui)
     const card = scene.add.container(layout.width / 2, layout.height / 2)
     this.root.add(card)
     card.add(scene.add.rectangle(0, 0, cardW, cardH, 0, 0).setInteractive())
     const g = scene.add.graphics()
-    g.fillStyle(theme.shadow, 0.2)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2 + 9 * ui, cardW, cardH, 26 * ui)
-    g.fillStyle(theme.panel, 1)
-    g.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 26 * ui)
-    g.lineStyle(3 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 26 * ui)
+    drawPanelFrame(g, -cardW / 2, -cardH / 2, cardW, cardH, theme, 26 * ui)
     card.add(g)
 
     card.add(
@@ -75,9 +73,10 @@ export class LanguageModal {
     const gap = 10 * ui
     const buttonWidth = (cardW - 40 * ui - gap * (columns - 1)) / columns
     const rows = Math.ceil(SUPPORTED_LANGS.length / columns)
-    const buttonHeight = Math.min(54 * ui, (cardH - 120 * ui - gap * (rows - 1)) / rows)
-    const startY =
-      -cardH / 2 + 92 * ui + (cardH - 120 * ui - (rows * buttonHeight + (rows - 1) * gap)) / 2
+    const gridTop = -cardH / 2 + 83 * ui
+    const available = cardH - 111 * ui
+    const buttonHeight = Math.min(54 * ui, (available - gap * (rows - 1)) / rows)
+    const startY = gridTop + (available - (rows * buttonHeight + (rows - 1) * gap)) / 2
 
     SUPPORTED_LANGS.forEach((lang, index) => {
       const column = index % columns

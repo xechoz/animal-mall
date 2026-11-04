@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- Unify the in-game top bar on one frosted parchment plate. The coin purse, the
+  day clock and the shop/pause buttons now share the same cream, hairline border
+  and top light; the readouts keep a slightly denser alpha so a world label
+  sliding under them cannot compete with the clock or the purse. The coin purse
+  grows to 56 so it reads as a peer of the clock and the buttons.
+
+- Remove the moss-green rounded lip that framed the shop from outside the fence.
+  The room now meets the canopy directly; the trees, ferns and lanterns still
+  separate it from the backdrop.
+
+- Restyle every dialog heading. The moss-green ribbon behind "Paused", "Shop"
+  and the day report is gone: headings are plain ink on the parchment, so they
+  stop reading as a fourth button and the real actions own the only filled
+  shapes. The shop heading row now holds the title, the balance and the close
+  button, its tabs are bare labels with an accent underline instead of a second
+  pill row, and the zone chips stay the only capsule row. Pause uses one button
+  size for all three choices (Resume filled, Shop outlined, Main Menu quiet) and
+  the card is sized to its content instead of a fixed 390 with dead space at the
+  bottom. Settings and Language share the bark-and-leaf panel frame, add the
+  missing close button, and hug their content.
+
 - Move the day clock to the horizontal centre and turn it into a dotted
   sunrise-to-sunset dial. A sun (or moon after 19:30) rides the arc from 09:00
   to 21:00, five hollow milestone rings split it into equal steps and warm up
@@ -9,6 +30,9 @@
   curve, each phase change pulses once, and the rim breathes amber after
   20:30. Day and time stay dark on the cream pill, so night never trades away
   legibility.
+
+- Move the development FPS chip from the bottom-right corner to the top-right,
+  below the pause/DEV stack in the game and below the gear in the menu.
 
 ## 0.2.0
 

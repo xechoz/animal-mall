@@ -31,6 +31,8 @@ export function drawPanelFrame(
   height: number,
   theme: Theme,
   radius = theme.radiusLarge,
+  /** Panels with a title on the top-left drop the upper leaves to clear it. */
+  topCorners = true,
 ): void {
   g.fillStyle(theme.shadow, 0.22)
   g.fillRoundedRect(x, y + 8, width, height, radius)
@@ -44,7 +46,7 @@ export function drawPanelFrame(
   g.strokeRoundedRect(x + 6, y + 6, width - 12, height - 12, Math.max(2, radius - 4))
 
   const scale = Math.min(1.15, Math.max(0.55, width / 520))
-  leafCorner(g, x + 14, y + 14, scale, 1, 1)
+  if (topCorners) leafCorner(g, x + 14, y + 14, scale, 1, 1)
   leafCorner(g, x + width - 14, y + height - 14, scale, -1, -1)
 }
 
@@ -87,26 +89,6 @@ export function drawTagFrame(
   g.lineBetween(x + 4, y + height - 3, x + width - 4, y + height - 3)
   g.fillStyle(gameColors.barkDark, 0.8)
   g.fillCircle(x + 7, y + height / 2, 1.4)
-}
-
-/** Moss-green header ribbon used by the shop panel. */
-export function drawHeaderRibbon(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius = 14,
-): void {
-  g.fillStyle(gameColors.barkDark, 1)
-  g.fillRoundedRect(x, y, width, height, radius)
-  g.fillStyle(gameColors.mossDark, 1)
-  g.fillRoundedRect(x + 2, y + 2, width - 4, height - 4, Math.max(2, radius - 2))
-  g.fillStyle(gameColors.moss, 0.55)
-  g.fillRoundedRect(x + 5, y + 5, width - 10, Math.max(3, height * 0.28), Math.max(2, radius - 4))
-  g.fillStyle(gameColors.leafLight, 0.8)
-  leafCorner(g, x + 12, y + height - 9, 0.55, 1, -1)
-  leafCorner(g, x + width - 12, y + height - 9, 0.55, -1, -1)
 }
 
 /** A low-key vine divider for lists and cards. */

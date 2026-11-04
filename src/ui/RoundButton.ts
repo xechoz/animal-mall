@@ -1,5 +1,6 @@
 import { drawIcon, type IconName, mixColor, type Theme } from '@mg/core'
 import Phaser from 'phaser'
+import { drawHudGlass } from './hudGlass'
 
 export type RoundButtonIcon = IconName | 'gear'
 
@@ -117,14 +118,10 @@ export class RoundButton extends Phaser.GameObjects.Container {
 
     // Both buttons float over the world with no bar behind them, so they carry
     // their own shadow to lift off grass and floor.
-    g.fillStyle(this.theme.shadow, 0.2)
-    g.fillCircle(0, 5, radius)
-
     if (this.variant === 'glass') {
-      // Light, semi-transparent plate: keeps the icons readable over the shop
-      // floor and the night tint without turning into an opaque chip.
-      g.fillStyle(this.theme.surface, 0.78)
-      g.fillCircle(0, 0, radius)
+      // One shared plate with the coin purse and the day clock: same cream,
+      // same hairline border and same top light.
+      drawHudGlass(g, { x: -radius, y: -radius, w: size, h: size }, this.theme, size / 64, 0.78)
       const tint = !this.enabled
         ? { color: this.theme.borderSoft, alpha: 0.4 }
         : this.pressed
@@ -134,13 +131,11 @@ export class RoundButton extends Phaser.GameObjects.Container {
             : null
       if (tint !== null) {
         g.fillStyle(tint.color, tint.alpha)
-        g.fillCircle(0, 0, radius)
+        g.fillCircle(0, 0, radius - 1)
       }
-      g.lineStyle(Math.max(1.5, size * 0.023), this.theme.borderSoft, 0.95)
-      g.strokeCircle(0, 0, radius - 1)
-      g.fillStyle(this.theme.highlight, 0.22)
-      g.fillEllipse(0, -radius * 0.42, radius * 1.05, radius * 0.42)
     } else {
+      g.fillStyle(this.theme.shadow, 0.2)
+      g.fillCircle(0, 5, radius)
       const base = this.theme.surface
       const faceColor = !this.enabled
         ? mixColor(base, this.theme.borderSoft, 0.55)
@@ -168,7 +163,7 @@ export class RoundButton extends Phaser.GameObjects.Container {
       const dot = Math.max(5, radius * 0.16)
       g.fillStyle(this.theme.accent, 1)
       g.fillCircle(dotX, dotY, dot)
-      g.lineStyle(2, this.theme.panel, 1)
+      g.lineStyle(2, this.theme.surface, 1)
       g.strokeCircle(dotX, dotY, dot)
     }
   }
