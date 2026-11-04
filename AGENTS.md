@@ -129,6 +129,10 @@ submodule. Do not copy platform source into this repo.
   its three choices by variant: filled, outlined, quiet.
 - Long action bars use capsule corners (`height / 2`). Product cards, chooser
   tiles and list rows keep the card radius; do not turn content cards into pills.
+- Shop cards take the height the grid has left. Under `CARD_COMFORT_HEIGHT` they
+  drop their secondary copy and under `CARD_SCALE_HEIGHT` their whole layout
+  scales down (`ShopPanel.cardUnit`), so a short landscape panel never pushes the
+  price button into the name. Tap targets stay at 64 units at every scale.
 - Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
   slot. Walking past a machine pours matching carried goods in until the buffer
   is full; the output tray is collected on contact.

@@ -41,6 +41,14 @@ import { drawToolIcon } from './toolArt'
 /** Cards stop growing past this height so portrait panels stay balanced. */
 const MAX_CARD_HEIGHT = 205
 const MAX_STAFF_CARD_HEIGHT = 260
+/** Height below which a card switches to its compact, secondary-copy-free layout. */
+const CARD_COMFORT_HEIGHT = 150
+/**
+ * Tightest card the compact layout can hold without collisions: name, planted
+ * line and the price button stack exactly inside it. Cards shorter than this
+ * scale down as a whole instead of letting the button ride up into the copy.
+ */
+const CARD_SCALE_HEIGHT = 112
 
 export interface ShopPanelOptions {
   readonly scene: Phaser.Scene
@@ -579,6 +587,18 @@ export class ShopPanel {
     parent.add(card)
   }
 
+  /**
+   * The grid gives a card whatever height is left over. Below the tightest
+   * compact card the whole layout shrinks with the space (`u` is the card's
+   * height in 112ths), so offsets and fonts keep their proportion and the price
+   * button can never ride up into the copy on a short landscape panel.
+   */
+  private cardUnit(height: number): { u: number; fit: number } {
+    const ui = this.options.layout.ui
+    const fit = Math.min(1, height / (CARD_SCALE_HEIGHT * ui))
+    return { u: ui * fit, fit }
+  }
+
   private renderPlants(
     parent: Phaser.GameObjects.Container,
     zone: 'fruit' | 'veg',
@@ -615,7 +635,8 @@ export class ShopPanel {
     const card = scene.add.container(x, y)
     const ui = this.options.layout.ui
     const font = this.options.layout.text
-    const compact = height < 150 * ui
+    const compact = height < CARD_COMFORT_HEIGHT * ui
+    const { u, fit } = this.cardUnit(height)
     const g = scene.add.graphics()
     const goal = this.isGoalProduct(product)
     const primary = this.primaryPlant() === product
@@ -626,29 +647,29 @@ export class ShopPanel {
     card.add(
       scene.add
         .image(
-          -width / 2 + 34 * ui,
-          -height / 2 + (compact ? 32 : 38) * ui,
+          -width / 2 + 34 * u,
+          -height / 2 + (compact ? 32 : 38) * u,
           productTextureKey(product),
         )
-        .setScale((compact ? 0.58 : 0.72) * ui),
+        .setScale((compact ? 0.58 : 0.72) * u),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 64 * ui,
-          -height / 2 + (compact ? 24 : 28) * ui,
+          -width / 2 + 64 * u,
+          -height / 2 + (compact ? 24 : 28) * u,
           this.productName(product),
-          textStyle(theme, font.label, theme.text, true),
+          textStyle(theme, font.label * fit, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 64 * ui,
-          -height / 2 + (compact ? 48 : 54) * ui,
+          -width / 2 + 64 * u,
+          -height / 2 + (compact ? 48 : 54) * u,
           i18n.t('shop.planted', { count: plantedCount(this.state, product) }),
-          textStyle(theme, font.caption, theme.textMuted, true),
+          textStyle(theme, font.caption * fit, theme.textMuted, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -658,13 +679,13 @@ export class ShopPanel {
       card.add(
         scene.add
           .text(
-            -width / 2 + 20 * ui,
-            -height / 2 + 72 * ui,
+            -width / 2 + 20 * u,
+            -height / 2 + 72 * u,
             i18n.t('shop.stats.plant', {
               price: config.price,
               grow: Math.round(config.growMs / 1000),
             }),
-            textStyle(theme, font.body, theme.textMuted),
+            textStyle(theme, font.body * fit, theme.textMuted),
           )
           .setOrigin(0, 0.5),
       )
@@ -674,13 +695,13 @@ export class ShopPanel {
     const buy = new Button(
       scene,
       0,
-      height / 2 - (compact ? 30 : 34) * ui,
+      height / 2 - (compact ? 30 : 34) * u,
       i18n.t('shop.plant', { cost }),
       theme,
       {
-        width: width - 36 * ui,
-        height: (compact ? 40 : 46) * ui,
-        fontSize: font.body,
+        width: width - 36 * u,
+        height: (compact ? 40 : 46) * u,
+        fontSize: font.body * fit,
         minHitSize: 64 * ui,
         variant: primary ? 'primary' : 'soft',
         onClick: () => {
@@ -694,8 +715,8 @@ export class ShopPanel {
       cost,
       0,
       (remaining) => i18n.t('shop.plant', { cost: remaining }),
-      width - 36 * ui,
-      (compact ? 40 : 46) * ui,
+      width - 36 * u,
+      (compact ? 40 : 46) * u,
     )
     card.add(buy)
 
@@ -782,8 +803,9 @@ export class ShopPanel {
     const font = this.options.layout.text
     // Short landscape cards have no room for a diet/recipe line once the
     // button is placed; the picker still shows the essential output stats.
-    const compact = height < 150 * ui
+    const compact = height < CARD_COMFORT_HEIGHT * ui
     const showDetail = !compact
+    const { u, fit } = this.cardUnit(height)
     const producer = this.state.producers.find(
       (candidate) => candidate.slot === slot && zoneOf(candidate.product) === zone,
     )
@@ -798,8 +820,8 @@ export class ShopPanel {
     const slotName = i18n.t(zone === 'farm' ? 'shop.pen' : 'shop.station', { n: slot + 1 })
     card.add(
       scene.add
-        .text(-width / 2 + 20 * ui, -height / 2 + 18 * ui, slotName, {
-          ...textStyle(theme, font.caption, theme.textMuted, true),
+        .text(-width / 2 + 20 * u, -height / 2 + 18 * u, slotName, {
+          ...textStyle(theme, font.caption * fit, theme.textMuted, true),
         })
         .setOrigin(0, 0.5),
     )
@@ -808,10 +830,10 @@ export class ShopPanel {
       card.add(
         scene.add
           .text(
-            -width / 2 + 20 * ui,
-            -height / 2 + (compact ? 36 : 52) * ui,
+            -width / 2 + 20 * u,
+            -height / 2 + (compact ? 36 : 52) * u,
             i18n.t(zone === 'farm' ? 'shop.emptyPen' : 'shop.emptyStation'),
-            textStyle(theme, font.label, theme.text, true),
+            textStyle(theme, font.label * fit, theme.text, true),
           )
           .setOrigin(0, 0.5),
       )
@@ -819,12 +841,12 @@ export class ShopPanel {
         card.add(
           scene.add
             .text(
-              -width / 2 + 20 * ui,
-              -height / 2 + 80 * ui,
+              -width / 2 + 20 * u,
+              -height / 2 + 80 * u,
               i18n.t(zone === 'farm' ? 'shop.emptyPenHint' : 'shop.emptyStationHint'),
               {
-                ...textStyle(theme, font.body, theme.textMuted),
-                wordWrap: { width: width - 40 * ui },
+                ...textStyle(theme, font.body * fit, theme.textMuted),
+                wordWrap: { width: width - 40 * u },
               },
             )
             .setOrigin(0, 0.5),
@@ -834,13 +856,13 @@ export class ShopPanel {
         new Button(
           scene,
           0,
-          height / 2 - (compact ? 28 : 32) * ui,
+          height / 2 - (compact ? 28 : 32) * u,
           i18n.t(zone === 'farm' ? 'shop.chooseAnimal' : 'shop.chooseMachine'),
           theme,
           {
-            width: width - 40 * ui,
-            height: (compact ? 40 : 46) * ui,
-            fontSize: font.body,
+            width: width - 40 * u,
+            height: (compact ? 40 : 46) * u,
+            fontSize: font.body * fit,
             minHitSize: 64 * ui,
             variant: primaryEmpty ? 'primary' : 'soft',
             onClick: () => this.options.onOpenProducerPicker(zone, slot),
@@ -853,52 +875,47 @@ export class ShopPanel {
     card.add(
       scene.add
         .image(
-          -width / 2 + 34 * ui,
-          -height / 2 + (compact ? 40 : 54) * ui,
+          -width / 2 + 34 * u,
+          -height / 2 + (compact ? 40 : 54) * u,
           productTextureKey(producer.product),
         )
-        .setScale((compact ? 0.56 : 0.68) * ui),
+        .setScale((compact ? 0.56 : 0.68) * u),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 62 * ui,
-          -height / 2 + (compact ? 32 : 44) * ui,
+          -width / 2 + 62 * u,
+          -height / 2 + (compact ? 32 : 44) * u,
           this.producerName(producer.product),
-          textStyle(theme, font.label, theme.text, true),
+          textStyle(theme, font.label * fit, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 62 * ui,
-          -height / 2 + (compact ? 56 : 68) * ui,
+          -width / 2 + 62 * u,
+          -height / 2 + (compact ? 56 : 68) * u,
           this.producerStats(producer.product),
-          textStyle(theme, font.body, theme.textMuted),
+          textStyle(theme, font.body * fit, theme.textMuted),
         )
         .setOrigin(0, 0.5),
     )
     if (showDetail) {
       card.add(
         scene.add
-          .text(
-            -width / 2 + 20 * ui,
-            -height / 2 + 94 * ui,
-            this.producerDetail(producer.product),
-            {
-              ...textStyle(theme, font.body, theme.textMuted),
-              wordWrap: { width: width - 40 * ui },
-            },
-          )
+          .text(-width / 2 + 20 * u, -height / 2 + 94 * u, this.producerDetail(producer.product), {
+            ...textStyle(theme, font.body * fit, theme.textMuted),
+            wordWrap: { width: width - 40 * u },
+          })
           .setOrigin(0, 0.5),
       )
     }
     card.add(
-      new Button(scene, 0, height / 2 - (compact ? 28 : 32) * ui, i18n.t('shop.replace'), theme, {
-        width: width - 40 * ui,
-        height: (compact ? 40 : 46) * ui,
-        fontSize: font.body,
+      new Button(scene, 0, height / 2 - (compact ? 28 : 32) * u, i18n.t('shop.replace'), theme, {
+        width: width - 40 * u,
+        height: (compact ? 40 : 46) * u,
+        fontSize: font.body * fit,
         minHitSize: 64 * ui,
         variant: 'soft',
         onClick: () => this.options.onOpenProducerPicker(zone, slot),
@@ -1049,6 +1066,8 @@ export class ShopPanel {
     const card = scene.add.container(x, y)
     const ui = this.options.layout.ui
     const font = this.options.layout.text
+    const compact = height < CARD_COMFORT_HEIGHT * ui
+    const { u, fit } = this.cardUnit(height)
     const g = scene.add.graphics()
     const goal = this.isGoalUpgrade(kind)
     const primary = goal
@@ -1057,15 +1076,15 @@ export class ShopPanel {
     if (goal) this.addNextTag(card, width, height)
 
     const icon = scene.add.graphics()
-    drawToolIcon(icon, kind, -width / 2 + 38 * ui, -height / 2 + 42 * ui, 24 * ui)
+    drawToolIcon(icon, kind, -width / 2 + 38 * u, -height / 2 + (compact ? 24 : 42) * u, 24 * u)
     card.add(icon)
     card.add(
       scene.add
         .text(
-          -width / 2 + 64 * ui,
-          -height / 2 + 26 * ui,
+          -width / 2 + 64 * u,
+          -height / 2 + (compact ? 22 : 26) * u,
           i18n.t(`tool.${kind}`),
-          textStyle(theme, font.label, theme.text, true),
+          textStyle(theme, font.label * fit, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -1075,30 +1094,37 @@ export class ShopPanel {
     card.add(
       scene.add
         .text(
-          narrow ? -width / 2 + 64 * ui : width / 2 - 18 * ui,
-          narrow ? -height / 2 + 50 * ui : -height / 2 + 26 * ui,
+          narrow ? -width / 2 + 64 * u : width / 2 - 18 * u,
+          narrow ? -height / 2 + (compact ? 44 : 50) * u : -height / 2 + 26 * u,
           i18n.t('shop.level', { level, max }),
-          textStyle(theme, font.body, theme.textMuted, true),
+          textStyle(theme, font.body * fit, theme.textMuted, true),
         )
         .setOrigin(narrow ? 0 : 1, 0.5),
     )
-    card.add(
-      scene.add
-        .text(
-          -width / 2 + 18 * ui,
-          -height / 2 + 62 * ui,
-          i18n.t(`tool.${kind}.desc`, { value: UPGRADE_EFFECT[kind] }),
-          { ...textStyle(theme, font.body, theme.textMuted), wordWrap: { width: width - 36 * ui } },
-        )
-        .setOrigin(0, 0),
-    )
+    // The description is the first thing to go when the card is squeezed; the
+    // effect is still readable in the upgrade line above the price.
+    if (!compact) {
+      card.add(
+        scene.add
+          .text(
+            -width / 2 + 18 * u,
+            -height / 2 + 62 * u,
+            i18n.t(`tool.${kind}.desc`, { value: UPGRADE_EFFECT[kind] }),
+            {
+              ...textStyle(theme, font.body * fit, theme.textMuted),
+              wordWrap: { width: width - 36 * u },
+            },
+          )
+          .setOrigin(0, 0),
+      )
+    }
 
     const cost = upgradeCost(kind, level)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.upgrade', { cost })
-    const buy = new Button(scene, 0, height / 2 - 32 * ui, label, theme, {
-      width: width - 36 * ui,
-      height: 44 * ui,
-      fontSize: font.body,
+    const buy = new Button(scene, 0, height / 2 - 32 * u, label, theme, {
+      width: width - 36 * u,
+      height: 44 * u,
+      fontSize: font.body * fit,
       minHitSize: 64 * ui,
       variant: cost === null ? 'soft' : primary ? 'primary' : 'soft',
       onClick: () => {
@@ -1112,8 +1138,8 @@ export class ShopPanel {
         cost,
         0,
         (remaining) => i18n.t('shop.upgrade', { cost: remaining }),
-        width - 36 * ui,
-        44 * ui,
+        width - 36 * u,
+        44 * u,
       )
     }
     card.add(buy)
@@ -1152,23 +1178,25 @@ export class ShopPanel {
     g.fillStyle(theme.surface, 1)
     const ui = this.options.layout.ui
     const font = this.options.layout.text
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
-    g.lineStyle(2 * ui, theme.borderSoft, 1)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * ui)
+    const compact = height < CARD_COMFORT_HEIGHT * ui
+    const { u, fit } = this.cardUnit(height)
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * u)
+    g.lineStyle(2 * u, theme.borderSoft, 1)
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * u)
     card.add(g)
 
     card.add(
       scene.add
-        .image(-width / 2 + 48 * ui, -height / 2 + 58 * ui, staffPortraitKey(kind))
-        .setScale(0.66 * ui * ANIMAL_SCALE),
+        .image(-width / 2 + 48 * u, -height / 2 + (compact ? 46 : 58) * u, staffPortraitKey(kind))
+        .setScale(0.66 * u * ANIMAL_SCALE),
     )
     card.add(
       scene.add
         .text(
-          -width / 2 + 84 * ui,
-          -height / 2 + 34 * ui,
+          -width / 2 + 84 * u,
+          -height / 2 + 34 * u,
           i18n.t(`staff.${kind}`),
-          textStyle(theme, font.label, theme.text, true),
+          textStyle(theme, font.label * fit, theme.text, true),
         )
         .setOrigin(0, 0.5),
     )
@@ -1178,42 +1206,47 @@ export class ShopPanel {
     card.add(
       scene.add
         .text(
-          narrow ? -width / 2 + 84 * ui : width / 2 - 18 * ui,
-          narrow ? -height / 2 + 60 * ui : -height / 2 + 34 * ui,
+          narrow ? -width / 2 + 84 * u : width / 2 - 18 * u,
+          narrow ? -height / 2 + 60 * u : -height / 2 + 34 * u,
           i18n.t('shop.level', { level, max }),
-          textStyle(theme, font.body, theme.textMuted, true),
+          textStyle(theme, font.body * fit, theme.textMuted, true),
         )
         .setOrigin(narrow ? 0 : 1, 0.5),
     )
-    card.add(
-      scene.add
-        .text(-width / 2 + 20 * ui, -height / 2 + 108 * ui, i18n.t(`staff.${kind}.desc`), {
-          ...textStyle(theme, font.body, theme.textMuted),
-          wordWrap: { width: width - 40 * ui },
-        })
-        .setOrigin(0, 0),
-    )
-
     const cost = staffCost(kind, level)
     const deposit = this.state.deposits[`staff:${kind}`] ?? 0
-    if (deposit > 0 && cost !== null) {
+    if (!compact) {
       card.add(
         scene.add
-          .text(
-            -width / 2 + 20 * ui,
-            -height / 2 + 172 * ui,
-            i18n.t('shop.depositLine', { paid: deposit, remaining: Math.max(0, cost - deposit) }),
-            textStyle(theme, font.body, theme.textMuted, true),
-          )
+          .text(-width / 2 + 20 * u, -height / 2 + 108 * u, i18n.t(`staff.${kind}.desc`), {
+            ...textStyle(theme, font.body * fit, theme.textMuted),
+            wordWrap: { width: width - 40 * u },
+          })
           .setOrigin(0, 0),
       )
+      if (deposit > 0 && cost !== null) {
+        card.add(
+          scene.add
+            .text(
+              -width / 2 + 20 * u,
+              -height / 2 + 172 * u,
+              i18n.t('shop.depositLine', {
+                paid: deposit,
+                remaining: Math.max(0, cost - deposit),
+              }),
+              textStyle(theme, font.body * fit, theme.textMuted, true),
+            )
+            .setOrigin(0, 0),
+        )
+      }
     }
+
     const remaining = cost === null ? 0 : Math.max(0, cost - deposit)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.hire', { cost: remaining })
-    const buy = new Button(scene, 0, height / 2 - 36 * ui, label, theme, {
-      width: width - 36 * ui,
-      height: 46 * ui,
-      fontSize: font.body,
+    const buy = new Button(scene, 0, height / 2 - 36 * u, label, theme, {
+      width: width - 36 * u,
+      height: 46 * u,
+      fontSize: font.body * fit,
       minHitSize: 64 * ui,
       variant: 'soft',
       onClick: () => {
@@ -1227,8 +1260,8 @@ export class ShopPanel {
         cost,
         deposit,
         (value) => i18n.t('shop.hire', { cost: value }),
-        width - 36 * ui,
-        46 * ui,
+        width - 36 * u,
+        46 * u,
       )
     }
     card.add(buy)

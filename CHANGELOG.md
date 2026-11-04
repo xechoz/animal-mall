@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Keep shop cards readable when the panel is short. The grid still hands each
+  card whatever height is left over, but below 150 UI units a card drops its
+  secondary copy (tool descriptions, staff bios and deposits on top of the crop
+  stats that already went) and below 112 it scales as a whole, so the price
+  button can no longer ride up into the name on a short landscape phone. Tap
+  targets stay at 64 units.
+
+- Paint an inline HTML/CSS splash before the game module loads. First visits used
+  to show a blank page while Phaser and the boot audio downloaded; the splash now
+  covers that window with the forest-green background, the cream wordmark and
+  three bouncing dots, then fades out on the platform's `mg:game-ready` event
+  once the menu scene starts. It is skipped for `prefers-reduced-motion`, keeps
+  `pointer-events: none` so the first tap still unlocks audio, and falls back to
+  a 30 s timeout if boot never reports ready. No gameplay, save or audio change.
+
 - Unify the in-game top bar on one frosted parchment plate. The coin purse, the
   day clock and the shop/pause buttons now share the same cream, hairline border
   and top light; the readouts keep a slightly denser alpha so a world label

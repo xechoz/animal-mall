@@ -19,9 +19,121 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <title>Animal Mall · Mini Games</title>
+    <style>
+      /* Painted before the module graph resolves, so the first visit never
+         shows a blank page while Phaser and the boot audio download. */
+      html,
+      body {
+        margin: 0;
+        background: #466a4e;
+      }
+      #mg-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        pointer-events: none;
+        color: #fff7e8;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background:
+          radial-gradient(circle at 80% 12%, rgb(243 207 122 / 30%) 0%, transparent 34%),
+          radial-gradient(circle at 12% 90%, rgb(127 174 138 / 26%) 0%, transparent 40%),
+          linear-gradient(180deg, #3f5f46 0%, #466a4e 55%, #557a58 100%);
+        transition: opacity 0.24s ease;
+      }
+      #mg-splash[data-hidden] {
+        opacity: 0;
+      }
+      #mg-splash .mg-splash__mark {
+        display: grid;
+        gap: 1.3rem;
+        justify-items: center;
+        padding: 0 1.5rem;
+        text-align: center;
+      }
+      #mg-splash .mg-splash__word {
+        font-size: clamp(2.2rem, 9.5vw, 4.8rem);
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        line-height: 0.9;
+        white-space: nowrap;
+        text-shadow: 0 0.14em 0 rgb(43 36 29 / 22%);
+      }
+      #mg-splash .mg-splash__word span {
+        color: #e0913f;
+      }
+      #mg-splash .mg-splash__dots {
+        display: flex;
+        gap: 0.55rem;
+        align-items: center;
+      }
+      #mg-splash .mg-splash__dots i {
+        width: 0.8rem;
+        height: 0.8rem;
+        border-radius: 50%;
+        background: #7fae8a;
+        animation: mg-splash-bounce 1s ease-in-out infinite;
+      }
+      #mg-splash .mg-splash__dots i:nth-child(2) {
+        background: #e0913f;
+        animation-delay: 0.12s;
+      }
+      #mg-splash .mg-splash__dots i:nth-child(3) {
+        background: #d9574f;
+        animation-delay: 0.24s;
+      }
+      @keyframes mg-splash-bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.55;
+        }
+        50% {
+          transform: translateY(-0.55rem);
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #mg-splash .mg-splash__dots i {
+          animation: none;
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="mg-splash" role="status" aria-label="Loading Animal Mall">
+      <div class="mg-splash__mark">
+        <div class="mg-splash__word">ANIMAL MALL<span>.</span></div>
+        <div class="mg-splash__dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      </div>
+    </div>
     <div id="game"></div>
+    <script>
+      ;(() => {
+        const splash = document.getElementById('mg-splash')
+        if (!splash) return
+        let hidden = false
+        const hide = () => {
+          if (hidden) return
+          hidden = true
+          splash.dataset.hidden = ''
+          window.setTimeout(() => splash.remove(), 260)
+        }
+        // Core boot emits this once the menu scene is starting; until then the
+        // splash covers both Phaser's download and the game's asset preload.
+        window.addEventListener('mg:game-ready', hide, { once: true })
+        // A failed bundle or a boot exception must not leave the splash pinned.
+        // Resource errors do not bubble, so listen in the capture phase.
+        window.addEventListener('error', hide, { once: true, capture: true })
+        // Last resort for a boot that stalls without throwing. It stays above the
+        // slow-3G case (513 kB script plus 549 kB of boot audio) so a slow but
+        // working load is never cut short into a blank canvas.
+        window.setTimeout(hide, 30000)
+      })()
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
