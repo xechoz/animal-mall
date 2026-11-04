@@ -32,6 +32,43 @@ export function dayHour(ms: number): number {
   return DAY.openHour + dayProgress(ms) * (DAY.closeHour - DAY.openHour)
 }
 
+export interface DaySkyTint {
+  /** Ambient tint for the clock rim, from morning mint to grey night. */
+  readonly band: number
+  /** The sun or moon disc, warming into the golden hour and cooling after dusk. */
+  readonly icon: number
+}
+
+const DAY_BAND = 0xbfe3d6
+const DUSK_BAND = 0xf6c98a
+const NIGHT_BAND = 0x6f7783
+const DAY_ICON = 0xf3cf7a
+const DUSK_ICON = 0xf0a35c
+const MOON_ICON = 0xe8eef2
+
+/**
+ * HUD colours for the same curve the world uses, so the clock and the shop
+ * cannot disagree about the time of day. The tint stays on the rim and the
+ * arc, keeping the cream pill and its dark time text untouched.
+ */
+export function daySkyTint(ms: number): DaySkyTint {
+  const { night, warm } = dayLighting(ms)
+  const base = mixColor(DAY_BAND, NIGHT_BAND, night)
+  const band = mixColor(base, DUSK_BAND, warm * 0.5)
+  const icon = mixColor(mixColor(DAY_ICON, DUSK_ICON, warm), MOON_ICON, night)
+  return { band, icon }
+}
+
+function mixColor(from: number, to: number, t: number): number {
+  const clamped = Math.max(0, Math.min(1, t))
+  const channel = (shift: number): number => {
+    const start = (from >> shift) & 0xff
+    const end = (to >> shift) & 0xff
+    return Math.round(start + (end - start) * clamped)
+  }
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0)
+}
+
 /** Interpolated lighting for the current frame; constant time, no allocation beyond the result. */
 export function dayLighting(ms: number): DayLighting {
   const hour = dayHour(ms)

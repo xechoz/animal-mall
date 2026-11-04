@@ -130,8 +130,8 @@ export function computeGameLayout(
     w: Math.max(240, contentWidth - (mobile ? 12 : 24) * ui),
     h: (mobile ? MOBILE_BAR_HEIGHT : BAR_HEIGHT) * ui,
   }
-  // One row on every layout: coins stay left, the clock follows the shop and
-  // pause buttons anchored to the top-right safe-area corner.
+  // One row on every layout: coins stay left, the day clock owns the middle of
+  // the content area, and shop/pause anchor to the top-right safe-area corner.
   const buttonSize = BUTTON_SIZE * ui
   const actionY = insets.top + HUD_EDGE * ui + buttonSize / 2
   const pause: Vec2 = {
@@ -139,9 +139,12 @@ export function computeGameLayout(
     y: actionY,
   }
   const shop: Vec2 = { x: pause.x - buttonSize - HUD_BUTTON_GAP * ui, y: actionY }
-  const clockWidth = 104 * ui
-  const clockHeight = 46 * ui
-  const clock: Vec2 = { x: shop.x - buttonSize * 1.55, y: actionY }
+  // Wide enough for the sun arc, the day label and the clock time. Portrait
+  // phones have the two action buttons on the same row, so the pill keeps a
+  // narrower cap there instead of sliding under the shop button.
+  const clockWidth = (portrait ? 160 : 208) * ui
+  const clockHeight = 62 * ui
+  const clock: Vec2 = { x: content.x + content.w / 2, y: actionY }
 
   return {
     width,

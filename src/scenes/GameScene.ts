@@ -925,7 +925,7 @@ export class GameScene extends Phaser.Scene {
     // Container children ignore depth, so sort by the depth values refreshed
     // above to keep actors and scenery layered by their footprint.
     this.world.sort('depth')
-    this.hud.update(this.state)
+    this.hud.update(this.state, time)
     this.mapOffers?.update(this.state)
     this.drawBedPressRing(time)
     this.showContextHints()

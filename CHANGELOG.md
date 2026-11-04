@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Move the day clock to the horizontal centre and turn it into a dotted
+  sunrise-to-sunset dial. A sun (or moon after 19:30) rides the arc from 09:00
+  to 21:00, five hollow milestone rings split it into equal steps and warm up
+  as the day advances, the passed dots and the rim follow the world lighting
+  curve, each phase change pulses once, and the rim breathes amber after
+  20:30. Day and time stay dark on the cream pill, so night never trades away
+  legibility.
+
 ## 0.2.0
 
 - Show only the nearest empty bed's price chip when the player is near. The

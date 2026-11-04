@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DAY } from '../logic/config'
-import { dayHour, dayLighting } from './lighting'
+import { dayHour, dayLighting, daySkyTint } from './lighting'
 
 function hourMs(hour: number): number {
   return ((hour - DAY.openHour) / (DAY.closeHour - DAY.openHour)) * DAY.lengthMs
@@ -33,5 +33,28 @@ describe('day lighting curve', () => {
         expect(value).toBeLessThanOrEqual(1)
       }
     }
+  })
+})
+
+describe('day sky tint', () => {
+  it('starts on the morning mint with a warm sun', () => {
+    expect(daySkyTint(0)).toEqual({ band: 0xbfe3d6, icon: 0xf3cf7a })
+  })
+
+  it('turns golden at dusk and grey at closing', () => {
+    const golden = daySkyTint(hourMs(18))
+    expect((golden.band >> 16) & 0xff).toBeGreaterThan(golden.band & 0xff)
+    expect((golden.icon >> 16) & 0xff).toBeGreaterThan(golden.icon & 0xff)
+
+    expect(daySkyTint(DAY.lengthMs)).toEqual({ band: 0x6f7783, icon: 0xe8eef2 })
+    expect(daySkyTint(DAY.lengthMs + 60_000)).toEqual({ band: 0x6f7783, icon: 0xe8eef2 })
+  })
+
+  it('keeps the band brighter at noon than at closing', () => {
+    const brightness = (color: number): number =>
+      ((color >> 16) & 0xff) + ((color >> 8) & 0xff) + (color & 0xff)
+    expect(brightness(daySkyTint(hourMs(12)).band)).toBeGreaterThan(
+      brightness(daySkyTint(DAY.lengthMs).band),
+    )
   })
 })

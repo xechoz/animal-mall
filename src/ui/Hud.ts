@@ -1,11 +1,12 @@
-import { Button, type I18n, type Theme, textStyle } from '@mg/core'
+import { Button, type I18n, mixColor, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { gameColors } from '../colors'
-import { dayClockLabel, dayPhase } from '../logic/day'
+import { DAY } from '../logic/config'
+import { dayClockLabel, dayPhase, dayProgress } from '../logic/day'
 import { goalCost, nextGoal } from '../logic/goals'
-import type { DayPhase, ShopState } from '../logic/types'
+import type { DayPhase, ShopState, Vec2 } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
 import type { GameLayout } from './layout'
+import { type DaySkyTint, daySkyTint } from './lighting'
 import { RoundButton } from './RoundButton'
 
 export interface HudCallbacks {
@@ -16,6 +17,20 @@ export interface HudCallbacks {
 
 const COIN_PILL_HEIGHT = 44
 const COIN_PILL_INSET = 26
+/** Layout of the day clock inside its capsule, in design units before `ui`. */
+const CLOCK_HORIZON_TOP = 7
+const CLOCK_HORIZON_HEIGHT = 28
+const CLOCK_ARC_INSET = 30
+const CLOCK_ARC_APEX = 15
+const CLOCK_TEXT_BASELINE = 49
+const CLOCK_TEXT_INSET = 18
+const CLOCK_MILESTONES = 5
+/** Keep one track dot per milestone centre, plus four dots between each pair. */
+const CLOCK_TRACK_DOTS = (CLOCK_MILESTONES - 1) * 5 + 1
+const CLOCK_ARC_DOT_RADIUS = 1.2
+const CLOCK_MILESTONE_RADIUS = 3.4
+const PHASE_PULSE_MS = 350
+const CLOSING_PULSE_RATE = 0.003
 
 export class Hud {
   private readonly theme: Theme
@@ -36,6 +51,8 @@ export class Hud {
   private lastCoins = -1
   private lastAffordable = false
   private lastClock = ''
+  private lastPhase: DayPhase | null = null
+  private phaseStartMs = 0
 
   constructor(
     scene: Phaser.Scene,
@@ -68,7 +85,7 @@ export class Hud {
       .setDepth(6004)
     this.clockText = scene.add
       .text(0, 0, '', textStyle(theme, layout.text.body, theme.text, true))
-      .setOrigin(0, 0.5)
+      .setOrigin(1, 0.5)
       .setDepth(6004)
 
     // Shop and pause carry their own translucent faces, so the top row needs no
@@ -124,14 +141,27 @@ export class Hud {
     this.lastCoins = -1
     this.lastAffordable = false
     this.lastClock = ''
+    this.lastPhase = null
+    this.phaseStartMs = 0
   }
 
-  update(state: ShopState): void {
-    const clock = `${state.day.index}|${dayClockLabel(state.day.ms)}|${dayPhase(state.day.ms)}`
+  update(state: ShopState, time = 0): void {
+    const ms = state.day.ms
+    const phase = dayPhase(ms)
+    if (phase !== this.lastPhase) {
+      // The first frame after a relayout must not fire a transition pulse.
+      this.phaseStartMs = this.lastPhase === null ? ms - PHASE_PULSE_MS : ms
+      this.lastPhase = phase
+    }
+    const clock = `${state.day.index}|${dayClockLabel(ms)}|${phase}`
     if (clock !== this.lastClock) {
       this.lastClock = clock
-      this.updateClock(state)
+      this.updateClockText(state)
     }
+    // Event-driven refreshes pass no frame time; only the render loop animates
+    // the sun and its glow so those calls cannot jolt the phase.
+    if (time > 0) this.drawClockFace(ms, time)
+
     if (state.coins !== this.lastCoins) {
       this.lastCoins = state.coins
       const text = String(state.coins)
@@ -156,66 +186,138 @@ export class Hud {
   private layoutClock(): void {
     const hud = this.layout.hud
     const ui = this.layout.ui
-    const x = hud.clock.x - hud.clockWidth / 2
-    const y = hud.clock.y - hud.clockHeight / 2
+    const left = hud.clock.x - hud.clockWidth / 2
+    const textY = hud.clock.y - hud.clockHeight / 2 + CLOCK_TEXT_BASELINE * ui
 
-    this.clockBg.clear()
-    this.clockBg.fillStyle(this.theme.shadow, 0.18)
-    this.clockBg.fillRoundedRect(
-      x,
-      y + 3 * ui,
-      hud.clockWidth,
-      hud.clockHeight,
-      hud.clockHeight / 2,
-    )
-    this.clockBg.fillStyle(this.theme.panel, 0.96)
-    this.clockBg.fillRoundedRect(x, y, hud.clockWidth, hud.clockHeight, hud.clockHeight / 2)
-    this.clockBg.lineStyle(1.5 * ui, this.theme.borderSoft, 0.9)
-    this.clockBg.strokeRoundedRect(x, y, hud.clockWidth, hud.clockHeight, hud.clockHeight / 2)
-
-    const textX = x + 27 * ui
-    this.dayText.setPosition(textX, hud.clock.y - 10 * ui).setFontSize(this.layout.text.caption)
-    this.clockText.setPosition(textX, hud.clock.y + 10 * ui).setFontSize(this.layout.text.body)
+    this.dayText
+      .setOrigin(0, 0.5)
+      .setPosition(left + CLOCK_TEXT_INSET * ui, textY)
+      .setFontSize(this.layout.text.caption)
+    this.clockText
+      .setOrigin(1, 0.5)
+      .setPosition(left + hud.clockWidth - CLOCK_TEXT_INSET * ui, textY)
+      .setFontSize(Math.max(18 * ui, this.layout.text.body))
   }
 
-  private updateClock(state: ShopState): void {
-    const hud = this.layout.hud
-    const ui = this.layout.ui
-    const phase = dayPhase(state.day.ms)
+  private updateClockText(state: ShopState): void {
     this.dayText.setText(this.i18n.t('day.label', { day: state.day.index }))
     this.clockText.setText(dayClockLabel(state.day.ms))
-    this.drawClockIcon(phase, hud.clock.x - hud.clockWidth / 2 + 15 * ui, hud.clock.y, 6 * ui)
   }
 
-  /** A sun by day, a horizon sun at dawn/dusk and a crescent after closing. */
-  private drawClockIcon(phase: DayPhase, x: number, y: number, radius: number): void {
+  /**
+   * A sun (or moon) rides a dotted 09:00–21:00 arc. Five milestone beads split
+   * the arc into equal steps; passed dots and the rim take their colour from
+   * the world lighting curve.
+   */
+  private drawClockFace(ms: number, time: number): void {
+    const hud = this.layout.hud
+    const ui = this.layout.ui
+    const width = hud.clockWidth
+    const height = hud.clockHeight
+    const left = hud.clock.x - width / 2
+    const top = hud.clock.y - height / 2
+    const radius = height / 2
+    const tint = daySkyTint(ms)
+    const pulse = this.phasePulse(ms)
+    const closing = this.closingPulse(ms)
+
+    const bg = this.clockBg
+    bg.clear()
+    bg.fillStyle(this.theme.shadow, 0.18)
+    bg.fillRoundedRect(left, top + 3 * ui, width, height, radius)
+    bg.fillStyle(this.theme.panel, 0.96)
+    bg.fillRoundedRect(left, top, width, height, radius)
+
+    const horizonY = top + (CLOCK_HORIZON_TOP + CLOCK_HORIZON_HEIGHT) * ui
+    bg.lineStyle(1.5 * ui, this.theme.muted, 0.22)
+    bg.lineBetween(left + 16 * ui, horizonY, left + width - 16 * ui, horizonY)
+
+    const arcLeft = left + CLOCK_ARC_INSET * ui
+    const arcRight = left + width - CLOCK_ARC_INSET * ui
+    const arcBaseY = horizonY - 2 * ui
+    const arcApexY = top + CLOCK_ARC_APEX * ui
+    const progress = dayProgress(ms)
+    const passedColor = mixColor(tint.icon, this.theme.ink, 0.45)
+    // Milestones keep more of the sun's colour so the five steps read first.
+    const milestoneColor = mixColor(tint.icon, this.theme.ink, 0.25)
+    drawClockTrack(
+      bg,
+      arcLeft,
+      arcRight,
+      arcBaseY,
+      arcApexY,
+      progress,
+      passedColor,
+      this.theme.muted,
+      ui,
+    )
+    drawClockMilestones(
+      bg,
+      arcLeft,
+      arcRight,
+      arcBaseY,
+      arcApexY,
+      progress,
+      milestoneColor,
+      this.theme.muted,
+      ui,
+    )
+
+    const edge =
+      closing > 0
+        ? mixColor(this.theme.borderSoft, this.theme.accent, closing * 0.85)
+        : mixColor(this.theme.borderSoft, tint.band, 0.3 + pulse * 0.5)
+    bg.lineStyle(1.5 * ui + pulse * 0.8 * ui, edge, 0.9)
+    bg.strokeRoundedRect(left, top, width, height, radius)
+
+    const point = clockArcPoint(arcLeft, arcRight, arcBaseY, arcApexY, progress)
+    this.drawClockBody(point, 5.5 * ui, tint, pulse, time)
+  }
+
+  /** One-shot brightness pulse when the day crosses into a new phase. */
+  private phasePulse(ms: number): number {
+    const elapsed = ms - this.phaseStartMs
+    if (elapsed <= 0 || elapsed >= PHASE_PULSE_MS) return 0
+    return 1 - elapsed / PHASE_PULSE_MS
+  }
+
+  /** Warm border breathing from 20:30 until closing, derived from the shop clock. */
+  private closingPulse(ms: number): number {
+    if (ms < DAY.lastSpawnMs || ms >= DAY.lengthMs) return 0
+    return 0.5 + 0.5 * Math.sin((ms - DAY.lastSpawnMs) * CLOSING_PULSE_RATE)
+  }
+
+  private drawClockBody(
+    point: Vec2,
+    radius: number,
+    tint: DaySkyTint,
+    pulse: number,
+    time: number,
+  ): void {
     const g = this.clockIcon
     g.clear()
-    if (phase === 'night' || phase === 'closing') {
-      g.fillStyle(gameColors.sky, 1)
-      g.fillCircle(x, y, radius)
+    const night = this.lastPhase === 'night' || this.lastPhase === 'closing'
+    const breathe = 0.5 + 0.5 * Math.sin(time * 0.0022)
+    g.fillStyle(tint.icon, (night ? 0.14 : 0.18) + breathe * 0.07 + pulse * 0.24)
+    g.fillCircle(point.x, point.y, radius * 2.2)
+    g.fillStyle(tint.icon, 1)
+    g.fillCircle(point.x, point.y, radius)
+
+    if (night) {
       g.fillStyle(this.theme.panel, 1)
-      g.fillCircle(x + radius * 0.45, y - radius * 0.18, radius * 0.88)
+      g.fillCircle(point.x + radius * 0.55, point.y - radius * 0.22, radius * 0.9)
       return
     }
 
-    g.fillStyle(this.theme.accentWarm, 1)
-    g.fillCircle(x, y, radius)
-    if (phase === 'dawn' || phase === 'dusk') {
-      g.fillStyle(this.theme.panel, 1)
-      g.fillRect(x - radius - 1, y + 1, radius * 2 + 2, radius + 2)
-      g.lineStyle(1.5, this.theme.accentWarm, 0.9)
-      g.lineBetween(x - radius - 2, y + 1, x + radius + 2, y + 1)
-      return
-    }
-    g.lineStyle(1.5, this.theme.accentWarm, 0.9)
+    g.lineStyle(radius * 0.24, tint.icon, 0.6)
+    const spin = time * 0.00012
     for (let index = 0; index < 8; index += 1) {
-      const angle = (index / 8) * Math.PI * 2
+      const angle = spin + (index / 8) * Math.PI * 2
       g.lineBetween(
-        x + Math.cos(angle) * (radius + 2),
-        y + Math.sin(angle) * (radius + 2),
-        x + Math.cos(angle) * (radius + 4),
-        y + Math.sin(angle) * (radius + 4),
+        point.x + Math.cos(angle) * radius * 1.3,
+        point.y + Math.sin(angle) * radius * 1.3,
+        point.x + Math.cos(angle) * radius * 1.62,
+        point.y + Math.sin(angle) * radius * 1.62,
       )
     }
   }
@@ -254,5 +356,59 @@ export class Hud {
       duration: 220,
       ease: 'Quad.easeOut',
     })
+  }
+}
+
+/** Point on the shallow quadratic that runs from the left horizon to the right one. */
+function clockArcPoint(left: number, right: number, baseY: number, apexY: number, t: number): Vec2 {
+  const clamped = Math.max(0, Math.min(1, t))
+  const controlY = apexY * 2 - baseY
+  const inverse = 1 - clamped
+  const y = inverse * inverse * baseY + 2 * inverse * clamped * controlY + clamped * clamped * baseY
+  return { x: left + (right - left) * clamped, y }
+}
+
+/** Small beads along the whole arc; passed beads brighten with the day. */
+function drawClockTrack(
+  g: Phaser.GameObjects.Graphics,
+  left: number,
+  right: number,
+  baseY: number,
+  apexY: number,
+  progress: number,
+  passedColor: number,
+  upcomingColor: number,
+  ui: number,
+): void {
+  for (let index = 0; index < CLOCK_TRACK_DOTS; index += 1) {
+    const t = index / Math.max(1, CLOCK_TRACK_DOTS - 1)
+    const point = clockArcPoint(left, right, baseY, apexY, t)
+    const passed = t <= progress + 0.001
+    g.fillStyle(passed ? passedColor : upcomingColor, passed ? 0.9 : 0.28)
+    g.fillCircle(point.x, point.y, CLOCK_ARC_DOT_RADIUS * ui)
+  }
+}
+
+/** Five larger beads at 09:00 / 12:00 / 15:00 / 18:00 / 21:00. */
+function drawClockMilestones(
+  g: Phaser.GameObjects.Graphics,
+  left: number,
+  right: number,
+  baseY: number,
+  apexY: number,
+  progress: number,
+  passedColor: number,
+  upcomingColor: number,
+  ui: number,
+): void {
+  for (let index = 0; index < CLOCK_MILESTONES; index += 1) {
+    const t = index / Math.max(1, CLOCK_MILESTONES - 1)
+    const point = clockArcPoint(left, right, baseY, apexY, t)
+    const passed = t <= progress + 0.001
+    // Hollow so the aligned track dot stays visible at the ring's centre.
+    g.lineStyle(1.4 * ui, passed ? passedColor : upcomingColor, passed ? 1 : 0.5)
+    g.strokeCircle(point.x, point.y, CLOCK_MILESTONE_RADIUS * ui)
+    g.fillStyle(passed ? passedColor : upcomingColor, passed ? 1 : 0.55)
+    g.fillCircle(point.x, point.y, CLOCK_ARC_DOT_RADIUS * ui)
   }
 }
