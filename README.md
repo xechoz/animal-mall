@@ -180,7 +180,7 @@ are oven, loom, BBQ grill, juicer, jam pot and churn.
   or with `?lang=zh`. French, Italian, German, Spanish, Turkish, Japanese,
   Korean, Portuguese and Russian are fully translated in the picker as well.
 - All art is drawn procedurally with Phaser Graphics; the soundtrack, drink
-  gulp, fish cast and fish splash are CC0 audio assets (see
+  gulp, stock drop, fish cast and fish splash are CC0 audio assets (see
   `src/assets/audio/*.LICENSE.txt`). The runtime makes no external requests.
 
 ## Development

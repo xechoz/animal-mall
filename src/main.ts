@@ -11,6 +11,10 @@ const eatSamples = [
   new URL('./assets/audio/eat-2.mp3', import.meta.url).href,
 ]
 const drinkGulp = new URL('./assets/audio/drink-gulp.mp3', import.meta.url).href
+const stockDropSamples = [
+  new URL('./assets/audio/stock-drop-1.mp3', import.meta.url).href,
+  new URL('./assets/audio/stock-drop-2.mp3', import.meta.url).href,
+]
 const fishCast = new URL('./assets/audio/fish-cast.mp3', import.meta.url).href
 const fishSplash = new URL('./assets/audio/fish-splash.mp3', import.meta.url).href
 const cowMoo = new URL('./assets/audio/cow-moo.mp3', import.meta.url).href
@@ -35,6 +39,7 @@ createGame({
   audioSamples: {
     slow: drinkGulp,
     diningEat: eatSamples,
+    stockDrop: stockDropSamples,
     fishCast,
     fishSplash,
     cowMoo,

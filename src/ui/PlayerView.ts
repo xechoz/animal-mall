@@ -1,13 +1,15 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { carriedKinds, carryOf, carryTotal } from '../logic/carry'
-import type { DrinkKind, PlayerState, ProductKind } from '../logic/types'
+import type { DrinkKind, PlayerState, ProductKind, Vec2 } from '../logic/types'
 import { AnimalRig, type RigPose } from './AnimalRig'
 import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
 
 const BODY_SCALE = 0.82
 const CUP_SCALE = 0.95
+/** On-screen size of one carried item, shared with the stock flight. */
+export const CARRY_ICON_SCALE = 0.46
 const DRINK_MS = 1350
 const RAISE_MS = 140
 const LOWER_MS = 1080
@@ -93,7 +95,7 @@ export class PlayerView extends AnimalRig {
     for (let index = 0; index < 5; index += 1) {
       const icon = scene.add
         .image(CARRY_HAND_X, CARRY_HAND_Y, productTextureKey('apple'))
-        .setScale(0.46)
+        .setScale(CARRY_ICON_SCALE)
         .setVisible(false)
       this.carrying.push(icon)
       this.addAbove(icon)
@@ -141,6 +143,21 @@ export class PlayerView extends AnimalRig {
   playEat(product: ProductKind): void {
     this.eat = { product, start: this.scene.time.now }
     this.food.setTexture(productTextureKey(product)).setVisible(true).setAlpha(0).setScale(0.5)
+  }
+
+  /**
+   * World point of the top carried item. Stocking happens before the next
+   * render, so this still points at the item that just left the hand.
+   */
+  handPoint(): Vec2 {
+    let top = 0
+    this.carrying.forEach((icon, index) => {
+      if (icon.visible) top = index
+    })
+    return {
+      x: this.x + this.facing * (CARRY_HAND_X + top * CARRY_LEAN),
+      y: this.y + CARRY_HAND_Y - top * CARRY_STEP,
+    }
   }
 
   updatePlayer(player: PlayerState, alpha: number, time: number, seated = false): void {

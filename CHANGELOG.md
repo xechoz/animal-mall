@@ -2,6 +2,13 @@
 
 ## 0.2.0
 
+- Make stocking readable in the world. Carried goods now leave the hand one
+  by one, arc into their shelf basket and make the basket icon and count pop on
+  landing; a full load sends up to three staggered items so the amount reads
+  without clutter. Each landing plays a new procedurally generated CC0
+  wicker/wooden drop (two takes picked at random), replacing the generic `turn`
+  click for player stocking.
+
 - Rework dusk and night lighting. The old flat blue tint and four hard-edged
   centre ellipses are gone: `dayLighting` interpolates hourly keyframes from a
   17:00 golden hour to full grey night at 21:00, the screen gets a neutral grey

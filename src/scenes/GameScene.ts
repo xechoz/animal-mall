@@ -110,10 +110,10 @@ import { MapOffers } from '../ui/MapOffers'
 import { NightLife } from '../ui/NightLife'
 import { PauseOverlay } from '../ui/PauseOverlay'
 import { PlantBedView } from '../ui/PlantBedView'
-import { PlayerView } from '../ui/PlayerView'
+import { CARRY_ICON_SCALE, PlayerView } from '../ui/PlayerView'
 import { ProducerView } from '../ui/ProducerView'
 import { createProductTextures, productTextureKey } from '../ui/productArt'
-import { ShelfView } from '../ui/ShelfView'
+import { SHELF_ICON_SCALE, ShelfView } from '../ui/ShelfView'
 import { ShopPanel } from '../ui/ShopPanel'
 import { SlotPicker } from '../ui/SlotPicker'
 import { StaffStationView } from '../ui/StaffStationView'
@@ -135,6 +135,10 @@ import { ZoneOverlay } from '../ui/ZoneOverlay'
 
 const STEP_MS = 1000 / 60
 const SAVE_EVERY_MS = 5_000
+/** Three flying goods already read as a pile; a full load stays calm. */
+const STOCK_FLY_CAP = 3
+const STOCK_FLY_MS = 280
+const STOCK_FLY_STAGGER_MS = 70
 /** Hold this long on a planted bed to open the crop swap chooser. */
 
 const MOVE_KEY_CODES: ReadonlySet<string> = new Set([
@@ -1157,7 +1161,7 @@ export class GameScene extends Phaser.Scene {
           this.sfx('eat', 0.45)
           break
         case 'stock':
-          this.sfx('turn', 0.35)
+          this.playStockFx(event.product, event.amount)
           break
         case 'scan':
           this.sfx('click', 0.45)
@@ -1424,6 +1428,72 @@ export class GameScene extends Phaser.Scene {
           this.showDayReport(event.report)
           return
       }
+    }
+  }
+
+  /**
+   * Carried goods leave the hand one by one and land in their basket. The
+   * rule state settles instantly; this layer only makes the transfer legible.
+   */
+  private playStockFx(product: ProductKind, amount: number): void {
+    const shelf = this.shelfViews[zoneOf(product)]
+    const target = shelf.binPoint(product) ?? { x: shelf.x, y: shelf.y }
+    const to = worldToScreen(this.viewCamera, target)
+    const hand = worldToScreen(this.viewCamera, this.playerView.handPoint())
+    const count = Math.min(STOCK_FLY_CAP, Math.max(1, amount))
+    const startScale = CARRY_ICON_SCALE * this.viewCamera.scale
+    const endScale = SHELF_ICON_SCALE * this.viewCamera.scale
+    const distance = Math.hypot(to.x - hand.x, to.y - hand.y)
+    const arc = 34 + Math.min(54, distance * 0.16)
+
+    for (let index = 0; index < count; index += 1) {
+      const fromX = hand.x + index * 3
+      const fromY = hand.y - index * 4
+      const icon = this.add
+        .image(fromX, fromY, productTextureKey(product))
+        .setScale(startScale)
+        .setDepth(6500)
+      const flight = { t: 0 }
+      this.tweens.add({
+        targets: flight,
+        t: 1,
+        delay: index * STOCK_FLY_STAGGER_MS,
+        duration: STOCK_FLY_MS,
+        ease: 'Sine.easeInOut',
+        onUpdate: () => {
+          const t = flight.t
+          const lift = Math.sin(t * Math.PI)
+          icon.setPosition(fromX + (to.x - fromX) * t, fromY + (to.y - fromY) * t - lift * arc)
+          icon.setRotation(lift * 0.28)
+          icon.setScale(startScale + (endScale - startScale) * t)
+        },
+        onComplete: () => {
+          icon.destroy()
+          shelf.popBin(product)
+          this.stockPuff(to.x, to.y)
+          if (this.mode === 'playing' || this.mode === 'shop') {
+            this.sfx('stockDrop', 0.46 - index * 0.07, 0.97 + index * 0.03)
+          }
+        },
+      })
+    }
+  }
+
+  /** A tiny cream puff where the goods meet the basket. */
+  private stockPuff(x: number, y: number): void {
+    for (let index = 0; index < 3; index += 1) {
+      const angle = (Math.PI * 2 * index) / 3 - Math.PI / 2
+      const puff = this.add.circle(x, y, 2.2, gameColors.cream, 0.55).setDepth(6499)
+      this.tweens.add({
+        targets: puff,
+        x: x + Math.cos(angle) * 9,
+        y: y + Math.sin(angle) * 7 - 3,
+        scale: 1.9,
+        alpha: 0,
+        duration: 240,
+        ease: 'Quad.easeOut',
+        onComplete: () => puff.destroy(),
+      })
     }
   }
 

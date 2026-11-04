@@ -209,8 +209,9 @@ submodule. Do not copy platform source into this repo.
   hit area never grows past the midpoint of the real row gap.
 - Game-specific audio keys are registered through `audioSamples` and are not
   limited to the platform `SfxName` union; use `SoundName` for helper
-  signatures. Fishing uses `fishCast` and `fishSplash`. Table meals use the
-  dedicated `diningEat` key with two CC0 crunches copied from `xechoz/snake`
+  signatures. Fishing uses `fishCast` and `fishSplash`. Player stocking uses
+  `stockDrop` with two procedurally generated CC0 wicker/wooden takes. Table
+  meals use the dedicated `diningEat` key with two CC0 crunches copied from `xechoz/snake`
   (see `src/assets/audio/eat-crunches.LICENSE.txt`); harvest, feed and customer
   pickups keep the platform's synth `eat` cue. Staff drink breaks reuse the
   vending machine's gulp sample.

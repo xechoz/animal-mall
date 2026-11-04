@@ -2,9 +2,12 @@ import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { gameColors } from '../colors'
 import { INTERACTION, plantSlotCount, ZONE_PRODUCTS } from '../logic/config'
-import type { ProductKind, ShelfState, ShopMap, ZoneId } from '../logic/types'
+import type { ProductKind, ShelfState, ShopMap, Vec2, ZoneId } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { productTextureKey } from './productArt'
+
+/** On-screen size of a shelf basket icon, shared with the stock flight. */
+export const SHELF_ICON_SCALE = 0.42
 
 export class ShelfView extends Phaser.GameObjects.Container {
   private readonly icons: Phaser.GameObjects.Image[] = []
@@ -122,7 +125,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
           -height / 2 + 15,
           productTextureKey(product ?? (products[0] as ProductKind)),
         )
-        .setScale(0.42)
+        .setScale(SHELF_ICON_SCALE)
         .setVisible(product !== null)
       this.add(icon)
       this.icons.push(icon)
@@ -263,6 +266,34 @@ export class ShelfView extends Phaser.GameObjects.Container {
         if (!this.reachOn) this.reachGlow.setVisible(false)
       },
     })
+  }
+
+  /** World position of a product's basket icon, or null when it has no bin. */
+  binPoint(product: ProductKind): Vec2 | null {
+    const index = this.bins.indexOf(product)
+    const icon = this.icons[index]
+    if (icon === undefined) return null
+    return { x: this.x + icon.x, y: this.y + icon.y }
+  }
+
+  /** A short hop so the basket acknowledges the goods that just landed in it. */
+  popBin(product: ProductKind): void {
+    const index = this.bins.indexOf(product)
+    const icon = this.icons[index]
+    if (index < 0 || icon === undefined) return
+    const count = this.counts[index]
+    this.scene.tweens.killTweensOf(icon)
+    icon.setScale(SHELF_ICON_SCALE * 1.5)
+    this.scene.tweens.add({
+      targets: icon,
+      scale: SHELF_ICON_SCALE,
+      duration: 200,
+      ease: 'Back.easeOut',
+    })
+    if (count === undefined) return
+    this.scene.tweens.killTweensOf(count)
+    count.setScale(1.4)
+    this.scene.tweens.add({ targets: count, scale: 1, duration: 220, ease: 'Back.easeOut' })
   }
 
   updateShelf(shelf: ShelfState): void {
