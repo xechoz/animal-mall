@@ -127,8 +127,8 @@ function buyTreeCandidates(state: ShopState): readonly Candidate[] {
     return {
       key: `plot:fruit:${plot.index}`,
       point: { x: plot.x, y: plot.y },
-      // The empty-bed price chip spans the top of the bed, so land the arrow
-      // just beside the right edge instead of covering the price.
+      // Land the arrow just beside the bed's right edge so the nearby price
+      // chip and the seed packet stay readable.
       marker: { x: rect.x + rect.w + 12, y: rect.y + rect.h / 2 },
       rect,
       mode: 'walk',

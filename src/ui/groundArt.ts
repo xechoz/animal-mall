@@ -113,8 +113,8 @@ export function drawTilledBed(
 
 /**
  * Empty bed: the same tilled soil plus seed holes and a small seed packet. The
- * packet sits to the right so the distant price sticker above the bed does not
- * cover it.
+ * packet is the always-on "plantable" cue; it sits to the right so the nearby
+ * price chip does not cover it.
  */
 export function drawEmptyBed(
   g: Phaser.GameObjects.Graphics,

@@ -48,9 +48,11 @@ morning.
 - The locked farm and kitchen zones can be bought in place: stand still anywhere
   inside one, or just next to it, for half a second once you can afford it. The
   shop still lists both zones as an alternative.
-- Every empty plot shows a coin price sticker, so bare soil never looks dead.
-  Tap the plot (or its sticker) to open the plant chooser immediately, or just
-  stop next to it for half a second. Fruit uses a 2×3 field and vegetables a 3×4
+- Every empty plot keeps its seed packet on the soil; the nearest one fades in a
+  coin price sticker as you approach, so bare soil never looks dead without
+  turning the field into a wall of tags. Tap the plot (or its sticker) to open
+  the plant chooser immediately, or just stop next to it for half a second. Fruit
+  uses a 2×3 field and vegetables a 3×4
   field; both grids are configuration in `src/logic/shopMap.ts`, so the counts
   can be tuned without touching save or UI code. Fruit trees and vegetable crops
   grow on their own; harvested goods go to the matching shelf.
@@ -141,9 +143,8 @@ morning.
 - Beds, pens, stations and offer labels are tappable as well. A short tap plants
   or opens an empty slot, a `INTERACTION.holdMs` long press swaps with a "Hold to
   swap" cue, and dragging farther than `INTERACTION.tapSlop` cancels both.
-  Empty-bed price stickers and labels get extra touch padding from
-  `INTERACTION`; the bed touch area stops at half the row gap so neighbouring
-  plots never overlap.
+  Visible world offer labels get extra touch padding from `INTERACTION`; the bed
+  touch area stops at half the row gap so neighbouring plots never overlap.
 - Unhappy customers show it: a missing product, a long queue or a slow checkout
   turns the patience bar red, adds angry brows and cheeks, a comic anger vein on
   the temple and flickering flames over the head with rising embers. The thought

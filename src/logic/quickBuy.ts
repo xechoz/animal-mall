@@ -389,20 +389,23 @@ export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
   return offers
 }
 
+/**
+ * Distance from a point to the offer's real interaction area. Beds, pens and
+ * stations are rectangles, so a player standing at a corner is closer than the
+ * centre point would suggest. Zone unlocks use the zone footprint instead.
+ */
+export function offerGap(state: ShopState, offer: PurchaseOffer, pos: Vec2): number {
+  if (offer.type === 'zone') return distanceToRect(pos, state.map.zoneAreas[offer.zone])
+  if ('rect' in offer) return distanceToRect(pos, offer.rect)
+  return distance(pos, offer.pos)
+}
+
 export function nearestOffer(state: ShopState, pos: Vec2): PurchaseOffer | null {
   let best: PurchaseOffer | null = null
   let bestDistance = Number.POSITIVE_INFINITY
 
   for (const offer of mapOffers(state)) {
-    const gap =
-      offer.type === 'zone'
-        ? distanceToRect(pos, state.map.zoneAreas[offer.zone])
-        : offer.type === 'plant' ||
-            offer.type === 'swap' ||
-            offer.type === 'producerSlot' ||
-            offer.type === 'producerSwap'
-          ? distanceToRect(pos, offer.rect)
-          : distance(pos, offer.pos)
+    const gap = offerGap(state, offer, pos)
     const radius =
       offer.type === 'staff'
         ? QUICK_BUY.stationRadius
@@ -445,8 +448,8 @@ export function stepQuickBuy(state: ShopState, dtMs: number, moving: boolean): S
     state.tutorial !== 'buyTree' &&
     state.tutorial !== 'done'
   // Do not pop the chooser open for a player who cannot afford even the
-  // cheapest crop in that zone. The bed's price chip still advertises it, and
-  // tapping the bed remains an explicit way to inspect the options.
+  // cheapest crop in that zone. The bed still shows its price when the player
+  // is near, and tapping the bed remains an explicit way to inspect the options.
   const plantUnaffordable = offer?.type === 'plant' && state.coins < offer.remaining
 
   if (offer === null || offer.id !== current.targetKey) {

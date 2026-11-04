@@ -8,7 +8,7 @@ import {
   purchaseStaff,
   removeProducer,
 } from './purchase'
-import { mapOffers, type PurchaseOffer } from './quickBuy'
+import { mapOffers, offerGap, type PlantOffer, type PurchaseOffer } from './quickBuy'
 import { initialSave } from './saveData'
 import { createShopState, inRegisterZone, stepShop } from './state'
 import type { GameEvent, ShopState, Vec2 } from './types'
@@ -58,6 +58,20 @@ describe('register proximity', () => {
       ),
     ).toBe(true)
     expect(inRegisterZone({ x: 120, y: 180 }, PORTRAIT_MAP)).toBe(false)
+  })
+})
+
+describe('offer distance', () => {
+  it('measures an empty bed from its rectangle, not its centre', () => {
+    const state = createShopState(initialSave(), PORTRAIT_MAP)
+    const offer = mapOffers(state).find(
+      (candidate): candidate is PlantOffer =>
+        candidate.type === 'plant' && candidate.requiresChoice,
+    )
+    if (offer === undefined) throw new Error('expected an empty plant offer')
+
+    const side = { x: offer.rect.x - 10, y: offer.rect.y + offer.rect.h / 2 }
+    expect(offerGap(state, offer, side)).toBeCloseTo(10)
   })
 })
 

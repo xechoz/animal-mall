@@ -168,9 +168,10 @@ submodule. Do not copy platform source into this repo.
   75/85/95 and only ever reward; low satisfaction never blocks customers or
   content. Do not show net profit in the report: one-off purchases would make
   every investment day look like a loss.
-- Empty beds always show a compact coin price chip and are tappable: a short tap
-  (or 500 ms dwell) opens the plant chooser. The chip shrinks to a small sticker
-  sitting on the soil until the player is near.
+- Empty beds show only the nearest bed's price chip, and only when the player is
+  near it: the tilled soil and seed packet are the always-on "plantable" cue, and
+  the chip fades in within a short radius of the bed rectangle. A short tap (or
+  500 ms dwell) still opens the plant chooser, with or without the chip.
 - Crop swapping is explicit only: a long press on the bed (`INTERACTION.holdMs`)
   or a tap on its round shovel badge opens the chooser. Standing next to a bed never
   swaps, because a harvest empties the bed under the player's feet and an

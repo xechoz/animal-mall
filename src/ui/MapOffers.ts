@@ -1,9 +1,8 @@
 import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { distance } from '../logic/collision'
 import { INTERACTION, PEN_SIZE, PLOT_SIZE, STATION_SIZE } from '../logic/config'
-import { mapOffers, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
+import { mapOffers, offerGap, type PurchaseOffer, quickBuyThreshold } from '../logic/quickBuy'
 import type { ShopState, Vec2, ZoneId } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
 import { bakeLayer, uiBakeScale } from './bakeArt'
@@ -42,10 +41,27 @@ const WIDTH = 70
 const HEIGHT = 30
 const SWAP_TAG = 34
 const SWAP_HIT = 44
+/** Empty-bed price chips fade in only when the player is near the bed. */
+const PLANT_CHIP_RANGE = 145
+const PLANT_CHIP_FADE = 25
+/** Keep the current bed until another is clearly closer, so chips never flicker. */
+const PLANT_SWITCH_MARGIN = 28
+/** Other world chips keep their existing ranges and fade bands. */
+const SLOT_CHIP_RANGE = 165
+const STAFF_CHIP_RANGE = 210
+const SWAP_CHIP_RANGE = 130
+const SWAP_CHIP_FADE = 35
 /** Fixed bake box for the tool badge, in design units before the UI scale. */
 const BADGE_BOX = { w: 96, h: 52 }
 /** Tilt the tool like a working stroke instead of standing straight up. */
 const TAG_TILT = Math.PI / 4
+
+/** How far away a world chip starts to exist, including its fade band. */
+function labelRange(offer: PurchaseOffer): number {
+  if (offer.type === 'staff') return STAFF_CHIP_RANGE
+  if (isSwapTag(offer)) return SWAP_CHIP_RANGE
+  return SLOT_CHIP_RANGE
+}
 
 function isSwapTag(
   offer: PurchaseOffer,
@@ -69,6 +85,8 @@ export class MapOffers {
   private readonly labels = new Map<string, OfferLabel>()
   private stillSince = 0
   private tagAlpha = 0
+  /** The one empty bed whose price chip is currently on screen. */
+  private plantFocusId: string | null = null
 
   constructor(
     scene: Phaser.Scene,
@@ -94,20 +112,21 @@ export class MapOffers {
     else if (this.stillSince === 0) this.stillSince = now
     const stillFor = this.stillSince === 0 ? 0 : now - this.stillSince
     this.tagAlpha = Math.max(0, Math.min(1, (stillFor - 250) / 150))
-    // Empty beds always advertise their starting price: otherwise a new player
-    // sees bare soil and never learns the field is plantable. Everything else
-    // stays distance-gated so the shop does not turn into confetti.
-    const offers = mapOffers(state)
-      .filter((offer) => {
-        if (offer.type === 'zone') return true
-        if (offer.type === 'plant' && offer.requiresChoice) return true
-        // A new player has not learned the loop yet; the shovel, pitchfork and
-        // wrench tags only add noise while the first-sale tutorial is running.
-        if (state.tutorial !== 'done' && isSwapTag(offer)) return false
-        const range = offer.type === 'staff' ? 210 : isSwapTag(offer) ? 130 : 165
-        return distance(state.player.pos, offer.pos) <= range
-      })
-      .filter((offer) => this.onScreen(offer.pos))
+    // Every world chip is proximity-gated, including empty beds. The tilled
+    // soil and seed packet are the always-on "plantable" cue; showing a price
+    // on all eighteen beds turns the field into a wall of tags.
+    const visible = mapOffers(state).filter((offer) => this.onScreen(offer.pos))
+    const plantFocusId = this.plantFocus(visible, state)
+    const offers = visible.filter((offer) => {
+      if (offer.type === 'zone') return true
+      // A new player has not learned the loop yet; the shovel, pitchfork and
+      // wrench tags only add noise while the first-sale tutorial is running.
+      if (state.tutorial !== 'done' && isSwapTag(offer)) return false
+      // Only the nearest empty bed advertises; the rest keep their own hit
+      // zones, so a short tap still opens any plot without a chip.
+      if (offer.type === 'plant' && offer.requiresChoice) return offer.id === plantFocusId
+      return offerGap(state, offer, state.player.pos) <= labelRange(offer)
+    })
     const alive = new Set<string>()
     for (const offer of offers) {
       alive.add(offer.id)
@@ -123,6 +142,37 @@ export class MapOffers {
       label.container.destroy(true)
       this.labels.delete(id)
     }
+  }
+
+  /**
+   * Empty beds are dense (the vegetable grid is only 70–80 units apart), so a
+   * radius would still light up most of the field. Show only the nearest empty
+   * bed instead; every other plot keeps its own hit zone and stays tappable.
+   */
+  private plantFocus(offers: readonly PurchaseOffer[], state: ShopState): string | null {
+    let best: PurchaseOffer | null = null
+    let bestGap = Number.POSITIVE_INFINITY
+    const maxGap = PLANT_CHIP_RANGE + PLANT_CHIP_FADE
+    for (const offer of offers) {
+      if (offer.type !== 'plant' || !offer.requiresChoice) continue
+      const gap = offerGap(state, offer, state.player.pos)
+      if (gap > maxGap || gap >= bestGap) continue
+      best = offer
+      bestGap = gap
+    }
+
+    // Keep the current bed until another is clearly closer, so walking between
+    // two rows does not make the price chip jump every few frames.
+    const previous = offers.find((offer) => offer.id === this.plantFocusId)
+    if (previous !== undefined && previous.type === 'plant' && previous.requiresChoice) {
+      const previousGap = offerGap(state, previous, state.player.pos)
+      if (previousGap <= maxGap && previousGap <= bestGap + PLANT_SWITCH_MARGIN) {
+        return previous.id
+      }
+    }
+
+    this.plantFocusId = best?.id ?? null
+    return this.plantFocusId
   }
 
   /**
@@ -201,20 +251,24 @@ export class MapOffers {
   private apply(label: OfferLabel, offer: PurchaseOffer, state: ShopState): void {
     const point = worldToScreen(this.camera, offer.pos)
     const ui = this.layout.worldUi
-    const gap = distance(state.player.pos, offer.pos)
-    const near = gap <= 165
+    const gap = offerGap(state, offer, state.player.pos)
+    const near = gap <= SLOT_CHIP_RANGE
     const tag = isSwapTag(offer)
     // Swap tags fade over the last 35 units instead of popping over the crop
     // or machine when the player walks past. The list filter stops at 130.
-    const distanceFade = tag ? Math.max(0, Math.min(1, (130 - gap) / 35)) : 1
-    const fade = tag ? distanceFade * this.tagAlpha : 1
-    // Far-away empty beds shrink to a price sticker sitting on the soil, so a
-    // new player still sees "plantable" without six full chips fighting the
-    // zone header. Selecting one expands it into the normal label.
-    const compact = offer.type === 'plant' && offer.requiresChoice && !near
+    const distanceFade = tag
+      ? Math.max(0, Math.min(1, (SWAP_CHIP_RANGE - gap) / SWAP_CHIP_FADE))
+      : 1
+    // Empty beds fade in over the same band the list filter uses, so a chip
+    // never pops into existence at full opacity.
+    const plantFade =
+      offer.type === 'plant' && offer.requiresChoice
+        ? Math.max(0, Math.min(1, (PLANT_CHIP_RANGE + PLANT_CHIP_FADE - gap) / PLANT_CHIP_FADE))
+        : 1
+    const fade = tag ? distanceFade * this.tagAlpha : plantFade
     // Four-digit zone prices need a little more room than product offers.
-    const width = (tag ? SWAP_TAG : offer.type === 'zone' ? WIDTH + 14 : compact ? 44 : WIDTH) * ui
-    const height = (tag ? SWAP_TAG : compact ? 20 : HEIGHT) * ui
+    const width = (tag ? SWAP_TAG : offer.type === 'zone' ? WIDTH + 14 : WIDTH) * ui
+    const height = (tag ? SWAP_TAG : HEIGHT) * ui
     // Empty-bed price chips sit on the soil at the plot centre. Planted crops
     // keep their labels above the canopy; animal/station labels hug the fixture
     // base so they do not cover the animal or machine.
@@ -259,13 +313,13 @@ export class MapOffers {
         height + INTERACTION.labelHitPadding * 2 * ui,
       )
     }
-    if (tag) {
-      const interactive = fade >= 0.35
-      if (label.interactive !== interactive) {
-        label.interactive = interactive
-        if (interactive) label.hit.setInteractive({ useHandCursor: true })
-        else label.hit.disableInteractive()
-      }
+    // A chip that is still fading in must not swallow a tap while nearly
+    // invisible. The bed's own hit zone remains the fallback underneath.
+    const interactive = fade >= 0.35
+    if (label.interactive !== interactive) {
+      label.interactive = interactive
+      if (interactive) label.hit.setInteractive({ useHandCursor: true })
+      else label.hit.disableInteractive()
     }
     if (offer.type === 'staff' || offer.type === 'zone') {
       // Dwell is still the purchase path; the tap explains what is missing or
@@ -286,7 +340,7 @@ export class MapOffers {
     // crisp at every device pixel ratio. The key tracks only the shape and
     // affordability, never the price.
     const drawKey = [
-      tag ? 't' : compact ? 'c' : 'f',
+      tag ? 't' : 'f',
       offer.type,
       'zone' in offer ? offer.zone : '',
       width,
@@ -309,7 +363,7 @@ export class MapOffers {
       (offer.type === 'plant' && !offer.requiresChoice) || offer.type === 'staff',
     )
     const showBadge =
-      (offer.type === 'plant' && offer.requiresChoice && !compact) ||
+      (offer.type === 'plant' && offer.requiresChoice) ||
       offer.type === 'zone' ||
       tag ||
       offer.type === 'producerSlot'
@@ -347,13 +401,8 @@ export class MapOffers {
     const showPrice = !tag
     label.coin.setVisible(showPrice)
     label.price.setVisible(showPrice)
-    if (compact) {
-      label.coin.setPosition(-13 * ui, 0).setScale(0.32 * ui)
-      label.price.setPosition(-2 * ui, 0).setFontSize(11 * ui)
-    } else {
-      label.coin.setPosition(-3 * ui, 0).setScale(0.42 * ui)
-      label.price.setPosition(7 * ui, 0).setFontSize(13 * ui)
-    }
+    label.coin.setPosition(-3 * ui, 0).setScale(0.42 * ui)
+    label.price.setPosition(7 * ui, 0).setFontSize(13 * ui)
     label.price.setText(
       isSwapTag(offer)
         ? ''

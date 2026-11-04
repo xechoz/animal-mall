@@ -2,6 +2,11 @@
 
 ## 0.2.0
 
+- Show only the nearest empty bed's price chip when the player is near. The
+  tilled soil and seed packet remain the always-on "plantable" cue, the compact
+  far-away sticker is gone, and the chip fades in within roughly 145 units of the
+  bed rectangle. Tapping the bed and the 500 ms dwell are unchanged.
+
 - Make stocking readable in the world. Carried goods now leave the hand one
   by one, arc into their shelf basket and make the basket icon and count pop on
   landing; a full load sends up to three staggered items so the amount reads
