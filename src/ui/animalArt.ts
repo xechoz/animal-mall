@@ -375,7 +375,7 @@ const BLINK_EYES: Readonly<Record<SpeciesId, readonly BlinkEye[]>> = {
 export function blinkEyes(species: SpeciesId, view: AnimalView = 'front'): readonly BlinkEye[] {
   if (view === 'back' || view === 'backSide') return []
   if (view === 'front') return BLINK_EYES[species]
-  const turn = view === 'side' ? 1 : 0.55
+  const turn = view === 'side' ? 1 : FRONT_SIDE_TURN
   const near = turnedEye(species, turn, false)
   if (view === 'side') return [near]
   const far = turnedEye(species, turn, true)
@@ -408,9 +408,12 @@ export function playerPartKey(part: AnimalPart, view: AnimalView = 'front'): str
   return view === 'front' ? `animal-player-${part}` : `animal-player-${view}-${part}`
 }
 
-/** Turned views need a leg with a real foot; only the straight-on views keep the front paw. */
+/**
+ * The shallow seven-eighths view keeps the front paw; only the full side view
+ * needs the profile leg and toe.
+ */
 export function pawView(view: AnimalView): 'front' | 'side' {
-  return view === 'front' || view === 'back' ? 'front' : 'side'
+  return view === 'side' || view === 'backSide' ? 'side' : 'front'
 }
 
 export function createAnimalTextures(scene: Phaser.Scene): void {
@@ -694,6 +697,9 @@ interface TurnHead {
   readonly blushX: number
   readonly blushY: number
 }
+
+/** A seven-eighths front view: only a slight turn away from the camera. */
+const FRONT_SIDE_TURN = 0.2
 
 const TURN_HEADS: Readonly<Record<SpeciesId, TurnHead>> = {
   bear: {
@@ -1019,7 +1025,7 @@ function drawTurnedHead(
   player: boolean,
   view: AnimalView,
 ): void {
-  const turn = view === 'side' ? 1 : view === 'back' ? 0 : 0.55
+  const turn = view === 'side' ? 1 : view === 'back' ? 0 : FRONT_SIDE_TURN
   if (view === 'back' || view === 'backSide') drawTurnedBackHead(g, species, s, player, turn)
   else drawTurnedFaceHead(g, species, s, player, turn)
 }
@@ -1129,7 +1135,7 @@ function drawTurnedFaceHead(
   turn: number,
 ): void {
   const head = TURN_HEADS[species]
-  const farScale = 1 - 0.18 * turn
+  const farScale = 1 - 0.45 * turn
   const nearScale = 1
 
   if (species === 'deer') drawAntlers(g, turn)
@@ -1139,7 +1145,7 @@ function drawTurnedFaceHead(
       species,
       s,
       head,
-      64 - head.earX * (1 - 0.28 * turn),
+      64 - head.earX * (1 - 0.42 * turn),
       head.earY,
       farScale,
       -1,
@@ -1217,7 +1223,7 @@ function drawTurnedMuzzle(
   turn: number,
 ): void {
   if (head.muzzle === 'none') return
-  const mx = 64 + (1 + head.muzzleW * 0.24) * turn
+  const mx = 64 + (6 + head.muzzleW * 0.28) * turn
   const my = head.muzzleY
   if (head.muzzle === 'beak') {
     const tip = mx + head.muzzleW * (0.55 + 0.25 * turn)
@@ -1380,7 +1386,7 @@ function drawTurnedNoseAndMouth(
   head: TurnHead,
   turn: number,
 ): void {
-  const mx = 64 + (1 + head.muzzleW * 0.24) * turn
+  const mx = 64 + (6 + head.muzzleW * 0.28) * turn
   const my = head.muzzleY
   if (head.muzzle === 'pig' || head.muzzle === 'wide') return
   if (head.muzzle === 'beak') {
@@ -1587,7 +1593,11 @@ function drawTurnedBody(
   player: boolean,
   view: AnimalView,
 ): void {
-  const turn = view === 'side' ? 1 : view === 'back' ? 0 : 0.55
+  if (player && view === 'frontSide') {
+    drawBearBody(g, s, true)
+    return
+  }
+  const turn = view === 'side' ? 1 : view === 'back' ? 0 : FRONT_SIDE_TURN
   const backView = view === 'back' || view === 'backSide'
   const isOwl = species === 'owl'
   const isFrog = species === 'frog'
@@ -1672,7 +1682,7 @@ function drawTurnedBody(
 
   if (player) drawApronTurned(g, view, turn)
   // The near arm hangs over the apron, so it goes on last.
-  if (view !== 'back') drawTurnedNearArm(g, species, s, bodyY, turn)
+  if (view !== 'back') drawTurnedNearArm(g, species, s, bodyY, 76 + 6 * turn)
 }
 
 /** Round torso for the straight-from-behind view; the head carries the identity. */
@@ -1761,9 +1771,8 @@ function drawTurnedNearArm(
   species: SpeciesId,
   s: AnimalStyle,
   bodyY: number,
-  turn: number,
+  x: number,
 ): void {
-  const x = 72 + 3 * turn
   const top = bodyY - 4
   const height = 12
   const width = species === 'panda' ? 12 : 11
@@ -1803,7 +1812,7 @@ function drawHedgehogSpines(
   s: AnimalStyle,
   view: AnimalView,
 ): void {
-  const turn = view === 'side' ? 1 : view === 'back' ? 0 : 0.55
+  const turn = view === 'side' ? 1 : view === 'back' ? 0 : FRONT_SIDE_TURN
   for (let index = 0; index < 13; index += 1) {
     const x = 26 + index * 6.3
     const tipY = 50 + Math.abs(6 - index) * 3
@@ -1856,27 +1865,32 @@ function drawSidePawArt(
   x: number,
   y: number,
 ): void {
-  const legWidth = species === 'rabbit' ? 10 : species === 'hedgehog' ? 7 : 9
-  const footWidth = species === 'rabbit' ? 20 : species === 'hedgehog' ? 12 : 16
+  const legWidth = species === 'rabbit' ? 9 : species === 'hedgehog' ? 6 : 8
+  const footWidth = species === 'rabbit' ? 16 : species === 'hedgehog' ? 10 : 14
   const bird = species === 'duck' || species === 'owl'
   const panda = species === 'panda'
   const legColor = bird ? BEAK : panda ? INK : s.bodyDark
   const highlight = bird ? 0xffc76a : panda ? 0x4a4045 : s.body
   const footColor = bird ? BEAK : panda ? INK : s.bodyDark
   const top = y - 14
+  const footX = x + 1
 
   g.fillStyle(INK, 1)
   g.fillRoundedRect(x - legWidth / 2 - 1, top - 1, legWidth + 2, 16, legWidth / 2 + 1)
-  g.fillEllipse(x, y, footWidth + 2, 11)
+  g.fillEllipse(footX + 1, y, footWidth + 2, 10)
   g.fillStyle(legColor, 1)
   g.fillRoundedRect(x - legWidth / 2, top, legWidth, 14, legWidth / 2)
   g.fillStyle(highlight, 1)
   g.fillRoundedRect(x - legWidth / 2 + 2, top + 2, Math.max(2, legWidth - 4), 10, 2)
   g.fillStyle(footColor, 1)
-  g.fillEllipse(x, y - 1, footWidth, 9)
+  g.fillEllipse(footX, y - 1, footWidth, 8)
+  // The toe points along the facing direction and the sole grounds the step.
+  g.fillEllipse(footX + footWidth * 0.32, y - 1, footWidth * 0.44, 7)
+  g.fillStyle(INK, 0.2)
+  g.fillEllipse(footX + 2, y + 2, footWidth * 0.62, 2.4)
   g.lineStyle(1, INK, 0.3)
-  g.lineBetween(x - 2, y + 1, x - 2, y + 5)
-  g.lineBetween(x + 2, y + 1, x + 2, y + 5)
+  g.lineBetween(footX - 2, y, footX - 2, y + 4)
+  g.lineBetween(footX + 2, y, footX + 2, y + 4)
 }
 
 function drawPawArt(

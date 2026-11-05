@@ -22,6 +22,7 @@ import {
   headingAngle,
   mirrorForHeading,
   normaliseHeading,
+  strideAxisForView,
   turnPath,
   viewForHeading,
 } from './heading'
@@ -69,26 +70,52 @@ const TELEPORT_DISTANCE = 64
  */
 const FOOT_GAP: Readonly<Record<AnimalView, number>> = {
   front: ANIMAL_FOOT_GAP,
-  frontSide: 18,
-  side: 22,
-  backSide: 18,
+  frontSide: ANIMAL_FOOT_GAP,
+  side: 8,
+  backSide: ANIMAL_FOOT_GAP,
   back: ANIMAL_FOOT_GAP,
 }
 
 const FOOT_SHIFT: Readonly<Record<AnimalView, number>> = {
   front: 0,
-  frontSide: -6,
-  side: -10,
-  backSide: -7,
+  frontSide: 0,
+  side: -1,
+  backSide: 0,
   back: 0,
 }
 
-/** Turned legs need a longer stride than the hidden front paws. */
+/**
+ * The turned stride can be wider than the old 0.5 clamp now that the near foot
+ * is lowered and the far foot raised; the legs swing without collapsing into
+ * one silhouette. Hop gaits bypass this factor and keep their landing splay.
+ */
 const FOOT_MOTION: Readonly<Record<AnimalView, number>> = {
+  front: 0.85,
+  frontSide: 0.45,
+  side: 0.6,
+  backSide: 0.8,
+  back: 0.85,
+}
+
+/**
+ * Horizontal swing and vertical pickup are separate: multiplying the lift by
+ * the turned stride made a three-quarter foot rise barely one pixel and read as
+ * a slide. The turned views get a full pickup; the front and back keep the old
+ * damping.
+ */
+const FOOT_LIFT: Readonly<Record<AnimalView, number>> = {
+  front: 0.85,
+  frontSide: 1.3,
+  side: 1,
+  backSide: 1.3,
+  back: 0.85,
+}
+
+const FOOT_ROLL: Readonly<Record<AnimalView, number>> = {
   front: 1,
-  frontSide: 1.15,
-  side: 1.35,
-  backSide: 1.15,
+  frontSide: 0.15,
+  side: 0.35,
+  backSide: 0.55,
   back: 1,
 }
 
@@ -107,9 +134,11 @@ export class AnimalRig extends Phaser.GameObjects.Container {
   protected readonly headImage: Phaser.GameObjects.Image
   protected readonly tailImage: Phaser.GameObjects.Image
   private readonly feet: Phaser.GameObjects.Container
+  private readonly feetNear: Phaser.GameObjects.Container
   private readonly front: Phaser.GameObjects.Container
   private readonly pawLeft: Phaser.GameObjects.Image
   private readonly pawRight: Phaser.GameObjects.Image
+  private readonly pawNear: Phaser.GameObjects.Image
   private readonly blinkArt: Phaser.GameObjects.Graphics
   private readonly motion: GaitAnimator
   private readonly baseScale: number
@@ -194,6 +223,16 @@ export class AnimalRig extends Phaser.GameObjects.Container {
       .setScale(displayScale)
     this.lift.add(this.bodyImage)
 
+    // The near-side leg is a second, later-rendered foot so it can sit in front
+    // of the body instead of disappearing behind it in the turned views.
+    this.feetNear = scene.add.container(0, 0)
+    this.pawNear = scene.add
+      .image(0, 0, this.partKey('paw', 'front'))
+      .setOrigin(0.5, 0.9)
+      .setScale(displayScale)
+    this.feetNear.add(this.pawNear)
+    this.lift.add(this.feetNear)
+
     this.headImage = scene.add
       .image(0, 0, this.partKey('head', 'front'))
       .setOrigin(0.5, 0.9)
@@ -210,6 +249,7 @@ export class AnimalRig extends Phaser.GameObjects.Container {
     this.tailImage.setDepth(0)
     this.feet.setDepth(1)
     this.bodyImage.setDepth(2)
+    this.feetNear.setDepth(2.5)
     this.headImage.setDepth(3)
     this.front.setDepth(4)
     this.lift.bringToTop(this.headImage)
@@ -252,6 +292,7 @@ export class AnimalRig extends Phaser.GameObjects.Container {
       this.tailImage,
       this.pawLeft,
       this.pawRight,
+      this.pawNear,
     ]
     for (const part of parts) {
       if (color === null) part.clearTint()
@@ -283,18 +324,89 @@ export class AnimalRig extends Phaser.GameObjects.Container {
       frame.squashX * frame.turn * (pose.scaleX ?? 1),
       frame.squashY * (pose.scaleY ?? 1),
     )
-    const leanX = Math.cos(headingAngle(this.headingValue))
+    // Only the three-quarter view leans across the screen; the front and back
+    // poses stay upright even while the input vector is diagonal.
+    const leanX =
+      this.viewValue === 'frontSide' || this.viewValue === 'side' || this.viewValue === 'backSide'
+        ? Math.cos(headingAngle(this.headingValue))
+        : 0
     this.lift.setRotation(frame.rock + frame.lean * leanX + (pose.rotation ?? 0))
 
     const gap = FOOT_GAP[this.viewValue] * this.baseScale
     const shift = FOOT_SHIFT[this.viewValue] * this.baseScale
-    const motion = FOOT_MOTION[this.viewValue]
+    const sideLeg =
+      this.viewValue === 'side' || this.viewValue === 'frontSide' || this.viewValue === 'backSide'
+    // Hop feet keep their full landing splay; walkers use the tuned stride.
+    const motion = frame.grounded ? FOOT_MOTION[this.viewValue] : 1
+    const pickup = frame.grounded ? FOOT_LIFT[this.viewValue] : 1
+    const roll = FOOT_ROLL[this.viewValue]
+    // A turned stance needs depth: the near foot is lower and the far foot is
+    // smaller and higher, so the pair reads as fore/aft instead of side by side.
+    const shallow = this.viewValue === 'frontSide'
+    const farY = shallow ? 0 : sideLeg ? -2 : 0
+    const nearY = shallow ? 0 : sideLeg ? 3 : 0
+    const farScale = shallow ? 1 : sideLeg ? 0.9 : 1
+    const axis = strideAxisForView(this.viewValue)
     const liftScaleY = frame.squashY * (pose.scaleY ?? 1)
-    this.feet.setScale(this.mirrorValue, 1)
     // The body bobs on the planted leg instead of carrying both feet with it.
-    this.feet.setY(frame.grounded ? (frame.lift - (pose.y ?? 0)) / liftScaleY : 0)
-    this.placeFoot(this.pawLeft, shift, frame.footLeft, motion)
-    this.placeFoot(this.pawRight, shift + gap, frame.footRight, motion)
+    const footY = frame.grounded ? (frame.lift - (pose.y ?? 0)) / liftScaleY : 0
+    this.feet.setScale(this.mirrorValue, 1).setY(footY)
+    this.feetNear.setScale(this.mirrorValue, 1).setY(footY)
+    if (sideLeg && !shallow) {
+      this.pawRight.setVisible(false)
+      this.pawNear.setVisible(true)
+      this.placeFoot(
+        this.pawLeft,
+        shift,
+        farY,
+        frame.footLeft,
+        motion,
+        pickup,
+        roll,
+        farScale,
+        axis.x,
+        axis.y,
+      )
+      this.placeFoot(
+        this.pawNear,
+        shift + gap,
+        nearY,
+        frame.footRight,
+        motion,
+        pickup,
+        roll,
+        1,
+        axis.x,
+        axis.y,
+      )
+    } else {
+      this.pawRight.setVisible(true)
+      this.pawNear.setVisible(false)
+      this.placeFoot(
+        this.pawLeft,
+        shift,
+        0,
+        frame.footLeft,
+        motion,
+        pickup,
+        roll,
+        1,
+        axis.x,
+        axis.y,
+      )
+      this.placeFoot(
+        this.pawRight,
+        shift + gap,
+        0,
+        frame.footRight,
+        motion,
+        pickup,
+        roll,
+        1,
+        axis.x,
+        axis.y,
+      )
+    }
 
     this.bodyImage.setScale(this.mirrorValue * this.baseScale, this.baseScale)
     this.headImage
@@ -338,7 +450,6 @@ export class AnimalRig extends Phaser.GameObjects.Container {
       const next = path[0] ?? target
       this.displayHeading = normaliseHeading(next)
       this.nextTurnAt = now + TURN_STEP_MS
-      this.motion.notifyTurn(now)
     }
 
     this.headingValue = this.displayHeading
@@ -363,6 +474,14 @@ export class AnimalRig extends Phaser.GameObjects.Container {
     const pawKey = this.partKey('paw', paw)
     this.pawLeft.setTexture(pawKey)
     this.pawRight.setTexture(pawKey)
+    this.pawNear.setTexture(pawKey)
+    const sideLeg = view === 'side' || view === 'backSide'
+    this.pawNear.setVisible(sideLeg)
+    this.pawRight.setVisible(!sideLeg)
+    // The shallow horizontal view keeps both feet in the front layer so they
+    // read as one left and one right paw instead of a near foot hiding the far
+    // one behind the body.
+    this.feet.setDepth(view === 'frontSide' ? 2.5 : 1)
 
     // From behind the tail sits on the back, not behind the silhouette, but it
     // still belongs under the head so a squirrel tail cannot cover the ears.
@@ -387,12 +506,21 @@ export class AnimalRig extends Phaser.GameObjects.Container {
   private placeFoot(
     paw: Phaser.GameObjects.Image,
     baseX: number,
+    baseY: number,
     foot: GaitFrame['footLeft'],
     motion: number,
+    pickup: number,
+    roll: number,
+    scale: number,
+    strideX: number,
+    strideY: number,
   ): void {
-    paw.setPosition(baseX + foot.x * motion, foot.y * motion)
-    paw.setRotation(foot.rotation)
-    paw.setScale(this.baseScale, this.baseScale * foot.scaleY)
+    paw.setPosition(
+      baseX + foot.x * motion * strideX,
+      baseY + foot.x * motion * strideY - foot.y * pickup,
+    )
+    paw.setRotation(foot.rotation * roll)
+    paw.setScale(this.baseScale * scale, this.baseScale * foot.scaleY * scale)
   }
 
   private updateBlink(frame: GaitFrame): void {

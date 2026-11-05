@@ -6,6 +6,7 @@ import {
   headingDistance,
   headingFromVector,
   mirrorForHeading,
+  strideAxisForView,
   turnPath,
   viewForHeading,
 } from './heading'
@@ -22,18 +23,26 @@ describe('heading sectors', () => {
     expect(headingFromVector(-1, 1)).toBe(7)
   })
 
-  it('maps the eight headings to five art views', () => {
+  it('maps the eight headings to three movement views', () => {
     const headings: Heading[] = [0, 1, 2, 3, 4, 5, 6, 7]
     expect(headings.map((heading) => viewForHeading(heading))).toEqual([
       'front',
+      'front',
       'frontSide',
-      'side',
-      'backSide',
       'back',
-      'backSide',
-      'side',
+      'back',
+      'back',
       'frontSide',
+      'front',
     ])
+  })
+
+  it('keeps the foot stride on the facing axis', () => {
+    expect(strideAxisForView('front')).toEqual({ x: 0, y: 1 })
+    expect(strideAxisForView('back')).toEqual({ x: 0, y: -1 })
+    expect(strideAxisForView('frontSide')).toEqual({ x: 1, y: 0 })
+    expect(strideAxisForView('side')).toEqual({ x: 1, y: 0 })
+    expect(strideAxisForView('backSide')).toEqual({ x: 1, y: 0 })
   })
 
   it('mirrors only the left half of the base art', () => {

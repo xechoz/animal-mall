@@ -79,7 +79,7 @@ describe('animal art registry', () => {
   it('uses the leg-and-foot art for every turned view', () => {
     expect(pawView('front')).toBe('front')
     expect(pawView('back')).toBe('front')
-    expect(pawView('frontSide')).toBe('side')
+    expect(pawView('frontSide')).toBe('front')
     expect(pawView('side')).toBe('side')
     expect(pawView('backSide')).toBe('side')
   })

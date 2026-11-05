@@ -175,10 +175,10 @@ export class StaffView extends AnimalRig {
   private contextHeading(member: StaffState): Heading | null {
     if (member.moving) return null
     const side = member.facing
-    if (member.phase === 'dining' || member.phase === 'drinking' || member.phase === 'resting') {
-      return side > 0 ? 2 : 6
-    }
     if (
+      member.phase === 'dining' ||
+      member.phase === 'drinking' ||
+      member.phase === 'resting' ||
       member.phase === 'cashier' ||
       member.phase === 'idle' ||
       member.phase === 'harvest' ||
@@ -186,7 +186,7 @@ export class StaffView extends AnimalRig {
       member.phase === 'feed' ||
       member.phase === 'load'
     ) {
-      return side > 0 ? 1 : 7
+      return side > 0 ? 2 : 6
     }
     return null
   }

@@ -224,6 +224,10 @@ const PROFILES: Readonly<Record<SpeciesId, GaitProfile>> = {
   },
 }
 
+/**
+ * The shopkeeper keeps the original waddle. A hop was tried for the side view,
+ * but the player should read as walking like the rest of the cast.
+ */
 const PLAYER_PROFILE: GaitProfile = {
   kind: 'waddle',
   stride: 56,
@@ -302,7 +306,6 @@ export class GaitAnimator {
   private lastX = 0
   private lastY = 0
   private lastNow = Number.NaN
-  private turnAt = Number.NEGATIVE_INFINITY
   private nextBlinkAt = Number.POSITIVE_INFINITY
   private blinkUntil = 0
   private blinkCount = 0
@@ -360,54 +363,48 @@ export class GaitAnimator {
     return this.frame(now, load)
   }
 
-  /** The renderer calls this when the visible facing actually changes. */
-  notifyTurn(now: number): void {
-    this.turnAt = now
-  }
-
   private frame(now: number, load: number): GaitFrame {
     const profile = this.profile
+    const hop = profile.kind === 'hop'
     const weight = this.weight
     const cargo = clamp(load, 0, 1)
     const weightScale = weight * (1 - 0.25 * cargo)
     const phase = this.phaseValue
     const wave = Math.sin(phase * TAU)
-    const air = profile.kind === 'hop' ? Math.sin(phase * Math.PI) : Math.abs(wave)
-    const contact =
-      profile.kind === 'hop' ? Math.abs(Math.cos(phase * Math.PI)) : 1 - Math.abs(wave)
+    // A walking torso stays still: the legs carry the motion. Hop profiles keep
+    // their airborne arc, squash and sway.
+    const air = hop ? Math.sin(phase * Math.PI) : 0
+    const contact = hop ? Math.abs(Math.cos(phase * Math.PI)) : 0
     const impact = contact ** 8
     const idle = 1 - weight
-    const breath = Math.sin(now * 0.0016 + this.seed * TAU) * 0.012 * idle
+    const breath = hop ? Math.sin(now * 0.0016 + this.seed * TAU) * 0.012 * idle : 0
     const lift = air * profile.lift * this.motionScale * weightScale
-    const squash = profile.squash * weight
-    const squashY = 1 - squash * impact + squash * 0.45 * air + breath
-    const squashX = 1 + squash * impact * 0.55 - squash * 0.2 * air - breath * 0.5
-    const rock = wave * profile.rock * weight
-    const sway =
-      -wave * profile.sway * this.motionScale * weight +
-      Math.sin(now * 0.0009 + this.seed * TAU) * 0.5 * idle * this.motionScale
+    const squash = hop ? profile.squash * weight : 0
+    const squashY = hop ? 1 - squash * impact + squash * 0.45 * air + breath : 1
+    const squashX = hop ? 1 + squash * impact * 0.55 - squash * 0.2 * air - breath * 0.5 : 1
+    const rock = hop ? wave * profile.rock * weight : 0
+    const sway = hop
+      ? -wave * profile.sway * this.motionScale * weight +
+        Math.sin(now * 0.0009 + this.seed * TAU) * 0.5 * idle * this.motionScale
+      : 0
     const speedNorm = clamp(this.speed / 140, 0, 1)
-    const lean = profile.lean * speedNorm * weight + 0.02 * cargo
+    const lean = hop ? profile.lean * speedNorm * weight + 0.02 * cargo : 0
 
     const liftAt = (value: number): number => {
       const wrapped = ((value % 1) + 1) % 1
-      return profile.kind === 'hop'
-        ? Math.sin(wrapped * Math.PI)
-        : Math.abs(Math.sin(wrapped * TAU))
+      return hop ? Math.sin(wrapped * Math.PI) : 1 - Math.abs(Math.sin(wrapped * TAU))
     }
-    const headY =
-      (liftAt(phase - 0.1) - liftAt(phase)) *
-      profile.lift *
-      this.motionScale *
-      weightScale *
-      profile.headLag
-    const headX =
-      -sway * 0.3 + Math.sin(now * 0.0011 + this.seed * TAU) * 0.6 * idle * this.motionScale
-    const tailWag =
-      profile.kind === 'hop'
-        ? 0
-        : Math.sin(phase * TAU * 2 + this.seed * TAU) * profile.tailWag * weight +
-          Math.sin(now * 0.0013 + this.seed * TAU) * profile.tailWag * 0.6 * idle
+    const headY = hop
+      ? (liftAt(phase - 0.1) - liftAt(phase)) *
+        profile.lift *
+        this.motionScale *
+        weightScale *
+        profile.headLag
+      : 0
+    const headX = hop
+      ? -sway * 0.3 + Math.sin(now * 0.0011 + this.seed * TAU) * 0.6 * idle * this.motionScale
+      : 0
+    const tailWag = 0
 
     let footLeft: FootPose = ZERO_FOOT
     let footRight: FootPose = ZERO_FOOT
@@ -443,10 +440,6 @@ export class GaitAnimator {
       }
     }
 
-    const turnProgress = (now - this.turnAt) / 150
-    const turn =
-      turnProgress >= 0 && turnProgress < 1 ? 1 - 0.16 * Math.sin(Math.PI * turnProgress) : 1
-
     return {
       phase,
       lift,
@@ -462,7 +455,7 @@ export class GaitAnimator {
       footRight,
       shadowScale: Math.max(0.55, 1 - lift * profile.shadowShrink),
       shadowAlpha: Math.max(0.3, 1 - lift * 0.025),
-      turn,
+      turn: 1,
       speed: this.speed,
       weight,
       landed: this.landing && weight > 0.35,

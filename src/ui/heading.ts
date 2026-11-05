@@ -1,7 +1,9 @@
 /**
- * Screen-space walking headings. Eight sectors keep the four cardinal views
- * plus the four three-quarter views, which is what makes a turned animal read
- * correctly on a top-down floor plan.
+ * Screen-space walking headings. Eight sectors keep turns smooth, but movement
+ * draws only three views: front for the down family, back for the up family and
+ * a right-facing three-quarter for the horizontal family. Left is mirrored.
+ * The full side and back-side textures stay in the atlas but are not selected
+ * by movement or staff contexts.
  *
  * Sector 0 points down (towards the camera), 2 right, 4 up (away from the
  * camera) and 6 left. The odd numbers are the diagonals in between.
@@ -40,16 +42,16 @@ export function headingFromVector(dx: number, dy: number): Heading {
 export function viewForHeading(heading: Heading): AnimalView {
   switch (heading) {
     case 0:
-      return 'front'
     case 1:
     case 7:
-      return 'frontSide'
+      return 'front'
     case 2:
     case 6:
-      return 'side'
+      return 'frontSide'
     case 3:
+    case 4:
     case 5:
-      return 'backSide'
+      return 'back'
     default:
       return 'back'
   }
@@ -58,6 +60,22 @@ export function viewForHeading(heading: Heading): AnimalView {
 /** True when the base art (which faces right) has to be mirrored. */
 export function mirrorForHeading(heading: Heading): boolean {
   return heading >= 5
+}
+
+export interface StrideAxis {
+  readonly x: -1 | 0 | 1
+  readonly y: -1 | 0 | 1
+}
+
+/**
+ * The screen axis a walk cycle travels along. Front and back views face the
+ * camera or away from it, so their legs step on screen Y; turned views face
+ * left or right and step on screen X.
+ */
+export function strideAxisForView(view: AnimalView): StrideAxis {
+  if (view === 'front') return { x: 0, y: 1 }
+  if (view === 'back') return { x: 0, y: -1 }
+  return { x: 1, y: 0 }
 }
 
 /** Shortest number of 45-degree steps between two headings. */

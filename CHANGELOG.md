@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- Keep the player on the original waddle. The hop experiment is removed, so the
+  shopkeeper walks like the rest of the cast again.
+
+- Draw only three walking views: front for the down family, back for the up
+  family and a shallow seven-eighths front view for the horizontal family,
+  mirrored on the left. The full side and back-side textures stay in the atlas
+  but are no longer selected by movement or staff contexts.
+
+- Keep the horizontal player close to the front. The shopkeeper uses the front
+  body and apron with only a slight head turn; customers and staff use the same
+  shallow turn. The old strong three-quarter head and torso are removed.
+
+- Keep the walking torso still. Walk and trot no longer bob, sway, rock, squash
+  or lag the head, and the tail wag and turn pinch are removed; the feet carry
+  the walk. Hop characters keep their bounce.
+
+- Fix the shared walking feet. The stride now follows the facing axis: front and
+  back views step on screen Y, left and right views step on screen X. Foot pickup
+  is upward. The shallow horizontal view uses the front paw instead of the
+  profile leg-and-toe, keeps the same left/right foot spacing as the front view,
+  and draws both feet in the front layer so neither hides behind the body. Its
+  side step is shortened so it reads as a small 7/8 step, not a full side stride.
+  Hop characters keep their full landing splay.
+
 - Refine the interface layer without changing the game rules. The UI now uses a
   bundled Nunito face for Latin/Cyrillic with the system CJK fallback, a shared
   paper-diorama palette, one close-button shape and level pips. The shop keeps
@@ -15,7 +39,7 @@
 - Rebuild the turned animal bodies as profiles. Side and three-quarter views now
   use a chest/haunch silhouette, one near-side arm and fore/aft legs with a real
   leg-and-foot texture instead of a front torso with a turned head. The support
-  foot stays planted while the body bobs, the head is a separate part in every
+  foot stays planted, the head is a separate part in every
   view so it can lag and blink, and the staff uniform follows the turned torso.
   Game rules, save data and collision are unchanged.
 

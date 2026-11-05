@@ -97,23 +97,6 @@ describe('gait settling', () => {
   })
 })
 
-describe('gait turn', () => {
-  it('pinches the body briefly after a turn', () => {
-    const gait = new GaitAnimator(profile, 0)
-    let now = 0
-    let x = 0
-    gait.update(x, 0, now)
-    now += 16
-    x += 1
-    gait.notifyTurn(now)
-    gait.update(x, 0, now)
-    now += 75
-    expect(gait.update(x, 0, now).turn).toBeLessThan(1)
-    now += 400
-    expect(gait.update(x, 0, now).turn).toBe(1)
-  })
-})
-
 describe('grounded feet', () => {
   it('marks walkers as grounded so a support foot can stay planted', () => {
     const gait = new GaitAnimator(gaitProfile('bear'), 0.3)
@@ -125,5 +108,52 @@ describe('grounded feet', () => {
     const gait = new GaitAnimator(gaitProfile('rabbit'), 0.3)
     gait.update(0, 0, 0)
     expect(gait.update(1.5, 0, 16).grounded).toBe(false)
+  })
+
+  it('keeps the player on the walking profile', () => {
+    const player = gaitProfile('bear', true)
+    expect(player.kind).toBe('waddle')
+    expect(player.stepReach).toBeGreaterThan(0)
+  })
+
+  it('keeps a walker torso still while the feet step', () => {
+    const walker = gaitProfile('bear')
+    const gait = new GaitAnimator(walker, 0)
+    let now = 0
+    let x = 0
+    gait.update(0, 0, 0)
+    let maxLift = 0
+    let maxSway = 0
+    let maxRock = 0
+    let maxSquash = 0
+    let maxHead = 0
+    let maxTail = 0
+    let maxTurn = 0
+    let maxFootX = 0
+    let maxFootY = 0
+    for (let index = 0; index < 400; index += 1) {
+      now += 16
+      x += walker.stride / 200
+      const frame = gait.update(x, 0, now)
+      if (frame.weight < 0.9) continue
+      maxLift = Math.max(maxLift, Math.abs(frame.lift))
+      maxSway = Math.max(maxSway, Math.abs(frame.sway))
+      maxRock = Math.max(maxRock, Math.abs(frame.rock))
+      maxSquash = Math.max(maxSquash, Math.abs(frame.squashX - 1), Math.abs(frame.squashY - 1))
+      maxHead = Math.max(maxHead, Math.abs(frame.headX), Math.abs(frame.headY))
+      maxTail = Math.max(maxTail, Math.abs(frame.tailWag))
+      maxTurn = Math.max(maxTurn, Math.abs(frame.turn - 1))
+      maxFootX = Math.max(maxFootX, Math.abs(frame.footLeft.x), Math.abs(frame.footRight.x))
+      maxFootY = Math.max(maxFootY, frame.footLeft.y, frame.footRight.y)
+    }
+    expect(maxLift).toBeLessThan(0.001)
+    expect(maxSway).toBeLessThan(0.001)
+    expect(maxRock).toBeLessThan(0.001)
+    expect(maxSquash).toBeLessThan(0.001)
+    expect(maxHead).toBeLessThan(0.001)
+    expect(maxTail).toBeLessThan(0.001)
+    expect(maxTurn).toBeLessThan(0.001)
+    expect(maxFootX).toBeGreaterThan(2)
+    expect(maxFootY).toBeGreaterThan(1)
   })
 })
