@@ -4,12 +4,12 @@ import { gameColors } from '../colors'
 
 import type { ShopMap } from '../logic/types'
 import { bakeGraphics } from './bakeArt'
+import { drawFloorLight, drawGroundShadows, drawHedgeTop, drawStageBase } from './dioramaArt'
 import { drawRestMat } from './facilitiesArt'
 import { fenceLanterns } from './fenceLanterns'
 import {
   drawAntTrail,
   drawBird,
-  drawCanopyBand,
   drawFence,
   drawFern,
   drawLantern,
@@ -55,19 +55,20 @@ function createPortraitShopBackground(
   const g = scene.add.graphics()
   container.add(g)
   const width = map.room.w
-  const height = map.room.h
 
-  drawOuterBand(g, width, height)
+  drawOuterBand(g, map)
   drawFloor(g, map)
   drawAisles(g, map)
   drawIndoorScenery(g, map)
   drawGhostFacilities(g, map)
   drawTopBand(g, theme, title, width, container, scene, 1)
+  drawGroundShadows(g, map)
   drawSideFences(g, map)
   drawFenceLanterns(g, map)
   drawCentralRug(g, 282, 506, 108, 52)
   drawQueueMarkers(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
+  drawFloorLight(g, map)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
   bakeBackground(scene, container, g, map, options)
@@ -86,19 +87,20 @@ function createLandscapeShopBackground(
   const g = scene.add.graphics()
   container.add(g)
   const width = map.room.w
-  const height = map.room.h
 
-  drawOuterBand(g, width, height)
+  drawOuterBand(g, map)
   drawFloor(g, map)
   drawAisles(g, map)
   drawIndoorScenery(g, map)
   drawGhostFacilities(g, map)
   drawRestMat(g, map.facilities.restMat)
   drawTopBand(g, theme, title, width, container, scene, 1.15)
+  drawGroundShadows(g, map)
   drawSideFences(g, map)
   drawFenceLanterns(g, map)
   drawQueueMarkers(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
+  drawFloorLight(g, map)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
   bakeBackground(scene, container, g, map, options)
@@ -126,11 +128,15 @@ function bakeBackground(
   graphics.destroy()
 }
 
-function drawOuterBand(g: Phaser.GameObjects.Graphics, width: number, height: number): void {
+function drawOuterBand(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
+  const { w, h } = map.room
   g.fillStyle(gameColors.canopy, 1)
-  g.fillRect(0, 0, width, height)
-  g.fillStyle(gameColors.pine, 0.7)
-  g.fillRect(0, 0, width, 64)
+  g.fillRect(0, 0, w, h)
+  g.fillStyle(gameColors.pine, 0.8)
+  g.fillRect(0, 0, w, 64)
+  // The platform is drawn before the floor and wall, so its bands stay outside
+  // the walkable rectangle and never change a collision footprint.
+  drawStageBase(g, map)
 }
 
 function drawFloor(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
@@ -138,46 +144,59 @@ function drawFloor(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   const floorTop = 64
   const floorRight = map.room.w - 24
   const floorBottom = map.room.h - 24
-  g.fillStyle(gameColors.floor, 1)
-  g.fillRect(floorLeft, floorTop, floorRight - floorLeft, floorBottom - floorTop)
+  const floorWidth = floorRight - floorLeft
+  // Slightly deeper than the old cream, so props and characters can carry the
+  // highlights while the floor stays the quietest surface in the scene.
+  g.fillStyle(0xdfc59a, 1)
+  g.fillRect(floorLeft, floorTop, floorWidth, floorBottom - floorTop)
 
   for (let y = floorTop; y < floorBottom; y += 30) {
     const row = Math.floor((y - floorTop) / 30)
     const rowHeight = Math.min(30, floorBottom - y)
-    g.fillStyle(row % 2 === 0 ? 0xecd9b2 : 0xe5d0a4, 1)
-    g.fillRect(floorLeft, y, floorRight - floorLeft, rowHeight)
-    g.lineStyle(1, gameColors.floorLine, 0.45)
+    const tone = row % 3 === 0 ? 0xe6cea3 : row % 3 === 1 ? 0xdcc094 : 0xe2c89c
+    g.fillStyle(tone, 1)
+    g.fillRect(floorLeft, y, floorWidth, rowHeight)
+    g.lineStyle(1, 0xc9a874, 0.28)
     g.lineBetween(floorLeft, y, floorRight, y)
     const seam = row % 2 === 0 ? floorLeft : floorLeft + 100
+    g.lineStyle(1, 0xbf9a66, 0.18)
     for (let x = seam; x < floorRight; x += 180) g.lineBetween(x, y, x, y + rowHeight)
+
+    // A few short grain strokes per row break the mechanical grid without
+    // adding enough contrast to compete with the goods.
+    g.lineStyle(1, 0xb08a5e, 0.12)
+    for (let index = 0; index < 3; index += 1) {
+      const gx = floorLeft + ((row * 53 + index * 97) % Math.max(1, floorWidth - 30))
+      const gy = y + 8 + index * 7
+      g.lineBetween(gx, gy, gx + 16 + index * 11, gy)
+    }
+
+    if (row % 4 === 1) {
+      const knotX = floorLeft + ((row * 137) % Math.max(1, floorWidth - 120)) + 60
+      g.fillStyle(0xb08a5e, 0.22)
+      g.fillEllipse(knotX, y + 15, 7, 3)
+      g.lineStyle(1, 0xa37b4e, 0.18)
+      g.strokeEllipse(knotX, y + 15, 13, 6)
+    }
   }
 
-  // Soft inner shadow keeps the floor from meeting the fence as a flat seam.
-  g.fillStyle(0x1a120c, 0.06)
-  g.fillRect(floorLeft, floorTop, floorRight - floorLeft, 8)
-  g.fillRect(floorLeft, floorBottom - 8, floorRight - floorLeft, 8)
+  // Soft inner shadow and moss keep the floor from meeting the platform as a
+  // flat seam. The shadow is cool and the moss warm, so the edge has depth.
+  g.fillStyle(0x1a120c, 0.07)
+  g.fillRect(floorLeft, floorTop, floorWidth, 12)
+  g.fillRect(floorLeft, floorBottom - 12, floorWidth, 12)
+  g.fillRect(floorLeft, floorTop, 12, floorBottom - floorTop)
+  g.fillRect(floorRight - 12, floorTop, 12, floorBottom - floorTop)
+
+  g.fillStyle(gameColors.moss, 0.13)
   g.fillRect(floorLeft, floorTop, 8, floorBottom - floorTop)
   g.fillRect(floorRight - 8, floorTop, 8, floorBottom - floorTop)
-
-  // Moss creeps in from the fence line without changing the walkable area.
-  g.fillStyle(gameColors.moss, 0.14)
-  g.fillRect(floorLeft, floorTop, 10, floorBottom - floorTop)
-  g.fillRect(floorRight - 10, floorTop, 10, floorBottom - floorTop)
-  g.fillRect(floorLeft, floorTop, floorRight - floorLeft, 8)
-  g.fillRect(floorLeft, floorBottom - 8, floorRight - floorLeft, 8)
-  g.fillStyle(gameColors.moss, 0.1)
-  g.fillEllipse(
-    floorLeft + (floorRight - floorLeft) * 0.3,
-    floorTop + (floorBottom - floorTop) * 0.58,
-    150,
-    46,
-  )
-  g.fillEllipse(
-    floorLeft + (floorRight - floorLeft) * 0.72,
-    floorTop + (floorBottom - floorTop) * 0.8,
-    170,
-    50,
-  )
+  g.fillRect(floorLeft, floorTop, floorWidth, 6)
+  g.fillRect(floorLeft, floorBottom - 6, floorWidth, 6)
+  g.fillStyle(gameColors.moss, 0.09)
+  const floorHeight = floorBottom - floorTop
+  g.fillEllipse(floorLeft + floorWidth * 0.3, floorTop + floorHeight * 0.58, 150, 46)
+  g.fillEllipse(floorLeft + floorWidth * 0.72, floorTop + floorHeight * 0.8, 170, 50)
 }
 
 function drawAisles(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
@@ -232,14 +251,56 @@ function drawDirtPath(
       points.push({ x: x + width * t, y: y + height + wobble(index + 5) })
     }
   }
-  fillPolygon(g, points, 0xa87a4a, 0.86)
-  strokePolygon(g, points, 0x6f4a2c, 0.45, 2)
+  fillPolygon(g, points, 0xb98a58, 0.78)
+  // A lighter, narrower centre band suggests packed earth worn by feet.
+  fillPolygon(
+    g,
+    vertical
+      ? points.map((point, index) =>
+          index <= steps
+            ? { x: point.x + width * 0.22, y: point.y }
+            : { x: point.x - width * 0.22, y: point.y },
+        )
+      : points.map((point, index) =>
+          index <= steps
+            ? { x: point.x, y: point.y + height * 0.22 }
+            : { x: point.x, y: point.y - height * 0.22 },
+        ),
+    0xc79b68,
+    0.28,
+  )
+  strokePolygon(g, points, 0x6f4a2c, 0.26, 1.5)
+
+  // Wheel ruts run along the path and fade before the ends.
+  g.lineStyle(2, 0x8f643c, 0.14)
+  if (vertical) {
+    g.lineBetween(x + width * 0.32, y + 12, x + width * 0.32, y + height - 12)
+    g.lineBetween(x + width * 0.68, y + 12, x + width * 0.68, y + height - 12)
+  } else {
+    g.lineBetween(x + 12, y + height * 0.32, x + width - 12, y + height * 0.32)
+    g.lineBetween(x + 12, y + height * 0.68, x + width - 12, y + height * 0.68)
+  }
+
   for (let index = 0; index < 14; index += 1) {
     const t = (index + 0.5) / 14
     const px = vertical ? x + 8 + ((index * 23 + seed) % Math.max(1, width - 16)) : x + width * t
     const py = vertical ? y + height * t : y + 9 + ((index * 17 + seed) % Math.max(1, height - 18))
-    g.fillStyle(index % 2 === 0 ? gameColors.barkLight : gameColors.moss, 0.32)
+    g.fillStyle(index % 2 === 0 ? gameColors.barkLight : gameColors.moss, 0.26)
     g.fillEllipse(px, py, 4, 1.8)
+  }
+
+  // Tufts hug the edge but stay outside the walking line, so the path reads
+  // organic without suggesting a collision wall.
+  for (let index = 0; index < 7; index += 1) {
+    const t = (index + 0.5) / 7
+    if (vertical) {
+      drawGrassTuft(g, x - 5, y + height * t, 0.35)
+      drawGrassTuft(g, x + width + 5, y + height * t, 0.32)
+      if (index % 2 === 0) drawClover(g, x - 3, y + height * t + 5, 0.4)
+    } else {
+      drawGrassTuft(g, x + width * t, y - 4, 0.35)
+      drawGrassTuft(g, x + width * t, y + height + 4, 0.32)
+    }
   }
 
   const stoneCount = vertical ? 5 : 7
@@ -247,11 +308,11 @@ function drawDirtPath(
     const t = (index + 0.5) / stoneCount
     const cx = vertical ? x + width / 2 : x + width * t
     const cy = vertical ? y + height * t : y + height / 2
-    g.fillStyle(0x1a120c, 0.1)
+    g.fillStyle(0x1a120c, 0.08)
     g.fillEllipse(cx + 1, cy + 3, 24, 9)
-    g.fillStyle(0xe0cba4, 0.95)
+    g.fillStyle(0xdcc6a0, 0.85)
     g.fillEllipse(cx, cy, 22, 8)
-    g.fillStyle(0xf2e3c6, 0.65)
+    g.fillStyle(0xf2e3c6, 0.55)
     g.fillEllipse(cx - 2, cy - 1, 14, 4)
   }
 }
@@ -260,11 +321,19 @@ function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void
   // Pen floors stay plain; each installed animal adds its own small props in
   // ProducerView.ground. Only the kitchen work pads are part of the floor plan.
   for (const station of map.stationSlots) {
-    g.fillStyle(gameColors.stone, 0.18)
+    // A shallow stone plinth instead of a painted round rect: the front face
+    // and cast shadow give the work pad a little thickness.
+    g.fillStyle(0x1a120c, 0.1)
+    g.fillRoundedRect(station.x - 43, station.y - 24, 86, 62, 12)
+    g.fillStyle(gameColors.stoneDark, 0.42)
     g.fillRoundedRect(station.x - 42, station.y - 30, 84, 62, 12)
-    g.lineStyle(2, gameColors.stoneDark, 0.3)
-    g.strokeRoundedRect(station.x - 42, station.y - 30, 84, 62, 12)
-    g.lineStyle(1, gameColors.stoneDark, 0.18)
+    g.fillStyle(gameColors.stone, 0.3)
+    g.fillRoundedRect(station.x - 42, station.y - 32, 84, 54, 11)
+    g.fillStyle(0xbfc4c8, 0.2)
+    g.fillRoundedRect(station.x - 36, station.y - 28, 72, 4, 2)
+    g.lineStyle(1.5, gameColors.stoneDark, 0.32)
+    g.strokeRoundedRect(station.x - 42, station.y - 32, 84, 64, 12)
+    g.lineStyle(1, gameColors.stoneDark, 0.16)
     g.lineBetween(station.x - 34, station.y - 18, station.x + 34, station.y - 18)
     g.lineBetween(station.x - 34, station.y + 18, station.x + 34, station.y + 18)
   }
@@ -279,34 +348,78 @@ function drawTopBand(
   scene: Phaser.Scene,
   scale: number,
 ): void {
-  // Canopy and hedge replace the old awning/window wall; the fence closes the
-  // room while the forest still shows above it.
-  drawCanopyBand(g, 24, 22, width - 48, 36, 17)
-  drawFence(g, { x1: 28, y1: 60, x2: width - 28, y2: 60 }, { height: 26, postGap: 38, seed: 19 })
-  // The hedge and fence cast a soft band onto the floor behind the shelves.
-  g.fillStyle(0x1a120c, 0.06)
-  g.fillRoundedRect(28, 74, width - 56, 18, 9)
+  // A real back wall turns the top strip into a visible vertical plane. The
+  // hedge sits above it and the shop sign hangs from the top rail, so the room
+  // reads as a cutaway box instead of a fence drawn on a floor plan.
+  const left = 24
+  const right = width - 24
+  const wallTop = 20
+  const wallBase = 64
+  const wallWidth = right - left
+
+  drawHedgeTop(g, left, 0, wallWidth, 21)
+
+  g.fillStyle(gameColors.barkDark, 1)
+  g.fillRect(left, wallTop, wallWidth, wallBase - wallTop)
+
+  const plankWidth = 38
+  for (let x = left; x < right; x += plankWidth) {
+    const index = Math.round((x - left) / plankWidth)
+    const tone = index % 3 === 0 ? 0x84522f : index % 3 === 1 ? 0x7a4a29 : 0x8d5b36
+    g.fillStyle(tone, 1)
+    g.fillRect(x + 1, wallTop + 3, Math.min(plankWidth - 2, right - x - 1), wallBase - wallTop - 3)
+    g.lineStyle(1, gameColors.barkDark, 0.55)
+    g.lineBetween(x, wallTop + 3, x, wallBase)
+    g.lineStyle(1, 0xb87a4a, 0.18)
+    g.lineBetween(x + 3, wallTop + 6, x + 3, wallBase - 4)
+    // Sparse vertical grain keeps the wall from reading as a flat brown band.
+    if (index % 4 === 0) {
+      g.lineStyle(1, 0x5a3a22, 0.28)
+      const grainX = x + 12 + (index % 3) * 5
+      g.lineBetween(grainX, wallTop + 10, grainX + 4, wallTop + 30)
+      g.lineBetween(grainX + 4, wallTop + 30, grainX + 2, wallBase - 8)
+    }
+  }
+
+  // Top rail and wainscot rail: two horizontal bands make the wall a built
+  // object and give the sign and lanterns something to hang from.
+  g.fillStyle(gameColors.barkDark, 1)
+  g.fillRect(left, wallTop, wallWidth, 5)
+  g.fillStyle(0xa06a3d, 1)
+  g.fillRect(left, wallTop + 1, wallWidth, 2)
+  g.fillStyle(0x5a3a22, 1)
+  g.fillRect(left, wallBase - 14, wallWidth, 14)
+  g.fillStyle(0xc08a55, 0.85)
+  g.fillRect(left, wallBase - 14, wallWidth, 2)
+  g.fillStyle(0x3b2f3a, 0.2)
+  g.fillRect(left, wallBase - 4, wallWidth, 4)
 
   const signWidth = 164 * scale
   const signHeight = 38 * scale
   const centerX = width / 2
-  const signY = 24
+  const signY = 20
   g.lineStyle(2, gameColors.barkDark, 0.8)
   g.lineBetween(centerX - signWidth / 2 + 18, 16, centerX - signWidth / 2 + 18, signY + 2)
   g.lineBetween(centerX + signWidth / 2 - 18, 16, centerX + signWidth / 2 - 18, signY + 2)
-  g.fillStyle(0x1a120c, 0.22)
-  g.fillRoundedRect(centerX - signWidth / 2 + 4, signY + 4, signWidth, signHeight, 12)
+  g.fillStyle(0x1a120c, 0.24)
+  g.fillRoundedRect(centerX - signWidth / 2 + 4, signY + 5, signWidth, signHeight, 12)
   g.fillStyle(gameColors.barkDark, 1)
   g.fillRoundedRect(centerX - signWidth / 2, signY, signWidth, signHeight, 12)
   g.fillStyle(gameColors.woodLight, 1)
   g.fillRoundedRect(centerX - signWidth / 2 + 5, signY + 4, signWidth - 10, signHeight - 12, 9)
-  g.fillStyle(gameColors.hay, 0.5)
+  g.fillStyle(gameColors.hay, 0.55)
   g.fillRoundedRect(centerX - signWidth / 2 + 12, signY + 7, signWidth - 24, 2, 1)
+  g.fillStyle(0x1a120c, 0.18)
+  g.fillRoundedRect(centerX - signWidth / 2 + 8, signY + signHeight - 7, signWidth - 16, 3, 1.5)
+  // Two iron pegs under the sign.
+  g.fillStyle(0x3b2f3a, 0.75)
+  g.fillCircle(centerX - signWidth / 2 + 22, signY + signHeight - 3, 2)
+  g.fillCircle(centerX + signWidth / 2 - 22, signY + signHeight - 3, 2)
   container.add(
     scene.add
       .text(
         centerX,
-        signY + signHeight / 2 - 2,
+        signY + signHeight / 2 - 3,
         title,
         displayTextStyle(theme, 20 * scale, '#fff7e8', true, 2, 2),
       )
@@ -315,11 +428,17 @@ function drawTopBand(
 
   for (const x of [width * 0.15, width * 0.85]) {
     g.lineStyle(1.4, gameColors.barkDark, 0.8)
-    g.lineBetween(x, 22, x, 44)
+    g.lineBetween(x, wallTop + 2, x, 44)
     drawLantern(g, x, 52, 0.85)
   }
-  drawBird(g, width * 0.31, 54, 0.9, 1)
-  drawBird(g, width * 0.7, 54, 0.72, -1)
+  drawBird(g, width * 0.31, 55, 0.9, 1)
+  drawBird(g, width * 0.7, 55, 0.72, -1)
+
+  // The wall casts a long, cool shade onto the boards behind the shelves.
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillRect(left, wallBase, wallWidth, 10)
+  g.fillStyle(0x1a120c, 0.06)
+  g.fillRect(left, wallBase + 10, wallWidth, 12)
 }
 
 function drawSideFences(g: Phaser.GameObjects.Graphics, map: ShopMap): void {

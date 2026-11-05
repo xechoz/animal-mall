@@ -1,5 +1,6 @@
 import type { Theme } from '@mg/core'
 import type Phaser from 'phaser'
+import { gameColors } from '../colors'
 
 export interface HudGlassRect {
   readonly x: number
@@ -25,20 +26,26 @@ export function drawHudGlass(
   alpha = 0.76,
 ): void {
   const radius = rect.h / 2
-  g.fillStyle(theme.shadow, 0.18)
-  g.fillRoundedRect(rect.x, rect.y + 3 * scale, rect.w, rect.h, radius)
+  g.fillStyle(theme.shadow, 0.2)
+  g.fillRoundedRect(rect.x, rect.y + 4 * scale, rect.w, rect.h, radius)
+  // A thin bark lip under the parchment: one step of physical thickness, enough
+  // to sit with the wooden signs without turning the HUD into full skeuomorph.
+  g.fillStyle(gameColors.barkDark, 0.42)
+  g.fillRoundedRect(rect.x, rect.y + 2 * scale, rect.w, rect.h, radius)
   g.fillStyle(theme.surface, alpha)
   g.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, radius)
-  g.lineStyle(scale, theme.borderSoft, 0.55)
+  g.lineStyle(1.2 * scale, gameColors.barkDark, 0.4)
   g.strokeRoundedRect(
-    rect.x + 0.5 * scale,
-    rect.y + 0.5 * scale,
-    rect.w - scale,
-    rect.h - scale,
-    Math.max(1, radius - 0.5 * scale),
+    rect.x + 0.6 * scale,
+    rect.y + 0.6 * scale,
+    rect.w - 1.2 * scale,
+    rect.h - 1.2 * scale,
+    Math.max(1, radius - 0.6 * scale),
   )
   // A soft top light, not a second border: it sells the plate as glass without
   // adding another high-contrast line to the top row.
-  g.fillStyle(theme.highlight, 0.18)
+  g.fillStyle(theme.highlight, 0.2)
   g.fillEllipse(rect.x + rect.w / 2, rect.y + rect.h * 0.16, rect.w * 0.7, rect.h * 0.16)
+  g.fillStyle(gameColors.cream, 0.16)
+  g.fillRoundedRect(rect.x + 10 * scale, rect.y + 2 * scale, rect.w - 20 * scale, 1.5 * scale, 1)
 }

@@ -387,7 +387,17 @@ export class GameScene extends Phaser.Scene {
     g.fillRect(0, height * 0.7, width, height * 0.3)
 
     // A canopy band frames the top edge; the room still owns its exact footprint.
-    drawCanopyBand(g, -30, -20, width + 60, Math.max(72, room.y + 18), 11)
+    // A dark, fading wash mutes the bright fruit-and-flower band so the HUD and
+    // the shop sign stay the highest-contrast things at the top of the frame.
+    const canopyHeight = Math.max(72, room.y + 18)
+    drawCanopyBand(g, -30, -20, width + 60, canopyHeight, 11)
+    // The fruit dots sit on the *bottom* edge of the canopy, so a top-only
+    // gradient left them bright. A near-solid wash plus a darker upper half
+    // turns the band into a quiet forest frame behind the HUD.
+    g.fillStyle(gameColors.canopy, 0.8)
+    g.fillRect(0, 0, width, canopyHeight)
+    g.fillStyle(0x2f4a35, 0.22)
+    g.fillRect(0, 0, width, canopyHeight * 0.5)
     drawSunShaft(g, width * 0.12, Math.max(24, room.y - 18), 70, height * 0.55, 0.05)
     drawSunShaft(g, width * 0.66, Math.max(18, room.y - 30), 52, height * 0.5, 0.04)
 
@@ -503,14 +513,8 @@ export class GameScene extends Phaser.Scene {
       topY: vendingRect.y - VENDING_HEIGHT,
     })
 
-    const diningView = new DiningView(
-      this,
-      theme,
-      this.layout.map,
-      i18n.t('facility.dining'),
-      this.layout.worldText,
-      this.artBakeScale(),
-      (seat) => this.trySit(seat),
+    const diningView = new DiningView(this, this.layout.map, this.artBakeScale(), (seat) =>
+      this.trySit(seat),
     )
     diningView.addTo(this.world)
 
@@ -2148,10 +2152,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncToastPlacement(): void {
-    // The onboarding prompt owns the strip under the HUD, but the shop is a
-    // full-screen modal: keep its feedback at the top so it does not cover the
-    // bottom purchase rows.
-    this.toast.setBottom(this.state.tutorial !== 'done' && this.mode === 'playing')
+    // The onboarding prompt owns the bottom rail, so transient feedback stays
+    // in the strip under the HUD. The shop is a full-screen modal: keep its
+    // feedback at the top so it does not cover the purchase rows.
     this.toast.setHeader(this.mode === 'shop')
   }
 

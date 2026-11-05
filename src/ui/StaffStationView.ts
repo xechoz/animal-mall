@@ -1,5 +1,6 @@
 import type { Theme } from '@mg/core'
 import Phaser from 'phaser'
+import { gameColors } from '../colors'
 import { INTERACTION, STAFF } from '../logic/config'
 import type { ShopMap, StaffKind } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
@@ -33,19 +34,23 @@ export class StaffStationView extends Phaser.GameObjects.Container {
     this.add(post)
 
     const board = scene.add.graphics()
-    board.fillStyle(theme.shadow, 0.18)
-    board.fillRoundedRect(-30, -40, 60, 42, 10)
-    board.fillStyle(0xf0c99b, 1)
-    board.fillRoundedRect(-30, -43, 60, 42, 10)
+    board.fillStyle(0x1a120c, 0.22)
+    board.fillRoundedRect(-30, -38, 60, 46, 10)
+    board.fillStyle(gameColors.barkDark, 1)
+    board.fillRoundedRect(-31, -45, 62, 46, 10)
     // Scalloped awning edge, like a tiny market sign.
-    board.fillStyle(0xf0c99b, 1)
     for (let index = 0; index < 5; index += 1) {
-      board.fillCircle(-22 + index * 11, -42, 5)
+      board.fillCircle(-23 + index * 11.5, -44, 5)
     }
-    board.fillStyle(0xfff3dd, 0.35)
-    board.fillRoundedRect(-24, -38, 48, 3, 1.5)
-    board.lineStyle(2, 0x8f5734, 0.8)
-    board.strokeRoundedRect(-30, -43, 60, 42, 10)
+    board.fillStyle(theme.panel, 0.98)
+    board.fillRoundedRect(-27, -41, 54, 38, 7)
+    board.fillStyle(0xfff3dd, 0.4)
+    board.fillRoundedRect(-21, -37, 42, 2.5, 1.2)
+    board.lineStyle(1.2, 0x8f5734, 0.6)
+    board.strokeRoundedRect(-27, -41, 54, 38, 7)
+    // A dark bottom lip keeps the sign from reading as a flat sticker.
+    board.fillStyle(0x1a120c, 0.18)
+    board.fillRoundedRect(-27, -5, 54, 4, 2)
     this.add(board)
 
     const portrait = scene.add.image(0, -22, staffPortraitKey(kind)).setScale(0.34 * ANIMAL_SCALE)

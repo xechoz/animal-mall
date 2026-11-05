@@ -461,23 +461,67 @@ function drawChipBody(g: Phaser.GameObjects.Graphics, body: ChipBody): void {
   const { tag, width, height, ui, affordable, theme } = body
   g.clear()
   if (tag) {
-    // A single round badge: the crop or machine is already visible on the slot,
-    // so a full chip would only repeat it.
-    g.fillStyle(theme.shadow, 0.16)
-    g.fillCircle(0, 3 * ui, (SWAP_TAG / 2) * ui)
-    g.fillStyle(theme.panel, 0.96)
-    g.fillCircle(0, 0, (SWAP_TAG / 2) * ui)
-    g.lineStyle(2 * ui, gameColors.barkDark, 0.8)
-    g.strokeCircle(0, 0, (SWAP_TAG / 2) * ui)
+    // A single round wooden token: the crop or machine is already visible on
+    // the slot, so a full chip would only repeat it. The pale hay face keeps
+    // the shovel/fork/wrench line art readable.
+    const radius = (SWAP_TAG / 2) * ui
+    g.fillStyle(theme.shadow, 0.2)
+    g.fillCircle(0, 3 * ui, radius)
+    g.fillStyle(gameColors.barkDark, 1)
+    g.fillCircle(0, 0, radius)
+    g.fillStyle(gameColors.hay, 1)
+    g.fillCircle(0, 0, radius - 2.5 * ui)
+    g.lineStyle(1.2 * ui, 0x8f6b45, 0.55)
+    g.strokeCircle(0, 0, radius - 1.5 * ui)
+    g.fillStyle(gameColors.cream, 0.45)
+    g.fillEllipse(-radius * 0.16, -radius * 0.42, radius * 0.7, radius * 0.32)
     return
   }
   const radius = height / 2
-  g.fillStyle(theme.shadow, 0.16)
-  g.fillRoundedRect(-width / 2, -height / 2 + 3 * ui, width, height, radius)
-  g.fillStyle(theme.panel, 0.96)
-  g.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
-  g.lineStyle(2 * ui, affordable ? theme.accent : theme.borderSoft, 0.9)
-  g.strokeRoundedRect(-width / 2, -height / 2, width, height, radius)
+  const left = -width / 2
+  const top = -height / 2
+  // A hanging wooden price tag: bark frame, paper inset, soft top light. It
+  // belongs to the market rather than looking like a white mobile chip.
+  g.fillStyle(theme.shadow, 0.2)
+  g.fillRoundedRect(left, top + 3 * ui, width, height, radius)
+  g.fillStyle(gameColors.barkDark, 1)
+  g.fillRoundedRect(left, top, width, height, radius)
+  g.fillStyle(gameColors.hay, 1)
+  g.fillRoundedRect(
+    left + 2.5 * ui,
+    top + 2.5 * ui,
+    width - 5 * ui,
+    height - 5 * ui,
+    radius - 2 * ui,
+  )
+  g.lineStyle(1 * ui, 0x8f6b45, 0.42)
+  g.strokeRoundedRect(
+    left + 2.5 * ui,
+    top + 2.5 * ui,
+    width - 5 * ui,
+    height - 5 * ui,
+    radius - 2 * ui,
+  )
+  g.fillStyle(gameColors.cream, 0.5)
+  g.fillRoundedRect(left + 7 * ui, top + 3 * ui, width - 14 * ui, 1.5 * ui, 0.75 * ui)
+  if (!affordable) {
+    g.fillStyle(0x2b241d, 0.16)
+    g.fillRoundedRect(
+      left + 2.5 * ui,
+      top + 2.5 * ui,
+      width - 5 * ui,
+      height - 5 * ui,
+      radius - 2 * ui,
+    )
+  }
+  g.lineStyle(1.5 * ui, affordable ? theme.accent : 0x8f6b45, affordable ? 0.9 : 0.55)
+  g.strokeRoundedRect(
+    left + 0.75 * ui,
+    top + 0.75 * ui,
+    width - 1.5 * ui,
+    height - 1.5 * ui,
+    radius,
+  )
 }
 
 function drawShovelBadge(

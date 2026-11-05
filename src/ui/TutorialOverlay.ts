@@ -1,5 +1,6 @@
 import { type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { gameColors } from '../colors'
 import type { Rect, ShopState, TutorialStep, Vec2 } from '../logic/types'
 import type { GameLayout } from './layout'
 import { guideFor, type TutorialGuide } from './tutorialGuide'
@@ -126,38 +127,51 @@ export class TutorialOverlay {
   private layoutPill(): void {
     const content = this.layout.content
     const ui = this.layout.ui
-    const maxWidth = Math.min(520 * ui, content.w - 48 * ui)
-    const innerWidth = Math.max(80 * ui, maxWidth - 48 * ui)
+    const maxWidth = Math.min(500 * ui, content.w - 48 * ui)
+    const innerWidth = Math.max(80 * ui, maxWidth - 44 * ui)
     this.title.setWordWrapWidth(innerWidth, true)
     this.hint.setWordWrapWidth(innerWidth, true)
 
-    const dotsH = 6 * ui
-    const dotsGap = 6 * ui
-    const lineGap = 3 * ui
+    const dotsH = 5 * ui
+    const dotsGap = 5 * ui
+    const lineGap = 2 * ui
     const blockHeight = dotsH + dotsGap + this.title.height + lineGap + this.hint.height
-    const padX = 24 * ui
-    const padY = 12 * ui
+    const padX = 20 * ui
+    const padY = 9 * ui
     const pillWidth = Math.min(
       maxWidth,
-      Math.max(160 * ui, Math.max(this.title.width, this.hint.width) + padX * 2),
+      Math.max(170 * ui, Math.max(this.title.width, this.hint.width) + padX * 2),
     )
     const pillHeight = blockHeight + padY * 2
     const x = content.x + content.w / 2
-    const top = this.layout.hud.pause.y + this.layout.hud.buttonSize / 2 + 14 * ui
-    const y = top + pillHeight / 2
+
+    // The old card sat under the clock and covered the top shelf row. Landscape
+    // drops the prompt onto the bottom rail, below the counter and clear of the
+    // player start; portrait raises it into the HUD band so it never covers the
+    // bottom-centre player.
+    const top = this.layout.hud.pause.y + this.layout.hud.buttonSize / 2 + 12 * ui
+    const y = this.layout.portrait
+      ? top + pillHeight / 2
+      : content.y + content.h - 24 * ui - pillHeight / 2
     const left = x - pillWidth / 2
     const topEdge = y - pillHeight / 2
 
     this.pill.clear()
-    this.pill.fillStyle(0x3b2f3a, 0.16)
+    // Raised parchment plate: shadow, a bark bottom lip, the paper face, and a
+    // fine rim. It matches the HUD plates instead of reading as a web card.
+    this.pill.fillStyle(0x3b2f3a, 0.18)
     this.pill.fillRoundedRect(left, topEdge + 4 * ui, pillWidth, pillHeight, 18 * ui)
-    this.pill.fillStyle(this.theme.panel, 0.96)
+    this.pill.fillStyle(gameColors.barkDark, 0.5)
+    this.pill.fillRoundedRect(left, topEdge + 2 * ui, pillWidth, pillHeight, 18 * ui)
+    this.pill.fillStyle(this.theme.panel, 0.97)
     this.pill.fillRoundedRect(left, topEdge, pillWidth, pillHeight, 18 * ui)
-    this.pill.lineStyle(2 * ui, this.theme.borderSoft, 1)
+    this.pill.lineStyle(1.5 * ui, gameColors.barkDark, 0.42)
     this.pill.strokeRoundedRect(left, topEdge, pillWidth, pillHeight, 18 * ui)
+    this.pill.fillStyle(this.theme.highlight, 0.22)
+    this.pill.fillRoundedRect(left + 12 * ui, topEdge + 2 * ui, pillWidth - 24 * ui, 2 * ui, 1 * ui)
 
     const index = this.guide === null ? 0 : Math.min(this.guide.index, DOTS - 1)
-    const radius = 3 * ui
+    const radius = 2.5 * ui
     const gap = 9 * ui
     const dotsWidth = DOTS * radius * 2 + (DOTS - 1) * gap
     let dotX = x - dotsWidth / 2 + radius
@@ -332,14 +346,33 @@ export class TutorialOverlay {
 
   private drawArea(rect: Rect, pulse: number, ui: number): void {
     const radius = 8 * ui
-    this.area.fillStyle(this.theme.accent, 0.1 + 0.05 * pulse)
+    // A soft ground wash plus corner ticks, not a heavy white selection box.
+    // The tint says "this patch"; the cream underlay keeps the ticks legible on
+    // both dark soil and pale boards.
+    this.area.fillStyle(this.theme.accent, 0.055 + 0.03 * pulse)
     this.area.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, radius)
-    // The cream underlay keeps the accent line legible on dark beds and on the
-    // pale floor, where a single thin line disappears.
-    this.area.lineStyle(5 * ui, this.theme.panel, 0.85)
+    this.area.lineStyle(1.5 * ui, this.theme.accent, 0.42 + 0.25 * pulse)
     this.area.strokeRoundedRect(rect.x, rect.y, rect.w, rect.h, radius)
-    this.area.lineStyle(2.5 * ui, this.theme.accent, 0.85 + 0.15 * pulse)
-    this.area.strokeRoundedRect(rect.x, rect.y, rect.w, rect.h, radius)
+
+    const len = Math.min(16 * ui, rect.w / 2, rect.h / 2)
+    const right = rect.x + rect.w
+    const bottom = rect.y + rect.h
+    const corners = [
+      { x: rect.x, y: rect.y, dx: 1, dy: 1 },
+      { x: right, y: rect.y, dx: -1, dy: 1 },
+      { x: rect.x, y: bottom, dx: 1, dy: -1 },
+      { x: right, y: bottom, dx: -1, dy: -1 },
+    ] as const
+    for (const corner of corners) {
+      this.area.lineStyle(5 * ui, this.theme.panel, 0.9)
+      this.area.lineBetween(corner.x, corner.y, corner.x + corner.dx * len, corner.y)
+      this.area.lineBetween(corner.x, corner.y, corner.x, corner.y + corner.dy * len)
+    }
+    for (const corner of corners) {
+      this.area.lineStyle(2.5 * ui, this.theme.accent, 0.85 + 0.15 * pulse)
+      this.area.lineBetween(corner.x, corner.y, corner.x + corner.dx * len, corner.y)
+      this.area.lineBetween(corner.x, corner.y, corner.x, corner.y + corner.dy * len)
+    }
   }
 
   private hide(): void {

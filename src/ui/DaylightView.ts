@@ -10,9 +10,12 @@ const WARM_DEPTH = 3900
 const MULTIPLY_DEPTH = 3901
 const VEIL_DEPTH = 3902
 const LIGHT_DEPTH = 3904
+/** Above the world, below the time-of-day wash. */
+const VIGNETTE_DEPTH = 3898
 const TEXTURE_SIZE = 512
 const LIGHT_TEXTURE = 'daylight-soft-pool'
 const VEIL_TEXTURE = 'daylight-night-veil'
+const VIGNETTE_TEXTURE = 'daylight-stage-vignette'
 
 interface LightSpec {
   readonly x: number
@@ -43,6 +46,7 @@ export class DaylightView {
   private readonly warm: Phaser.GameObjects.Rectangle
   private readonly multiply: Phaser.GameObjects.Rectangle
   private readonly veil: Phaser.GameObjects.Image
+  private readonly vignette: Phaser.GameObjects.Image
   private lights: LightPool[] = []
   private layout: GameLayout
 
@@ -51,7 +55,13 @@ export class DaylightView {
     this.layout = layout
     ensureSoftLightTexture(scene)
     ensureVeilTexture(scene)
+    ensureVignetteTexture(scene)
 
+    this.vignette = scene.add
+      .image(0, 0, VIGNETTE_TEXTURE)
+      .setOrigin(0)
+      .setDepth(VIGNETTE_DEPTH)
+      .setAlpha(0.16)
     this.warm = scene.add
       .rectangle(0, 0, layout.width, layout.height, 0xffc27a, 1)
       .setOrigin(0)
@@ -91,6 +101,9 @@ export class DaylightView {
 
     const night = lighting.night
     const dark = night > 0.002
+    // The night veil already carries its own vignette; keep the day vignette
+    // strong enough to focus the stage and let it recede after dark.
+    this.vignette.setAlpha(0.16 * (1 - night * 0.62))
     this.multiply.setVisible(dark).setAlpha(night * 0.95)
     this.veil.setVisible(dark).setAlpha(night)
     if (!dark) {
@@ -126,6 +139,7 @@ export class DaylightView {
     this.warm.destroy()
     this.multiply.destroy()
     this.veil.destroy()
+    this.vignette.destroy()
     for (const pool of this.lights) pool.image.destroy()
     this.lights = []
   }
@@ -134,6 +148,7 @@ export class DaylightView {
     this.warm.setSize(layout.width, layout.height)
     this.multiply.setSize(layout.width, layout.height)
     this.veil.setDisplaySize(layout.width, layout.height)
+    this.vignette.setDisplaySize(layout.width, layout.height)
   }
 
   private buildLights(): void {
@@ -235,6 +250,23 @@ function ensureSoftLightTexture(scene: Phaser.Scene): void {
   gradient.addColorStop(0.55, 'rgba(255,255,255,0.2)')
   gradient.addColorStop(0.8, 'rgba(255,255,255,0.05)')
   gradient.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE)
+  texture.refresh()
+  texture.setFilter(Phaser.Textures.FilterMode.LINEAR)
+}
+
+function ensureVignetteTexture(scene: Phaser.Scene): void {
+  if (scene.textures.exists(VIGNETTE_TEXTURE)) return
+  const texture = scene.textures.createCanvas(VIGNETTE_TEXTURE, TEXTURE_SIZE, TEXTURE_SIZE)
+  if (texture === null) throw new Error(`Could not create ${VIGNETTE_TEXTURE}`)
+  const ctx = texture.context
+  const center = TEXTURE_SIZE / 2
+  const gradient = ctx.createRadialGradient(center, center, center * 0.42, center, center, center)
+  gradient.addColorStop(0, 'rgba(18,22,17,0)')
+  gradient.addColorStop(0.62, 'rgba(18,22,17,0.03)')
+  gradient.addColorStop(0.84, 'rgba(15,18,14,0.18)')
+  gradient.addColorStop(1, 'rgba(10,13,10,0.52)')
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE)
   texture.refresh()

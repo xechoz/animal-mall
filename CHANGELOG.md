@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Turn the game scene into a cutaway 2.5D stage. A wooden platform base, a
+  vertical plank back wall, deeper floor grain, warm/cool floor light, baked
+  contact and cast shadows, and a screen vignette now frame the existing
+  top-down layout. The shop sign hangs from the new wall; locked zones use a
+  softer shade plus a hanging wooden price board; kitchen work pads have a
+  shallow stone plinth. Collision, hit areas, save data and game rules are
+  unchanged.
+
+- Move onboarding out of the world view and unify the world-facing UI. The
+  tutorial is now a compact parchment ribbon on the bottom rail in landscape
+  (top in portrait), and its target uses a tinted patch with corner ticks
+  instead of a heavy selection box. HUD plates gain a thin bark lip; world
+  price chips, swap badges, shelf upgrade tags, staff signboards and
+  locked-zone prices use the wooden-tag material; the floating DINING label is
+  gone. No gameplay, save or audio change.
+
 - Celebrate each caught fish with a brief delighted face. The player's eyes
   close into happy arcs, the cheeks flush, an open smile with a pink tongue
   replaces the resting mouth, and a small heart bobs above the head. The overlay

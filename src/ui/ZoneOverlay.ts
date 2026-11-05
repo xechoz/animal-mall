@@ -99,29 +99,58 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       const nameY = anchorY + nameOffset * this.textScale
       const priceY = anchorY + (landscape ? 48 : 62) * this.textScale
 
+      // A soft shade and a painted edge, not a 40%-opaque card over the whole
+      // zone. The contents stay visible and the physical sign does the talking.
       const patch = zonePatchPoints(area)
-      fillPolygon(this.graphics, patch, gameColors.canopy, 0.4)
-      strokePolygon(this.graphics, patch, gameColors.mossDark, 0.85, 2)
+      fillPolygon(this.graphics, patch, gameColors.canopy, 0.16)
+      fillPolygon(this.graphics, patch, gameColors.pine, 0.08)
+      strokePolygon(this.graphics, patch, gameColors.mossDark, 0.3, 1.5)
       patch.forEach((point, index) => {
         if (index % 3 !== 0) return
-        this.graphics.fillStyle(gameColors.moss, 0.65)
+        this.graphics.fillStyle(gameColors.moss, 0.38)
         this.graphics.fillEllipse(point.x, point.y, 6, 3)
       })
-      if (landscape) drawLock(this.graphics, centerX, anchorY)
+      if (landscape) {
+        drawClosedSign(this.graphics, centerX, anchorY, this.textScale)
+        drawLock(this.graphics, centerX, anchorY)
+      }
       tag.name.setPosition(centerX, nameY)
 
       const cost = ZONES[zone].unlockCost
       if (cost <= 0) continue
       tag.price.setText(String(cost)).setVisible(true)
-      const tagWidth = Math.max(54 * this.textScale, tag.price.width + 42 * this.textScale)
-      const tagHeight = 26 * this.textScale
-      drawTagFrame(
-        this.graphics,
-        centerX - tagWidth / 2,
-        priceY - tagHeight / 2,
-        tagWidth,
-        tagHeight,
-      )
+      if (!landscape) {
+        const tagWidth = Math.max(54 * this.textScale, tag.price.width + 42 * this.textScale)
+        const tagHeight = 26 * this.textScale
+        drawTagFrame(
+          this.graphics,
+          centerX - tagWidth / 2,
+          priceY - tagHeight / 2,
+          tagWidth,
+          tagHeight,
+        )
+      } else {
+        // A paper price label inside the wooden board: dark ink on hay reads
+        // better than ink on the mid-brown board, and it reads as a price tag.
+        const labelWidth = Math.max(56 * this.textScale, tag.price.width + 40 * this.textScale)
+        const labelHeight = 24 * this.textScale
+        this.graphics.fillStyle(gameColors.hay, 0.97)
+        this.graphics.fillRoundedRect(
+          centerX - labelWidth / 2,
+          priceY - labelHeight / 2,
+          labelWidth,
+          labelHeight,
+          7 * this.textScale,
+        )
+        this.graphics.lineStyle(1, 0x8f6b45, 0.5)
+        this.graphics.strokeRoundedRect(
+          centerX - labelWidth / 2,
+          priceY - labelHeight / 2,
+          labelWidth,
+          labelHeight,
+          7 * this.textScale,
+        )
+      }
       tag.price.setPosition(centerX + 4 * this.textScale, priceY)
       this.graphics.fillStyle(gameColors.sunbeam, 1)
       this.graphics.fillCircle(centerX - tag.price.width / 2 - 11 * this.textScale, priceY, 6)
@@ -156,6 +185,59 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       tag.name.setAlpha(Math.min(1, Math.max(0, (NAME_RANGE - gap) / NAME_FADE)))
     }
   }
+}
+
+/**
+ * The landscape lock used to float over a dark tinted rectangle. A hanging
+ * wooden "closed" sign gives the same information as a physical object: the
+ * lock sits on the board and the price is written below it.
+ */
+function drawClosedSign(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  scale: number,
+): void {
+  const width = 92 * scale
+  const height = 94 * scale
+  const left = cx - width / 2
+  const top = cy - 34 * scale
+
+  // Rope loops up to two pegs above the board.
+  g.lineStyle(2 * scale, gameColors.barkDark, 0.8)
+  g.lineBetween(cx - width * 0.3, top, cx - width * 0.3, top - 18 * scale)
+  g.lineBetween(cx + width * 0.3, top, cx + width * 0.3, top - 18 * scale)
+  g.fillStyle(gameColors.barkDark, 0.85)
+  g.fillCircle(cx - width * 0.3, top - 19 * scale, 2.5 * scale)
+  g.fillCircle(cx + width * 0.3, top - 19 * scale, 2.5 * scale)
+
+  g.fillStyle(0x1a120c, 0.24)
+  g.fillRoundedRect(left + 4 * scale, top + 5 * scale, width, height, 10 * scale)
+  g.fillStyle(gameColors.barkDark, 1)
+  g.fillRoundedRect(left, top, width, height, 10 * scale)
+  g.fillStyle(gameColors.woodLight, 1)
+  g.fillRoundedRect(
+    left + 4 * scale,
+    top + 4 * scale,
+    width - 8 * scale,
+    height - 8 * scale,
+    8 * scale,
+  )
+  g.fillStyle(gameColors.hay, 0.55)
+  g.fillRoundedRect(left + 10 * scale, top + 8 * scale, width - 20 * scale, 2 * scale, 1 * scale)
+  g.fillStyle(0x1a120c, 0.16)
+  g.fillRoundedRect(
+    left + 8 * scale,
+    top + height - 8 * scale,
+    width - 16 * scale,
+    3 * scale,
+    1.5 * scale,
+  )
+  g.lineStyle(1, 0x8f6b45, 0.4)
+  g.lineBetween(left + 12 * scale, top + 18 * scale, left + width - 12 * scale, top + 18 * scale)
+  g.fillStyle(0x3b2f3a, 0.65)
+  g.fillCircle(left + 12 * scale, top + 12 * scale, 2 * scale)
+  g.fillCircle(left + width - 12 * scale, top + 12 * scale, 2 * scale)
 }
 
 function drawLock(g: Phaser.GameObjects.Graphics, x: number, y: number): void {

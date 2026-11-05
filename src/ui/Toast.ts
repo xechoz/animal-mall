@@ -12,7 +12,6 @@ export class Toast {
   private readonly queue: string[] = []
   private showing = false
   private lastMessage = ''
-  private bottom = false
   private header = false
 
   constructor(scene: Phaser.Scene, layout: GameLayout, theme: Theme) {
@@ -27,14 +26,6 @@ export class Toast {
       .setOrigin(0.5)
       .setDepth(7601)
       .setVisible(false)
-  }
-
-  /**
-   * Onboarding uses the strip under the HUD for its prompt. Move transient
-   * toasts to the bottom while it is active so the two never stack.
-   */
-  setBottom(bottom: boolean): void {
-    this.bottom = bottom
   }
 
   /**
@@ -70,11 +61,11 @@ export class Toast {
     const height = Math.max(44 * ui, this.text.height + 22 * ui)
     // Bottom toasts keep their lower edge above the inset no matter how many
     // lines the localized copy wraps to.
+    // The onboarding prompt owns the bottom rail, so transient feedback always
+    // sits in the strip under the HUD unless the shop asks for its header band.
     const y = this.header
       ? this.layout.insets.top + 8 * ui + height / 2
-      : this.bottom
-        ? this.layout.height - this.layout.insets.bottom - 30 * ui - height / 2
-        : hud.bar.y + hud.bar.h + 12 * ui + height / 2
+      : hud.bar.y + hud.bar.h + 12 * ui + height / 2
     const radius = height / 2
     this.text.setPosition(x, y)
     this.bg.clear()

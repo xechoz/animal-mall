@@ -1,4 +1,3 @@
-import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { INTERACTION } from '../logic/config'
 import type { ShopMap } from '../logic/types'
@@ -54,15 +53,11 @@ export class DiningView {
   private readonly rug: Phaser.GameObjects.Image
   private readonly chairs: Phaser.GameObjects.Image
   private readonly table: Phaser.GameObjects.Image
-  private readonly label: Phaser.GameObjects.Text
   private readonly hits: readonly Phaser.GameObjects.Zone[]
 
   constructor(
     scene: Phaser.Scene,
-    theme: Theme,
     map: ShopMap,
-    label: string,
-    textScale: number,
     bakeScale: number,
     onSeat: (seatIndex: number) => void,
   ) {
@@ -95,18 +90,8 @@ export class DiningView {
       TABLE_HEIGHT,
     ).setDepth(map.dining.table.y + map.dining.table.h)
 
-    this.label = scene.add
-      .text(
-        map.dining.table.x + map.dining.table.w / 2,
-        Math.max(map.wall + 10, map.dining.rug.y - 12),
-        label,
-        textStyle(theme, 11 * Math.min(textScale, 1.25), theme.text, true),
-      )
-      .setOrigin(0.5)
-      .setBackgroundColor('#fff7e8')
-      .setPadding(5, 1, 5, 1)
-      .setDepth(map.dining.table.y + map.dining.table.h + 1)
-
+    // No floating "DINING" sticker: the table setting and chairs identify the
+    // nook, and the rug already reads as a room within the room.
     this.hits = map.dining.seats.map((seat) => {
       const zone = scene.add
         .zone(seat.seat.x, seat.seat.y, 60, 40)
@@ -136,14 +121,13 @@ export class DiningView {
   }
 
   addTo(world: Phaser.GameObjects.Container): void {
-    world.add([this.rug, this.chairs, this.table, this.label, ...this.hits])
+    world.add([this.rug, this.chairs, this.table, ...this.hits])
   }
 
   destroy(): void {
     this.rug.destroy()
     this.chairs.destroy()
     this.table.destroy()
-    this.label.destroy()
     for (const hit of this.hits) hit.destroy()
   }
 }
