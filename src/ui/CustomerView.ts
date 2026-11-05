@@ -5,7 +5,7 @@ import { AnimalRig } from './AnimalRig'
 import { ANIMAL_SCALE, type AnimalFace, animalFace } from './animalArt'
 import { productTextureKey } from './productArt'
 
-const BODY_SCALE = 0.74
+const BODY_SCALE = 0.8
 
 export class CustomerView extends AnimalRig {
   private readonly moodArt: Phaser.GameObjects.Graphics
@@ -35,7 +35,7 @@ export class CustomerView extends AnimalRig {
       player: false,
       scale: BODY_SCALE,
       seed,
-      shadow: { width: 34, height: 10, alpha: 0.16 },
+      shadow: { width: 38, height: 12, alpha: 0.19 },
     })
     this.theme = theme
     this.face = animalFace(species, BODY_SCALE * ANIMAL_SCALE)

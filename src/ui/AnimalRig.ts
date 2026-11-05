@@ -26,6 +26,8 @@ export interface RigOptions {
   readonly scale: number
   readonly seed: number
   readonly shadow: RigShadow
+  /** A soft warm pool under the player so they read against the busy floor. */
+  readonly marker?: boolean
   /** Role-specific part art, e.g. a staff body already wearing its uniform. */
   readonly parts?: Partial<Record<AnimalPart, string>>
 }
@@ -82,9 +84,22 @@ export class AnimalRig extends Phaser.GameObjects.Container {
       options.parts?.[part] ?? (player ? playerPartKey(part) : animalPartKey(species, part))
 
     this.shadowArt = scene.add.graphics()
+    this.shadowArt.fillStyle(0x3b2f3a, shadow.alpha * 0.55)
+    this.shadowArt.fillEllipse(4, 5, shadow.width * 1.16, shadow.height * 1.05)
     this.shadowArt.fillStyle(0x3b2f3a, shadow.alpha)
     this.shadowArt.fillEllipse(0, 2, shadow.width, shadow.height)
+    this.shadowArt.fillStyle(0x2b241d, shadow.alpha * 0.35)
+    this.shadowArt.fillEllipse(0, 3, shadow.width * 0.66, shadow.height * 0.58)
     this.add(this.shadowArt)
+
+    if (options.marker === true) {
+      const marker = scene.add.graphics()
+      marker.fillStyle(0xffd9a8, 0.05)
+      marker.fillEllipse(0, 3, shadow.width * 1.4, shadow.height * 1.5)
+      marker.lineStyle(1.5, 0xfff3dd, 0.12)
+      marker.strokeEllipse(0, 3, shadow.width * 1.2, shadow.height * 1.15)
+      this.addAt(marker, 0)
+    }
 
     this.lift = scene.add.container(0, 0)
     this.add(this.lift)

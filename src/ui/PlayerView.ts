@@ -7,7 +7,7 @@ import { ANIMAL_SCALE, type AnimalFace, animalFace } from './animalArt'
 import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
 
-const BODY_SCALE = 0.82
+const BODY_SCALE = 0.9
 const CUP_SCALE = 0.95
 /** On-screen size of one carried item, shared with the stock flight. */
 export const CARRY_ICON_SCALE = 0.46
@@ -92,7 +92,8 @@ export class PlayerView extends AnimalRig {
       player: true,
       scale: BODY_SCALE,
       seed: 0,
-      shadow: { width: 42, height: 12, alpha: 0.18 },
+      shadow: { width: 48, height: 14, alpha: 0.22 },
+      marker: true,
     })
     this.theme = theme
     this.face = animalFace('bear', BODY_SCALE * ANIMAL_SCALE)

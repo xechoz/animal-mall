@@ -7,7 +7,7 @@ import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
 import { staffBodyKey, staffHatKey } from './staffArt'
 
-const BODY_SCALE = 0.78
+const BODY_SCALE = 0.84
 /** The rig shrinks 128-unit part art to the long-standing 96-unit footprint. */
 const PART_SCALE = BODY_SCALE * ANIMAL_SCALE
 
@@ -37,7 +37,7 @@ export class StaffView extends AnimalRig {
       player: false,
       scale: BODY_SCALE,
       seed: member.id,
-      shadow: { width: 40, height: 11, alpha: 0.18 },
+      shadow: { width: 44, height: 13, alpha: 0.2 },
       parts: { body: staffBodyKey(member.kind) },
     })
 

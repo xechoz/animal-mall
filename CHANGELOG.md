@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Ground the cast and make the shelves easier to read. The player, staff and
+  customers are slightly larger and stand on layered contact/cast shadows; the
+  player also gets a soft warm floor marker. A stockable shelf now answers with
+  a warm ground halo and a gold rim along its front lip instead of a white
+  rounded-rectangle outline. Hit areas, touch sizes, collision and rules are
+  unchanged.
+
 - Unify the 2.5D prop kit and give the shop furniture a shared volume language.
   Market stalls gain a back riser, a zone-tinted striped canopy, hanging goods,
   a chalkboard, a produce crate and a sack; the till gains glass jars, a cutting

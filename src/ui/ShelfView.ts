@@ -27,6 +27,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private readonly lockOverlay: Phaser.GameObjects.Container
   private readonly showLock: boolean
   private readonly reachGlow: Phaser.GameObjects.Graphics
+  private readonly reachRim: Phaser.GameObjects.Graphics
   private reachOn = false
   private readonly countText: Phaser.GameObjects.Text
   private readonly slotCount: number
@@ -75,10 +76,12 @@ export class ShelfView extends Phaser.GameObjects.Container {
     addPropShadow(scene, this, { width: width + 18, height: height + 14, alpha: 0.14 })
 
     this.reachGlow = scene.add.graphics()
-    this.reachGlow.fillStyle(0xfff3dd, 0.14)
-    this.reachGlow.fillRoundedRect(-width / 2 - 12, -height / 2 - 12, width + 24, height + 24, 14)
-    this.reachGlow.lineStyle(3, gameColors.cream, 0.55)
-    this.reachGlow.strokeRoundedRect(-width / 2 - 12, -height / 2 - 12, width + 24, height + 24, 14)
+    this.reachGlow.fillStyle(0xffd166, 0.08)
+    this.reachGlow.fillEllipse(0, height / 2 + 2, width + 28, 30)
+    this.reachGlow.lineStyle(2.5, 0xffd166, 0.5)
+    this.reachGlow.strokeEllipse(0, height / 2 + 2, width + 28, 30)
+    this.reachGlow.lineStyle(1.5, 0xfff3dd, 0.3)
+    this.reachGlow.strokeEllipse(0, height / 2 + 2, width + 14, 22)
     this.reachGlow.setAlpha(0).setVisible(false)
     this.add(this.reachGlow)
 
@@ -260,6 +263,21 @@ export class ShelfView extends Phaser.GameObjects.Container {
     this.addAt(baked, Math.max(0, index))
     g.destroy()
 
+    // Warm rim along the stall's front lip, shown together with the ground ring.
+    this.reachRim = scene.add.graphics()
+    const rimY = frontFaceTop - 2
+    this.reachRim.lineStyle(2, 0xffd166, 0.5)
+    this.reachRim.lineBetween(-width / 2 + 10, rimY, width / 2 - 10, rimY)
+    this.reachRim.lineStyle(1.5, 0xfff3dd, 0.32)
+    for (const side of [-1, 1]) {
+      const x = side * (width / 2 - 12)
+      this.reachRim.lineBetween(x, rimY - 6, x, rimY + 2)
+    }
+    this.reachRim.lineStyle(2, 0xffd166, 0.35)
+    this.reachRim.strokeEllipse(0, height / 2 + 8, width * 0.9, 12)
+    this.reachRim.setAlpha(0).setVisible(false)
+    this.add(this.reachRim)
+
     this.lockOverlay = scene.add.container(0, 0)
     const lockBg = scene.add.graphics()
     const lockTop = riserTop - 6
@@ -366,14 +384,20 @@ export class ShelfView extends Phaser.GameObjects.Container {
   setReach(on: boolean): void {
     if (on === this.reachOn) return
     this.reachOn = on
-    this.scene.tweens.killTweensOf(this.reachGlow)
-    if (on) this.reachGlow.setVisible(true)
+    const targets = [this.reachGlow, this.reachRim]
+    this.scene.tweens.killTweensOf(targets)
+    if (on) {
+      this.reachGlow.setVisible(true)
+      this.reachRim.setVisible(true)
+    }
     this.scene.tweens.add({
-      targets: this.reachGlow,
+      targets,
       alpha: on ? 1 : 0,
       duration: on ? 140 : 80,
       onComplete: () => {
-        if (!this.reachOn) this.reachGlow.setVisible(false)
+        if (this.reachOn) return
+        this.reachGlow.setVisible(false)
+        this.reachRim.setVisible(false)
       },
     })
   }
