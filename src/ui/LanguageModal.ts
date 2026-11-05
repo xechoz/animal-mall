@@ -8,6 +8,7 @@ import {
   textStyle,
 } from '@mg/core'
 import type Phaser from 'phaser'
+import { createCloseButton } from './dialog'
 import { drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 
@@ -32,7 +33,7 @@ export class LanguageModal {
     const ui = layout.ui
     this.root = scene.add.container(0, 0).setDepth(7100)
     const backdrop = scene.add
-      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.66)
+      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.72)
       .setOrigin(0)
       .setInteractive()
     backdrop.on('pointerdown', () => this.close())
@@ -60,13 +61,14 @@ export class LanguageModal {
         .setOrigin(0.5),
     )
     card.add(
-      new Button(scene, cardW / 2 - 36 * ui, -cardH / 2 + 40 * ui, '×', theme, {
-        width: 44 * ui,
-        height: 44 * ui,
-        fontSize: 24 * ui,
-        variant: 'soft',
-        onClick: () => this.close(),
-      }),
+      createCloseButton(
+        scene,
+        cardW / 2 - 34 * ui,
+        -cardH / 2 + 34 * ui,
+        theme,
+        () => this.close(),
+        ui,
+      ),
     )
 
     const columns = 3
@@ -81,7 +83,9 @@ export class LanguageModal {
     SUPPORTED_LANGS.forEach((lang, index) => {
       const column = index % columns
       const row = Math.floor(index / columns)
-      const x = -cardW / 2 + 20 * ui + column * (buttonWidth + gap) + buttonWidth / 2
+      const itemsInRow = Math.min(columns, SUPPORTED_LANGS.length - row * columns)
+      const rowWidth = itemsInRow * buttonWidth + (itemsInRow - 1) * gap
+      const x = -rowWidth / 2 + column * (buttonWidth + gap) + buttonWidth / 2
       const y = startY + row * (buttonHeight + gap) + buttonHeight / 2
       const selected = lang === options.current
       card.add(
@@ -94,7 +98,7 @@ export class LanguageModal {
             ? (faceScene, size) => {
                 const g = faceScene.add.graphics()
                 const radius = size.height / 2
-                g.fillStyle(theme.accent, 0.16)
+                g.fillStyle(theme.accent, 0.18)
                 g.fillRoundedRect(
                   -size.width / 2,
                   -size.height / 2,
@@ -102,7 +106,7 @@ export class LanguageModal {
                   size.height,
                   radius,
                 )
-                g.lineStyle(2 * ui, theme.accent, 0.9)
+                g.lineStyle(2 * ui, theme.accent, 0.95)
                 g.strokeRoundedRect(
                   -size.width / 2,
                   -size.height / 2,
@@ -110,6 +114,11 @@ export class LanguageModal {
                   size.height,
                   radius,
                 )
+                // A check makes the choice visible without relying on colour.
+                g.lineStyle(2.4 * ui, theme.accentHover, 1)
+                const cx = -size.width / 2 + 20 * ui
+                g.lineBetween(cx - 5 * ui, 0, cx - 1 * ui, 4 * ui)
+                g.lineBetween(cx - 1 * ui, 4 * ui, cx + 6 * ui, -5 * ui)
                 return g
               }
             : undefined,

@@ -26,9 +26,9 @@ const CLOCK_ARC_APEX = 15
 const CLOCK_TEXT_BASELINE = 49
 const CLOCK_TEXT_INSET = 18
 const CLOCK_MILESTONES = 5
-/** Keep one track dot per milestone centre, plus four dots between each pair. */
-const CLOCK_TRACK_DOTS = (CLOCK_MILESTONES - 1) * 5 + 1
-const CLOCK_ARC_DOT_RADIUS = 1.2
+/** Three dots per milestone gap keeps the arc readable on a phone HUD. */
+const CLOCK_TRACK_DOTS = (CLOCK_MILESTONES - 1) * 3 + 1
+const CLOCK_ARC_DOT_RADIUS = 1.4
 const CLOCK_MILESTONE_RADIUS = 3.4
 const PHASE_PULSE_MS = 350
 const CLOSING_PULSE_RATE = 0.003
@@ -36,6 +36,7 @@ const CLOSING_PULSE_RATE = 0.003
 export class Hud {
   private readonly theme: Theme
   private readonly i18n: I18n
+  private readonly scrim: Phaser.GameObjects.Graphics
   private readonly bar: Phaser.GameObjects.Graphics
   private readonly coinIcon: Phaser.GameObjects.Image
   private readonly coinsText: Phaser.GameObjects.Text
@@ -66,13 +67,16 @@ export class Hud {
     this.i18n = i18n
     this.layout = layout
 
+    // The top row floats over the world on phones; a soft canopy wash keeps the
+    // clock and purse readable without putting them on another card.
+    this.scrim = scene.add.graphics().setDepth(5990)
     this.bar = scene.add.graphics().setDepth(6000)
     this.coinIcon = scene.add
       .image(0, 0, coinTextureKey())
       .setDepth(6002)
       .setScale(0.78 * layout.ui)
     this.coinsText = scene.add
-      .text(0, 0, '', textStyle(theme, 22 * layout.ui, theme.text, true))
+      .text(0, 0, '', textStyle(theme, this.coinFontSize(), theme.text, true))
       .setOrigin(0, 0.5)
       .setDepth(6002)
 
@@ -128,12 +132,24 @@ export class Hud {
     const ui = layout.ui
     this.bar.clear()
 
+    // A short gradient, not a solid bar: the canopy stays visible while world
+    // labels sliding under the top row lose enough contrast to stop competing.
+    this.scrim.clear()
+    const scrimHeight = Math.max(hud.bar.y + hud.bar.h + 8 * ui, layout.content.y + 10 * ui)
+    const bands = 10
+    for (let index = 0; index < bands; index += 1) {
+      const t = index / (bands - 1)
+      this.scrim.fillStyle(this.theme.overlay, 0.3 * (1 - t) ** 1.4)
+      this.scrim.fillRect(0, (scrimHeight * index) / bands, layout.width, scrimHeight / bands + 1)
+    }
+
     this.coinBaseScale = 0.78 * ui
     this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
     this.coinsText
       .setOrigin(0, 0.5)
       .setPosition(hud.coins.x + 20 * ui, hud.coins.y)
-      .setFontSize(22 * ui)
+      .setFontSize(this.coinFontSize())
+    this.fitCoinText()
     this.drawCoinPill()
     this.layoutClock()
     this.shopButton.setPosition(hud.shop.x, hud.shop.y)
@@ -165,9 +181,10 @@ export class Hud {
 
     if (state.coins !== this.lastCoins) {
       this.lastCoins = state.coins
-      const text = String(state.coins)
+      const text = this.coinLabel(state.coins)
       this.coinsText.setText(text)
-      this.coinsText.setFontSize(22 * this.layout.ui)
+      this.coinsText.setFontSize(this.coinFontSize())
+      this.fitCoinText()
       // The pill hugs the number, so every digit count stays readable over the
       // world instead of floating as bare text.
       this.bar.clear()
@@ -327,9 +344,38 @@ export class Hud {
     const height = COIN_PILL_HEIGHT * ui
     const x = hud.coins.x - COIN_PILL_INSET * ui
     const y = hud.coins.y - height / 2
-    const width = Math.max(72 * ui, this.coinsText.x - x + this.coinsText.width + 16 * ui)
+    // Stop the purse at the clock's left edge; a five-digit balance must not
+    // become the second half of the day pill.
+    const clockLeft = hud.clock.x - hud.clockWidth / 2
+    const cap = clockLeft - 4 * ui - x
+    const width = Math.max(
+      64 * ui,
+      Math.min(cap, this.coinsText.x - x + this.coinsText.width + 16 * ui),
+    )
 
     drawHudGlass(this.bar, { x, y, w: width, h: height }, this.theme, ui, 0.84)
+  }
+
+  private coinFontSize(): number {
+    return (this.layout.portrait ? 18 : 22) * this.layout.ui
+  }
+
+  private fitCoinText(): void {
+    const hud = this.layout.hud
+    const ui = this.layout.ui
+    const clockLeft = hud.clock.x - hud.clockWidth / 2
+    const maxTextWidth = clockLeft - 4 * ui - this.coinsText.x
+    if (this.coinsText.width <= maxTextWidth) return
+    const base = this.coinFontSize()
+    this.coinsText.setFontSize(
+      Math.max(13 * ui, base * (maxTextWidth / Math.max(1, this.coinsText.width))),
+    )
+  }
+
+  private coinLabel(coins: number): string {
+    if (coins >= 1_000_000) return `${Math.floor(coins / 1_000_000)}m`
+    if (coins >= 10_000) return `${(coins / 1_000).toFixed(coins >= 100_000 ? 0 : 1)}k`
+    return String(coins)
   }
 
   setEnabled(enabled: boolean): void {
@@ -339,6 +385,21 @@ export class Hud {
       this.devEnabled = enabled
       this.devButton.setEnabled(enabled)
     }
+  }
+
+  /** Blocking dialogs take the whole top row away instead of leaving it dim. */
+  setVisible(visible: boolean): void {
+    this.scrim.setVisible(visible)
+    this.bar.setVisible(visible)
+    this.coinIcon.setVisible(visible)
+    this.coinsText.setVisible(visible)
+    this.clockBg.setVisible(visible)
+    this.clockIcon.setVisible(visible)
+    this.dayText.setVisible(visible)
+    this.clockText.setVisible(visible)
+    this.shopButton.setVisible(visible)
+    this.pauseButton.setVisible(visible)
+    this.devButton?.setVisible(visible)
   }
 
   pulseCoin(): void {

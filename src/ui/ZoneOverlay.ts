@@ -1,9 +1,9 @@
-import { type Theme, textStyle } from '@mg/core'
+import { cssColor, type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import { gameColors } from '../colors'
 import { distanceToRect } from '../logic/collision'
 import { ZONE_ORDER, ZONES } from '../logic/config'
-import type { ShopMap, ShopState, Vec2, ZoneId } from '../logic/types'
+import type { Rect, ShopMap, ShopState, Vec2, ZoneId } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { fillPolygon, strokePolygon, zonePatchPoints } from './forestArt'
 import { drawTagFrame } from './frames'
@@ -28,6 +28,8 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
   private readonly map: ShopMap
   private readonly textScale: number
   private readonly graphics: Phaser.GameObjects.Graphics
+  private readonly camera: { readonly x: number; readonly scale: number }
+  private readonly content: Rect
   private image?: Phaser.GameObjects.Image
   private readonly tags = new Map<ZoneId, ZoneTag>()
   private lastKey = ''
@@ -38,17 +40,21 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
     map: ShopMap,
     labels: Readonly<Record<ZoneId, string>>,
     textScale: number,
+    camera: { readonly x: number; readonly scale: number },
+    content: Rect,
   ) {
     super(scene, 0, 0)
     this.map = map
     this.textScale = textScale
+    this.camera = camera
+    this.content = content
     this.graphics = scene.add.graphics()
     this.add(this.graphics)
 
     for (const zone of ZONE_ORDER) {
       const name = scene.add
         .text(0, 0, labels[zone], {
-          ...textStyle(theme, 22 * textScale, '#fff7e8', true),
+          ...textStyle(theme, 22 * textScale, cssColor(gameColors.ui.cream), true),
           // A soft halo keeps the caption readable on the dimmed patch without
           // the thick outline that turns dense CJK glyphs into blobs.
           shadow: {
@@ -102,9 +108,11 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       // A soft shade and a painted edge, not a 40%-opaque card over the whole
       // zone. The contents stay visible and the physical sign does the talking.
       const patch = zonePatchPoints(area)
-      fillPolygon(this.graphics, patch, gameColors.canopy, 0.16)
-      fillPolygon(this.graphics, patch, gameColors.pine, 0.08)
-      strokePolygon(this.graphics, patch, gameColors.mossDark, 0.3, 1.5)
+      // Every locked zone takes the same cool wash, so the four floors do not
+      // read as four different degrees of "closed".
+      fillPolygon(this.graphics, patch, gameColors.ui.lockedScrim, 0.36)
+      fillPolygon(this.graphics, patch, gameColors.canopy, 0.08)
+      strokePolygon(this.graphics, patch, gameColors.mossDark, 0.34, 1.5)
       patch.forEach((point, index) => {
         if (index % 3 !== 0) return
         this.graphics.fillStyle(gameColors.moss, 0.38)
@@ -115,6 +123,13 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
         drawLock(this.graphics, centerX, anchorY)
       }
       tag.name.setPosition(centerX, nameY)
+      // Keep a long translation inside the zone patch instead of letting it
+      // run off the edge of a phone screen.
+      tag.name.setScale(1)
+      const maxNameWidth = area.w - 20 * this.textScale
+      if (tag.name.width > maxNameWidth) {
+        tag.name.setScale(maxNameWidth / tag.name.width)
+      }
 
       const cost = ZONES[zone].unlockCost
       if (cost <= 0) continue
@@ -183,6 +198,15 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       if (tag === undefined || !tag.name.visible) continue
       const gap = distanceToRect(pos, this.map.zoneAreas[zone])
       tag.name.setAlpha(Math.min(1, Math.max(0, (NAME_RANGE - gap) / NAME_FADE)))
+      // Keep the caption on screen when the zoomed camera crops the zone: the
+      // baked lock/price can sit off-frame, but a half-cut word reads as a bug.
+      const half = (tag.name.displayWidth * this.camera.scale) / 2
+      const minX = this.content.x + half + 8
+      const maxX = this.content.x + this.content.w - half - 8
+      const screenX = this.camera.x + tag.name.x * this.camera.scale
+      const clampedX =
+        minX > maxX ? this.content.x + this.content.w / 2 : Math.min(maxX, Math.max(minX, screenX))
+      tag.name.x = (clampedX - this.camera.x) / this.camera.scale
     }
   }
 }

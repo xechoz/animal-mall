@@ -8,7 +8,7 @@ const WORLD_LABEL_TARGET_PX = 10.5
 
 /** Phones cap out below 2x so the HUD keeps breathing room. */
 const MAX_UI_SCALE = 1.55
-const MAX_WORLD_TEXT_SCALE = 2
+const MAX_WORLD_TEXT_SCALE = 1.4
 /** Comfortable physical size for a 1-unit world object on a phone. */
 const WORLD_CSS_UNIT_TARGET = 0.9
 /** Upper bound keeps the shop from turning into a keyhole view. */

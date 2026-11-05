@@ -149,7 +149,10 @@ export class TutorialOverlay {
     // drops the prompt onto the bottom rail, below the counter and clear of the
     // player start; portrait raises it into the HUD band so it never covers the
     // bottom-centre player.
-    const top = this.layout.hud.pause.y + this.layout.hud.buttonSize / 2 + 12 * ui
+    const top =
+      this.layout.hud.pause.y +
+      this.layout.hud.buttonSize / 2 +
+      (this.layout.portrait ? 26 : 12) * ui
     const y = this.layout.portrait
       ? top + pillHeight / 2
       : content.y + content.h - 24 * ui - pillHeight / 2
@@ -236,7 +239,17 @@ export class TutorialOverlay {
     }
 
     const alpha = guide.inReach ? 0.25 : 1
-    drawLandingArrow(this.beacon, markerScreen.x, markerScreen.y, alpha, time, this.theme, ui)
+    // The empty-bed price chip sits at the plot centre; land just above it so
+    // the arrow and the price do not print on top of each other.
+    drawLandingArrow(
+      this.beacon,
+      markerScreen.x,
+      markerScreen.y - 26 * ui,
+      alpha,
+      time,
+      this.theme,
+      ui,
+    )
   }
 
   /**
@@ -251,10 +264,10 @@ export class TutorialOverlay {
     time: number,
     ui: number,
   ): void {
-    // Orbit the character's body rather than its feet: the sprite is drawn
-    // upward from the feet, so a feet-anchored arrow would sit on the face.
-    const anchorX = playerScreen.x
-    const anchorY = playerScreen.y - 18 * ui
+    // Sit beside the character's waist, on the side away from the target. The
+    // old above-head anchor read as a horn growing out of the animal.
+    const anchorX = playerScreen.x + (targetScreen.x >= playerScreen.x ? -32 : 32) * ui
+    const anchorY = playerScreen.y - 6 * ui
     const dx = targetScreen.x - anchorX
     const dy = targetScreen.y - anchorY
     const gap = Math.hypot(dx, dy)

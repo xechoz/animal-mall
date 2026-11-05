@@ -68,7 +68,7 @@ export class DaylightView {
       .setDepth(WARM_DEPTH)
       .setVisible(false)
     this.multiply = scene.add
-      .rectangle(0, 0, layout.width, layout.height, 0x5f656d, 1)
+      .rectangle(0, 0, layout.width, layout.height, 0x56637a, 1)
       .setOrigin(0)
       .setDepth(MULTIPLY_DEPTH)
       .setBlendMode(Phaser.BlendModes.MULTIPLY)
@@ -294,10 +294,10 @@ function ensureVeilTexture(scene: Phaser.Scene): void {
   const ctx = texture.context
   const center = TEXTURE_SIZE / 2
   const gradient = ctx.createRadialGradient(center, center, 0, center, center, center)
-  gradient.addColorStop(0, 'rgba(38,40,44,0.16)')
-  gradient.addColorStop(0.55, 'rgba(34,36,40,0.18)')
-  gradient.addColorStop(0.8, 'rgba(22,24,28,0.42)')
-  gradient.addColorStop(1, 'rgba(10,12,16,0.7)')
+  gradient.addColorStop(0, 'rgba(34,48,66,0.16)')
+  gradient.addColorStop(0.55, 'rgba(28,40,56,0.2)')
+  gradient.addColorStop(0.8, 'rgba(18,28,42,0.46)')
+  gradient.addColorStop(1, 'rgba(8,14,24,0.75)')
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE)
   texture.refresh()

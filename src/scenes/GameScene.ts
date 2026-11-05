@@ -474,7 +474,15 @@ export class GameScene extends Phaser.Scene {
       topY: counterRect.y - COUNTER_HEIGHT,
     })
 
-    this.zoneOverlay = new ZoneOverlay(this, theme, this.layout.map, labels, this.layout.worldText)
+    this.zoneOverlay = new ZoneOverlay(
+      this,
+      theme,
+      this.layout.map,
+      labels,
+      this.layout.worldText,
+      this.viewCamera,
+      this.layout.content,
+    )
     this.zoneOverlay.setDepth(50)
     this.world.add(this.zoneOverlay)
 
@@ -2106,6 +2114,7 @@ export class GameScene extends Phaser.Scene {
     this.closeFoodPicker()
     this.closeDevPanel()
     this.mode = 'shop'
+    this.hud.setVisible(false)
     this.hud.setEnabled(false)
     this.joystick.setEnabled(false)
     this.tutorial.setVisible(false)
@@ -2218,6 +2227,7 @@ export class GameScene extends Phaser.Scene {
     this.shopPanel = undefined
     this.dayReport?.destroy()
     this.mode = 'report'
+    this.hud.setVisible(false)
     this.hud.setEnabled(false)
     this.joystick.setEnabled(false)
     this.tutorial.setVisible(false)
@@ -2252,6 +2262,7 @@ export class GameScene extends Phaser.Scene {
     this.shopPanel?.destroy()
     this.shopPanel = undefined
     this.mode = 'paused'
+    this.hud.setVisible(false)
     this.hud.setEnabled(false)
     this.joystick.setEnabled(false)
     this.tutorial.setVisible(false)
@@ -2288,6 +2299,7 @@ export class GameScene extends Phaser.Scene {
     this.mode = 'countdown'
     this.countdownMs = 3_000
     this.countdownShown = 3
+    this.hud.setVisible(true)
     this.hud.setEnabled(false)
     this.joystick.setEnabled(false)
     this.tutorial.setVisible(false)
@@ -2315,6 +2327,7 @@ export class GameScene extends Phaser.Scene {
     this.mode = 'playing'
     this.syncToastPlacement()
     this.accumulator = 0
+    this.hud.setVisible(true)
     this.hud.setEnabled(true)
     this.joystick.setEnabled(true)
     this.tutorial.setVisible(true)

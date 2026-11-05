@@ -90,31 +90,61 @@ export class MenuScene extends Phaser.Scene {
     this.drawBackdrop(width, height)
     this.drawShopfront(width, height, portrait)
 
-    const titleY = insets.top + (portrait ? 130 : 82) * ui
-    this.add
-      .text(
-        width / 2,
-        titleY,
-        i18n.t('game.title'),
-        displayTextStyle(theme, 48 * ui, '#fff7e8', true, 4 * ui, 4 * ui),
-      )
-      .setOrigin(0.5)
+    const titleY = insets.top + (portrait ? 120 : 82) * ui
+    const title = i18n.t('game.title').toUpperCase()
+    const titleLabel = this.add
+      .text(0, 0, title, displayTextStyle(theme, 46 * ui, '#fff7e8', true, 3 * ui, 4 * ui))
+      .setOrigin(0, 0.5)
       .setDepth(20)
+    const titleWidth = titleLabel.width
+    const showBrandDot = !['zh', 'ja', 'ko'].includes(i18n.lang)
+    const dot = showBrandDot
+      ? this.add
+          .text(0, 4 * ui, '.', textStyle(theme, 46 * ui, '#e0913f', true))
+          .setOrigin(0, 0.5)
+          .setDepth(20)
+      : undefined
+    const groupWidth = titleWidth + (dot?.width ?? 0)
+    titleLabel.setX(width / 2 - groupWidth / 2)
+    dot?.setX(titleLabel.x + titleWidth)
+    titleLabel.setY(titleY)
+    dot?.setY(titleY)
 
     const zoneCount = Object.values(save.zones).filter(Boolean).length
-    this.add
+    const stats = this.add
       .text(
         width / 2,
-        titleY + 46 * ui,
+        titleY + 48 * ui,
         i18n.t('menu.stats', {
           coins: save.coins,
           zones: zoneCount,
           served: save.served,
         }),
-        textStyle(theme, layout.text.body, '#e6d8bd', true),
+        textStyle(theme, layout.text.body, '#f0e2c8', false),
       )
       .setOrigin(0.5)
       .setDepth(20)
+    // A quiet bark wash keeps the stats legible over the painted canopy without
+    // turning them into another bright card.
+    const statsBg = this.add.graphics().setDepth(19)
+    const statsW = stats.width + 28 * ui
+    const statsH = stats.height + 10 * ui
+    statsBg.fillStyle(gameColors.barkDark, 0.28)
+    statsBg.fillRoundedRect(
+      width / 2 - statsW / 2,
+      stats.y - statsH / 2,
+      statsW,
+      statsH,
+      statsH / 2,
+    )
+    statsBg.lineStyle(1 * ui, gameColors.ui.cream, 0.14)
+    statsBg.strokeRoundedRect(
+      width / 2 - statsW / 2,
+      stats.y - statsH / 2,
+      statsW,
+      statsH,
+      statsH / 2,
+    )
 
     const startY = portrait ? height * 0.72 : height * 0.8
     this.startButton = new Button(
@@ -153,8 +183,8 @@ export class MenuScene extends Phaser.Scene {
       {
         icon: 'gear',
         theme,
-        variant: 'soft',
-        size: 54 * ui,
+        variant: 'glass',
+        size: 52 * ui,
         onClick: () => this.openSettings(),
       },
     )
@@ -178,6 +208,7 @@ export class MenuScene extends Phaser.Scene {
 
   private openSettings(): void {
     if (this.settingsModal !== undefined || this.languageModal !== undefined) return
+    this.startButton?.setVisible(false)
     const viewport = readViewport(this)
     const layout = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
       cssShortSide: readCssShortSide(this),
@@ -210,12 +241,14 @@ export class MenuScene extends Phaser.Scene {
       },
       onClose: () => {
         this.settingsModal = undefined
+        this.startButton?.setVisible(true)
       },
     })
   }
 
   private openLanguage(): void {
     if (this.languageModal !== undefined || this.settingsModal !== undefined) return
+    this.startButton?.setVisible(false)
     const viewport = readViewport(this)
     const layout = computeGameLayout(viewport.width, viewport.height, viewport.insets, {
       cssShortSide: readCssShortSide(this),
@@ -232,6 +265,7 @@ export class MenuScene extends Phaser.Scene {
       },
       onClose: () => {
         this.languageModal = undefined
+        this.startButton?.setVisible(true)
       },
     })
   }
@@ -344,8 +378,10 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private drawShopfront(width: number, height: number, portrait: boolean): void {
-    const scale = portrait ? 1 : 0.94
-    const centerY = portrait ? height * 0.49 : height * 0.51
+    // Portrait gets a slightly larger shopfront, lifted toward the stats so the
+    // clearing does not read as a large empty green band.
+    const scale = portrait ? 1.06 : 0.94
+    const centerY = portrait ? height * 0.46 : height * 0.51
     const shop = this.add
       .container(width / 2, centerY)
       .setDepth(10)

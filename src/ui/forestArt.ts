@@ -499,7 +499,7 @@ export function drawCanopyBand(
   g.fillStyle(gameColors.canopy, 0.65)
   g.fillRoundedRect(x + 4, y + 4, width - 8, height - 8, 10)
 
-  const variants: readonly FoliageTone[] = ['green', 'olive', 'teal', 'gold', 'plum']
+  const variants: readonly FoliageTone[] = ['green', 'olive', 'teal']
   const count = Math.max(3, Math.round(width / 22))
   for (let index = 0; index < count; index += 1) {
     const px = x + 8 + (index * (width - 16)) / Math.max(1, count - 1)
@@ -507,12 +507,12 @@ export function drawCanopyBand(
     const scale = 0.45 + hash01(seed + index * 29) * 0.3
     const variant = variants[index % variants.length] ?? 'green'
     drawBush(g, px, py, scale, index % 2 === 0 ? 'dark' : 'light', variant)
-    if (hash01(seed + index * 43) > 0.45) {
+    if (hash01(seed + index * 43) > 0.82) {
+      const canopyFruit = [gameColors.berry] as const
       const color =
-        FRUIT_COLORS[Math.floor(hash01(seed + index * 59) * FRUIT_COLORS.length)] ??
-        gameColors.berry
-      g.fillStyle(color, 0.9)
-      g.fillCircle(px + 5 * scale, py - 5 * scale, 1.8 * scale)
+        canopyFruit[Math.floor(hash01(seed + index * 59) * canopyFruit.length)] ?? gameColors.berry
+      g.fillStyle(color, 0.75)
+      g.fillCircle(px + 5 * scale, py - 5 * scale, 1.5 * scale)
     }
   }
   for (let index = 0; index < 5; index += 1) {

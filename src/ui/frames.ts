@@ -68,6 +68,30 @@ export function drawCardFrame(
   g.strokeRoundedRect(x, y, width, height, radius)
 }
 
+/**
+ * A light popover shell for slot pickers. It shares the parchment face and
+ * bark edge with the big dialogs but skips the leaf corners and the heavy
+ * accent rim, so an anchored chooser does not shout over the world.
+ */
+export function drawPopoverFrame(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  theme: Theme,
+  radius = theme.radiusLarge,
+): void {
+  g.fillStyle(theme.shadow, 0.22)
+  g.fillRoundedRect(x, y + 6, width, height, radius)
+  g.fillStyle(gameColors.barkDark, 1)
+  g.fillRoundedRect(x, y, width, height, radius)
+  g.fillStyle(theme.panel, 1)
+  g.fillRoundedRect(x + 2.5, y + 2.5, width - 5, height - 5, Math.max(2, radius - 2))
+  g.lineStyle(1.5, theme.borderSoft, 0.95)
+  g.strokeRoundedRect(x + 2.5, y + 2.5, width - 5, height - 5, Math.max(2, radius - 2))
+}
+
 /** A small wooden tag for zone names and prices. */
 export function drawTagFrame(
   g: Phaser.GameObjects.Graphics,

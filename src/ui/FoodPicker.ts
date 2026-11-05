@@ -3,6 +3,8 @@ import type Phaser from 'phaser'
 import { carriedKinds, carryOf, carryTotal } from '../logic/carry'
 import { FOOD_BUFF, zoneOf } from '../logic/config'
 import type { DrinkKind, ProductKind, ShopState } from '../logic/types'
+import { createCloseButton } from './dialog'
+import { drawPopoverFrame } from './frames'
 import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
 
@@ -68,7 +70,7 @@ export class FoodPicker {
 
     this.root = scene.add.container(0, 0).setDepth(6900)
     const blocker = scene.add
-      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.16)
+      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.28)
       .setOrigin(0)
       .setInteractive()
     blocker.on('pointerdown', () => options.onClose())
@@ -78,12 +80,7 @@ export class FoodPicker {
     this.root.add(panel)
 
     const panelBg = scene.add.graphics()
-    panelBg.fillStyle(theme.shadow, 0.22)
-    panelBg.fillRoundedRect(-panelW / 2, -panelH / 2 + 6 * ui, panelW, panelH, 22 * ui)
-    panelBg.fillStyle(theme.panel, 0.98)
-    panelBg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 22 * ui)
-    panelBg.lineStyle(3 * ui, theme.accentAlt, 0.85)
-    panelBg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 22 * ui)
+    drawPopoverFrame(panelBg, -panelW / 2, -panelH / 2, panelW, panelH, theme, 22 * ui)
     panel.add(panelBg)
 
     const swallow = scene.add.zone(0, 0, panelW, panelH).setInteractive()
@@ -104,20 +101,16 @@ export class FoodPicker {
       .setOrigin(0.5)
     panel.add(this.subtitle)
 
-    const close = scene.add
-      .text(
-        panelW / 2 - 22 * ui,
-        -panelH / 2 + 24 * ui,
-        '×',
-        textStyle(theme, font.title, theme.textMuted, true),
-      )
-      .setOrigin(0.5)
-    const closeHit = scene.add
-      .zone(panelW / 2 - 22 * ui, -panelH / 2 + 24 * ui, 56 * ui, 56 * ui)
-      .setInteractive({ useHandCursor: true })
-    closeHit.on('pointerdown', () => options.onClose())
-    panel.add(close)
-    panel.add(closeHit)
+    panel.add(
+      createCloseButton(
+        scene,
+        panelW / 2 - 28 * ui,
+        -panelH / 2 + 26 * ui,
+        theme,
+        () => options.onClose(),
+        ui,
+      ),
+    )
 
     this.empty = scene.add
       .text(
@@ -151,8 +144,17 @@ export class FoodPicker {
     const standWidth = Math.max(150 * ui, stand.width + 38 * ui)
     const standHeight = 40 * ui
     const standBg = scene.add.graphics()
-    standBg.fillStyle(theme.accentAlt, 1)
+    // Leaving the table is a secondary action, not a green "confirm" button.
+    standBg.fillStyle(theme.surface, 1)
     standBg.fillRoundedRect(
+      -standWidth / 2,
+      standY - standHeight / 2,
+      standWidth,
+      standHeight,
+      standHeight / 2,
+    )
+    standBg.lineStyle(1.5 * ui, theme.borderSoft, 1)
+    standBg.strokeRoundedRect(
       -standWidth / 2,
       standY - standHeight / 2,
       standWidth,

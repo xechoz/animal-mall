@@ -1,36 +1,67 @@
 import type { Theme } from '@mg/core'
 
+/**
+ * The UI palette is the single source of truth for interface colour. World art
+ * keeps its own wider set below; these tokens are deliberately small so a new
+ * control has one obvious choice per role instead of a free colour picker.
+ */
+const ui = {
+  ink: 0x2b241d,
+  inkSoft: 0x5f5646,
+  cream: 0xfff7e8,
+  paper: 0xf6ead2,
+  paperRaised: 0xfff8e8,
+  paperDeep: 0xe8d3af,
+  line: 0xd3bd95,
+  bark: 0x4a2f1c,
+  hay: 0xf0d08a,
+  accent: 0xe0913f,
+  accentHover: 0xc9762f,
+  accentSoft: 0xf3d6ae,
+  leaf: 0x6f9f55,
+  berry: 0xc94f45,
+  brass: 0xe6b34a,
+  /** One cool wash for every locked zone, regardless of its floor tint. */
+  lockedScrim: 0x2f4a42,
+  overlay: 0x131f19,
+} as const
+
+const fontStack =
+  '"Nunito", "Noto Sans SC", "PingFang SC", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Microsoft YaHei", system-ui, sans-serif'
+
 export const gameColors = {
   theme: {
+    font: fontStack,
     bg: 0x466a4e,
     bgAlt: 0x557a58,
     board: 0x7a4f2e,
     boardAlt: 0x8f5f38,
-    ink: 0x2b241d,
-    accent: 0xe0913f,
-    accentHover: 0xc9762f,
-    accentAlt: 0x6fae5e,
+    ink: ui.ink,
+    accent: ui.accent,
+    accentHover: ui.accentHover,
+    accentAlt: ui.leaf,
     accentWarm: 0xf3cf7a,
     accentInk: 0x8a4f28,
-    onAccent: 0x2b241d,
-    text: '#2f2a22',
-    textMuted: '#6b6352',
-    muted: 0x6b6352,
-    panel: 0xf7edd8,
-    borderSoft: 0xcdb68b,
-    surface: 0xfff9ec,
-    surfaceAlt: 0xefe0c2,
-    danger: 0xd9574f,
-    dangerHover: 0xe86a61,
-    onDanger: 0xfff7e8,
+    onAccent: ui.ink,
+    text: '#2b241d',
+    textMuted: '#5f5646',
+    muted: ui.inkSoft,
+    panel: ui.paper,
+    borderSoft: ui.line,
+    surface: ui.paperRaised,
+    surfaceAlt: ui.paperDeep,
+    danger: ui.berry,
+    dangerHover: 0xd96359,
+    onDanger: ui.cream,
     highlight: 0xffffff,
-    overlay: 0x16241d,
-    shadow: 0x2b241d,
+    overlay: ui.overlay,
+    shadow: ui.ink,
     // Shared Button radius. It is clamped to half the button height, so this
     // value makes every action bar a capsule while cards keep their own radius.
     radius: 32,
     radiusLarge: 24,
   } satisfies Partial<Theme>,
+  ui,
   floor: 0xe3c79a,
   floorLine: 0xcfa974,
   wood: 0x7a4f2e,

@@ -334,7 +334,10 @@ export class MapOffers {
           : undefined
     }
 
-    const affordable = isSwapTag(offer) ? true : state.coins >= offer.remaining
+    const affordable =
+      isSwapTag(offer) || (offer.type === 'plant' && offer.requiresChoice)
+        ? true
+        : state.coins >= offer.remaining
     // The body stays vector on purpose: it is a handful of rounded rectangles,
     // and drawing it straight into the antialiased canvas keeps the corners
     // crisp at every device pixel ratio. The key tracks only the shape and
@@ -398,18 +401,15 @@ export class MapOffers {
         .setScale(0.21 * ui * ANIMAL_SCALE)
     }
 
-    const showPrice = !tag
+    // An empty bed already carries a seed-packet badge; a "80+" price beside it
+    // read as either a total or a surcharge. The chooser shows the exact crop
+    // prices, so the world chip only advertises "plant here".
+    const showPrice = !tag && !(offer.type === 'plant' && offer.requiresChoice)
     label.coin.setVisible(showPrice)
     label.price.setVisible(showPrice)
     label.coin.setPosition(-3 * ui, 0).setScale(0.42 * ui)
     label.price.setPosition(7 * ui, 0).setFontSize(13 * ui)
-    label.price.setText(
-      isSwapTag(offer)
-        ? ''
-        : offer.type === 'plant' && offer.requiresChoice
-          ? `${offer.remaining}+`
-          : String(offer.remaining),
-    )
+    label.price.setText(isSwapTag(offer) ? '' : String(offer.remaining))
     label.price.setColor(affordable ? this.theme.text : this.theme.textMuted)
 
     const paidKey =

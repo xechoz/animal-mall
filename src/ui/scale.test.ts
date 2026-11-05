@@ -51,7 +51,7 @@ describe('computeWorldTextScale', () => {
   })
 
   it('enlarges world labels on phones', () => {
-    expect(computeWorldTextScale(1.14, 390)).toBeCloseTo(1.7, 1)
+    expect(computeWorldTextScale(1.14, 390)).toBeCloseTo(1.4, 1)
   })
 
   it('never shrinks labels', () => {

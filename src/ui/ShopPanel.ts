@@ -31,6 +31,7 @@ import type {
   ZoneId,
 } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
+import { createCloseButton, drawLevelPips } from './dialog'
 import { drawPanelFrame } from './frames'
 import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
@@ -118,7 +119,7 @@ export class ShopPanel {
     this.root = scene.add.container(0, 0).setDepth(7000)
     this.root.setName('shop-root')
     const blocker = scene.add
-      .rectangle(0, 0, options.layout.width, options.layout.height, options.theme.overlay, 0.68)
+      .rectangle(0, 0, options.layout.width, options.layout.height, options.theme.overlay, 0.72)
       .setOrigin(0)
       // The shop is modal. Swallow taps outside the panel so world price chips
       // behind the dimmer cannot open a chooser on top of the shop.
@@ -225,15 +226,18 @@ export class ShopPanel {
 
     // The heading is plain text on the parchment. A filled ribbon here read as
     // a fourth button and drowned out the real actions below it.
-    const headerY = 32 * ui
+    // Heading, balance and close share one row. The tabs and zone chips are
+    // then compressed into a single filter band so a 844×390 landscape panel
+    // still leaves the cards room to show their stats and effects.
+    const headerY = 28 * ui
     const title = scene.add
-      .text(34 * ui, headerY, i18n.t('shop.title'), textStyle(theme, font.title, theme.text, true))
+      .text(30 * ui, headerY, i18n.t('shop.title'), textStyle(theme, font.title, theme.text, true))
       .setOrigin(0, 0.5)
     this.chrome.add(title)
 
     this.balanceText = scene.add
       .text(
-        w - 92 * ui,
+        w - 66 * ui,
         headerY + 1 * ui,
         i18n.t('shop.balance', { coins: this.state.coins }),
         textStyle(theme, font.label, theme.text, true),
@@ -241,27 +245,14 @@ export class ShopPanel {
       .setOrigin(1, 0.5)
     this.chrome.add(this.balanceText)
 
-    this.chrome.add(
-      new Button(scene, w - 38 * ui, headerY, '×', theme, {
-        width: 48 * ui,
-        height: 48 * ui,
-        fontSize: 24 * ui,
-        minHitSize: 64 * ui,
-        variant: 'soft',
-        onClick: () => this.close(),
-      }),
-    )
+    this.chrome.add(createCloseButton(scene, w - 32 * ui, headerY, theme, () => this.close(), ui))
 
-    // Chrome keeps a compact, fixed vertical rhythm: scaled fonts still fit, and
-    // short landscape panels stay tall enough for the cards below. The heading
-    // owns its own band, so the gap down to the tabs stays wider than the gap
-    // between the tab row and the zone chips.
-    this.tabHeight = 40 * ui
-    this.chipHeight = 38 * ui
-    this.tabY = 92 * ui
-    this.chipY = this.tabY + this.tabHeight / 2 + 10 * ui + this.chipHeight / 2
-    this.bodyTop = this.chipY + this.chipHeight / 2 + 12
-    this.toolsTop = this.tabY + this.tabHeight / 2 + 14
+    this.tabHeight = 34 * ui
+    this.chipHeight = 32 * ui
+    this.tabY = 70 * ui
+    this.chipY = this.tabY + this.tabHeight / 2 + 6 * ui + this.chipHeight / 2
+    this.bodyTop = this.chipY + this.chipHeight / 2 + 8 * ui
+    this.toolsTop = this.tabY + this.tabHeight / 2 + 10 * ui
 
     this.renderTabs(w)
     this.renderZoneChips(w)
@@ -293,6 +284,12 @@ export class ShopPanel {
       const label = scene.add
         .text(x, y, entry.label, textStyle(theme, font.label, theme.text, true))
         .setOrigin(0.5)
+      // Russian/German tab words can be wider than a third of a portrait
+      // panel. Shrink the label in place instead of letting two tabs collide.
+      const maxLabelWidth = tabWidth - 10 * ui
+      if (label.width > maxLabelWidth) {
+        label.setFontSize((font.label * maxLabelWidth) / label.width)
+      }
       const underline = scene.add.graphics()
       const barWidth = tabWidth * 0.56
       const barHeight = 3 * ui
@@ -636,11 +633,14 @@ export class ShopPanel {
     const ui = this.options.layout.ui
     const font = this.options.layout.text
     const compact = height < CARD_COMFORT_HEIGHT * ui
+    // A crowded landscape card still has to answer "what does it sell for and
+    // how long does it take?"; only the extra refund row is allowed to drop.
+    const showStats = height >= 100 * ui
     const { u, fit } = this.cardUnit(height)
     const g = scene.add.graphics()
     const goal = this.isGoalProduct(product)
     const primary = this.primaryPlant() === product
-    this.drawCardFace(g, width, height, goal || primary)
+    this.drawCardFace(g, width, height, goal)
     card.add(g)
     if (goal) this.addNextTag(card, width, height)
 
@@ -663,29 +663,37 @@ export class ShopPanel {
         )
         .setOrigin(0, 0.5),
     )
-    card.add(
-      scene.add
-        .text(
-          -width / 2 + 64 * u,
-          -height / 2 + (compact ? 48 : 54) * u,
-          i18n.t('shop.planted', { count: plantedCount(this.state, product) }),
-          textStyle(theme, font.caption * fit, theme.textMuted, true),
-        )
-        .setOrigin(0, 0.5),
-    )
+
+    const planted = plantedCount(this.state, product)
+    if (planted > 0) {
+      card.add(
+        scene.add
+          .text(
+            -width / 2 + 64 * u,
+            -height / 2 + (compact ? 48 : 54) * u,
+            i18n.t('shop.planted', { count: planted }),
+            textStyle(theme, font.caption * fit, theme.textMuted, false),
+          )
+          .setOrigin(0, 0.5),
+      )
+    }
 
     const config = PLANTS[product]
-    if (!compact) {
+    if (showStats) {
       card.add(
         scene.add
           .text(
             -width / 2 + 20 * u,
-            -height / 2 + 72 * u,
+            -height / 2 + (compact ? 58 : 72) * u,
             i18n.t('shop.stats.plant', {
               price: config.price,
               grow: Math.round(config.growMs / 1000),
             }),
-            textStyle(theme, font.body * fit, theme.textMuted),
+            {
+              ...textStyle(theme, (compact ? font.caption : font.body) * fit, theme.textMuted),
+              wordWrap: { width: width - 40 * u },
+              lineSpacing: 1 * u,
+            },
           )
           .setOrigin(0, 0.5),
       )
@@ -695,12 +703,12 @@ export class ShopPanel {
     const buy = new Button(
       scene,
       0,
-      height / 2 - (compact ? 30 : 34) * u,
+      height / 2 - (compact ? 26 : 34) * u,
       i18n.t('shop.plant', { cost }),
       theme,
       {
         width: width - 36 * u,
-        height: (compact ? 40 : 46) * u,
+        height: (compact ? 34 : 46) * u,
         fontSize: font.body * fit,
         minHitSize: 64 * ui,
         variant: primary ? 'primary' : 'soft',
@@ -716,12 +724,12 @@ export class ShopPanel {
       0,
       (remaining) => i18n.t('shop.plant', { cost: remaining }),
       width - 36 * u,
-      (compact ? 40 : 46) * u,
+      (compact ? 34 : 46) * u,
     )
     card.add(buy)
 
-    const planted = this.state.producers.find((producer) => producer.product === product)
-    if (planted !== undefined && !compact) {
+    const installed = this.state.producers.find((producer) => producer.product === product)
+    if (installed !== undefined && !compact) {
       const refund = Math.floor(cost * 0.5)
       // Narrow cards have no room beside the name, so the refund sits below the stats.
       const narrowRemove = width < 380
@@ -738,7 +746,7 @@ export class ShopPanel {
             fontSize: font.caption,
             minHitSize: 56 * ui,
             variant: 'soft',
-            onClick: () => this.confirmRemove(planted.id, refund),
+            onClick: () => this.confirmRemove(installed.id, refund),
           },
         ),
       )
@@ -861,7 +869,7 @@ export class ShopPanel {
           theme,
           {
             width: width - 40 * u,
-            height: (compact ? 40 : 46) * u,
+            height: (compact ? 34 : 46) * u,
             fontSize: font.body * fit,
             minHitSize: 64 * ui,
             variant: primaryEmpty ? 'primary' : 'soft',
@@ -914,7 +922,7 @@ export class ShopPanel {
     card.add(
       new Button(scene, 0, height / 2 - (compact ? 28 : 32) * u, i18n.t('shop.replace'), theme, {
         width: width - 40 * u,
-        height: (compact ? 40 : 46) * u,
+        height: (compact ? 34 : 46) * u,
         fontSize: font.body * fit,
         minHitSize: 64 * ui,
         variant: 'soft',
@@ -934,28 +942,32 @@ export class ShopPanel {
     const { scene, theme, i18n } = this.options
     const ui = this.options.layout.ui
     const font = this.options.layout.text
-    const height = 52 * ui
+    const height = 46 * ui
     const width = w - 60 * ui
     const card = scene.add.container(30 * ui + width / 2, top + height / 2)
     const g = scene.add.graphics()
     g.fillStyle(theme.surface, 1)
     g.fillRoundedRect(-width / 2, -height / 2, width, height, 14 * ui)
-    g.lineStyle(2 * ui, theme.borderSoft, 1)
+    g.lineStyle(1.5 * ui, theme.borderSoft, 1)
     g.strokeRoundedRect(-width / 2, -height / 2, width, height, 14 * ui)
     card.add(g)
 
     const icon = scene.add.graphics()
-    drawToolIcon(icon, 'shelf', -width / 2 + 30 * ui, 0, 20 * ui)
+    drawToolIcon(icon, 'shelf', -width / 2 + 26 * ui, 0, 18 * ui)
     card.add(icon)
 
     const level = this.state.shelfLevels[zone]
     const max = shelfUpgradeMax()
     const capacity = shelfCapacity(level)
+    const stock = Object.values(this.state.shelves[zone].stock).reduce(
+      (total, amount) => total + amount,
+      0,
+    )
     card.add(
       scene.add
         .text(
-          -width / 2 + 52 * ui,
-          -height / 2 + 16 * ui,
+          -width / 2 + 46 * ui,
+          -height / 2 + 14 * ui,
           `${i18n.t('shelf.name', { zone: i18n.t(`zone.${zone}`) })} · ${i18n.t('shop.level', {
             level,
             max,
@@ -967,20 +979,20 @@ export class ShopPanel {
     card.add(
       scene.add
         .text(
-          -width / 2 + 52 * ui,
-          -height / 2 + 34 * ui,
-          i18n.t('shelf.capacity', { capacity }),
+          -width / 2 + 46 * ui,
+          -height / 2 + 32 * ui,
+          i18n.t('shelf.stock', { stock, capacity }),
           textStyle(theme, font.caption, theme.textMuted, true),
         )
         .setOrigin(0, 0.5),
     )
 
-    const buttonWidth = Math.min(176 * ui, width * 0.36)
+    const buttonWidth = Math.min(156 * ui, width * 0.36)
     if (this.state.producers.length === 0) {
       card.add(
         scene.add
           .text(width / 2 - 12 * ui, 0, i18n.t('shelf.plantFirst'), {
-            ...textStyle(theme, font.body, theme.textMuted, true),
+            ...textStyle(theme, font.caption, theme.textMuted, true),
             align: 'right',
             wordWrap: { width: buttonWidth },
           })
@@ -1008,7 +1020,7 @@ export class ShopPanel {
       theme,
       {
         width: buttonWidth,
-        height: 36 * ui,
+        height: 32 * ui,
         fontSize: font.caption,
         minHitSize: 56 * ui,
         variant: 'soft',
@@ -1025,12 +1037,12 @@ export class ShopPanel {
         0,
         (remaining) => i18n.t('shelf.upgrade', { cost: remaining }),
         buttonWidth,
-        36 * ui,
+        32 * ui,
       )
     }
     card.add(buy)
     parent.add(card)
-    return top + height + 8 * ui
+    return top + height + 6 * ui
   }
 
   private renderTools(
@@ -1041,7 +1053,9 @@ export class ShopPanel {
   ): void {
     const ui = this.options.layout.ui
     const gap = 10 * ui
-    const columns = w > 1000 ? 3 : 2
+    // Four tools read as a clean 2×2 on every width. A third column only
+    // produced a 3 + 1 orphan on wide panels.
+    const columns = 2
     const rows = Math.ceil(UPGRADE_ORDER.length / columns)
     const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
     const cardH = Math.min((bottom - top - gap * (rows - 1)) / rows, MAX_CARD_HEIGHT * ui)
@@ -1090,20 +1104,12 @@ export class ShopPanel {
     )
     const level = this.state.upgrades[kind]
     const max = upgradeMax(kind)
-    const narrow = width < 380
-    card.add(
-      scene.add
-        .text(
-          narrow ? -width / 2 + 64 * u : width / 2 - 18 * u,
-          narrow ? -height / 2 + (compact ? 44 : 50) * u : -height / 2 + 26 * u,
-          i18n.t('shop.level', { level, max }),
-          textStyle(theme, font.body * fit, theme.textMuted, true),
-        )
-        .setOrigin(narrow ? 0 : 1, 0.5),
-    )
-    // The description is the first thing to go when the card is squeezed; the
-    // effect is still readable in the upgrade line above the price.
-    if (!compact) {
+    const pips = scene.add.graphics()
+    drawLevelPips(pips, -width / 2 + 82 * u, -height / 2 + 46 * u, level, max, theme, u)
+    card.add(pips)
+    // The effect is the reason to buy the tool, so it survives the compact
+    // landscape layout; only the wording scale drops.
+    if (!compact || height >= 125 * ui) {
       card.add(
         scene.add
           .text(
@@ -1111,7 +1117,7 @@ export class ShopPanel {
             -height / 2 + 62 * u,
             i18n.t(`tool.${kind}.desc`, { value: UPGRADE_EFFECT[kind] }),
             {
-              ...textStyle(theme, font.body * fit, theme.textMuted),
+              ...textStyle(theme, (compact ? font.caption : font.body) * fit, theme.textMuted),
               wordWrap: { width: width - 36 * u },
             },
           )
@@ -1156,12 +1162,18 @@ export class ShopPanel {
     const gap = 10 * ui
     // The chef only turns up once the kitchen itself exists.
     const kinds = STAFF_ORDER.filter((kind) => kind !== 'chef' || this.state.zones.kitchen)
-    const columns = kinds.length
+    // Portrait is a vertical roster: one readable row per hire instead of
+    // squeezing four 120px cards across the panel.
+    const columns = this.options.layout.portrait ? 1 : kinds.length
+    const rows = Math.ceil(kinds.length / columns)
     const cardW = (w - 60 * ui - gap * (columns - 1)) / columns
-    const cardH = Math.min(bottom - top, MAX_STAFF_CARD_HEIGHT * ui)
+    const cardH = Math.min((bottom - top - gap * (rows - 1)) / rows, MAX_STAFF_CARD_HEIGHT * ui)
+    const topOffset = rows === 1 ? top + (bottom - top - cardH) / 2 : top + 8 * ui
     kinds.forEach((kind, index) => {
-      const x = 30 * ui + index * (cardW + gap) + cardW / 2
-      parent.add(this.staffCard(kind, x, top + (bottom - top) / 2, cardW, cardH))
+      const column = index % columns
+      const row = Math.floor(index / columns)
+      const x = 30 * ui + column * (cardW + gap) + cardW / 2
+      parent.add(this.staffCard(kind, x, topOffset + row * (cardH + gap) + cardH / 2, cardW, cardH))
     })
   }
 
@@ -1202,24 +1214,24 @@ export class ShopPanel {
     )
     const level = this.state.staff[kind]
     const max = staffMax(kind)
-    const narrow = width < 380
-    card.add(
-      scene.add
-        .text(
-          narrow ? -width / 2 + 84 * u : width / 2 - 18 * u,
-          narrow ? -height / 2 + 60 * u : -height / 2 + 34 * u,
-          i18n.t('shop.level', { level, max }),
-          textStyle(theme, font.body * fit, theme.textMuted, true),
-        )
-        .setOrigin(narrow ? 0 : 1, 0.5),
+    const pips = scene.add.graphics()
+    drawLevelPips(
+      pips,
+      -width / 2 + 84 * u,
+      -height / 2 + (compact ? 46 : 64) * u,
+      level,
+      max,
+      theme,
+      u,
     )
+    card.add(pips)
     const cost = staffCost(kind, level)
     const deposit = this.state.deposits[`staff:${kind}`] ?? 0
     if (!compact) {
       card.add(
         scene.add
           .text(-width / 2 + 20 * u, -height / 2 + 108 * u, i18n.t(`staff.${kind}.desc`), {
-            ...textStyle(theme, font.body * fit, theme.textMuted),
+            ...textStyle(theme, (compact ? font.caption : font.body) * fit, theme.textMuted),
             wordWrap: { width: width - 40 * u },
           })
           .setOrigin(0, 0),

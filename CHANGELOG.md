@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Refine the interface layer without changing the game rules. The UI now uses a
+  bundled Nunito face for Latin/Cyrillic with the system CJK fallback, a shared
+  paper-diorama palette, one close-button shape and level pips. The shop keeps
+  crop stats and tool effects in the compact landscape layout, puts tools in a
+  2×2 grid, shows a portrait staff roster and the live `stock/capacity` line,
+  and the world HUD moves its clock off the shop sign. Slot pickers, settings,
+  language, pause, drink/food panels and the day report share the same dialog
+  shell; the day report explains an empty day instead of printing six zeroes.
+  Save data, collision and gameplay tuning are unchanged.
+
 - Rebuild the turned animal bodies as profiles. Side and three-quarter views now
   use a chest/haunch silhouette, one near-side arm and fore/aft legs with a real
   leg-and-foot texture instead of a front torso with a turned head. The support

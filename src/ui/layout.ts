@@ -36,6 +36,8 @@ export interface GameLayout {
   readonly worldUi: number
   /** Multiplier for labels drawn inside the world container. */
   readonly worldText: number
+  /** CSS pixels covered by one design unit, used for readable text floors. */
+  readonly cssPerDesign: number
   /**
    * UI font sizes in design units. These are derived from a CSS-pixel floor so
    * secondary copy stays readable when 720 design units are squeezed into a
@@ -106,10 +108,13 @@ export function computeGameLayout(
       ? options.cssShortSide / DESIGN_BASE
       : 1
   const text = {
-    caption: Math.max(12 * ui, 11 / cssPerDesign),
-    body: Math.max(14 * ui, 13 / cssPerDesign),
-    label: Math.max(16 * ui, 15 / cssPerDesign),
-    title: Math.max(26 * ui, 22 / cssPerDesign),
+    // Physical floors, not design-unit guesses: subtitle copy stays 12 CSS px
+    // and body copy 14 CSS px even when 720 design units are squeezed onto a
+    // 390 px phone.
+    caption: Math.max(12 * ui, 12 / cssPerDesign),
+    body: Math.max(14 * ui, 14 / cssPerDesign),
+    label: Math.max(16 * ui, 16 / cssPerDesign),
+    title: Math.max(26 * ui, 24 / cssPerDesign),
   }
   const content: Rect = {
     x: contentLeft,
@@ -139,12 +144,16 @@ export function computeGameLayout(
     y: actionY,
   }
   const shop: Vec2 = { x: pause.x - buttonSize - HUD_BUTTON_GAP * ui, y: actionY }
-  // Wide enough for the sun arc, the day label and the clock time. Portrait
-  // phones have the two action buttons on the same row, so the pill keeps a
-  // narrower cap there instead of sliding under the shop button.
-  const clockWidth = (portrait ? 160 : 208) * ui
+  // Wide enough for the sun arc, the day label and the clock time. The pill
+  // sits left of centre so it no longer covers the wooden "Animal Mall" sign
+  // hanging in the middle of the top wall; portrait keeps a narrower cap so it
+  // clears both the coin purse and the shop button.
+  const clockWidth = (portrait ? 132 : 208) * ui
   const clockHeight = 62 * ui
-  const clock: Vec2 = { x: content.x + content.w / 2, y: actionY }
+  const clock: Vec2 = {
+    x: content.x + content.w * (portrait ? 0.35 : 0.34),
+    y: actionY,
+  }
 
   return {
     width,
@@ -159,6 +168,7 @@ export function computeGameLayout(
     ui,
     worldUi,
     worldText: computeWorldTextScale(scale, options.cssShortSide ?? 0),
+    cssPerDesign,
     text,
     hud: {
       bar,

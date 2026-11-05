@@ -1,5 +1,6 @@
 import { cssColor, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
+import { gameColors } from '../colors'
 import {
   ANIMALS,
   isPlantKind,
@@ -14,6 +15,8 @@ import {
 import { goalCost, nextGoal } from '../logic/goals'
 import { plantDepositKey } from '../logic/purchase'
 import type { ProductKind, ShopState, ZoneId } from '../logic/types'
+import { createCloseButton } from './dialog'
+import { drawPopoverFrame } from './frames'
 import { coinTextureKey } from './fruitArt'
 import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
@@ -40,12 +43,11 @@ export interface SlotPickerOptions {
   readonly onClose: () => void
 }
 
-const PADDING = 11
-const HEADER_H = 52
+const PADDING = 14
+const HEADER_H = 64
 const COLUMNS = 2
-const BUTTON_W = 124
-const BUTTON_H = 64
-const GAP = 8
+const BUTTON_H = 82
+const GAP = 10
 
 function pickerProducts(zone: ZoneId): readonly ProductKind[] {
   if (zone === 'fruit' || zone === 'veg') {
@@ -74,8 +76,12 @@ export class SlotPicker {
         : undefined
     const goalAffordable = goal !== null && state.coins >= goalCost(state, goal)
     const rows = Math.ceil(products.length / COLUMNS)
-    const width = (PADDING * 2 + COLUMNS * BUTTON_W + (COLUMNS - 1) * GAP) * ui
-    const height = (PADDING * 2 + HEADER_H + rows * BUTTON_H + (rows - 1) * GAP) * ui
+    // The chooser is a decision surface, not a tooltip: give it the width of a
+    // dialog on every device and let the two columns grow with the screen.
+    const width = Math.min(560 * ui, layout.width - 24 * ui)
+    const buttonWidth = (width - (PADDING * 2 + GAP * (COLUMNS - 1)) * ui) / COLUMNS
+    const buttonHeight = BUTTON_H * ui
+    const height = (PADDING * 2 + HEADER_H) * ui + rows * buttonHeight + (rows - 1) * GAP * ui
     const point = slotPoint(layout, zone, slot) ?? layout.map.playerStart
     const screen = worldToScreen(camera, point)
     const x = options.centered
@@ -100,7 +106,7 @@ export class SlotPicker {
 
     this.root = scene.add.container(0, 0).setDepth(7200)
     const blocker = scene.add
-      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.16)
+      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.24)
       .setOrigin(0)
       .setInteractive()
     blocker.on('pointerdown', () => options.onClose())
@@ -110,15 +116,19 @@ export class SlotPicker {
     this.root.add(panel)
 
     const g = scene.add.graphics()
-    g.fillStyle(theme.shadow, 0.2)
-    g.fillRoundedRect(-width / 2, -height / 2 + 5 * ui, width, height, 18 * ui)
-    g.fillStyle(theme.panel, 0.98)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 18 * ui)
-    g.lineStyle(3 * ui, theme.accent, 0.9)
-    g.strokeRoundedRect(-width / 2, -height / 2, width, height, 18 * ui)
+    drawPopoverFrame(g, -width / 2, -height / 2, width, height, theme, 20 * ui)
     if (!options.centered) {
-      g.fillStyle(theme.accent, 0.9)
-      g.fillTriangle(-10 * ui, height / 2 - ui, 10 * ui, height / 2 - ui, 0, height / 2 + 13 * ui)
+      g.fillStyle(gameColors.barkDark, 1)
+      g.fillTriangle(-10 * ui, height / 2 - ui, 10 * ui, height / 2 - ui, 0, height / 2 + 12 * ui)
+      g.fillStyle(theme.panel, 1)
+      g.fillTriangle(
+        -7 * ui,
+        height / 2 - 3 * ui,
+        7 * ui,
+        height / 2 - 3 * ui,
+        0,
+        height / 2 + 8 * ui,
+      )
     }
     panel.add(g)
 
@@ -129,39 +139,41 @@ export class SlotPicker {
 
     const title = scene.add
       .text(
-        0,
-        -height / 2 + 21 * ui,
+        -width / 2 + 20 * ui,
+        -height / 2 + 22 * ui,
         i18n.t(pickerTitle(zone, current !== undefined)),
         textStyle(theme, font.label, theme.text, true),
       )
-      .setOrigin(0.5)
+      .setOrigin(0, 0.5)
     panel.add(title)
 
     const sub = scene.add
-      .text(0, -height / 2 + 42 * ui, subtitle, textStyle(theme, font.body, theme.textMuted, false))
-      .setOrigin(0.5)
+      .text(
+        -width / 2 + 20 * ui,
+        -height / 2 + 46 * ui,
+        subtitle,
+        textStyle(theme, font.caption, theme.textMuted, false),
+      )
+      .setOrigin(0, 0.5)
     panel.add(sub)
 
-    const close = scene.add
-      .text(
-        width / 2 - 17 * ui,
-        -height / 2 + 17 * ui,
-        '×',
-        textStyle(theme, font.label, theme.textMuted, true),
-      )
-      .setOrigin(0.5)
-    const closeHit = scene.add
-      .zone(width / 2 - 17 * ui, -height / 2 + 17 * ui, 56 * ui, 56 * ui)
-      .setInteractive({ useHandCursor: true })
-    closeHit.on('pointerdown', () => options.onClose())
-    panel.add(close)
-    panel.add(closeHit)
+    panel.add(
+      createCloseButton(
+        scene,
+        width / 2 - 26 * ui,
+        -height / 2 + 24 * ui,
+        theme,
+        () => options.onClose(),
+        ui,
+      ),
+    )
 
     products.forEach((product, index) => {
       const column = index % COLUMNS
       const row = Math.floor(index / COLUMNS)
-      const bx = -width / 2 + (PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2) * ui
-      const by = -height / 2 + (PADDING + HEADER_H + row * (BUTTON_H + GAP) + BUTTON_H / 2) * ui
+      const bx = -width / 2 + PADDING * ui + column * (buttonWidth + GAP * ui) + buttonWidth / 2
+      const by =
+        -height / 2 + (PADDING + HEADER_H) * ui + row * (buttonHeight + GAP * ui) + buttonHeight / 2
       const cost = producerCost(product)
       const deposit =
         current === undefined && isPlantKind(product)
@@ -182,6 +194,7 @@ export class SlotPicker {
           product,
           bx,
           by,
+          buttonWidth,
           price,
           enabled,
           current === product,
@@ -204,12 +217,13 @@ export class SlotPicker {
     ) {
       const column = appleIndex % COLUMNS
       const row = Math.floor(appleIndex / COLUMNS)
-      const bx = -width / 2 + (PADDING + column * (BUTTON_W + GAP) + BUTTON_W / 2) * ui
-      const by = -height / 2 + (PADDING + HEADER_H + row * (BUTTON_H + GAP) + BUTTON_H / 2) * ui
+      const bx = -width / 2 + PADDING * ui + column * (buttonWidth + GAP * ui) + buttonWidth / 2
+      const by =
+        -height / 2 + (PADDING + HEADER_H) * ui + row * (buttonHeight + GAP * ui) + buttonHeight / 2
       this.hint = new TapHint(scene, theme, ui)
-      // Keep the fingertip on the empty right half of the card: the name and
-      // price sit on the left and must stay readable.
-      this.hint.setPosition(bx + 22 * ui, by + 2 * ui)
+      // The left half carries the name and price; the finger stays in the
+      // quiet bottom-right corner so it never sits on the number.
+      this.hint.setPosition(bx + buttonWidth / 2 - 24 * ui, by + buttonHeight / 2 - 14 * ui)
       this.hint.addTo(panel)
       this.hint.update(scene.time.now)
     }
@@ -230,6 +244,7 @@ export class SlotPicker {
     product: ProductKind,
     x: number,
     y: number,
+    buttonW: number,
     price: number,
     enabled: boolean,
     current: boolean,
@@ -240,18 +255,19 @@ export class SlotPicker {
     const { scene, theme, i18n } = options
     const ui = options.layout.ui
     const font = options.layout.text
-    const buttonW = BUTTON_W * ui
     const buttonH = BUTTON_H * ui
     const button = scene.add.container(x, y)
     const g = scene.add.graphics()
-    g.fillStyle(theme.surface, enabled ? 1 : 0.55)
-    g.fillRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
+    // Unavailable cards step back: lighter paper, a hairline border and no
+    // accent. They stay tappable so the toast can explain the shortfall.
+    g.fillStyle(enabled ? theme.surface : theme.surfaceAlt, enabled ? 1 : 0.35)
+    g.fillRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 14 * ui)
     g.lineStyle(
-      3 * ui,
-      goal ? theme.accent : current ? theme.accentAlt : enabled ? theme.borderSoft : theme.ink,
-      1,
+      (goal || current ? 2.5 : 1.5) * ui,
+      goal ? theme.accent : current ? theme.accentAlt : theme.borderSoft,
+      enabled || goal || current ? 1 : 0.45,
     )
-    g.strokeRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 12 * ui)
+    g.strokeRoundedRect(-buttonW / 2, -buttonH / 2, buttonW, buttonH, 14 * ui)
     button.add(g)
 
     if (goal) {
@@ -266,14 +282,16 @@ export class SlotPicker {
       button.add(tag.container)
     }
 
-    const icon = scene.add.image(-43 * ui, 0, productTextureKey(product)).setScale(0.6 * ui)
-    if (!enabled) icon.setAlpha(0.5)
+    const icon = scene.add
+      .image(-buttonW / 2 + 32 * ui, -buttonH / 2 + 32 * ui, productTextureKey(product))
+      .setScale(0.62 * ui)
+    if (!enabled) icon.setAlpha(0.45)
     button.add(icon)
 
     const name = scene.add
       .text(
-        -26 * ui,
-        -17 * ui,
+        -buttonW / 2 + 58 * ui,
+        -buttonH / 2 + 22 * ui,
         producerName(options, product),
         textStyle(theme, font.body, enabled ? theme.text : theme.textMuted, true),
       )
@@ -284,29 +302,36 @@ export class SlotPicker {
       // The installed product is a "keep this" choice, not a purchase, so the
       // check replaces the price instead of crowding it in the corner.
       const mark = scene.add
-        .text(-26 * ui, 5 * ui, '✓', textStyle(theme, 18 * ui, cssColor(theme.accentAlt), true))
+        .text(
+          -buttonW / 2 + 58 * ui,
+          -buttonH / 2 + 48 * ui,
+          '✓',
+          textStyle(theme, 18 * ui, cssColor(theme.accentAlt), true),
+        )
         .setOrigin(0, 0.5)
       button.add(mark)
     } else if (installedElsewhere) {
       button.add(
         scene.add
           .text(
-            -26 * ui,
-            5 * ui,
+            -buttonW / 2 + 58 * ui,
+            -buttonH / 2 + 48 * ui,
             i18n.t('picker.installed'),
             textStyle(theme, font.caption, theme.textMuted, true),
           )
           .setOrigin(0, 0.5),
       )
     } else {
-      const coin = scene.add.image(-26 * ui, 7 * ui, coinTextureKey()).setScale(0.34 * ui)
+      const coin = scene.add
+        .image(-buttonW / 2 + 58 * ui, -buttonH / 2 + 49 * ui, coinTextureKey())
+        .setScale(0.34 * ui)
       if (!enabled) coin.setAlpha(0.5)
       button.add(coin)
       button.add(
         scene.add
           .text(
-            -17 * ui,
-            7 * ui,
+            -buttonW / 2 + 67 * ui,
+            -buttonH / 2 + 49 * ui,
             String(price),
             textStyle(theme, font.body, enabled ? theme.text : theme.textMuted, true),
           )
@@ -317,8 +342,8 @@ export class SlotPicker {
     button.add(
       scene.add
         .text(
-          -26 * ui,
-          22 * ui,
+          -buttonW / 2 + 58 * ui,
+          -buttonH / 2 + 70 * ui,
           pickerStat(options, product),
           textStyle(theme, font.caption, theme.textMuted, false),
         )

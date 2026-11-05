@@ -33,7 +33,7 @@ export class PauseOverlay {
     this.root = scene.add.container(0, 0).setDepth(7100)
 
     const backdrop = scene.add
-      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.64)
+      .rectangle(0, 0, layout.width, layout.height, theme.overlay, 0.72)
       .setOrigin(0)
       .setInteractive()
     this.root.add(backdrop)
@@ -65,18 +65,41 @@ export class PauseOverlay {
       label: string,
       variant: 'primary' | 'soft' | 'ghost',
       onClick: () => void,
+      decoration?: (
+        decorScene: Phaser.Scene,
+        size: { width: number; height: number },
+      ) => Phaser.GameObjects.GameObject,
     ): Button =>
       new Button(scene, 0, y, label, theme, {
         width: buttonWidth,
         height: buttonHeight,
         fontSize: 18 * unit,
         variant,
+        ...(decoration !== undefined ? { decoration } : {}),
         onClick,
       })
     const resume = action(startY, i18n.t('pause.resume'), 'primary', options.onResume)
     const shop = action(startY + gap, i18n.t('pause.shop'), 'soft', options.onShop)
-    // Leaving the run is the quietest choice; only one action stays filled.
-    const menu = action(startY + gap * 2, i18n.t('pause.menu'), 'ghost', options.onMenu)
+    // Leaving the run is the quietest choice; only one action stays filled. A
+    // hairline keeps the ghost from reading as a disabled panel.
+    const menu = action(
+      startY + gap * 2,
+      i18n.t('pause.menu'),
+      'ghost',
+      options.onMenu,
+      (decorScene, size) => {
+        const g = decorScene.add.graphics()
+        g.lineStyle(1.2 * unit, theme.borderSoft, 0.9)
+        g.strokeRoundedRect(
+          -size.width / 2,
+          -size.height / 2,
+          size.width,
+          size.height,
+          size.height / 2,
+        )
+        return g
+      },
+    )
     card.add([resume, shop, menu])
   }
 
