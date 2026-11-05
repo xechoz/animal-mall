@@ -536,7 +536,9 @@ export class GameScene extends Phaser.Scene {
           view,
           baseY: rect.y + rect.h,
           halfWidth: rect.w / 2,
-          topY: rect.y - SHELF_HEIGHT,
+          // The back riser and canopy sit above the footprint, so the fade
+          // must start higher than the counter-height top face.
+          topY: rect.y - SHELF_HEIGHT - 12,
         })
         return [zone, view]
       }),

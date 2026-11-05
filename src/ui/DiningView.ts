@@ -63,9 +63,15 @@ export class DiningView {
   ) {
     const rugArt = scene.add.graphics()
     drawDiningRug(rugArt, map.dining.rug)
-    this.rug = baked(scene, rugArt, `dining-rug-${map.id}`, map.dining.rug, 6, bakeScale).setDepth(
-      1,
-    )
+    this.rug = baked(
+      scene,
+      rugArt,
+      `dining-rug-${map.id}`,
+      map.dining.rug,
+      6,
+      bakeScale,
+      map.dining.rug.w >= 240 ? 42 : 0,
+    ).setDepth(1)
 
     const chairArt = scene.add.graphics()
     for (const seat of map.dining.seats) drawDiningChair(chairArt, seat)

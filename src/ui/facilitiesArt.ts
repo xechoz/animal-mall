@@ -185,6 +185,8 @@ export function drawVendingMachine(g: Phaser.GameObjects.Graphics, rect: Rect): 
   const glassY = frontTop + 16
   const glassW = w - 22
   const glassH = 32
+  g.fillStyle(0x9be7d0, 0.07)
+  g.fillRoundedRect(glassX - 5, glassY - 5, glassW + 10, glassH + 10, 6)
   g.fillStyle(0x3b2f3a, 0.85)
   g.fillRoundedRect(glassX, glassY, glassW, glassH, 4)
   g.fillStyle(gameColors.sky, 0.9)

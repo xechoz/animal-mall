@@ -5,7 +5,18 @@ import { INTERACTION, plantSlotCount, ZONE_PRODUCTS } from '../logic/config'
 import type { ProductKind, ShelfState, ShopMap, Vec2, ZoneId } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { productTextureKey } from './productArt'
-import { addPropShadow, drawLeg, PROP_TOP_SCALE, SHELF_HEIGHT } from './propArt'
+import {
+  addPropShadow,
+  type CrateGoods,
+  drawAwning,
+  drawChalkboard,
+  drawCrate,
+  drawLeg,
+  drawSack,
+  PROP_TOP_SCALE,
+  SHELF_HEIGHT,
+  SHELF_RISER_HEIGHT,
+} from './propArt'
 
 /** On-screen size of a shelf basket icon, shared with the stock flight. */
 export const SHELF_ICON_SCALE = 0.42
@@ -72,6 +83,45 @@ export class ShelfView extends Phaser.GameObjects.Container {
     this.add(this.reachGlow)
 
     const g = scene.add.graphics()
+    const riserTop = top - SHELF_RISER_HEIGHT
+    const riserX = -width / 2 + 14
+    const riserW = width - 28
+
+    // A back riser turns the open stall into a small shop front. It is drawn
+    // before the top board, so the baskets stay the front row and the panel
+    // reads as the depth behind them.
+    g.fillStyle(0x1a120c, 0.16)
+    g.fillRoundedRect(riserX + 4, riserTop + 6, riserW, SHELF_RISER_HEIGHT + 4, 6)
+    g.fillStyle(gameColors.barkDark, 1)
+    g.fillRoundedRect(riserX, riserTop + 2, riserW, SHELF_RISER_HEIGHT + 6, 6)
+    g.fillStyle(gameColors.wood, 1)
+    g.fillRoundedRect(riserX + 4, riserTop + 6, riserW - 8, SHELF_RISER_HEIGHT - 2, 4)
+    g.lineStyle(1, gameColors.bark, 0.3)
+    for (let x = riserX + 18; x < riserX + riserW - 8; x += 22) {
+      g.lineBetween(x, riserTop + 8, x, riserTop + SHELF_RISER_HEIGHT)
+    }
+    g.fillStyle(gameColors.barkDark, 1)
+    g.fillRoundedRect(riserX + 2, riserTop + 4, 7, SHELF_RISER_HEIGHT + 4, 2)
+    g.fillRoundedRect(riserX + riserW - 9, riserTop + 4, 7, SHELF_RISER_HEIGHT + 4, 2)
+    const awning: readonly [number, number] =
+      zone === 'fruit'
+        ? [0xd97757, 0xfff3dd]
+        : zone === 'veg'
+          ? [0x7fae63, 0xfff3dd]
+          : zone === 'farm'
+            ? [0xd9b25a, 0xfff3dd]
+            : [0x8fa6c9, 0xfff3dd]
+    drawAwning(g, -width / 2 + 6, riserTop - 4, width - 12, 9, awning)
+    drawChalkboard(g, {
+      x: -width / 2 + 30,
+      y: riserTop + 7,
+      w: 48,
+      h: 20,
+      icon: zone === 'kitchen' ? 'fish' : zone === 'farm' ? 'coin' : 'leaf',
+    })
+    drawHangingBundle(g, width * 0.16, riserTop + 8, 0.9, 'herb')
+    drawHangingBundle(g, width * 0.3, riserTop + 8, 0.72, 'garlic')
+
     // Market stall: a thin top board on two front legs and an apron. The open
     // space between the legs is what keeps it from reading as a solid block.
     const legTop = frontFaceTop - 6
@@ -124,6 +174,22 @@ export class ShelfView extends Phaser.GameObjects.Container {
       g.fillStyle(gameColors.fern, 0.7)
       g.fillEllipse(x + 8, top + 7, 5, 2.4)
     }
+
+    // The floor under the counter is used, not empty: a produce crate and a
+    // sack make the stall read as a working market stand.
+    g.lineStyle(1, gameColors.barkDark, 0.35)
+    for (let x = leftLeg + legW + 10; x < rightLeg - 6; x += 26) {
+      g.lineBetween(x, floorY - 8, x, floorY - 1)
+    }
+    const crateGoods: CrateGoods =
+      zone === 'fruit' || zone === 'veg' ? 'produce' : zone === 'farm' ? 'bottle' : 'jar'
+    drawCrate(g, {
+      x: -width / 2 + 48,
+      baseY: floorY + 4,
+      scale: 0.82,
+      goods: crateGoods,
+    })
+    drawSack(g, width / 2 - 24, floorY + 3, 0.75)
     this.add(g)
 
     for (let index = 0; index < this.slotCount; index += 1) {
@@ -184,9 +250,9 @@ export class ShelfView extends Phaser.GameObjects.Container {
       scene,
       g,
       `shelf-${map.id}-${zone}`,
-      { x: -width / 2 - 10, y: top - 10 },
-      width + 20,
-      floorY + 10 - (top - 10),
+      { x: -width / 2 - 16, y: riserTop - 16 },
+      width + 32,
+      floorY + 14 - (riserTop - 16),
       bakeScale,
     )
     const index = this.getIndex(g)
@@ -196,16 +262,23 @@ export class ShelfView extends Phaser.GameObjects.Container {
 
     this.lockOverlay = scene.add.container(0, 0)
     const lockBg = scene.add.graphics()
-    lockBg.fillStyle(0x2f2433, 0.72)
-    lockBg.fillRoundedRect(-width / 2, top, width, topDepth, 8)
-    lockBg.fillStyle(0xfff7e8, 0.14)
-    lockBg.fillRoundedRect(-width / 2 + 8, top + 6, width - 16, topDepth - 12, 6)
+    const lockTop = riserTop - 6
+    lockBg.fillStyle(0x2f2433, 0.62)
+    lockBg.fillRoundedRect(-width / 2 - 2, lockTop, width + 4, top + topDepth - lockTop + 2, 10)
+    lockBg.fillStyle(0xfff7e8, 0.1)
+    lockBg.fillRoundedRect(
+      -width / 2 + 8,
+      lockTop + 6,
+      width - 16,
+      top + topDepth - lockTop - 12,
+      8,
+    )
     this.lockOverlay.add(lockBg)
     drawLock(this.lockOverlay, scene, top + topDepth / 2)
     this.add(this.lockOverlay)
 
     this.onUpgrade = onUpgrade
-    this.upgradeBaseY = top - 16
+    this.upgradeBaseY = riserTop - 18
     this.upgrade = scene.add.container(width / 2 - 42, this.upgradeBaseY)
     const upgradeBg = scene.add.graphics()
     // A wooden price tag instead of a bright yellow UI capsule. The paper face
@@ -395,4 +468,38 @@ function drawLock(container: Phaser.GameObjects.Container, scene: Phaser.Scene, 
   lock.fillRect(-1.5, 5, 3, 5)
   lock.setY(y)
   container.add(lock)
+}
+
+/** A small dried bundle hanging from the shelf canopy. */
+function drawHangingBundle(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  scale: number,
+  kind: 'herb' | 'garlic',
+): void {
+  const s = scale
+  g.lineStyle(1.2, 0x6f4b2e, 0.85)
+  g.lineBetween(x, y - 8, x, y + 2)
+  g.fillStyle(0x8f5734, 1)
+  g.fillCircle(x, y - 8, 2)
+  if (kind === 'garlic') {
+    g.fillStyle(0xf0e6d4, 1)
+    g.fillEllipse(x, y + 8 * s, 10 * s, 13 * s)
+    g.fillStyle(0xd9c39a, 1)
+    g.fillEllipse(x - 2 * s, y + 9 * s, 4 * s, 5 * s)
+    g.lineStyle(1, 0xcdb68b, 0.7)
+    for (let index = -1; index <= 1; index += 1) {
+      g.lineBetween(x + index * 3 * s, y + 4 * s, x + index * 3 * s, y + 13 * s)
+    }
+    return
+  }
+  g.lineStyle(1.4, 0x7fae63, 0.8)
+  for (let index = -2; index <= 2; index += 1) {
+    g.lineBetween(x, y + 2, x + index * 3 * s, y + 12 * s)
+    g.fillStyle(0x8fae63, 0.9)
+    g.fillEllipse(x + index * 3 * s, y + 12 * s, 4 * s, 3 * s)
+  }
+  g.fillStyle(0xa6d489, 0.9)
+  g.fillEllipse(x, y + 4 * s, 7 * s, 5 * s)
 }

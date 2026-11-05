@@ -226,6 +226,20 @@ export class DaylightView {
       slot: null,
     })
 
+    const dining = map.dining.rug
+    if (dining.w >= 240) {
+      specs.push({
+        x: dining.x + dining.w - 16,
+        y: dining.y + 30,
+        rx: 120,
+        ry: 82,
+        color: 0xffc98a,
+        strength: 0.5,
+        flicker: 0.04,
+        slot: null,
+      })
+    }
+
     this.lights = specs.map((spec) => ({
       spec,
       image: this.scene.add

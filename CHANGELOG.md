@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Unify the 2.5D prop kit and give the shop furniture a shared volume language.
+  Market stalls gain a back riser, a zone-tinted striped canopy, hanging goods,
+  a chalkboard, a produce crate and a sack; the till gains glass jars, a cutting
+  board, a bowl stack and a crate; the dining nook gets a table runner, a menu
+  card, chair-back spindles and cushions, plus a floor lamp with an evening light
+  pool; farm troughs get a front face and feet. Animal contact shadows, the
+  vending glass and shop-shelf occluders are deeper to match the taller props.
+  Collision, hit areas, save data and game rules are unchanged.
+
 - Dress the four shop zones as places instead of tinted rectangles. Seedbeds
   gain a low timber/earth lip and a seed packet clipped to the front edge, pen
   fences are taller with ground shadows, and the orchard, field, farm and

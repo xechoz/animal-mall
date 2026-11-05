@@ -25,7 +25,11 @@ export class FacilityView extends Phaser.GameObjects.Container {
     this.sceneRef = scene
 
     const local = { x: -rect.w / 2, y: -rect.h / 2, w: rect.w, h: rect.h }
-    addPropShadow(scene, this, { width: rect.w + 10, height: rect.h + 10, alpha: 0.18 })
+    addPropShadow(scene, this, {
+      width: rect.w + 10,
+      height: rect.h + 10,
+      alpha: kind === 'vending' ? 0.24 : 0.18,
+    })
 
     const art = scene.add.graphics()
     if (kind === 'trash') {

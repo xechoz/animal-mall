@@ -526,21 +526,33 @@ function drawTrough(g: Phaser.GameObjects.Graphics, producer: ProducerState): vo
   const capacity = troughCapacity(producer.product)
 
   g.fillStyle(0x3b2f3a, 0.16)
-  g.fillEllipse(28, 27, 34, 6)
+  g.fillEllipse(28, 29, 40, 9)
+
+  // Feet, a front face and a hollow top make the trough a small object with
+  // height instead of a flat rounded rectangle on the soil.
+  g.fillStyle(0x5a3f28, 1)
+  g.fillRoundedRect(15, 25, 5, 5, 1.5)
+  g.fillRoundedRect(36, 25, 5, 5, 1.5)
   g.fillStyle(0x6f4b2e, 1)
-  g.fillRoundedRect(12, 14, 32, 11, 4)
+  g.fillRoundedRect(11, 13, 34, 15, 4)
+  g.fillStyle(0x8f5734, 0.5)
+  g.fillRoundedRect(41, 15, 5, 11, 2)
   g.fillStyle(0xb07a4a, 1)
-  g.fillRoundedRect(14, 15, 28, 8, 3)
+  g.fillRoundedRect(13, 14, 30, 8, 3)
+  g.fillStyle(0x5a3f28, 1)
+  g.fillRoundedRect(15, 15, 26, 5, 2.5)
+  g.fillStyle(0xd39a65, 0.85)
+  g.fillRoundedRect(13, 14, 30, 2, 1)
   g.fillStyle(0x8f5734, 1)
-  g.fillRoundedRect(14, 21, 28, 3, 1.5)
+  g.fillRoundedRect(13, 21, 30, 3, 1.5)
 
   // Empty hollows show where food goes; the icons layer on top of them.
   for (let index = 0; index < capacity; index += 1) {
     const x = troughSlotX(index, capacity)
-    g.fillStyle(0x5a3f28, 0.9)
-    g.fillEllipse(x, 19, 8, 5)
-    g.fillStyle(0x3f2b1c, 0.55)
-    g.fillEllipse(x, 20, 5, 2.5)
+    g.fillStyle(0x3f2b1c, 0.85)
+    g.fillEllipse(x, 18, 8, 5)
+    g.fillStyle(0x2f1e12, 0.5)
+    g.fillEllipse(x, 19, 5, 2.5)
   }
 }
 
@@ -589,7 +601,9 @@ function drawAnimalFrame(
   const isPond = producer.product === 'fish'
   const isHive = producer.product === 'honey'
 
-  g.fillStyle(0x3b2f3a, 0.15)
+  g.fillStyle(0x3b2f3a, 0.12)
+  g.fillEllipse(7, 27, width + 4, 12)
+  g.fillStyle(0x3b2f3a, 0.2)
   g.fillEllipse(0, 25, width + 6, 14)
   if (isPond) {
     g.fillStyle(0x5aa9c9, 1)

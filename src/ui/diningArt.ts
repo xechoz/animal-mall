@@ -1,7 +1,7 @@
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import type { DiningSeat, Rect } from '../logic/types'
-import { drawLeg, PROP_TOP_SCALE, TABLE_HEIGHT } from './propArt'
+import { drawFloorLamp, drawLeg, PROP_TOP_SCALE, TABLE_HEIGHT } from './propArt'
 
 /** A warm woven rug that ties the table and chairs together. */
 export function drawDiningRug(g: Phaser.GameObjects.Graphics, rect: Rect): void {
@@ -16,6 +16,16 @@ export function drawDiningRug(g: Phaser.GameObjects.Graphics, rect: Rect): void 
   g.lineStyle(1.2, 0x7a4f2e, 0.3)
   for (let x = rect.x + 20; x < rect.x + rect.w - 14; x += 24) {
     g.lineBetween(x, rect.y + 16, x, rect.y + rect.h - 16)
+  }
+
+  // The landscape nook gets a floor lamp: a readable vertical accent beside
+  // the low table and the light source for the evening dining pool.
+  if (rect.w >= 240) {
+    const lampX = rect.x + rect.w - 16
+    const lampBase = rect.y + 34
+    g.fillStyle(0xffd9a8, 0.12)
+    g.fillEllipse(lampX - 6, lampBase + 4, 82, 50)
+    drawFloorLamp(g, lampX, lampBase, 0.9)
   }
 }
 
@@ -72,9 +82,20 @@ export function drawDiningTable(g: Phaser.GameObjects.Graphics, rect: Rect): voi
   g.fillStyle(0x1a120c, 0.12)
   g.fillRect(x + w - 5, boardTop + 6, 5, topDepth - 12)
 
+  // A woven runner and place mats break up the large top face before the
+  // tableware goes on, so the table reads as a set meal rather than a slab.
+  g.fillStyle(0x4f6b64, 0.78)
+  g.fillRoundedRect(x + 10, top + topH * 0.42, w - 20, topH * 0.34, 3)
+  g.fillStyle(0x8fae63, 0.45)
+  g.fillRect(x + 10, top + topH * 0.42, w - 20, 2)
+  g.lineStyle(1, 0xfff3dd, 0.22)
+  g.lineBetween(x + 12, top + topH * 0.76, x + w - 12, top + topH * 0.76)
+
   const plateY = top + topH * 0.55
   const plates = [x + w * 0.22, x + w * 0.78]
   for (const plateX of plates) {
+    g.fillStyle(0x2f3b35, 0.25)
+    g.fillEllipse(plateX, plateY + 1, 30, 14)
     g.fillStyle(0xfff3dd, 0.95)
     g.fillEllipse(plateX, plateY, 24, 10)
     g.fillStyle(0xd97757, 0.8)
@@ -98,6 +119,19 @@ export function drawDiningTable(g: Phaser.GameObjects.Graphics, rect: Rect): voi
     g.fillStyle(0x9be7d0, 0.8)
     g.fillRoundedRect(cupX - 2.5, top + 9, 5, 4, 1)
   }
+
+  // A folded menu card at the near edge of the runner.
+  const cardX = x + w / 2
+  const cardY = top + topH * 0.74
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillRoundedRect(cardX - 9, cardY - 4, 18, 14, 2)
+  g.fillStyle(0xfff3dd, 1)
+  g.fillRoundedRect(cardX - 9, cardY - 6, 18, 13, 2)
+  g.fillStyle(0xb07a4a, 1)
+  g.fillRect(cardX - 9, cardY + 5, 18, 2)
+  g.lineStyle(1, 0x8f6b45, 0.7)
+  g.lineBetween(cardX - 5, cardY - 2, cardX + 5, cardY - 2)
+  g.lineBetween(cardX - 5, cardY + 1, cardX + 3, cardY + 1)
 }
 
 /** A chair drawn behind the seated character. */
@@ -108,12 +142,20 @@ export function drawDiningChair(g: Phaser.GameObjects.Graphics, seat: DiningSeat
 
   g.fillStyle(gameColors.barkDark, 1)
   g.fillRoundedRect(backX - 4, seat.seat.y - 28, 8, 31, 3)
+  g.fillStyle(gameColors.wood, 1)
+  g.fillRoundedRect(backX - 9, seat.seat.y - 30, 18, 4, 2)
+  for (const offset of [-5, 0, 5]) {
+    g.fillStyle(gameColors.wood, 0.9)
+    g.fillRect(backX + offset - 1, seat.seat.y - 26, 2, 19)
+  }
   g.fillRoundedRect(seat.seat.x - 12, seat.seat.y - 2, 5, 14, 2)
   g.fillRoundedRect(seat.seat.x + 7, seat.seat.y - 2, 5, 14, 2)
   g.fillStyle(gameColors.wood, 1)
   g.fillRoundedRect(seat.seat.x - 14, seat.seat.y - 8, 28, 12, 6)
+  g.fillStyle(0xe9b7a3, 0.9)
+  g.fillRoundedRect(seat.seat.x - 10, seat.seat.y - 8, 20, 5, 2.5)
   g.fillStyle(gameColors.woodLight, 1)
-  g.fillRoundedRect(seat.seat.x - 11, seat.seat.y - 7, 22, 5, 3)
+  g.fillRoundedRect(seat.seat.x - 11, seat.seat.y - 7, 22, 2, 1)
   g.lineStyle(1.5, gameColors.barkDark, 0.6)
   g.lineBetween(backX, seat.seat.y - 24, backX, seat.seat.y - 2)
 }

@@ -3,7 +3,14 @@ import { gameColors } from '../colors'
 import type { ShopMap } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { drawBarrel } from './forestArt'
-import { addPropShadow, COUNTER_HEIGHT, drawExtrudedSlab, drawLeg, PROP_TOP_SCALE } from './propArt'
+import {
+  addPropShadow,
+  COUNTER_HEIGHT,
+  drawCrate,
+  drawExtrudedSlab,
+  drawLeg,
+  PROP_TOP_SCALE,
+} from './propArt'
 
 /**
  * The till is a real volume now: customers behind it are occluded by the front
@@ -113,6 +120,15 @@ export class CounterView extends Phaser.GameObjects.Container {
     g.fillEllipse(w / 2 - 28, floorY - 3, 16, 5)
 
     drawRegister(g, registerX, registerY)
+    // A working counter, not a bare register: jars, a cutting board, a bowl
+    // stack and a tip jar sit on the top face; the floor gets a crate and a
+    // small menu easel.
+    drawJar(g, -66, top + topDepth * 0.5, 0.95, 0x9bc46a)
+    drawJar(g, 62, top + topDepth * 0.48, 0.9, 0xffc766)
+    drawCuttingBoard(g, -44, top + topDepth * 0.82, 0.9)
+    drawBowlStack(g, 42, top + topDepth * 0.78, 0.85)
+    drawTipJar(g, 76, top + topDepth * 0.38, 0.8)
+    drawCrate(g, { x: 48, baseY: floorY + 2, scale: 0.78, goods: 'produce' })
     drawBarrel(g, -w / 2 - 26, -h / 2 + 26, 0.9)
 
     this.add(
@@ -200,4 +216,81 @@ function drawRegister(g: Phaser.GameObjects.Graphics, cx: number, cy: number): v
   g.fillCircle(cx + 20, top + 8, 3.5)
   g.fillStyle(0xffffff, 0.4)
   g.fillCircle(cx + 19, top + 7, 1.5)
+}
+
+function drawJar(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  scale: number,
+  liquid: number,
+): void {
+  const s = scale
+  g.fillStyle(0x1a120c, 0.14)
+  g.fillEllipse(x, y + 8 * s, 15 * s, 4 * s)
+  g.fillStyle(0xdfe9f2, 0.55)
+  g.fillRoundedRect(x - 6 * s, y - 8 * s, 12 * s, 16 * s, 3 * s)
+  g.fillStyle(liquid, 0.9)
+  g.fillRoundedRect(x - 4.5 * s, y - 2 * s, 9 * s, 9 * s, 2 * s)
+  g.fillStyle(0xffffff, 0.4)
+  g.fillRoundedRect(x - 4 * s, y - 6 * s, 2 * s, 10 * s, 1 * s)
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(x - 7 * s, y - 10 * s, 14 * s, 3 * s, 1.5 * s)
+  g.fillStyle(0xfff3dd, 0.5)
+  g.fillRoundedRect(x - 5 * s, y - 9.5 * s, 10 * s, 1 * s, 0.5 * s)
+}
+
+function drawCuttingBoard(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  scale: number,
+): void {
+  const s = scale
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillEllipse(x, y + 3 * s, 33 * s, 6 * s)
+  g.fillStyle(0xb07a4a, 1)
+  g.fillRoundedRect(x - 15 * s, y - 5 * s, 30 * s, 10 * s, 2 * s)
+  g.fillStyle(0xd39a65, 1)
+  g.fillRoundedRect(x - 14 * s, y - 4 * s, 28 * s, 6 * s, 1.5 * s)
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(x + 12 * s, y - 2 * s, 5 * s, 4 * s, 1 * s)
+  g.fillStyle(0xdfe9f2, 0.9)
+  g.fillTriangle(x - 8 * s, y - 2 * s, x + 2 * s, y - 2 * s, x - 7 * s, y + 1 * s)
+  g.fillStyle(0x6f4b2e, 1)
+  g.fillRoundedRect(x + 2 * s, y - 3 * s, 6 * s, 2 * s, 1 * s)
+  g.fillStyle(0xe25d5d, 1)
+  g.fillCircle(x - 2 * s, y - 1 * s, 3 * s)
+  g.fillStyle(0x7fae63, 1)
+  g.fillEllipse(x - 2 * s, y - 4 * s, 4 * s, 2 * s)
+}
+
+function drawBowlStack(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  const s = scale
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillEllipse(x, y + 4 * s, 22 * s, 5 * s)
+  for (let index = 0; index < 3; index += 1) {
+    g.fillStyle(0xfff3dd, 0.95)
+    g.fillEllipse(x, y - index * 4 * s, 18 * s, 6 * s)
+    g.fillStyle(0xe4cfa9, 0.55)
+    g.fillEllipse(x, y - index * 4 * s + 1 * s, 12 * s, 3 * s)
+  }
+}
+
+function drawTipJar(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  const s = scale
+  g.fillStyle(0x1a120c, 0.14)
+  g.fillEllipse(x, y + 7 * s, 14 * s, 4 * s)
+  g.fillStyle(0xdfe9f2, 0.6)
+  g.fillRoundedRect(x - 6 * s, y - 8 * s, 12 * s, 15 * s, 4 * s)
+  g.fillStyle(0xffd166, 0.95)
+  g.fillCircle(x - 2 * s, y + 3 * s, 2.4 * s)
+  g.fillCircle(x + 2 * s, y + 2 * s, 2.4 * s)
+  g.fillCircle(x, y + 4 * s, 2.2 * s)
+  g.fillStyle(0xffffff, 0.4)
+  g.fillRoundedRect(x - 4 * s, y - 6 * s, 2 * s, 9 * s, 1 * s)
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(x - 7 * s, y - 10 * s, 14 * s, 3 * s, 1.5 * s)
+  g.fillStyle(0x3b2f3a, 0.6)
+  g.fillRoundedRect(x - 2 * s, y - 9 * s, 4 * s, 1.5 * s, 0.7 * s)
 }
