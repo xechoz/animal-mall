@@ -1422,6 +1422,7 @@ export class GameScene extends Phaser.Scene {
         case 'fishCaught':
           this.sfx('fishSplash', 0.52, 0.98 + ((this.time.now % 240) / 240) * 0.05)
           this.fishingView.playCatch(this.state, event.pondId, this.time.now)
+          this.playerView.playCatchFace(this.time.now)
           break
         case 'fishFull':
           this.toast.show(this.services.i18n.t('toast.fishFull'))

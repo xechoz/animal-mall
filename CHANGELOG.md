@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Celebrate each caught fish with a brief delighted face. The player's eyes
+  close into happy arcs, the cheeks flush, an open smile with a pink tongue
+  replaces the resting mouth, and a small heart bobs above the head. The overlay
+  is anchored to the rig's eye positions and fades after about a second. No
+  logic, save or audio change.
+
 - Rebuild the fishing presentation. The rod is now a tapered bowed curve held in
   the player's paw, extending with the cast instead of a two-segment straight
   line, and the orange progress ring around the pond is gone. The bite is

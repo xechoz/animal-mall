@@ -61,12 +61,12 @@ export class AnimalRig extends Phaser.GameObjects.Container {
   private readonly baseScale: number
   private readonly tailLocalX: number
   private readonly tailLocalY: number
-  private readonly blinkAnchors: readonly {
+  protected readonly blinkAnchors: readonly {
     readonly x: number
     readonly y: number
     readonly r: number
   }[]
-  private readonly eyeColor: number
+  protected readonly eyeColor: number
   private blinkOn = false
   /** World-space hook so the scene can spawn landing dust. */
   landHandler?: (x: number, y: number) => void

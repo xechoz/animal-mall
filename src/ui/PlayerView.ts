@@ -3,6 +3,7 @@ import type Phaser from 'phaser'
 import { carriedKinds, carryOf, carryTotal } from '../logic/carry'
 import type { DrinkKind, PlayerState, ProductKind, Vec2 } from '../logic/types'
 import { AnimalRig, type RigPose } from './AnimalRig'
+import { ANIMAL_SCALE, type AnimalFace, animalFace } from './animalArt'
 import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import { productTextureKey } from './productArt'
 
@@ -21,6 +22,8 @@ const CARRY_STEP = 12
 const CARRY_LEAN = 1.5
 const CARRY_BADGE_X = 12
 const CARRY_BADGE_Y = -4
+/** Delighted face after a catch; longer than the line pull so it reads. */
+const CATCH_FACE_MS = 1_100
 /** Sip and swallow beats baked into drink-gulp.mp3, in milliseconds. */
 const SIP_BEATS: readonly { readonly start: number; readonly duration: number }[] = [
   { start: 185, duration: 355 },
@@ -71,6 +74,8 @@ function gulpPulse(elapsed: number): number {
 export class PlayerView extends AnimalRig {
   private readonly cup: Phaser.GameObjects.Graphics
   private readonly food: Phaser.GameObjects.Image
+  private readonly moodArt: Phaser.GameObjects.Graphics
+  private readonly face: AnimalFace
   private readonly carrying: Phaser.GameObjects.Image[] = []
   private readonly carryCount: Phaser.GameObjects.Text
   private readonly theme: Theme
@@ -79,6 +84,7 @@ export class PlayerView extends AnimalRig {
   private facing: -1 | 1 = 1
   private drink: DrinkState | null = null
   private eat: EatState | null = null
+  private catchFaceStart = Number.NEGATIVE_INFINITY
 
   constructor(scene: Phaser.Scene, theme: Theme) {
     super(scene, {
@@ -89,6 +95,8 @@ export class PlayerView extends AnimalRig {
       shadow: { width: 42, height: 12, alpha: 0.18 },
     })
     this.theme = theme
+    this.face = animalFace('bear', BODY_SCALE * ANIMAL_SCALE)
+    this.moodArt = scene.add.graphics()
 
     this.cup = scene.add.graphics().setVisible(false)
 
@@ -117,6 +125,7 @@ export class PlayerView extends AnimalRig {
       .setPadding(4, 0, 4, 0)
       .setVisible(false)
     this.addAbove(this.carryCount)
+    this.addAbove(this.moodArt)
     this.layoutCarry(1)
 
     scene.add.existing(this)
@@ -143,6 +152,11 @@ export class PlayerView extends AnimalRig {
   playEat(product: ProductKind): void {
     this.eat = { product, start: this.scene.time.now }
     this.food.setTexture(productTextureKey(product)).setVisible(true).setAlpha(0).setScale(0.5)
+  }
+
+  /** A delighted face for a moment after landing a fish. */
+  playCatchFace(time: number): void {
+    this.catchFaceStart = time
   }
 
   /**
@@ -196,6 +210,8 @@ export class PlayerView extends AnimalRig {
     }
     const load = Math.min(1, carryTotal(player.carry) / 8)
     const frame = this.updateRig(x, y, player.facing, time, pose, load)
+    this.moodArt.setPosition(frame.headX, frame.headY)
+    this.drawCatchFace(time)
 
     if (drinkFx !== null) {
       const { raise, lower, pulse } = drinkFx
@@ -242,6 +258,51 @@ export class PlayerView extends AnimalRig {
       this.carryCount.setText(overflow ? `×${total}` : '').setVisible(overflow)
     }
     this.carryCount.setColor(this.theme.text)
+  }
+
+  /**
+   * Draws a delighted face over the baked one: closed happy eyes, rosier cheeks
+   * and an open smile. The rig's eye anchors keep it aligned during the gait.
+   */
+  private drawCatchFace(time: number): void {
+    const elapsed = time - this.catchFaceStart
+    this.moodArt.clear()
+    if (elapsed < 0 || elapsed >= CATCH_FACE_MS) return
+
+    const fadeIn = smoothstep(clamp01(elapsed / 70))
+    const fadeOut = 1 - smoothstep(clamp01((elapsed - (CATCH_FACE_MS - 240)) / 240))
+    this.moodArt.setAlpha(fadeIn * fadeOut)
+
+    const g = this.moodArt
+    for (const eye of this.blinkAnchors) {
+      g.fillStyle(this.eyeColor, 1)
+      g.fillEllipse(eye.x, eye.y, eye.r * 3, eye.r * 2.8)
+      g.lineStyle(Math.max(1.8, eye.r * 0.65), 0x3b2f3a, 0.95)
+      g.beginPath()
+      g.arc(eye.x, eye.y + eye.r * 0.2, eye.r * 1.2, Math.PI * 1.12, Math.PI * 1.88)
+      g.strokePath()
+    }
+
+    // The muzzle hides the resting mouth before the open smile goes on top.
+    const mouthY = this.face.mouthY - 3
+    g.fillStyle(0xe25d5d, 0.38)
+    g.fillEllipse(-13.5, this.face.blushY + 3, 9.5, 5)
+    g.fillEllipse(13.5, this.face.blushY + 3, 9.5, 5)
+    g.fillStyle(this.face.mouthColor, 1)
+    g.fillEllipse(0, mouthY, 15, 7.5)
+    g.lineStyle(2.2, 0x3b2f3a, 0.95)
+    g.beginPath()
+    g.arc(0, mouthY - 1.5, 5.5, Math.PI * 0.18, Math.PI * 0.82)
+    g.strokePath()
+    g.fillStyle(0xe88a9a, 0.9)
+    g.fillEllipse(0, mouthY + 2.2, 4.5, 2.4)
+
+    const beat = 1 + Math.sin(elapsed * 0.02) * 0.1
+    const heartY = this.face.topY - 7
+    g.fillStyle(0xe25d5d, 0.92)
+    g.fillCircle(-2.1 * beat, heartY, 2.7 * beat)
+    g.fillCircle(2.1 * beat, heartY, 2.7 * beat)
+    g.fillTriangle(-4.7 * beat, heartY + 1.2, 4.7 * beat, heartY + 1.2, 0, heartY + 6 * beat)
   }
 
   private drinkFx(time: number): SipFx | null {
