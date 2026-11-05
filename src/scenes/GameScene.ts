@@ -1421,7 +1421,7 @@ export class GameScene extends Phaser.Scene {
           break
         case 'fishCaught':
           this.sfx('fishSplash', 0.52, 0.98 + ((this.time.now % 240) / 240) * 0.05)
-          this.fishCatchBurst(event.pondId)
+          this.fishingView.playCatch(this.state, event.pondId, this.time.now)
           break
         case 'fishFull':
           this.toast.show(this.services.i18n.t('toast.fishFull'))
@@ -1992,46 +1992,6 @@ export class GameScene extends Phaser.Scene {
         label.destroy()
       },
     })
-  }
-
-  private fishCatchBurst(pondId: number): void {
-    const pond = this.state.producers.find((producer) => producer.id === pondId)
-    if (pond === undefined) return
-    const from = worldToScreen(this.viewCamera, pond.pos)
-    const to = worldToScreen(this.viewCamera, this.state.player.pos)
-    const fish = this.add
-      .image(from.x, from.y - 6, productTextureKey('fish'))
-      .setScale(0.6)
-      .setDepth(6500)
-    this.tweens.add({
-      targets: fish,
-      x: to.x,
-      y: to.y - 24,
-      angle: 18,
-      duration: 480,
-      ease: 'Cubic.easeOut',
-      onComplete: () => {
-        this.tweens.add({
-          targets: fish,
-          y: to.y - 40,
-          alpha: 0,
-          duration: 180,
-          onComplete: () => fish.destroy(),
-        })
-      },
-    })
-    for (let index = 0; index < 5; index += 1) {
-      const drop = this.add.circle(from.x, from.y, 2.5, 0xbfeaf5, 0.9).setDepth(6499)
-      const angle = (Math.PI * 2 * index) / 5
-      this.tweens.add({
-        targets: drop,
-        x: from.x + Math.cos(angle) * 22,
-        y: from.y + Math.sin(angle) * 12 - 8,
-        alpha: 0,
-        duration: 360,
-        onComplete: () => drop.destroy(),
-      })
-    }
   }
 
   private sparkleProducer(id: number): void {

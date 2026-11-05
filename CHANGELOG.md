@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Rebuild the fishing presentation. The rod is now a tapered bowed curve held in
+  the player's paw, extending with the cast instead of a two-segment straight
+  line, and the orange progress ring around the pond is gone. The bite is
+  carried by a dipping bobber, stronger ripples and a flexing rod. A caught fish
+  now leaps out of the water with a splash, hangs on a taut line while the rod
+  lifts, and arcs into the player's hand. The lift is a short cosmetic timer
+  started by the `fishCaught` event, so it also plays when the basket fills on
+  that catch. No logic, save or audio change.
+
 - Keep shop cards readable when the panel is short. The grid still hands each
   card whatever height is left over, but below 150 UI units a card drops its
   secondary copy (tool descriptions, staff bios and deposits on top of the crop
