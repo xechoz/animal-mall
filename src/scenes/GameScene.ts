@@ -82,6 +82,7 @@ import { createAnimalTextures } from '../ui/animalArt'
 import { BuffBar } from '../ui/BuffBar'
 import { bakeGraphics, screenBakeScale, worldBakeScale } from '../ui/bakeArt'
 import { CoinPileView } from '../ui/CoinPileView'
+import { CounterView } from '../ui/CounterView'
 import { CustomerView } from '../ui/CustomerView'
 import { DaylightView } from '../ui/DaylightView'
 import { DayReport as DayReportView } from '../ui/DayReport'
@@ -109,10 +110,19 @@ import { computeGameLayout, type GameLayout } from '../ui/layout'
 import { MapOffers } from '../ui/MapOffers'
 import { NightLife } from '../ui/NightLife'
 import { PauseOverlay } from '../ui/PauseOverlay'
+import { PenFences } from '../ui/PenFences'
 import { PlantBedView } from '../ui/PlantBedView'
 import { CARRY_ICON_SCALE, PlayerView } from '../ui/PlayerView'
 import { ProducerView } from '../ui/ProducerView'
 import { createProductTextures, productTextureKey } from '../ui/productArt'
+import {
+  COUNTER_HEIGHT,
+  GROUND_RING_SQUASH,
+  SHELF_HEIGHT,
+  strokeGroundArc,
+  TRASH_HEIGHT,
+  VENDING_HEIGHT,
+} from '../ui/propArt'
 import { SHELF_ICON_SCALE, ShelfView } from '../ui/ShelfView'
 import { ShopPanel } from '../ui/ShopPanel'
 import { SlotPicker } from '../ui/SlotPicker'
@@ -181,6 +191,14 @@ interface BedPress {
   fired: boolean
 }
 
+/** A tall prop that should fade when the player walks behind it. */
+interface Occluder {
+  readonly view: Phaser.GameObjects.Container
+  readonly baseY: number
+  readonly halfWidth: number
+  readonly topY: number
+}
+
 export class GameScene extends Phaser.Scene {
   private services!: GameServices
   private saveStore!: ReturnType<typeof progressSave>
@@ -205,6 +223,7 @@ export class GameScene extends Phaser.Scene {
   private staffStations!: Record<StaffKind, StaffStationView>
   private zoneOverlay!: ZoneOverlay
   private sceneryView!: SceneryView
+  private penFences?: PenFences
   private plantBeds!: PlantBedView
   private coinPile!: CoinPileView
   private fishingView!: FishingView
@@ -214,6 +233,7 @@ export class GameScene extends Phaser.Scene {
   private buffBar!: BuffBar
   private mapOffers?: MapOffers
   private bedHits: Phaser.GameObjects.Zone[] = []
+  private occluders: Occluder[] = []
   private readonly zoneHits = new Map<ZoneId, Phaser.GameObjects.Zone>()
   private bedPress?: BedPress
   private bedPressRing?: Phaser.GameObjects.Graphics
@@ -397,6 +417,7 @@ export class GameScene extends Phaser.Scene {
   private buildWorld(): void {
     const { theme, i18n } = this.services
     this.bedHits = []
+    this.occluders = []
     this.zoneHits.clear()
     this.bedPress = undefined
     this.destroyBedPressRing()
@@ -429,6 +450,20 @@ export class GameScene extends Phaser.Scene {
     this.sceneryView.setDepth(2)
     this.world.add(this.sceneryView)
 
+    this.penFences = new PenFences(this, this.layout.map)
+    this.penFences.addTo(this.world)
+    this.penFences.setLocked(!this.state.zones.farm)
+
+    const counterRect = this.layout.map.counter
+    const counter = new CounterView(this, this.layout.map, bakeScale)
+    this.world.add(counter)
+    this.occluders.push({
+      view: counter,
+      baseY: counterRect.y + counterRect.h,
+      halfWidth: counterRect.w / 2,
+      topY: counterRect.y - COUNTER_HEIGHT,
+    })
+
     this.zoneOverlay = new ZoneOverlay(this, theme, this.layout.map, labels, this.layout.worldText)
     this.zoneOverlay.setDepth(50)
     this.world.add(this.zoneOverlay)
@@ -453,6 +488,20 @@ export class GameScene extends Phaser.Scene {
     )
     this.world.add(this.trashView)
     this.world.add(this.vendingView)
+    const trashRect = this.layout.map.facilities.trashRect
+    this.occluders.push({
+      view: this.trashView,
+      baseY: trashRect.y + trashRect.h,
+      halfWidth: trashRect.w / 2,
+      topY: trashRect.y - TRASH_HEIGHT,
+    })
+    const vendingRect = this.layout.map.facilities.vendingRect
+    this.occluders.push({
+      view: this.vendingView,
+      baseY: vendingRect.y + vendingRect.h,
+      halfWidth: vendingRect.w / 2,
+      topY: vendingRect.y - VENDING_HEIGHT,
+    })
 
     const diningView = new DiningView(
       this,
@@ -479,6 +528,12 @@ export class GameScene extends Phaser.Scene {
         const rect = this.layout.map.shelves[zone]
         view.setDepth(rect.y + rect.h)
         this.world.add(view)
+        this.occluders.push({
+          view,
+          baseY: rect.y + rect.h,
+          halfWidth: rect.w / 2,
+          topY: rect.y - SHELF_HEIGHT,
+        })
         return [zone, view]
       }),
     ) as Record<ZoneId, ShelfView>
@@ -726,11 +781,18 @@ export class GameScene extends Phaser.Scene {
     const ratio = Math.min(1, (time - press.startedAt) / INTERACTION.holdMs)
     ring.clear()
     ring.lineStyle(4 * ui, this.services.theme.ink, 0.18)
-    ring.strokeCircle(point.x, point.y - 4 * ui, radius)
-    ring.lineStyle(4 * ui, this.services.theme.accentAlt, 0.95)
-    ring.beginPath()
-    ring.arc(point.x, point.y - 4 * ui, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio)
-    ring.strokePath()
+    ring.strokeEllipse(point.x, point.y - 4 * ui, radius * 2, radius * 2 * GROUND_RING_SQUASH)
+    strokeGroundArc(
+      ring,
+      point.x,
+      point.y - 4 * ui,
+      radius,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * ratio,
+      this.services.theme.accentAlt,
+      0.95,
+      4 * ui,
+    )
 
     const label = this.bedPressLabel
     if (label !== undefined) {
@@ -738,7 +800,7 @@ export class GameScene extends Phaser.Scene {
       label.setVisible(show)
       if (show) {
         label.setFontSize(12 * ui)
-        label.setPosition(point.x, point.y - radius - 6 * ui)
+        label.setPosition(point.x, point.y - radius * GROUND_RING_SQUASH - 6 * ui)
         label.setText(this.services.i18n.t('bed.holdSwap'))
       }
     }
@@ -893,6 +955,22 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdownScene())
   }
 
+  /**
+   * Tall props hide the player when the player is behind them. Fading instead
+   * of clipping keeps the character readable without changing collision.
+   */
+  private updateOccluders(delta: number): void {
+    const player = this.playerView
+    const step = Math.min(1, delta / 90)
+    for (const occluder of this.occluders) {
+      const behind = player.y < occluder.baseY - 2
+      const withinX = Math.abs(player.x - occluder.view.x) <= occluder.halfWidth + 18
+      const overlaps = player.y > occluder.topY
+      const target = behind && withinX && overlaps ? 0.55 : 1
+      occluder.view.alpha += (target - occluder.view.alpha) * step
+    }
+  }
+
   private render(alpha: number, time: number, delta: number): void {
     this.playerView.updatePlayer(
       this.state.player,
@@ -911,6 +989,7 @@ export class GameScene extends Phaser.Scene {
     this.daylight.update(this.state.day, this.state.producers, this.viewCamera, time)
     this.nightLife.update(this.state.day, this.viewCamera, time)
     this.playerView.setDepth(this.state.player.pos.y + 1)
+    this.updateOccluders(delta)
     this.syncCustomers(alpha, time)
     this.syncStaff(alpha, time)
     this.updateWorldViews()
@@ -1053,6 +1132,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.zoneOverlay.updateZones(this.state, this.artBakeScale())
     this.zoneOverlay.updateFocus(this.state.player.pos)
+    this.penFences?.setLocked(!this.state.zones.farm)
     this.plantBeds.updateBeds(this.state, this.artBakeScale())
     const reach = stockReach(this.state)
     for (const zone of ZONE_ORDER) {
@@ -2377,6 +2457,8 @@ export class GameScene extends Phaser.Scene {
     this.producerViews.clear()
     this.customerViews.clear()
     this.staffViews.clear()
+    this.occluders = []
+    this.penFences = undefined
   }
 
   private rebuildWorld(): void {

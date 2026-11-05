@@ -4,6 +4,7 @@ import { INTERACTION } from '../logic/config'
 import type { ShopMap } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { drawDiningChair, drawDiningRug, drawDiningTable } from './diningArt'
+import { TABLE_HEIGHT } from './propArt'
 
 /**
  * Draws one static prop into a texture. Everything here is baked because a live
@@ -16,15 +17,16 @@ function baked(
   rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number },
   pad: number,
   bakeScale: number,
+  topPad = 0,
 ): Phaser.GameObjects.Image {
-  const origin = { x: rect.x - pad, y: rect.y - pad }
+  const origin = { x: rect.x - pad, y: rect.y - pad - topPad }
   const image = bakeLayer(
     scene,
     graphics,
     key,
     origin,
     rect.w + pad * 2,
-    rect.h + pad * 2,
+    rect.h + pad * 2 + topPad,
     bakeScale,
   )
   graphics.destroy()
@@ -90,6 +92,7 @@ export class DiningView {
       map.dining.table,
       8,
       bakeScale,
+      TABLE_HEIGHT,
     ).setDepth(map.dining.table.y + map.dining.table.h)
 
     this.label = scene.add

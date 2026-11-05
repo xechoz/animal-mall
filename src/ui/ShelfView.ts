@@ -5,6 +5,7 @@ import { INTERACTION, plantSlotCount, ZONE_PRODUCTS } from '../logic/config'
 import type { ProductKind, ShelfState, ShopMap, Vec2, ZoneId } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { productTextureKey } from './productArt'
+import { addPropShadow, drawLeg, PROP_TOP_SCALE, SHELF_HEIGHT } from './propArt'
 
 /** On-screen size of a shelf basket icon, shared with the stock flight. */
 export const SHELF_ICON_SCALE = 0.42
@@ -55,46 +56,73 @@ export class ShelfView extends Phaser.GameObjects.Container {
     const gap = 5
     const pad = 8
     const binWidth = (width - pad * 2 - gap * (this.slotCount - 1)) / this.slotCount
+    const floorY = height / 2
+    const frontFaceTop = floorY - SHELF_HEIGHT
+    const topDepth = height * PROP_TOP_SCALE
+    const top = frontFaceTop - topDepth
+
+    addPropShadow(scene, this, { width: width + 18, height: height + 14, alpha: 0.14 })
 
     this.reachGlow = scene.add.graphics()
-    this.reachGlow.fillStyle(0xfff3dd, 0.12)
-    this.reachGlow.fillRoundedRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 12)
-    this.reachGlow.lineStyle(3, gameColors.cream, 0.5)
-    this.reachGlow.strokeRoundedRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 12)
+    this.reachGlow.fillStyle(0xfff3dd, 0.14)
+    this.reachGlow.fillRoundedRect(-width / 2 - 12, -height / 2 - 12, width + 24, height + 24, 14)
+    this.reachGlow.lineStyle(3, gameColors.cream, 0.55)
+    this.reachGlow.strokeRoundedRect(-width / 2 - 12, -height / 2 - 12, width + 24, height + 24, 14)
     this.reachGlow.setAlpha(0).setVisible(false)
     this.add(this.reachGlow)
 
     const g = scene.add.graphics()
-    // Market-stall shelf: dark frame, curved top rail, wood grain and feet.
-    g.fillStyle(0x3b2f3a, 0.18)
-    g.fillRoundedRect(-width / 2, -height / 2 + 7, width, height, 9)
-    g.fillStyle(gameColors.woodDark, 1)
-    g.fillRoundedRect(-width / 2, -height / 2, width, height, 9)
+    // Market stall: a thin top board on two front legs and an apron. The open
+    // space between the legs is what keeps it from reading as a solid block.
+    const legTop = frontFaceTop - 6
+    const legW = 8
+    const leftLeg = -width / 2 + 10
+    const rightLeg = width / 2 - 10 - legW
+    drawLeg(g, {
+      x: leftLeg,
+      y: legTop,
+      w: legW,
+      h: floorY - legTop,
+      color: gameColors.woodLight,
+      edge: 0xd9a066,
+    })
+    drawLeg(g, {
+      x: rightLeg,
+      y: legTop,
+      w: legW,
+      h: floorY - legTop,
+      color: gameColors.woodLight,
+      edge: 0xd9a066,
+    })
     g.fillStyle(gameColors.wood, 1)
-    g.fillRoundedRect(-width / 2 + 4, -height / 2 + 3, width - 8, height - 9, 6)
+    g.fillRoundedRect(leftLeg + legW, floorY - 9, rightLeg - leftLeg - legW, 9, 2)
     g.fillStyle(0xb07a4a, 1)
-    g.fillRoundedRect(-width / 2 + 7, -height / 2 + 4, width - 14, 7, 4)
-    g.fillStyle(0xfff3dd, 0.22)
-    g.fillRoundedRect(-width / 2 + 10, -height / 2 + 5, width - 20, 2, 1)
-    g.lineStyle(1, 0x7b4f33, 0.22)
-    for (let index = 0; index < 3; index += 1) {
-      const grainY = -height / 2 + 16 + index * 8
-      g.lineBetween(-width / 2 + 12, grainY, width / 2 - 12, grainY)
-    }
-    // Small corner brackets make it read as a built shelf, not a floating box.
+    g.fillRoundedRect(leftLeg + legW + 2, floorY - 8, rightLeg - leftLeg - legW - 4, 2, 1)
+    g.fillStyle(0x3b2f3a, 0.85)
+    g.fillRoundedRect(leftLeg - 1, floorY - 2, legW + 2, 3, 1)
+    g.fillRoundedRect(rightLeg - 1, floorY - 2, legW + 2, 3, 1)
+
+    // Foreshortened top board, its front edge and a shaded right side.
+    g.fillStyle(gameColors.wood, 1)
+    g.fillRoundedRect(-width / 2, top, width, topDepth, 9)
+    g.fillStyle(gameColors.woodLight, 0.75)
+    g.fillRoundedRect(-width / 2 + 4, top + 4, width - 8, 5, 3)
+    g.fillStyle(0x1a120c, 0.14)
+    g.fillRect(width / 2 - 5, top + 5, 5, topDepth - 10)
     g.fillStyle(gameColors.woodDark, 1)
-    g.fillRoundedRect(-width / 2 + 7, height / 2 - 3, 12, 6, 2)
-    g.fillRoundedRect(width / 2 - 19, height / 2 - 3, 12, 6, 2)
+    g.fillRoundedRect(-width / 2, frontFaceTop - 6, width, 6, 3)
+    g.fillStyle(0xb07a4a, 1)
+    g.fillRoundedRect(-width / 2 + 2, frontFaceTop - 5, width - 4, 2, 1)
 
     // Moss and a short vine keep the stall tied to the forest clearing.
     g.fillStyle(gameColors.moss, 0.7)
-    g.fillEllipse(-width / 2 + 16, -height / 2 + 1, 16, 5)
-    g.fillEllipse(width / 2 - 18, -height / 2, 14, 5)
+    g.fillEllipse(-width / 2 + 16, top + 1, 16, 5)
+    g.fillEllipse(width / 2 - 18, top + 2, 14, 5)
     g.lineStyle(1.4, gameColors.mossDark, 0.65)
     for (let x = -width / 2 + 14; x < width / 2 - 12; x += 22) {
-      g.lineBetween(x, -height / 2 + 9, x + 8, -height / 2 + 7)
+      g.lineBetween(x, top + 9, x + 8, top + 7)
       g.fillStyle(gameColors.fern, 0.7)
-      g.fillEllipse(x + 8, -height / 2 + 7, 5, 2.4)
+      g.fillEllipse(x + 8, top + 7, 5, 2.4)
     }
     this.add(g)
 
@@ -103,26 +131,29 @@ export class ShelfView extends Phaser.GameObjects.Container {
       const x = -width / 2 + pad + index * (binWidth + gap) + binWidth / 2
       // Wicker produce basket instead of a flat white slot. It shares the shelf
       // body's Graphics so the whole stall bakes into one texture.
+      const basketTop = top + 5
+      const basketH = topDepth - 10
       g.fillStyle(0x3b2f3a, 0.12)
-      g.fillRoundedRect(x - binWidth / 2, -height / 2 + 8, binWidth, height - 12, 5)
+      g.fillRoundedRect(x - binWidth / 2, basketTop + 2, binWidth, basketH, 5)
       g.fillStyle(0xe4cfa9, 0.55)
-      g.fillRoundedRect(x - binWidth / 2, -height / 2 + 6, binWidth, height - 13, 5)
+      g.fillRoundedRect(x - binWidth / 2, basketTop, binWidth, basketH, 5)
       g.fillStyle(0xf0dcb8, 0.6)
-      g.fillRoundedRect(x - binWidth / 2 + 2, -height / 2 + 7, binWidth - 4, 6, 3)
+      g.fillRoundedRect(x - binWidth / 2 + 2, basketTop + 1, binWidth - 4, 5, 3)
       g.lineStyle(1, 0x8f6b45, 0.3)
       for (let row = 1; row < 3; row += 1) {
         g.lineBetween(
           x - binWidth / 2 + 3,
-          -height / 2 + 8 + row * 6,
+          basketTop + row * 5,
           x + binWidth / 2 - 3,
-          -height / 2 + 8 + row * 6,
+          basketTop + row * 5,
         )
       }
 
+      const iconY = top + topDepth * 0.42
       const icon = scene.add
         .image(
           x - binWidth / 2 + 14,
-          -height / 2 + 15,
+          iconY,
           productTextureKey(product ?? (products[0] as ProductKind)),
         )
         .setScale(SHELF_ICON_SCALE)
@@ -131,19 +162,19 @@ export class ShelfView extends Phaser.GameObjects.Container {
       this.icons.push(icon)
 
       const count = scene.add
-        .text(
-          x + binWidth / 2 - 6,
-          -height / 2 + 15,
-          '',
-          textStyle(theme, 10 * textScale, '#fff7e8', true),
-        )
+        .text(x + binWidth / 2 - 6, iconY, '', textStyle(theme, 10 * textScale, '#fff7e8', true))
         .setOrigin(1, 0.5)
       this.add(count)
       this.counts.push(count)
     }
 
     this.countText = scene.add
-      .text(width / 2 - 7, height / 2 - 10, '', textStyle(theme, 9 * textScale, '#fff7e8', true))
+      .text(
+        width / 2 - 7,
+        top + topDepth - 10,
+        '',
+        textStyle(theme, 9 * textScale, '#fff7e8', true),
+      )
       .setOrigin(1, 0.5)
     this.add(this.countText)
 
@@ -153,9 +184,9 @@ export class ShelfView extends Phaser.GameObjects.Container {
       scene,
       g,
       `shelf-${map.id}-${zone}`,
-      { x: -width / 2 - 10, y: -height / 2 - 10 },
+      { x: -width / 2 - 10, y: top - 10 },
       width + 20,
-      height + 20,
+      floorY + 10 - (top - 10),
       bakeScale,
     )
     const index = this.getIndex(g)
@@ -166,15 +197,15 @@ export class ShelfView extends Phaser.GameObjects.Container {
     this.lockOverlay = scene.add.container(0, 0)
     const lockBg = scene.add.graphics()
     lockBg.fillStyle(0x2f2433, 0.72)
-    lockBg.fillRoundedRect(-width / 2, -height / 2, width, height, 8)
+    lockBg.fillRoundedRect(-width / 2, top, width, topDepth, 8)
     lockBg.fillStyle(0xfff7e8, 0.14)
-    lockBg.fillRoundedRect(-width / 2 + 8, -height / 2 + 9, width - 16, height - 18, 6)
+    lockBg.fillRoundedRect(-width / 2 + 8, top + 6, width - 16, topDepth - 12, 6)
     this.lockOverlay.add(lockBg)
-    drawLock(this.lockOverlay, scene)
+    drawLock(this.lockOverlay, scene, top + topDepth / 2)
     this.add(this.lockOverlay)
 
     this.onUpgrade = onUpgrade
-    this.upgradeBaseY = -height / 2 - 16
+    this.upgradeBaseY = top - 16
     this.upgrade = scene.add.container(width / 2 - 42, this.upgradeBaseY)
     const upgradeBg = scene.add.graphics()
     upgradeBg.fillStyle(0x2f2433, 0.18)
@@ -345,7 +376,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
   }
 }
 
-function drawLock(container: Phaser.GameObjects.Container, scene: Phaser.Scene): void {
+function drawLock(container: Phaser.GameObjects.Container, scene: Phaser.Scene, y = 0): void {
   const lock = scene.add.graphics()
   lock.fillStyle(0xffd166, 1)
   lock.fillRoundedRect(-11, -4, 22, 18, 4)
@@ -356,5 +387,6 @@ function drawLock(container: Phaser.GameObjects.Container, scene: Phaser.Scene):
   lock.fillStyle(0x2f2433, 1)
   lock.fillCircle(0, 5, 2.5)
   lock.fillRect(-1.5, 5, 3, 5)
+  lock.setY(y)
   container.add(lock)
 }

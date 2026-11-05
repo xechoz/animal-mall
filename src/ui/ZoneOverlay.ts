@@ -93,7 +93,10 @@ export class ZoneOverlay extends Phaser.GameObjects.Container {
       const landscape = this.map.id === 'landscape'
       const shelf = this.map.shelves[zone]
       const anchorY = landscape ? area.y + area.h / 2 : shelf.y + shelf.h
-      const nameY = anchorY + (landscape ? -46 : 26) * this.textScale
+      // The farm caption has to clear the pen posts in landscape; the other
+      // zones can keep the tighter offset.
+      const nameOffset = landscape ? (zone === 'farm' ? -108 : -46) : 26
+      const nameY = anchorY + nameOffset * this.textScale
       const priceY = anchorY + (landscape ? 48 : 62) * this.textScale
 
       const patch = zonePatchPoints(area)

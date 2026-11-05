@@ -1,5 +1,6 @@
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
+import type { AnimalProductKind } from '../logic/types'
 
 export type PlantZone = 'fruit' | 'veg'
 
@@ -87,18 +88,20 @@ export function drawTilledBed(
   const top = y - shape.h / 2
   const radius = shape.radius
 
-  g.fillStyle(0x3b2f3a, 0.15)
-  g.fillRoundedRect(left + 2, top + 5, shape.w, shape.h, radius)
+  // Tilled soil is a flat patch, not a table. A soft offset shadow grounds it;
+  // the soil edge, furrows and crumbs carry the depth instead of a front face.
+  g.fillStyle(0x3b2f3a, 0.12)
+  g.fillRoundedRect(left + 2, top + 4, shape.w, shape.h, radius)
   g.fillStyle(palette.rim, 1)
   g.fillRoundedRect(left, top, shape.w, shape.h, radius)
   g.fillStyle(palette.base, 1)
-  g.fillRoundedRect(left + 2, top + 2, shape.w - 4, shape.h - 5, Math.max(1, radius - 1))
+  g.fillRoundedRect(left + 2, top + 2, shape.w - 4, shape.h - 4, Math.max(1, radius - 1))
   g.fillStyle(palette.top, 0.92)
-  g.fillRoundedRect(left + 4, top + 4, shape.w - 8, shape.h - 10, Math.max(1, radius - 2))
+  g.fillRoundedRect(left + 4, top + 4, shape.w - 8, shape.h - 8, Math.max(1, radius - 2))
   g.fillStyle(palette.light, 0.45)
-  g.fillRoundedRect(left + 6, top + 4, shape.w - 12, 3.5, 1.8)
-  g.fillStyle(0x3b2f3a, 0.12)
-  g.fillRoundedRect(left + 4, top + shape.h - 9, shape.w - 8, 5, 2)
+  g.fillRoundedRect(left + 6, top + 5, shape.w - 12, 3.5, 1.8)
+  g.fillStyle(0x3b2f3a, 0.1)
+  g.fillRoundedRect(left + 4, top + shape.h - 8, shape.w - 8, 4, 2)
 
   drawFurrows(g, x, y, shape, palette, zone)
   drawSoilSpecks(g, x, y, shape, palette)
@@ -182,6 +185,173 @@ export function drawSeedPacket(
   g.fillEllipse(x + 2.4 * scale, y - 1 * scale, 5 * scale, 3 * scale)
   g.fillStyle(0x8cd08b, 0.9)
   g.fillEllipse(x, y - 1.4 * scale, 3 * scale, 2 * scale)
+}
+
+/**
+ * Small ground props inside an animal pen. The pen floor itself stays plain;
+ * these follow the installed animal so a chicken pen reads as straw and worms,
+ * a cow pen as hay and a puddle, and so on.
+ */
+export function drawPenDecor(
+  g: Phaser.GameObjects.Graphics,
+  product: AnimalProductKind,
+  slot: number,
+): void {
+  const flip = slot % 2 === 0 ? 1 : -1
+  switch (product) {
+    case 'egg':
+      drawNest(g, -24 * flip, 9)
+      drawGrain(g, 12, 14, slot)
+      drawWorm(g, 6, 19, 0.9)
+      drawStrawTuft(g, 28, -8, 0.8)
+      drawStrawTuft(g, -30, -12, 0.7)
+      break
+    case 'milk':
+      drawHayPile(g, -25 * flip, 6)
+      drawGrassTuft(g, 22, -12, 0.7)
+      drawGrassTuft(g, 30, 9, 0.6)
+      drawPuddle(g, -16 * flip, 19, 10, 4)
+      drawClover(g, 12, 18, 0.7)
+      break
+    case 'yarn':
+      drawWool(g, -24 * flip, -8)
+      drawStone(g, 18, 12, 0.8)
+      drawStone(g, 28, -6, 0.6)
+      drawGrassTuft(g, -30, 12, 0.7)
+      drawClover(g, 10, 18, 0.6)
+      break
+    case 'fish':
+      drawPuddle(g, 0, 8, 20, 9)
+      drawLilyPad(g, -6, 6, 0.8)
+      drawLilyPad(g, 8, 12, 0.6)
+      drawStone(g, -26, 14, 0.7)
+      drawStone(g, 24, -12, 0.6)
+      break
+    case 'cheese':
+      drawStone(g, -26, 8, 1)
+      drawStone(g, 18, -10, 0.8)
+      drawStone(g, 28, 10, 0.7)
+      drawGrassTuft(g, -30, -10, 0.7)
+      drawClover(g, 8, 18, 0.7)
+      break
+    case 'honey':
+      drawFlower(g, -24 * flip, 8, 0xf2a8b4)
+      drawFlower(g, 20, -10, 0xffd166)
+      drawFlower(g, 10, 16, 0xbfe8ef)
+      drawFlower(g, 28, 2, 0xe9b7a3)
+      drawClover(g, -12, 18, 0.7)
+      break
+  }
+}
+
+function drawStrawTuft(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  g.lineStyle(1.4 * scale, gameColors.hay, 0.9)
+  for (let index = -2; index <= 2; index += 1) {
+    g.lineBetween(x, y, x + index * 3 * scale, y - 6 * scale + Math.abs(index) * 1.2 * scale)
+  }
+  g.lineStyle(1 * scale, gameColors.straw, 0.7)
+  g.lineBetween(x, y, x + 2 * scale, y - 4 * scale)
+}
+
+function drawNest(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillEllipse(x, y + 2, 18, 6)
+  g.fillStyle(0xb07a4a, 0.8)
+  g.fillEllipse(x, y, 16, 6)
+  g.lineStyle(1.2, gameColors.hay, 0.9)
+  for (let index = -3; index <= 3; index += 1) {
+    g.lineBetween(x + index * 2.2, y - 1, x + index * 2.8, y + 2)
+  }
+  g.fillStyle(0xfff3dd, 1)
+  g.fillEllipse(x - 3, y - 1, 4, 5)
+  g.fillEllipse(x + 3, y, 3.5, 4.5)
+}
+
+function drawGrain(g: Phaser.GameObjects.Graphics, x: number, y: number, seed: number): void {
+  g.fillStyle(0xffd166, 0.9)
+  for (let index = 0; index < 7; index += 1) {
+    const px = x + ((index * 13 + seed * 7) % 22) - 11
+    const py = y + ((index * 7 + seed * 3) % 12) - 6
+    g.fillCircle(px, py, 1)
+  }
+}
+
+function drawWorm(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  g.lineStyle(1.4 * scale, 0xd97757, 0.95)
+  g.beginPath()
+  g.moveTo(x - 4 * scale, y)
+  g.lineTo(x - 1 * scale, y - 2 * scale)
+  g.lineTo(x + 2 * scale, y + scale)
+  g.lineTo(x + 4 * scale, y - scale)
+  g.strokePath()
+  g.fillStyle(0x2b241d, 0.6)
+  g.fillCircle(x - 4 * scale, y, 0.8)
+}
+
+function drawStone(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillEllipse(x, y + 2 * scale, 10 * scale, 4 * scale)
+  g.fillStyle(gameColors.stone, 1)
+  g.fillEllipse(x, y, 9 * scale, 5 * scale)
+  g.fillStyle(0xd9e6df, 0.5)
+  g.fillEllipse(x - scale, y - scale, 5 * scale, 2 * scale)
+}
+
+function drawFlower(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number): void {
+  g.fillStyle(color, 0.95)
+  for (let index = 0; index < 5; index += 1) {
+    const angle = (index * Math.PI * 2) / 5
+    g.fillCircle(x + Math.cos(angle) * 2.2, y + Math.sin(angle) * 2.2, 1.6)
+  }
+  g.fillStyle(0xffd166, 1)
+  g.fillCircle(x, y, 1.5)
+}
+
+function drawPuddle(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number,
+): void {
+  g.fillStyle(0x1a120c, 0.08)
+  g.fillEllipse(x, y + 1, rx + 2, ry + 1)
+  g.fillStyle(gameColors.water, 0.75)
+  g.fillEllipse(x, y, rx * 2, ry * 2)
+  g.fillStyle(0xbfe8ef, 0.55)
+  g.fillEllipse(x - rx * 0.25, y - ry * 0.2, rx, ry * 0.7)
+  g.lineStyle(1, 0xbfe8ef, 0.6)
+  g.strokeEllipse(x, y, rx * 1.5, ry * 1.2)
+}
+
+function drawLilyPad(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+  g.fillStyle(gameColors.leaf, 0.95)
+  g.fillEllipse(x, y, 8 * scale, 4 * scale)
+  g.fillStyle(gameColors.leafLight, 0.7)
+  g.fillEllipse(x - scale, y - 0.5, 4 * scale, 2 * scale)
+  g.fillStyle(0xf2a8b4, 1)
+  g.fillCircle(x + scale, y - scale, 1.2)
+}
+
+function drawWool(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(0xfff3dd, 0.95)
+  g.fillCircle(x - 4, y, 3.2)
+  g.fillCircle(x, y - 2, 4)
+  g.fillCircle(x + 4, y, 3.2)
+  g.fillCircle(x, y + 2, 3.5)
+  g.fillStyle(0xe8e1d0, 0.7)
+  g.fillCircle(x - 1, y + 1, 2.5)
+}
+
+function drawHayPile(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(0x1a120c, 0.1)
+  g.fillEllipse(x, y + 2, 18, 6)
+  g.fillStyle(gameColors.hay, 0.9)
+  g.fillEllipse(x, y, 16, 6)
+  g.lineStyle(1.2, gameColors.straw, 0.9)
+  for (let index = -3; index <= 3; index += 1) {
+    g.lineBetween(x + index * 2.2, y - 1, x + index * 2.8, y + 2)
+  }
 }
 
 function drawFurrows(

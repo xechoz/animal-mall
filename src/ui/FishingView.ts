@@ -4,6 +4,7 @@ import { distanceToRect } from '../logic/collision'
 import { FISHING } from '../logic/config'
 import { pondRect } from '../logic/fishing'
 import type { ProducerState, ShopState } from '../logic/types'
+import { GROUND_RING_SQUASH, strokeGroundArc } from './propArt'
 
 const RING_RADIUS = 46
 const RING_WIDTH = 3
@@ -70,21 +71,27 @@ export class FishingView extends Phaser.GameObjects.Container {
   /** Faint ring while the player is close enough to fish. */
   private drawRing(pond: ProducerState): void {
     this.art.lineStyle(RING_WIDTH, 0x3b2f3a, 0.12)
-    this.art.strokeCircle(pond.pos.x, pond.pos.y, RING_RADIUS)
+    this.art.strokeEllipse(
+      pond.pos.x,
+      pond.pos.y,
+      RING_RADIUS * 2,
+      RING_RADIUS * 2 * GROUND_RING_SQUASH,
+    )
   }
 
   private drawProgress(pond: ProducerState, ratio: number): void {
     // Orange reads better against the light blue pond than the mint accent.
-    this.art.lineStyle(RING_WIDTH, this.theme.accent, 1)
-    this.art.beginPath()
-    this.art.arc(
+    strokeGroundArc(
+      this.art,
       pond.pos.x,
       pond.pos.y,
       RING_RADIUS,
       -Math.PI / 2,
       -Math.PI / 2 + Math.PI * 2 * Math.min(1, Math.max(0, ratio)),
+      this.theme.accent,
+      1,
+      RING_WIDTH,
     )
-    this.art.strokePath()
   }
 
   /** Small floating bobber hint before the line goes out. */

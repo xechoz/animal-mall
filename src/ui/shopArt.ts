@@ -1,14 +1,13 @@
 import { displayTextStyle, type Theme } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
-import { PEN_SIZE } from '../logic/config'
+
 import type { ShopMap } from '../logic/types'
 import { bakeGraphics } from './bakeArt'
 import { drawRestMat } from './facilitiesArt'
 import { fenceLanterns } from './fenceLanterns'
 import {
   drawAntTrail,
-  drawBarrel,
   drawBird,
   drawCanopyBand,
   drawFence,
@@ -68,7 +67,6 @@ function createPortraitShopBackground(
   drawFenceLanterns(g, map)
   drawCentralRug(g, 282, 506, 108, 52)
   drawQueueMarkers(g, map)
-  drawCounter(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
@@ -100,7 +98,6 @@ function createLandscapeShopBackground(
   drawSideFences(g, map)
   drawFenceLanterns(g, map)
   drawQueueMarkers(g, map)
-  drawCounter(g, map)
   drawDoorMat(g, map.doorPoint.x, map.doorPoint.y - 42)
   drawDappledLight(g, map)
   drawEdgeFoliage(g, map)
@@ -154,6 +151,13 @@ function drawFloor(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
     const seam = row % 2 === 0 ? floorLeft : floorLeft + 100
     for (let x = seam; x < floorRight; x += 180) g.lineBetween(x, y, x, y + rowHeight)
   }
+
+  // Soft inner shadow keeps the floor from meeting the fence as a flat seam.
+  g.fillStyle(0x1a120c, 0.06)
+  g.fillRect(floorLeft, floorTop, floorRight - floorLeft, 8)
+  g.fillRect(floorLeft, floorBottom - 8, floorRight - floorLeft, 8)
+  g.fillRect(floorLeft, floorTop, 8, floorBottom - floorTop)
+  g.fillRect(floorRight - 8, floorTop, 8, floorBottom - floorTop)
 
   // Moss creeps in from the fence line without changing the walkable area.
   g.fillStyle(gameColors.moss, 0.14)
@@ -253,47 +257,8 @@ function drawDirtPath(
 }
 
 function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
-  // Pens are real split-rail enclosures now; the trough and animals stay on top.
-  for (const pen of map.animalPens) {
-    const left = pen.x - PEN_SIZE.w / 2
-    const right = pen.x + PEN_SIZE.w / 2
-    const top = pen.y - PEN_SIZE.h / 2
-    const bottom = pen.y + PEN_SIZE.h / 2
-    g.fillStyle(gameColors.straw, 0.2)
-    g.fillEllipse(pen.x, pen.y + 16, PEN_SIZE.w - 16, 24)
-    g.fillStyle(gameColors.hay, 0.5)
-    g.fillEllipse(pen.x - 18, pen.y + 12, 14, 6)
-    g.fillStyle(gameColors.stoneDark, 0.5)
-    g.fillEllipse(pen.x + 20, pen.y + 18, 9, 4)
-    drawFence(
-      g,
-      { x1: left, y1: top + 6, x2: right, y2: top + 6 },
-      { height: 12, postGap: 28, moss: false, seed: pen.index + 3 },
-    )
-    drawFence(
-      g,
-      { x1: left + 2, y1: top, x2: left + 2, y2: bottom },
-      { height: 12, postGap: 28, moss: false, seed: pen.index + 5 },
-    )
-    drawFence(
-      g,
-      { x1: right - 2, y1: top, x2: right - 2, y2: bottom },
-      { height: 12, postGap: 28, moss: false, seed: pen.index + 7 },
-    )
-    drawFence(
-      g,
-      { x1: left, y1: bottom, x2: right, y2: bottom },
-      {
-        height: 10,
-        postGap: 16,
-        gapStart: PEN_SIZE.w / 2 - 12,
-        gapEnd: PEN_SIZE.w / 2 + 12,
-        moss: false,
-        seed: pen.index + 9,
-      },
-    )
-  }
-
+  // Pen floors stay plain; each installed animal adds its own small props in
+  // ProducerView.ground. Only the kitchen work pads are part of the floor plan.
   for (const station of map.stationSlots) {
     g.fillStyle(gameColors.stone, 0.18)
     g.fillRoundedRect(station.x - 42, station.y - 30, 84, 62, 12)
@@ -318,6 +283,9 @@ function drawTopBand(
   // room while the forest still shows above it.
   drawCanopyBand(g, 24, 22, width - 48, 36, 17)
   drawFence(g, { x1: 28, y1: 60, x2: width - 28, y2: 60 }, { height: 26, postGap: 38, seed: 19 })
+  // The hedge and fence cast a soft band onto the floor behind the shelves.
+  g.fillStyle(0x1a120c, 0.06)
+  g.fillRoundedRect(28, 74, width - 56, 18, 9)
 
   const signWidth = 164 * scale
   const signHeight = 38 * scale
@@ -437,50 +405,6 @@ function drawQueueMarkers(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
     g.fillStyle(0xead6b4, 0.45)
     g.fillEllipse(slot.x - 2, slot.y + 15, 18, 4)
   }
-}
-
-function drawCounter(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
-  const rect = map.counter
-  const register = map.register
-  g.fillStyle(0x1a120c, 0.2)
-  g.fillRoundedRect(rect.x, rect.y + 8, rect.w, rect.h, 12)
-  g.fillStyle(gameColors.woodDark, 1)
-  g.fillRoundedRect(rect.x, rect.y, rect.w, rect.h, 12)
-  g.fillStyle(gameColors.wood, 1)
-  g.fillRoundedRect(rect.x + 4, rect.y + 3, rect.w - 8, rect.h - 10, 10)
-  g.fillStyle(gameColors.woodLight, 1)
-  g.fillRoundedRect(rect.x + 8, rect.y + 6, rect.w - 16, 12, 6)
-  g.fillStyle(0xfff3dd, 0.28)
-  g.fillRoundedRect(rect.x + 12, rect.y + 8, rect.w - 24, 3, 1.5)
-  g.fillStyle(0x5a3a22, 0.3)
-  g.fillRoundedRect(rect.x + 10, rect.y + 24, rect.w - 20, rect.h - 32, 6)
-  g.lineStyle(2, gameColors.barkDark, 0.6)
-  g.lineBetween(rect.x + 14, rect.y + 30, rect.x + rect.w - 14, rect.y + 30)
-  g.lineBetween(rect.x + 14, rect.y + 42, rect.x + rect.w - 14, rect.y + 42)
-  g.fillStyle(gameColors.moss, 0.6)
-  g.fillEllipse(rect.x + 26, rect.y + rect.h - 4, 18, 5)
-  g.fillEllipse(rect.x + rect.w - 30, rect.y + rect.h - 4, 16, 5)
-
-  // Register: a brass-and-wood cash box instead of a grey office machine.
-  g.fillStyle(0x1a120c, 0.2)
-  g.fillRoundedRect(register.x - 25, register.y - 16, 52, 32, 8)
-  g.fillStyle(gameColors.barkDark, 1)
-  g.fillRoundedRect(register.x - 26, register.y - 18, 50, 30, 8)
-  g.fillStyle(gameColors.woodLight, 1)
-  g.fillRoundedRect(register.x - 22, register.y - 14, 42, 20, 5)
-  g.fillStyle(0x9be7d0, 1)
-  g.fillRoundedRect(register.x - 17, register.y - 13, 32, 15, 4)
-  g.fillStyle(0xffffff, 0.35)
-  g.fillRoundedRect(register.x - 14, register.y - 11, 12, 3, 1.5)
-  g.fillStyle(0x2b241d, 0.45)
-  for (let row = 0; row < 2; row += 1) {
-    for (let column = 0; column < 4; column += 1) {
-      g.fillRoundedRect(register.x - 20 + column * 8, register.y + 3 + row * 5, 5, 3, 1)
-    }
-  }
-  g.fillStyle(gameColors.sunbeam, 1)
-  g.fillCircle(register.x + 22, register.y + 8, 4)
-  drawBarrel(g, rect.x - 26, rect.y + 26, 0.9)
 }
 
 function drawDoorMat(g: Phaser.GameObjects.Graphics, centerX: number, top: number): void {

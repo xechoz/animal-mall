@@ -1,6 +1,7 @@
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import type { DiningSeat, Rect } from '../logic/types'
+import { drawLeg, PROP_TOP_SCALE, TABLE_HEIGHT } from './propArt'
 
 /** A warm woven rug that ties the table and chairs together. */
 export function drawDiningRug(g: Phaser.GameObjects.Graphics, rect: Rect): void {
@@ -18,22 +19,58 @@ export function drawDiningRug(g: Phaser.GameObjects.Graphics, rect: Rect): void 
   }
 }
 
-/** Top-down table with plates, cups and a tiny centrepiece. */
+/** Raised table with legs, plates, cups and a tiny centrepiece. */
 export function drawDiningTable(g: Phaser.GameObjects.Graphics, rect: Rect): void {
   const { x, y, w, h } = rect
-  const top = y + 4
-  const topH = h - 8
+  const frontEdge = y + h - TABLE_HEIGHT
+  const topDepth = h * PROP_TOP_SCALE
+  const boardTop = frontEdge - topDepth
+  const top = boardTop + 4
+  const topH = topDepth - 8
+  const floorY = y + h
+  const legW = 9
+  const legTop = frontEdge - 6
 
   g.fillStyle(0x1a120c, 0.18)
   g.fillRoundedRect(x + 3, y + 10, w, h, 12)
+
+  // Front legs and a low stretcher: the table has to read as furniture, not a
+  // solid chest.
+  drawLeg(g, {
+    x: x + 14,
+    y: legTop,
+    w: legW,
+    h: floorY - legTop,
+    color: gameColors.woodLight,
+    edge: 0xd9a066,
+  })
+  drawLeg(g, {
+    x: x + w - 14 - legW,
+    y: legTop,
+    w: legW,
+    h: floorY - legTop,
+    color: gameColors.woodLight,
+    edge: 0xd9a066,
+  })
+  g.fillStyle(gameColors.barkDark, 0.9)
+  g.fillRoundedRect(x + 14 + legW, floorY - 8, w - 28 - legW * 2, 5, 2)
+
   g.fillStyle(gameColors.barkDark, 1)
-  g.fillRoundedRect(x, top, w, topH, 11)
+  g.fillRoundedRect(x, boardTop, w, topDepth, 11)
   g.fillStyle(gameColors.wood, 1)
-  g.fillRoundedRect(x + 4, top + 3, w - 8, topH - 6, 8)
+  g.fillRoundedRect(x + 4, boardTop + 3, w - 8, topDepth - 9, 8)
   g.fillStyle(gameColors.woodLight, 0.9)
-  g.fillRoundedRect(x + 8, top + 5, w - 16, 5, 3)
+  g.fillRoundedRect(x + 8, boardTop + 5, w - 16, 5, 3)
   g.lineStyle(2, gameColors.barkDark, 0.5)
   g.lineBetween(x + 9, top + topH - 7, x + w - 9, top + topH - 7)
+  g.fillStyle(gameColors.barkDark, 1)
+  g.fillRoundedRect(x, frontEdge - 6, w, 6, 3)
+  g.fillStyle(0xb07a4a, 1)
+  g.fillRoundedRect(x + 2, frontEdge - 5, w - 4, 2, 1)
+  g.fillStyle(0x1a120c, 0.14)
+  g.fillRect(x + 10, frontEdge, w - 20, 4)
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillRect(x + w - 5, boardTop + 6, 5, topDepth - 12)
 
   const plateY = top + topH * 0.55
   const plates = [x + w * 0.22, x + w * 0.78]

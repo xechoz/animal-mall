@@ -1,6 +1,7 @@
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import type { DrinkKind, Rect } from '../logic/types'
+import { drawExtrudedSlab, PROP_TOP_SCALE, TRASH_HEIGHT, VENDING_HEIGHT } from './propArt'
 
 export interface CupColors {
   readonly body: number
@@ -57,39 +58,90 @@ export function drawTrashBin(g: Phaser.GameObjects.Graphics, rect: Rect): void {
   const w = rect.w
   const h = rect.h
   const cx = x + w / 2
+  const bodyX = x + 4
+  const bodyY = y + 8
+  const bodyW = w - 8
+  const bodyD = h - 12
+  const visualD = 24
+  const baseY = bodyY + bodyD - visualD
 
-  g.fillStyle(0x3b2f3a, 0.16)
-  g.fillEllipse(cx + 2, y + h - 2, w + 8, 10)
-  g.fillStyle(0x6f8c84, 1)
-  g.fillRoundedRect(x + 3, y + 8, w - 6, h - 12, 5)
-  g.fillStyle(0x9fb8ae, 1)
-  g.fillRoundedRect(x + 5, y + 10, w - 10, h - 18, 4)
+  drawExtrudedSlab(g, {
+    x: bodyX,
+    y: baseY,
+    w: bodyW,
+    d: visualD,
+    h: TRASH_HEIGHT,
+    radius: 5,
+    palette: {
+      top: 0x9fb8ae,
+      front: 0x6f8c84,
+      side: 0x4f6b64,
+      edge: 0xd9e6df,
+    },
+  })
 
-  g.lineStyle(2, 0x6f8c84, 0.55)
-  for (let index = 1; index < 4; index += 1) {
-    const lineX = x + 5 + ((w - 10) * index) / 4
-    g.lineBetween(lineX, y + 15, lineX, y + h - 12)
-  }
+  const frontTop = baseY + visualD - TRASH_HEIGHT
+  const topDepth = visualD * PROP_TOP_SCALE
+  const top = frontTop - topDepth
 
+  // Foreshortened lid with a dark opening and a hinge.
   g.fillStyle(0x4f6b64, 1)
-  g.fillRoundedRect(x + 1, y + 4, w - 2, 8, 4)
+  g.fillRoundedRect(bodyX + 1, top + 2, bodyW - 2, topDepth - 3, 4)
   g.fillStyle(0x7d9b92, 1)
-  g.fillRoundedRect(x + 4, y + 5, w - 8, 3, 1.5)
-  g.fillStyle(0x3b2f3a, 0.5)
-  g.fillRoundedRect(cx - 6, y + 1, 12, 4, 2)
+  g.fillRoundedRect(bodyX + 4, top + 3, bodyW - 8, topDepth - 7, 3)
+  g.fillStyle(0x3b2f3a, 0.45)
+  g.fillRoundedRect(cx - 6, top + 1, 12, 3, 1.5)
+  g.fillStyle(0x2b241d, 0.55)
+  g.fillRoundedRect(cx - 8, frontTop - 4, 16, 3, 1.5)
 
-  // Foot pedal and recycling mark.
+  // Side ribs keep the body from reading as a flat card.
+  g.lineStyle(1.5, 0x4f6b64, 0.4)
+  g.lineBetween(bodyX + 4, frontTop + 4, bodyX + 4, baseY + visualD - 5)
+  g.lineBetween(bodyX + bodyW - 4, frontTop + 4, bodyX + bodyW - 4, baseY + visualD - 5)
+
+  // A real three-arrow recycle mark, large enough to read on a phone.
+  drawRecycleIcon(g, cx, frontTop + 14, 15, 0xfff3dd)
+
+  // Foot pedal pokes out at the base.
   g.fillStyle(0x4f6b64, 1)
-  g.fillRoundedRect(cx - 8, y + h - 4, 16, 5, 2.5)
-  g.lineStyle(2, 0xffffff, 0.55)
-  g.beginPath()
-  g.arc(cx - 4, y + h / 2, 5, -1.2, 2.2)
-  g.strokePath()
-  g.beginPath()
-  g.arc(cx + 4, y + h / 2, 5, 1.2, 4.8)
-  g.strokePath()
-  g.fillStyle(gameColors.theme.panel, 0.9)
-  g.fillCircle(x + w - 8, y + h - 9, 3)
+  g.fillRoundedRect(cx - 8, bodyY + bodyD - 4, 16, 5, 2.5)
+  g.fillStyle(0x3b2f3a, 0.28)
+  g.fillRoundedRect(cx - 8, bodyY + bodyD - 1, 16, 2, 1)
+}
+
+function drawRecycleIcon(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  size: number,
+  color: number,
+): void {
+  const radius = size / 2
+  const points = [-Math.PI / 2, Math.PI / 6, (Math.PI * 5) / 6].map((angle) => ({
+    x: cx + Math.cos(angle) * radius,
+    y: cy + Math.sin(angle) * radius,
+  }))
+  g.lineStyle(Math.max(1.2, size * 0.11), color, 0.95)
+  for (let index = 0; index < points.length; index += 1) {
+    const start = points[index] as { x: number; y: number }
+    const end = points[(index + 1) % points.length] as { x: number; y: number }
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const length = Math.hypot(dx, dy)
+    const ux = dx / length
+    const uy = dy / length
+    const head = size * 0.24
+    g.lineBetween(start.x, start.y, end.x - ux * head * 0.6, end.y - uy * head * 0.6)
+    g.fillStyle(color, 0.95)
+    g.fillTriangle(
+      end.x,
+      end.y,
+      end.x - ux * head - uy * head * 0.6,
+      end.y - uy * head + ux * head * 0.6,
+      end.x - ux * head + uy * head * 0.6,
+      end.y - uy * head - ux * head * 0.6,
+    )
+  }
 }
 
 export function drawVendingMachine(g: Phaser.GameObjects.Graphics, rect: Rect): void {
@@ -97,64 +149,81 @@ export function drawVendingMachine(g: Phaser.GameObjects.Graphics, rect: Rect): 
   const y = rect.y
   const w = rect.w
   const h = rect.h
+  const bodyX = x + 2
+  const bodyY = y + 4
+  const bodyW = w - 4
+  const bodyD = h - 8
+  const visualD = 30
+  const baseY = bodyY + bodyD - visualD
+  const frontTop = baseY + visualD - VENDING_HEIGHT
 
-  g.fillStyle(0x3b2f3a, 0.18)
-  g.fillRoundedRect(x + 4, y + 8, w, h, 10)
-  g.fillStyle(0x3b2f3a, 1)
-  g.fillRoundedRect(x - 2, y - 2, w + 4, h + 4, 11)
-  g.fillStyle(0xfff3dd, 1)
-  g.fillRoundedRect(x + 2, y + 2, w - 4, h - 4, 9)
-
-  // Top sign band.
+  // A light cabinet top instead of a black lid. The thin dark rim and vent
+  // read as a machine roof without turning the top face into a second object.
+  drawExtrudedSlab(g, {
+    x: bodyX,
+    y: baseY,
+    w: bodyW,
+    d: visualD,
+    h: VENDING_HEIGHT,
+    radius: 9,
+    palette: {
+      top: 0xe8e1d0,
+      front: 0xfff3dd,
+      side: 0x3b2f3a,
+      edge: 0xffffff,
+    },
+  })
+  // Keep the top plain: no black lip, vents or loose objects on the roof.
+  // Coral header band; the localized label is added by FacilityView.
   g.fillStyle(gameColors.coral, 1)
-  g.fillRoundedRect(x + 3, y + 3, w - 6, 20, 7)
-  g.fillStyle(0xffffff, 0.2)
-  g.fillRoundedRect(x + 7, y + 6, w - 14, 6, 3)
+  g.fillRoundedRect(x + 4, frontTop + 1, w - 8, 12, 4)
+  g.fillStyle(0xffffff, 0.22)
+  g.fillRoundedRect(x + 7, frontTop + 3, w - 14, 2, 1)
 
-  // Glass window.
-  g.fillStyle(0x3b2f3a, 0.78)
-  g.fillRoundedRect(x + 7, y + 28, w - 14, h - 57, 5)
+  // Glass window with three rows of cans.
+  const glassX = x + 6
+  const glassY = frontTop + 16
+  const glassW = w - 22
+  const glassH = 32
+  g.fillStyle(0x3b2f3a, 0.85)
+  g.fillRoundedRect(glassX, glassY, glassW, glassH, 4)
   g.fillStyle(gameColors.sky, 0.9)
-  g.fillRoundedRect(x + 9, y + 30, w - 18, h - 61, 4)
-  g.fillStyle(0xffffff, 0.3)
-  g.fillRoundedRect(x + 11, y + 32, w - 22, 4, 2)
-  g.fillStyle(0xffffff, 0.14)
-  g.beginPath()
-  g.moveTo(x + 9, y + 30)
-  g.lineTo(x + w * 0.55, y + 30)
-  g.lineTo(x + 9, y + h - 30)
-  g.closePath()
-  g.fillPath()
-
-  // Shelves of cans.
-  const shelfTop = y + 38
-  const shelfGap = Math.max(13, (h - 67) / 3)
+  g.fillRoundedRect(glassX + 2, glassY + 2, glassW - 4, glassH - 4, 3)
+  g.fillStyle(0xffffff, 0.25)
+  g.fillRoundedRect(glassX + 4, glassY + 4, glassW - 8, 2, 1)
   const canColors = [gameColors.coral, gameColors.mint, 0xffd166, 0x8fa6c9]
   for (let row = 0; row < 3; row += 1) {
-    const rowY = shelfTop + row * shelfGap
-    g.fillStyle(0x6f89b0, 0.5)
-    g.fillRect(x + 10, rowY + 9, w - 20, 2)
+    const rowY = glassY + 5 + row * 9
+    g.fillStyle(0x6f89b0, 0.35)
+    g.fillRect(glassX + 4, rowY + 7, glassW - 8, 1)
     for (let column = 0; column < 3; column += 1) {
-      const canX = x + 14 + column * ((w - 28) / 3)
+      const canX = glassX + 5 + column * ((glassW - 10) / 3)
       g.fillStyle(canColors[(row + column) % canColors.length] as number, 1)
-      g.fillRoundedRect(canX, rowY, 9, 12, 2)
+      g.fillRoundedRect(canX, rowY, 6, 7, 1.5)
       g.fillStyle(0xffffff, 0.3)
-      g.fillRect(canX + 2, rowY + 2, 2, 7)
+      g.fillRect(canX + 1.2, rowY + 1, 1.2, 3.5)
     }
   }
 
-  // Coin slot and dispenser.
-  g.fillStyle(0x3b2f3a, 0.8)
-  g.fillRoundedRect(x + w - 13, y + h - 24, 7, 11, 2)
+  // Right selection panel, coin slot and buttons.
+  const panelX = x + w - 15
+  g.fillStyle(0x3b2f3a, 0.9)
+  g.fillRoundedRect(panelX, frontTop + 16, 9, 32, 3)
   g.fillStyle(0xffd166, 1)
-  g.fillCircle(x + w - 9.5, y + h - 18.5, 2)
-  g.fillStyle(0x3b2f3a, 0.72)
-  g.fillRoundedRect(x + 8, y + h - 20, w - 28, 10, 4)
-  g.fillStyle(0x4b4050, 1)
-  g.fillRoundedRect(x + 10, y + h - 18, w - 32, 5, 2)
+  g.fillCircle(panelX + 4.5, frontTop + 20, 1.6)
+  const buttonColors = [gameColors.coral, gameColors.mint, 0xffd166] as const
+  for (let index = 0; index < 3; index += 1) {
+    g.fillStyle(buttonColors[index] as number, 1)
+    g.fillRoundedRect(panelX + 2, frontTop + 25 + index * 5, 5, 3, 1)
+  }
 
-  g.lineStyle(1, 0xffffff, 0.35)
-  g.lineBetween(x + 8, y + 29, x + 8, y + h - 29)
+  // Dispenser slot and dark base, both inside the front face.
+  g.fillStyle(0x3b2f3a, 0.8)
+  g.fillRoundedRect(x + 7, frontTop + 51, w - 22, 6, 2)
+  g.fillStyle(0x4b4050, 1)
+  g.fillRoundedRect(x + 9, frontTop + 53, w - 26, 2, 1)
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillRoundedRect(x + 4, frontTop + 57, w - 8, 4, 2)
 }
 
 export function drawRestMat(g: Phaser.GameObjects.Graphics, rect: Rect): void {

@@ -521,6 +521,13 @@ export function drawCanopyBand(
     g.lineBetween(px, y + height, px + 2, y + height + 8 + hash01(seed + index) * 8)
     drawLeafCluster(g, px + 2, y + height + 9, 0.55, gameColors.fern)
   }
+
+  // A dark underside and a soft floor shadow make the hedge read as a volume
+  // instead of a painted band.
+  g.fillStyle(0x1a120c, 0.14)
+  g.fillRoundedRect(x + 6, y + height - 4, width - 12, 8, 4)
+  g.fillStyle(0x1a120c, 0.07)
+  g.fillRoundedRect(x + 12, y + height + 4, width - 24, 8, 4)
 }
 
 export function drawSunShaft(

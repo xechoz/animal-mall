@@ -16,7 +16,7 @@ import {
 import { inputCapacity, recipeInputIcon, recipeInputTotal } from '../logic/production'
 import type { PlantKind, ProducerState, ShelfState, ZoneId } from '../logic/types'
 import { feedTextureKey } from './fruitArt'
-import { drawClover, drawGrassTuft, drawTilledBed } from './groundArt'
+import { drawClover, drawGrassTuft, drawPenDecor, drawTilledBed } from './groundArt'
 import { drawPlantCrop, plantGrowthScale } from './plantArt'
 import { MIXED_INPUT_TEXTURE, productTextureKey } from './productArt'
 import { drawStation, drawStationFx, drawStationPad } from './stationArt'
@@ -65,6 +65,9 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.i18n = i18n
     this.ground = scene.add.graphics().setPosition(producer.pos.x, producer.pos.y)
     if (producer.kind === 'plant') drawPlantBed(this.ground, producer)
+    if (producer.kind === 'animal' && isAnimalProductKind(producer.product)) {
+      drawPenDecor(this.ground, producer.product, producer.slot)
+    }
     if (producer.kind === 'station' && isProcessedKind(producer.product)) {
       // The work mat follows the installed machine, so a swapped station never
       // keeps the old oven pad under a jam pot.

@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import type { ShopMap } from '../logic/types'
 import { bakeLayer } from './bakeArt'
 import { drawTrashBin, drawVendingMachine } from './facilitiesArt'
+import { addPropShadow, TRASH_HEIGHT, VENDING_HEIGHT } from './propArt'
 
 export type FacilityKind = 'trash' | 'vending'
 
@@ -24,6 +25,8 @@ export class FacilityView extends Phaser.GameObjects.Container {
     this.sceneRef = scene
 
     const local = { x: -rect.w / 2, y: -rect.h / 2, w: rect.w, h: rect.h }
+    addPropShadow(scene, this, { width: rect.w + 10, height: rect.h + 10, alpha: 0.18 })
+
     const art = scene.add.graphics()
     if (kind === 'trash') {
       drawTrashBin(art, local)
@@ -32,14 +35,16 @@ export class FacilityView extends Phaser.GameObjects.Container {
     }
     // The bin and the machine never change once built, so bake their art into
     // one quad instead of letting the renderer re-walk the command buffer.
+    const height = kind === 'trash' ? TRASH_HEIGHT : VENDING_HEIGHT
+    const topPad = height + 12
     this.add(
       bakeLayer(
         scene,
         art,
         `facility-${map.id}-${kind}`,
-        { x: local.x - 6, y: local.y - 6 },
-        local.w + 12,
-        local.h + 12,
+        { x: local.x - 10, y: local.y - topPad },
+        local.w + 20,
+        local.h + topPad + 10,
         bakeScale,
       ),
     )
@@ -49,9 +54,9 @@ export class FacilityView extends Phaser.GameObjects.Container {
         scene.add
           .text(
             0,
-            local.y + 13,
+            local.y + local.h - VENDING_HEIGHT + 6,
             label,
-            textStyle(theme, 11 * Math.min(textScale, 1.25), '#fff7e8', true),
+            textStyle(theme, 10 * Math.min(textScale, 1.25), '#fff7e8', true),
           )
           .setOrigin(0.5),
       )

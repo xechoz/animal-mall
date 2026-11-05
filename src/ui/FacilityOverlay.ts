@@ -4,6 +4,7 @@ import { DINING, FACILITY_DWELL_MS } from '../logic/config'
 import { nearestRestingStaff } from '../logic/facilities'
 import type { ShopState, Vec2 } from '../logic/types'
 import type { GameLayout } from './layout'
+import { GROUND_RING_SQUASH, strokeGroundArc } from './propArt'
 import { type WorldCamera, worldToScreen } from './worldCamera'
 
 export interface FacilityOverlayCallbacks {
@@ -141,10 +142,17 @@ export class FacilityOverlay {
     const radius = Math.max(14 * ui, 26 * this.camera.scale)
     const progress = Math.max(0, Math.min(1, ratio))
     this.ring.lineStyle(4 * ui, this.theme.ink, 0.18)
-    this.ring.strokeCircle(screen.x, screen.y, radius)
-    this.ring.lineStyle(4 * ui, color, 1)
-    this.ring.beginPath()
-    this.ring.arc(screen.x, screen.y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress)
-    this.ring.strokePath()
+    this.ring.strokeEllipse(screen.x, screen.y, radius * 2, radius * 2 * GROUND_RING_SQUASH)
+    strokeGroundArc(
+      this.ring,
+      screen.x,
+      screen.y,
+      radius,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * progress,
+      color,
+      1,
+      4 * ui,
+    )
   }
 }

@@ -15,7 +15,9 @@ export class CoinPileView extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, theme: Theme, map: ShopMap) {
     super(scene, map.counter.x + map.counter.w - 15, map.counter.y + 22)
     this.theme = theme
-    this.setDepth(map.counter.y + map.counter.h - 2)
+    // The counter is its own depth-sorted view now, so the coins have to sit
+    // just above its footprint or the raised top board hides them.
+    this.setDepth(map.counter.y + map.counter.h + 1)
 
     this.pile = scene.add.graphics()
     this.add(this.pile)
