@@ -257,7 +257,7 @@ export interface GaitFrame {
   readonly squashY: number
   readonly rock: number
   readonly sway: number
-  /** Forward lean magnitude; the renderer multiplies by facing. */
+  /** Forward lean magnitude; the renderer weights it by the heading's x axis. */
   readonly lean: number
   readonly headX: number
   readonly headY: number
@@ -296,7 +296,6 @@ export class GaitAnimator {
   private lastX = 0
   private lastY = 0
   private lastNow = Number.NaN
-  private lastFacing: -1 | 1 | null = null
   private turnAt = Number.NEGATIVE_INFINITY
   private nextBlinkAt = Number.POSITIVE_INFINITY
   private blinkUntil = 0
@@ -311,12 +310,11 @@ export class GaitAnimator {
   }
 
   /** Called every rendered frame with the interpolated ground position. */
-  update(x: number, y: number, now: number, facing: -1 | 1, load = 0): GaitFrame {
+  update(x: number, y: number, now: number, load = 0): GaitFrame {
     if (Number.isNaN(this.lastNow)) {
       this.lastNow = now
       this.lastX = x
       this.lastY = y
-      this.lastFacing = facing
       this.nextBlinkAt = now + 2_400 + hash(this.seed + 1.7) * 3_600
       return this.frame(now, load)
     }
@@ -347,10 +345,6 @@ export class GaitAnimator {
     const wrapped = moved > 0 && this.phaseValue < previousPhase
     this.landing = this.profile.kind === 'hop' && wrapped && this.weight > 0.35
 
-    if (facing !== this.lastFacing) {
-      this.turnAt = now
-      this.lastFacing = facing
-    }
     if (now >= this.nextBlinkAt) {
       this.blinkUntil = now + 110
       this.blinkCount += 1
@@ -358,6 +352,11 @@ export class GaitAnimator {
     }
 
     return this.frame(now, load)
+  }
+
+  /** The renderer calls this when the visible facing actually changes. */
+  notifyTurn(now: number): void {
+    this.turnAt = now
   }
 
   private frame(now: number, load: number): GaitFrame {

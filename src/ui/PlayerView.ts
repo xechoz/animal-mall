@@ -81,7 +81,6 @@ export class PlayerView extends AnimalRig {
   private readonly theme: Theme
   private carryKey = ''
   private carryFacing: -1 | 1 = 1
-  private facing: -1 | 1 = 1
   private drink: DrinkState | null = null
   private eat: EatState | null = null
   private catchFaceStart = Number.NEGATIVE_INFINITY
@@ -170,7 +169,7 @@ export class PlayerView extends AnimalRig {
       if (icon.visible) top = index
     })
     return {
-      x: this.x + this.facing * (CARRY_HAND_X + top * CARRY_LEAN),
+      x: this.x + this.mirror * (CARRY_HAND_X + top * CARRY_LEAN),
       y: this.y + CARRY_HAND_Y - top * CARRY_STEP,
     }
   }
@@ -178,11 +177,6 @@ export class PlayerView extends AnimalRig {
   updatePlayer(player: PlayerState, alpha: number, time: number, seated = false): void {
     const x = player.prevPos.x + (player.pos.x - player.prevPos.x) * alpha
     const y = player.prevPos.y + (player.pos.y - player.prevPos.y) * alpha
-    this.facing = player.facing
-    if (player.facing !== this.carryFacing) {
-      this.carryFacing = player.facing
-      this.layoutCarry(player.facing)
-    }
 
     const drinkFx = this.drinkFx(time)
     const chewFx = this.eatFx(time)
@@ -199,7 +193,7 @@ export class PlayerView extends AnimalRig {
     if (drinkFx !== null) {
       poseScaleX *= 1 + 0.035 * drinkFx.pulse
       poseScaleY *= 1 - 0.05 * drinkFx.pulse
-      poseRotation += -player.facing * 0.04 * drinkFx.raise * (1 - drinkFx.lower)
+      poseRotation += -this.mirror * 0.04 * drinkFx.raise * (1 - drinkFx.lower)
     }
     if (chewFx !== null) poseScaleY *= 1 - 0.035 * chewFx.chew
 
@@ -210,31 +204,35 @@ export class PlayerView extends AnimalRig {
       rotation: poseRotation,
     }
     const load = Math.min(1, carryTotal(player.carry) / 8)
-    const frame = this.updateRig(x, y, player.facing, time, pose, load)
+    const frame = this.updateRig(x, y, time, pose, load)
+    if (this.mirror !== this.carryFacing) {
+      this.carryFacing = this.mirror
+      this.layoutCarry(this.mirror)
+    }
     this.moodArt.setPosition(frame.headX, frame.headY)
     this.drawCatchFace(time)
 
     if (drinkFx !== null) {
       const { raise, lower, pulse } = drinkFx
       this.cup.setPosition(
-        player.facing * (8 + 2 * raise) + frame.headX,
+        this.mirror * (8 + 2 * raise) + frame.headX,
         -22 - 5 * raise + 4 * lower - 2 * pulse + frame.headY,
       )
       this.cup.setScale(
-        player.facing * CUP_SCALE * (0.8 + 0.2 * raise),
+        this.mirror * CUP_SCALE * (0.8 + 0.2 * raise),
         CUP_SCALE * (0.8 + 0.2 * raise),
       )
-      this.cup.setRotation(-player.facing * (0.2 + 0.9 * raise) * (1 - 0.1 * pulse))
+      this.cup.setRotation(-this.mirror * (0.2 + 0.9 * raise) * (1 - 0.1 * pulse))
       this.cup.setAlpha(raise * (1 - lower))
     }
     if (chewFx !== null) {
       const { raise, lower, chew } = chewFx
       this.food.setPosition(
-        player.facing * (8 + 2 * raise) + frame.headX,
+        this.mirror * (8 + 2 * raise) + frame.headX,
         -27 - 4 * raise + 5 * lower - 2 * chew + frame.headY,
       )
-      this.food.setScale(player.facing * (0.5 + 0.08 * raise), 0.5 + 0.08 * raise)
-      this.food.setRotation(-player.facing * 0.18 * raise * (1 - lower))
+      this.food.setScale(this.mirror * (0.5 + 0.08 * raise), 0.5 + 0.08 * raise)
+      this.food.setRotation(-this.mirror * 0.18 * raise * (1 - lower))
       this.food.setAlpha(raise * (1 - lower))
     }
 
@@ -268,6 +266,7 @@ export class PlayerView extends AnimalRig {
   private drawCatchFace(time: number): void {
     const elapsed = time - this.catchFaceStart
     this.moodArt.clear()
+    if (this.view !== 'front') return
     if (elapsed < 0 || elapsed >= CATCH_FACE_MS) return
 
     const fadeIn = smoothstep(clamp01(elapsed / 70))
@@ -353,7 +352,7 @@ export class PlayerView extends AnimalRig {
 
   private spawnFizz(index: number): void {
     const side = index % 2 === 0 ? -1 : 1
-    const cupX = this.facing * 10
+    const cupX = this.mirror * 10
     const bubble = this.scene.add
       .circle(cupX, -36, index === 0 ? 2.4 : 1.7, 0xffffff, 0.8)
       .setAlpha(0.9)

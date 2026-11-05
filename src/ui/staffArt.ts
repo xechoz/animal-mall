@@ -1,7 +1,13 @@
 import type Phaser from 'phaser'
 import { STAFF, STAFF_ORDER } from '../logic/config'
 import type { StaffKind } from '../logic/types'
-import { ANIMAL_TEXTURE_SIZE, drawClothedBody, drawClothedPortrait } from './animalArt'
+import {
+  ANIMAL_TEXTURE_SIZE,
+  ANIMAL_VIEWS,
+  drawClothedBody,
+  drawClothedPortrait,
+} from './animalArt'
+import type { AnimalView } from './heading'
 
 /**
  * Staff wear a uniform instead of the player's apron: a coloured torso with a
@@ -41,28 +47,35 @@ const UNIFORM: Readonly<Record<StaffKind, StaffUniform>> = {
   },
 }
 
-export function staffBodyKey(kind: StaffKind): string {
-  return `staff-body-${kind}`
+export function staffBodyKey(kind: StaffKind, view: AnimalView = 'front'): string {
+  return view === 'front' ? `staff-body-${kind}` : `staff-body-${kind}-${view}`
 }
 
 export function staffPortraitKey(kind: StaffKind): string {
   return `staff-portrait-${kind}`
 }
 
-export function staffHatKey(kind: StaffKind): string {
-  return `staff-hat-${kind}`
+export function staffHatKey(kind: StaffKind, view: AnimalView = 'front'): string {
+  return view === 'front' ? `staff-hat-${kind}` : `staff-hat-${kind}-${view}`
 }
 
 export function createStaffTextures(scene: Phaser.Scene): void {
   for (const kind of STAFF_ORDER) {
     const species = STAFF[kind].species
-    createTexture(scene, staffBodyKey(kind), () =>
-      drawClothedBody(scene, species, (graphics) => drawUniform(graphics, kind)),
-    )
+    for (const view of ANIMAL_VIEWS) {
+      createTexture(scene, staffBodyKey(kind, view), () =>
+        drawClothedBody(
+          scene,
+          species,
+          (graphics, dressedView) => drawUniform(graphics, kind, dressedView),
+          view,
+        ),
+      )
+      createTexture(scene, staffHatKey(kind, view), () => drawHat(scene, kind, view))
+    }
     createTexture(scene, staffPortraitKey(kind), () =>
-      drawClothedPortrait(scene, species, (graphics) => drawUniform(graphics, kind)),
+      drawClothedPortrait(scene, species, (graphics) => drawUniform(graphics, kind, 'front')),
     )
-    createTexture(scene, staffHatKey(kind), () => drawHat(scene, kind))
   }
 }
 
@@ -77,8 +90,16 @@ function createTexture(scene: Phaser.Scene, key: string, draw: () => Phaser.Game
  * Drawn in body coordinates: the torso ellipse sits at (64, 94) and the chin
  * line is y≈84, so the collar tucks under the head instead of covering it.
  */
-function drawUniform(g: Phaser.GameObjects.Graphics, kind: StaffKind): void {
+function drawUniform(g: Phaser.GameObjects.Graphics, kind: StaffKind, view: AnimalView): void {
   const u = UNIFORM[kind]
+  if (view === 'back' || view === 'backSide') {
+    drawUniformBack(g, kind, u, view)
+    return
+  }
+  if (view === 'side') {
+    drawUniformSide(g, kind, u)
+    return
+  }
 
   g.fillStyle(u.shirt, 1)
   g.fillEllipse(64, 94, 46, 32)
@@ -98,6 +119,59 @@ function drawUniform(g: Phaser.GameObjects.Graphics, kind: StaffKind): void {
   if (kind === 'cashier') drawCashierKit(g, u)
   if (kind === 'picker') drawPickerKit(g, u)
   if (kind === 'chef') drawChefKit(g, u)
+}
+
+function drawUniformSide(g: Phaser.GameObjects.Graphics, kind: StaffKind, u: StaffUniform): void {
+  g.fillStyle(u.shirt, 1)
+  g.fillEllipse(64, 94, 42, 32)
+  g.fillStyle(u.shirtDark, 1)
+  g.fillRoundedRect(80, 85, 13, 15, 6)
+  g.fillStyle(u.trim, 1)
+  g.fillRoundedRect(52, 80, 20, 7, 3.5)
+  g.lineStyle(1.5, u.trimDark, 0.7)
+  g.lineBetween(52, 87, 72, 87)
+  g.fillStyle(u.badge, 1)
+  g.fillRoundedRect(78, 90, 7, 6, 2)
+  if (kind === 'picker') {
+    g.fillStyle(u.trimDark, 1)
+    g.fillRoundedRect(46, 102, 36, 5, 2)
+  }
+  if (kind === 'chef') {
+    g.fillStyle(u.badge, 1)
+    g.fillTriangle(56, 80, 66, 80, 60, 92)
+  }
+}
+
+function drawUniformBack(
+  g: Phaser.GameObjects.Graphics,
+  kind: StaffKind,
+  u: StaffUniform,
+  view: AnimalView,
+): void {
+  const shift = view === 'backSide' ? 4 : 0
+  g.fillStyle(u.shirt, 1)
+  g.fillEllipse(64, 94, 46, 32)
+  g.fillStyle(u.shirtDark, 1)
+  g.fillRoundedRect(46 + shift, 82, 36, 8, 4)
+  g.fillRoundedRect(33 + shift, 85, 13, 15, 6)
+  g.fillRoundedRect(82 + shift, 85, 13, 15, 6)
+  g.fillStyle(u.trim, 1)
+  g.fillRoundedRect(52 + shift, 79, 24, 6, 3)
+  g.fillStyle(u.trimDark, 1)
+  g.fillRoundedRect(44 + shift, 101, 40, 5, 2)
+  if (kind === 'cashier') {
+    g.fillStyle(u.trim, 1)
+    g.fillRoundedRect(53 + shift, 86, 22, 8, 4)
+  }
+  if (kind === 'picker') {
+    g.lineStyle(4, u.shirtDark, 1)
+    g.lineBetween(56 + shift, 80, 53 + shift, 94)
+    g.lineBetween(72 + shift, 80, 75 + shift, 94)
+  }
+  if (kind === 'chef') {
+    g.fillStyle(u.shirtDark, 1)
+    g.fillRoundedRect(46 + shift, 90, 36, 12, 6)
+  }
 }
 
 function drawCashierKit(g: Phaser.GameObjects.Graphics, u: StaffUniform): void {
@@ -151,12 +225,125 @@ function drawChefKit(g: Phaser.GameObjects.Graphics, u: StaffUniform): void {
 }
 
 /** Hats are drawn in head coordinates and layered behind the head texture. */
-function drawHat(scene: Phaser.Scene, kind: StaffKind): Phaser.GameObjects.Graphics {
+function drawHat(
+  scene: Phaser.Scene,
+  kind: StaffKind,
+  view: AnimalView,
+): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics()
+  if (view === 'back' || view === 'backSide') {
+    if (kind === 'cashier') drawBucketCapBack(g)
+    if (kind === 'picker') drawStrawHatBack(g)
+    if (kind === 'chef') drawToqueBack(g)
+    return g
+  }
+  if (view === 'side') {
+    if (kind === 'cashier') drawBucketCapSide(g)
+    if (kind === 'picker') drawStrawHatSide(g)
+    if (kind === 'chef') drawToqueSide(g)
+    return g
+  }
   if (kind === 'cashier') drawBucketCap(g)
   if (kind === 'picker') drawStrawHat(g)
   if (kind === 'chef') drawToque(g)
   return g
+}
+
+function drawBucketCapBack(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0x4aa98a, 1)
+  g.fillEllipse(64, 32, 64, 15)
+  g.fillStyle(0x3d8a76, 1)
+  g.fillEllipse(64, 34, 58, 10)
+  g.fillStyle(0x5fbf9f, 1)
+  g.fillEllipse(64, 14, 48, 26)
+  g.fillStyle(0xffffff, 0.18)
+  g.fillEllipse(55, 7, 16, 8)
+  g.fillStyle(0xfff3dd, 1)
+  g.fillRoundedRect(42, 18, 44, 7, 3)
+  g.fillStyle(0x3d8a76, 1)
+  g.fillRoundedRect(54, 24, 20, 4, 2)
+  g.fillCircle(64, 3, 3.2)
+}
+
+function drawBucketCapSide(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0x4aa98a, 1)
+  g.fillEllipse(64 + 9, 34, 58, 14)
+  g.fillStyle(0x5fbf9f, 1)
+  g.fillEllipse(64, 14, 48, 26)
+  g.fillStyle(0xffffff, 0.18)
+  g.fillEllipse(55, 7, 16, 8)
+  g.fillStyle(0xfff3dd, 1)
+  g.fillRoundedRect(42, 18, 48, 7, 3)
+  g.fillStyle(0x3d8a76, 1)
+  g.fillRoundedRect(54, 24, 22, 4, 2)
+  g.fillCircle(64, 3, 3.2)
+}
+
+function drawStrawHatBack(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0xc69440, 1)
+  g.fillEllipse(64, 34, 94, 22)
+  g.fillStyle(0xa87c31, 1)
+  g.fillEllipse(64, 37, 88, 14)
+  g.fillStyle(0xd9b25a, 1)
+  g.fillEllipse(64, 12, 54, 26)
+  g.fillStyle(0xffffff, 0.22)
+  g.fillEllipse(54, 5, 18, 8)
+  g.fillStyle(0x6fae5e, 1)
+  g.fillRoundedRect(40, 18, 48, 7, 3)
+  g.fillStyle(0x6fb36a, 1)
+  g.fillEllipse(46, 28, 16, 7)
+  g.lineStyle(1.2, 0x4f8a52, 0.9)
+  g.lineBetween(52, 31, 40, 27)
+}
+
+function drawStrawHatSide(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0xc69440, 1)
+  g.fillEllipse(64 + 12, 34, 96, 22)
+  g.fillStyle(0xa87c31, 1)
+  g.fillEllipse(64 + 10, 37, 90, 14)
+  g.fillStyle(0xd9b25a, 1)
+  g.fillEllipse(64, 12, 54, 26)
+  g.fillStyle(0xffffff, 0.22)
+  g.fillEllipse(54, 5, 18, 8)
+  g.fillStyle(0x6fae5e, 1)
+  g.fillRoundedRect(40, 18, 48, 7, 3)
+  g.fillStyle(0x6fb36a, 1)
+  g.fillEllipse(86, 8, 13, 6)
+  g.fillEllipse(80, 13, 10, 5)
+  g.lineStyle(1.2, 0x4f8a52, 0.9)
+  g.lineBetween(83, 10, 91, 7)
+}
+
+function drawToqueBack(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0xfffaf0, 1)
+  g.fillRoundedRect(45, 15, 38, 10, 4)
+  g.lineStyle(1.5, 0xd9cbb5, 0.9)
+  g.strokeRoundedRect(45, 15, 38, 10, 4)
+  g.fillStyle(0xfffaf0, 1)
+  g.fillCircle(55, 10, 8)
+  g.fillCircle(73, 10, 8)
+  g.fillCircle(64, 8, 9.5)
+  g.fillStyle(0xffffff, 0.5)
+  g.fillCircle(60, 6, 3.2)
+  g.lineStyle(1.2, 0xe0d8ca, 0.85)
+  for (const x of [55, 64, 73]) g.lineBetween(x, 12, x, 16)
+  g.fillStyle(0xd9cbb5, 1)
+  g.fillRoundedRect(52, 24, 24, 4, 2)
+}
+
+function drawToqueSide(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0xfffaf0, 1)
+  g.fillRoundedRect(43, 15, 42, 10, 4)
+  g.lineStyle(1.5, 0xd9cbb5, 0.9)
+  g.strokeRoundedRect(43, 15, 42, 10, 4)
+  g.fillStyle(0xfffaf0, 1)
+  g.fillCircle(53, 10, 8)
+  g.fillCircle(73, 10, 8)
+  g.fillCircle(63, 8, 9.5)
+  g.fillStyle(0xffffff, 0.5)
+  g.fillCircle(59, 6, 3.2)
+  g.lineStyle(1.2, 0xe0d8ca, 0.85)
+  for (const x of [53, 63, 73]) g.lineBetween(x, 12, x, 16)
 }
 
 function drawBucketCap(g: Phaser.GameObjects.Graphics): void {

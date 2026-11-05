@@ -21,7 +21,6 @@ export class CustomerView extends AnimalRig {
   private readonly theme: Theme
   private bubbleKey = ''
   private basketKey = ''
-  private facing: -1 | 1 = 1
 
   constructor(
     scene: Phaser.Scene,
@@ -94,12 +93,9 @@ export class CustomerView extends AnimalRig {
   updateCustomer(customer: CustomerState, alpha: number, time: number): void {
     const x = customer.prevPos.x + (customer.pos.x - customer.prevPos.x) * alpha
     const y = customer.prevPos.y + (customer.pos.y - customer.prevPos.y) * alpha
-    const dx = customer.pos.x - customer.prevPos.x
-    if (Math.abs(dx) > 0.01) this.facing = dx < 0 ? -1 : 1
-
     const angry = customer.angerMs >= 1_200
     const shake = angry ? Math.sin(time * 0.035 + customer.id) * 1.6 : 0
-    const frame = this.updateRig(x, y, this.facing, time, { x: shake })
+    const frame = this.updateRig(x, y, time, { x: shake })
     this.moodArt.setPosition(frame.headX, frame.headY)
 
     const ratio = Math.max(0, Math.min(1, customer.patienceMs / customer.maxPatienceMs))
@@ -109,6 +105,7 @@ export class CustomerView extends AnimalRig {
 
     this.drawMood(customer, angry, time)
     this.bubble.setVisible(!angry)
+    this.basket.setX(this.mirror * 20)
 
     const bubbleKey = `${customer.phase}-${customer.wanted.join(',')}-${customer.basket.length}-${customer.sad}-${angry}`
     if (bubbleKey !== this.bubbleKey) {
@@ -130,29 +127,31 @@ export class CustomerView extends AnimalRig {
     this.moodArt.clear()
     if (!angry) return
 
-    const twitch = Math.sin(time * 0.012 + customer.id) * 0.7
     const g = this.moodArt
-    const browY = this.face.browY
-    const mouthY = this.face.mouthY
-    const blushY = this.face.blushY
+    if (this.view === 'front') {
+      const twitch = Math.sin(time * 0.012 + customer.id) * 0.7
+      const browY = this.face.browY
+      const mouthY = this.face.mouthY
+      const blushY = this.face.blushY
 
-    // Angry brows scowl inward, and the mouth turns into a frown.
-    g.lineStyle(2.6, 0x3b2f3a, 0.92)
-    g.lineBetween(-12, browY + 3 - twitch, -4, browY + twitch)
-    g.lineBetween(12, browY + 3 + twitch, 4, browY - twitch)
+      // Angry brows scowl inward, and the mouth turns into a frown.
+      g.lineStyle(2.6, 0x3b2f3a, 0.92)
+      g.lineBetween(-12, browY + 3 - twitch, -4, browY + twitch)
+      g.lineBetween(12, browY + 3 + twitch, 4, browY - twitch)
 
-    // Mask the resting smile, then draw a frown in its place.
-    g.fillStyle(this.face.mouthColor, 1)
-    g.fillEllipse(0, mouthY, 15, 7)
-    g.lineStyle(2.2, 0x3b2f3a, 0.92)
-    g.lineBetween(-6, mouthY + 3, 0, mouthY - 1)
-    g.lineBetween(0, mouthY - 1, 6, mouthY + 3)
-    g.fillStyle(0xe25d5d, 0.4)
-    g.fillEllipse(-14, blushY, 8, 4.5)
-    g.fillEllipse(14, blushY, 8, 4.5)
+      // Mask the resting smile, then draw a frown in its place.
+      g.fillStyle(this.face.mouthColor, 1)
+      g.fillEllipse(0, mouthY, 15, 7)
+      g.lineStyle(2.2, 0x3b2f3a, 0.92)
+      g.lineBetween(-6, mouthY + 3, 0, mouthY - 1)
+      g.lineBetween(0, mouthY - 1, 6, mouthY + 3)
+      g.fillStyle(0xe25d5d, 0.4)
+      g.fillEllipse(-14, blushY, 8, 4.5)
+      g.fillEllipse(14, blushY, 8, 4.5)
 
-    // Comic anger vein on the temple, matching the flames above the head.
-    drawAngerMark(g, 25, browY + 1, 6, 0xd94b4b)
+      // Comic anger vein on the temple, matching the flames above the head.
+      drawAngerMark(g, 25, browY + 1, 6, 0xd94b4b)
+    }
     this.drawFlames(customer.id, time)
   }
 

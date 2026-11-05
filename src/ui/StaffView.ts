@@ -2,8 +2,9 @@ import { type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import type { StaffState } from '../logic/types'
 import { AnimalRig } from './AnimalRig'
-import { ANIMAL_SCALE } from './animalArt'
+import { ANIMAL_SCALE, animalPartKey } from './animalArt'
 import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
+import type { Heading } from './heading'
 import { productTextureKey } from './productArt'
 import { staffBodyKey, staffHatKey } from './staffArt'
 
@@ -30,6 +31,8 @@ export class StaffView extends AnimalRig {
   private carryKey = ''
   private carryFacing: -1 | 1 = 1
   private lastPhase: StaffState['phase'] | '' = ''
+  private lastMirror: -1 | 1 = 1
+  private readonly kind: StaffState['kind']
 
   constructor(scene: Phaser.Scene, theme: Theme, member: StaffState, textScale: number) {
     super(scene, {
@@ -38,11 +41,15 @@ export class StaffView extends AnimalRig {
       scale: BODY_SCALE,
       seed: member.id,
       shadow: { width: 44, height: 13, alpha: 0.2 },
-      parts: { body: staffBodyKey(member.kind) },
+      partKey: (part, view) =>
+        part === 'body'
+          ? staffBodyKey(member.kind, view)
+          : animalPartKey(member.species, part, view),
     })
+    this.kind = member.kind
 
     // The hat sits under the head so ears stay in front of the brim.
-    this.hatImage = scene.add.image(0, 0, staffHatKey(member.kind)).setOrigin(0.5, 0.9)
+    this.hatImage = scene.add.image(0, 0, staffHatKey(member.kind, 'front')).setOrigin(0.5, 0.9)
     this.addBodyLayer(this.hatImage)
 
     for (let index = 0; index < 4; index += 1) {
@@ -100,7 +107,6 @@ export class StaffView extends AnimalRig {
     const frame = this.updateRig(
       x,
       y,
-      member.facing,
       time,
       {
         y: dining ? 4 : 0,
@@ -108,11 +114,12 @@ export class StaffView extends AnimalRig {
         scaleY: seatedScale,
       },
       load,
+      this.contextHeading(member),
     )
 
-    if (member.facing !== this.carryFacing) {
-      this.carryFacing = member.facing
-      this.layoutCarry(member.facing)
+    if (this.mirror !== this.carryFacing) {
+      this.carryFacing = this.mirror
+      this.layoutCarry(this.mirror)
     }
 
     if (dining && member.carry !== null) {
@@ -120,26 +127,28 @@ export class StaffView extends AnimalRig {
       this.food
         .setTexture(productTextureKey(member.carry))
         .setVisible(true)
-        .setPosition(member.facing * 16 + frame.headX, -24 - chew * 2 + frame.headY)
-        .setScale(member.facing * 0.42, 0.42)
-        .setRotation(-member.facing * 0.2)
+        .setPosition(this.mirror * 16 + frame.headX, -24 - chew * 2 + frame.headY)
+        .setScale(this.mirror * 0.42, 0.42)
+        .setRotation(-this.mirror * 0.2)
     } else {
       this.food.setVisible(false)
     }
     this.mood.setPosition(frame.headX, frame.headY)
 
     this.hatImage
+      .setTexture(staffHatKey(this.kind, this.view))
       .setPosition(frame.headX, frame.headY)
-      .setScale(member.facing * PART_SCALE, PART_SCALE)
+      .setScale(this.mirror * PART_SCALE, PART_SCALE)
 
-    if (member.phase !== this.lastPhase) {
+    if (member.phase !== this.lastPhase || this.mirror !== this.lastMirror) {
       this.lastPhase = member.phase
+      this.lastMirror = this.mirror
       this.drawMood(member.phase)
     }
     if (member.phase === 'resting') {
       this.sleep.setAlpha(0.62 + Math.abs(Math.sin(time * 0.004)) * 0.38)
       this.sleep.setPosition(
-        18 + frame.headX * 0.5,
+        this.mirror * 18 + frame.headX * 0.5,
         -96 + frame.headY * 0.5 + Math.sin(time * 0.004) * 3,
       )
     }
@@ -157,6 +166,29 @@ export class StaffView extends AnimalRig {
         .setText(overflow ? `×${member.carryCount}` : '')
         .setVisible(overflow && member.carry !== null)
     }
+  }
+
+  /**
+   * A worker at a station keeps a readable three-quarter view instead of
+   * turning their back to the camera just because the target is north.
+   */
+  private contextHeading(member: StaffState): Heading | null {
+    if (member.moving) return null
+    const side = member.facing
+    if (member.phase === 'dining' || member.phase === 'drinking' || member.phase === 'resting') {
+      return side > 0 ? 2 : 6
+    }
+    if (
+      member.phase === 'cashier' ||
+      member.phase === 'idle' ||
+      member.phase === 'harvest' ||
+      member.phase === 'stock' ||
+      member.phase === 'feed' ||
+      member.phase === 'load'
+    ) {
+      return side > 0 ? 1 : 7
+    }
+    return null
   }
 
   /** Anchors the carried pile to the hand and flips it with the body. */
@@ -178,10 +210,11 @@ export class StaffView extends AnimalRig {
     this.sleep.setVisible(phase === 'resting')
     if (phase !== 'drinking') return
 
-    drawCup(this.mood, 19, -50, 0.82, DRINK_CUP_COLORS.appleSoda)
+    const side = this.mirror
+    drawCup(this.mood, side * 19, -50, 0.82, DRINK_CUP_COLORS.appleSoda)
     this.mood.fillStyle(0xffffff, 0.62)
-    this.mood.fillCircle(23, -72, 3)
-    this.mood.fillCircle(28, -81, 2.2)
-    this.mood.fillCircle(20, -87, 2)
+    this.mood.fillCircle(side * 23, -72, 3)
+    this.mood.fillCircle(side * 28, -81, 2.2)
+    this.mood.fillCircle(side * 20, -87, 2)
   }
 }

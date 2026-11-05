@@ -1,18 +1,28 @@
 import type Phaser from 'phaser'
 import { CUSTOMER_SPECIES } from '../logic/config'
 import type { SpeciesId } from '../logic/types'
+import type { AnimalView } from './heading'
 
 /**
  * Character art is drawn at 128 px and displayed at the old 96 px footprint.
  * The rig splits every animal into body, head, tail and paw textures so the
  * gait can move the parts independently; the full texture is kept for menus
- * and shop portraits.
+ * and shop portraits. The rigged parts have five directional views, mirrored to
+ * cover the eight walking headings; turned bodies bake the head in so a wide
+ * flank can never cover it.
  */
 const SIZE = 128
 const BASE_SIZE = 96
 export const ANIMAL_SCALE = BASE_SIZE / SIZE
 export const ANIMAL_TEXTURE_SIZE = SIZE
 export const ANIMAL_ORIGIN_Y = 0.9
+export const ANIMAL_VIEWS: readonly AnimalView[] = [
+  'front',
+  'frontSide',
+  'side',
+  'backSide',
+  'back',
+]
 
 const FOOT_LEFT = 50.7
 const FOOT_RIGHT = 72
@@ -35,6 +45,8 @@ type Layer = 'shadow' | 'tail' | 'feet' | 'body' | 'head'
 const ALL_LAYERS: ReadonlySet<Layer> = new Set(['shadow', 'tail', 'feet', 'body', 'head'])
 /** Everything below the head, in drawing order. */
 const BODY_LAYERS: ReadonlySet<Layer> = new Set(['shadow', 'tail', 'feet', 'body'])
+/** Turned views bake the head into the body so a wide flank cannot cover it. */
+const BODY_AND_HEAD: ReadonlySet<Layer> = new Set(['body', 'head'])
 
 const PART_LAYERS: Readonly<Record<Exclude<AnimalPart, 'paw'>, ReadonlySet<Layer>>> = {
   body: new Set(['body']),
@@ -256,8 +268,45 @@ const TAIL_PIVOTS: Readonly<Record<SpeciesId, TexturePoint>> = {
   duck: { x: 92, y: 94 },
 }
 
-export function tailPivot(species: SpeciesId): TexturePoint {
-  return TAIL_PIVOTS[species]
+/** Root of the tail when the body is seen from the side; the art trails left. */
+function sideTailPivot(species: SpeciesId): TexturePoint {
+  switch (species) {
+    case 'pig':
+      return { x: 40, y: 90 }
+    case 'deer':
+      return { x: 40, y: 92 }
+    case 'duck':
+      return { x: 40, y: 94 }
+    default:
+      return { x: 40, y: 96 }
+  }
+}
+
+/** Root of the tail when the body is seen from behind; the art rises behind. */
+function backTailPivot(species: SpeciesId): TexturePoint {
+  switch (species) {
+    case 'bear':
+    case 'rabbit':
+    case 'panda':
+      return { x: 62, y: 106 }
+    case 'dog':
+      return { x: 62, y: 102 }
+    case 'pig':
+      return { x: 60, y: 100 }
+    case 'deer':
+      return { x: 62, y: 104 }
+    case 'duck':
+      return { x: 62, y: 102 }
+    default:
+      return { x: 62, y: 98 }
+  }
+}
+
+export function tailPivot(species: SpeciesId, view: AnimalView = 'front'): TexturePoint {
+  if (view === 'front') return TAIL_PIVOTS[species]
+  if (view === 'side' || view === 'frontSide') return sideTailPivot(species)
+  if (view === 'backSide') return { x: 54, y: sideTailPivot(species).y }
+  return backTailPivot(species)
 }
 
 export interface BlinkEye {
@@ -325,8 +374,14 @@ const BLINK_EYES: Readonly<Record<SpeciesId, readonly BlinkEye[]>> = {
   ],
 }
 
-export function blinkEyes(species: SpeciesId): readonly BlinkEye[] {
-  return BLINK_EYES[species]
+export function blinkEyes(species: SpeciesId, view: AnimalView = 'front'): readonly BlinkEye[] {
+  if (view === 'back' || view === 'backSide') return []
+  if (view === 'front') return BLINK_EYES[species]
+  const turn = view === 'side' ? 1 : 0.55
+  const near = turnedEye(species, turn, false)
+  if (view === 'side') return [near]
+  const far = turnedEye(species, turn, true)
+  return far.scale > 0.3 ? [far, near] : [near]
 }
 
 /** Colour painted over the eye while blinking (the head colour around it). */
@@ -343,35 +398,57 @@ export function playerTextureKey(): string {
   return 'animal-player'
 }
 
-export function animalPartKey(species: SpeciesId, part: AnimalPart): string {
-  return `animal-${species}-${part}`
+export function animalPartKey(
+  species: SpeciesId,
+  part: AnimalPart,
+  view: AnimalView = 'front',
+): string {
+  return view === 'front' ? `animal-${species}-${part}` : `animal-${species}-${view}-${part}`
 }
 
-export function playerPartKey(part: AnimalPart): string {
-  return `animal-player-${part}`
+export function playerPartKey(part: AnimalPart, view: AnimalView = 'front'): string {
+  return view === 'front' ? `animal-player-${part}` : `animal-player-${view}-${part}`
+}
+
+/** Side-on paws read better than the rounded front paw at a quarter turn. */
+export function pawView(view: AnimalView): 'front' | 'side' {
+  return view === 'side' || view === 'frontSide' ? 'side' : 'front'
 }
 
 export function createAnimalTextures(scene: Phaser.Scene): void {
   const speciesList = Array.from(new Set<SpeciesId>(['bear', ...CUSTOMER_SPECIES]))
   for (const species of speciesList) {
     createTexture(scene, animalTextureKey(species), () =>
-      drawAnimal(scene, species, false, ALL_LAYERS),
+      drawAnimal(scene, species, false, ALL_LAYERS, 'front'),
     )
+    for (const view of ANIMAL_VIEWS) {
+      for (const part of ['body', 'head', 'tail'] as const) {
+        // Turned bodies bake the head in; only the front needs a separate head.
+        if (part === 'head' && view !== 'front') continue
+        const layers = part === 'body' && view !== 'front' ? BODY_AND_HEAD : PART_LAYERS[part]
+        createTexture(scene, animalPartKey(species, part, view), () =>
+          drawAnimal(scene, species, false, layers, view),
+        )
+      }
+    }
+    for (const view of ['front', 'side'] as const) {
+      createTexture(scene, animalPartKey(species, 'paw', view), () => drawPaw(scene, species, view))
+    }
+  }
+  for (const view of ANIMAL_VIEWS) {
     for (const part of ['body', 'head', 'tail'] as const) {
-      createTexture(scene, animalPartKey(species, part), () =>
-        drawAnimal(scene, species, false, PART_LAYERS[part]),
+      const layers = part === 'body' && view !== 'front' ? BODY_AND_HEAD : PART_LAYERS[part]
+      createTexture(scene, playerPartKey(part, view), () =>
+        drawAnimal(scene, 'bear', true, layers, view),
       )
     }
-    createTexture(scene, animalPartKey(species, 'paw'), () => drawPaw(scene, species))
   }
-
-  createTexture(scene, playerTextureKey(), () => drawAnimal(scene, 'bear', true, ALL_LAYERS))
-  for (const part of ['body', 'head', 'tail'] as const) {
-    createTexture(scene, playerPartKey(part), () =>
-      drawAnimal(scene, 'bear', true, PART_LAYERS[part]),
-    )
+  createTexture(scene, playerTextureKey(), () =>
+    drawAnimal(scene, 'bear', true, ALL_LAYERS, 'front'),
+  )
+  for (const view of ['front', 'side'] as const) {
+    createTexture(scene, playerPartKey('paw', view), () => drawPaw(scene, 'bear', view))
   }
-  createTexture(scene, playerPartKey('paw'), () => drawPaw(scene, 'bear'))
 }
 
 function createTexture(scene: Phaser.Scene, key: string, draw: () => Phaser.GameObjects.Graphics) {
@@ -381,9 +458,14 @@ function createTexture(scene: Phaser.Scene, key: string, draw: () => Phaser.Game
   graphics.destroy()
 }
 
-function drawPaw(scene: Phaser.Scene, species: SpeciesId): Phaser.GameObjects.Graphics {
+function drawPaw(
+  scene: Phaser.Scene,
+  species: SpeciesId,
+  view: 'front' | 'side' = 'front',
+): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics()
-  drawPawArt(g, species, STYLES[species], FOOT_LEFT, 112)
+  if (view === 'side') drawSidePawArt(g, species, STYLES[species], FOOT_LEFT, 112)
+  else drawPawArt(g, species, STYLES[species], FOOT_LEFT, 112)
   return g
 }
 
@@ -392,9 +474,10 @@ function drawAnimal(
   species: SpeciesId,
   player: boolean,
   layers: ReadonlySet<Layer>,
+  view: AnimalView,
 ): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics()
-  drawAnimalInto(g, species, player, layers)
+  drawAnimalInto(g, species, player, layers, view)
   return g
 }
 
@@ -403,6 +486,7 @@ function drawAnimalInto(
   species: SpeciesId,
   player: boolean,
   layers: ReadonlySet<Layer>,
+  view: AnimalView,
 ): void {
   const style = STYLES[species]
 
@@ -410,13 +494,18 @@ function drawAnimalInto(
     g.fillStyle(INK, 0.16)
     g.fillEllipse(64, 119, 62, 12)
   }
-  if (layers.has('tail')) drawTail(g, species, style)
+  if (layers.has('tail')) drawTail(g, species, style, view)
   if (layers.has('feet')) {
-    drawPawArt(g, species, style, FOOT_LEFT, 112)
-    drawPawArt(g, species, style, FOOT_RIGHT, 112)
+    if (view === 'side') {
+      drawSidePawArt(g, species, style, FOOT_LEFT, 112)
+      drawSidePawArt(g, species, style, FOOT_RIGHT, 112)
+    } else {
+      drawPawArt(g, species, style, FOOT_LEFT, 112)
+      drawPawArt(g, species, style, FOOT_RIGHT, 112)
+    }
   }
-  if (layers.has('body')) drawBody(g, species, style, player)
-  if (layers.has('head')) drawHead(g, species, style, player)
+  if (layers.has('body')) drawBody(g, species, style, player, view)
+  if (layers.has('head')) drawHead(g, species, style, player, view)
 }
 
 /**
@@ -426,11 +515,13 @@ function drawAnimalInto(
 export function drawClothedBody(
   scene: Phaser.Scene,
   species: SpeciesId,
-  dress: (graphics: Phaser.GameObjects.Graphics) => void,
+  dress: (graphics: Phaser.GameObjects.Graphics, view: AnimalView) => void,
+  view: AnimalView = 'front',
 ): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics()
-  drawAnimalInto(g, species, false, PART_LAYERS.body)
-  dress(g)
+  drawAnimalInto(g, species, false, PART_LAYERS.body, view)
+  dress(g, view)
+  if (view !== 'front') drawAnimalInto(g, species, false, PART_LAYERS.head, view)
   return g
 }
 
@@ -444,13 +535,43 @@ export function drawClothedPortrait(
   dress: (graphics: Phaser.GameObjects.Graphics) => void,
 ): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics()
-  drawAnimalInto(g, species, false, BODY_LAYERS)
+  drawAnimalInto(g, species, false, BODY_LAYERS, 'front')
   dress(g)
-  drawAnimalInto(g, species, false, PART_LAYERS.head)
+  drawAnimalInto(g, species, false, PART_LAYERS.head, 'front')
   return g
 }
 
-function drawTail(g: Phaser.GameObjects.Graphics, species: SpeciesId, s: AnimalStyle): void {
+function drawTail(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  view: AnimalView,
+): void {
+  if (view === 'front') {
+    drawFrontTail(g, species, s)
+    return
+  }
+  if (species === 'frog' || species === 'hedgehog' || species === 'owl') return
+  if (view === 'side' || view === 'frontSide') {
+    const pivot = sideTailPivot(species)
+    g.save()
+    g.translateCanvas(pivot.x, pivot.y)
+    g.scaleCanvas(-1, 1)
+    g.translateCanvas(-96, -98)
+    drawFrontTail(g, species, s)
+    g.restore()
+    return
+  }
+  const pivot = tailPivot(species, view)
+  g.save()
+  g.translateCanvas(pivot.x, pivot.y)
+  if (view === 'backSide') g.scaleCanvas(-1, 1)
+  g.translateCanvas(-96, -98)
+  drawFrontTail(g, species, s)
+  g.restore()
+}
+
+function drawFrontTail(g: Phaser.GameObjects.Graphics, species: SpeciesId, s: AnimalStyle): void {
   switch (species) {
     case 'bear':
       g.fillStyle(s.bodyDark, 1)
@@ -554,6 +675,1098 @@ function drawTail(g: Phaser.GameObjects.Graphics, species: SpeciesId, s: AnimalS
   }
 }
 
+type EarShape = 'round' | 'triangle' | 'long' | 'floppy' | 'tuft' | 'none'
+type MuzzleShape = 'round' | 'snout' | 'beak' | 'wide' | 'pig' | 'none'
+
+interface TurnHead {
+  readonly skullR: number
+  readonly skullRY: number
+  readonly skullY: number
+  readonly ear: EarShape
+  readonly earX: number
+  readonly earY: number
+  readonly earW: number
+  readonly earH: number
+  readonly earTilt: number
+  readonly muzzle: MuzzleShape
+  readonly muzzleY: number
+  readonly muzzleW: number
+  readonly muzzleH: number
+  readonly eyeX: number
+  readonly eyeY: number
+  readonly eyeR: number
+  readonly blushX: number
+  readonly blushY: number
+}
+
+const TURN_HEADS: Readonly<Record<SpeciesId, TurnHead>> = {
+  bear: {
+    skullR: 27,
+    skullRY: 27,
+    skullY: 54,
+    ear: 'round',
+    earX: 25,
+    earY: 31,
+    earW: 14,
+    earH: 14,
+    earTilt: 0,
+    muzzle: 'round',
+    muzzleY: 68,
+    muzzleW: 34,
+    muzzleH: 23,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 4.2,
+    blushX: 24,
+    blushY: 66,
+  },
+  cat: {
+    skullR: 26,
+    skullRY: 26,
+    skullY: 54,
+    ear: 'triangle',
+    earX: 24,
+    earY: 11,
+    earW: 18,
+    earH: 28,
+    earTilt: 0.12,
+    muzzle: 'round',
+    muzzleY: 69,
+    muzzleW: 28,
+    muzzleH: 19,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 4.3,
+    blushX: 24,
+    blushY: 66,
+  },
+  rabbit: {
+    skullR: 26,
+    skullRY: 26,
+    skullY: 55,
+    ear: 'long',
+    earX: 13,
+    earY: 29,
+    earW: 16,
+    earH: 46,
+    earTilt: 0.04,
+    muzzle: 'round',
+    muzzleY: 70,
+    muzzleW: 28,
+    muzzleH: 20,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 4.4,
+    blushX: 24,
+    blushY: 66,
+  },
+  fox: {
+    skullR: 26,
+    skullRY: 26,
+    skullY: 55,
+    ear: 'triangle',
+    earX: 25,
+    earY: 9,
+    earW: 20,
+    earH: 32,
+    earTilt: 0.16,
+    muzzle: 'snout',
+    muzzleY: 69,
+    muzzleW: 27,
+    muzzleH: 20,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 3.8,
+    blushX: 24,
+    blushY: 67,
+  },
+  panda: {
+    skullR: 27,
+    skullRY: 27,
+    skullY: 54,
+    ear: 'round',
+    earX: 25,
+    earY: 30,
+    earW: 14,
+    earH: 14,
+    earTilt: 0,
+    muzzle: 'round',
+    muzzleY: 69,
+    muzzleW: 27,
+    muzzleH: 19,
+    eyeX: 12,
+    eyeY: 53,
+    eyeR: 4.4,
+    blushX: 24,
+    blushY: 67,
+  },
+  frog: {
+    skullR: 29,
+    skullRY: 24,
+    skullY: 60,
+    ear: 'none',
+    earX: 0,
+    earY: 0,
+    earW: 0,
+    earH: 0,
+    earTilt: 0,
+    muzzle: 'wide',
+    muzzleY: 76,
+    muzzleW: 40,
+    muzzleH: 15,
+    eyeX: 18,
+    eyeY: 48,
+    eyeR: 8.5,
+    blushX: 28,
+    blushY: 76,
+  },
+  pig: {
+    skullR: 27,
+    skullRY: 27,
+    skullY: 54,
+    ear: 'floppy',
+    earX: 27,
+    earY: 44,
+    earW: 14,
+    earH: 22,
+    earTilt: 0.35,
+    muzzle: 'pig',
+    muzzleY: 68,
+    muzzleW: 28,
+    muzzleH: 20,
+    eyeX: 13,
+    eyeY: 50,
+    eyeR: 4,
+    blushX: 25,
+    blushY: 60,
+  },
+  dog: {
+    skullR: 27,
+    skullRY: 27,
+    skullY: 54,
+    ear: 'floppy',
+    earX: 29,
+    earY: 58,
+    earW: 15,
+    earH: 31,
+    earTilt: 0,
+    muzzle: 'snout',
+    muzzleY: 69,
+    muzzleW: 30,
+    muzzleH: 21,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 4.2,
+    blushX: 24,
+    blushY: 65,
+  },
+  squirrel: {
+    skullR: 26,
+    skullRY: 26,
+    skullY: 56,
+    ear: 'tuft',
+    earX: 17,
+    earY: 15,
+    earW: 18,
+    earH: 30,
+    earTilt: 0.12,
+    muzzle: 'round',
+    muzzleY: 70,
+    muzzleW: 24,
+    muzzleH: 18,
+    eyeX: 12,
+    eyeY: 53,
+    eyeR: 4.4,
+    blushX: 22,
+    blushY: 67,
+  },
+  hedgehog: {
+    skullR: 16,
+    skullRY: 14,
+    skullY: 86,
+    ear: 'round',
+    earX: 16,
+    earY: 73,
+    earW: 6,
+    earH: 6,
+    earTilt: 0,
+    muzzle: 'snout',
+    muzzleY: 97,
+    muzzleW: 16,
+    muzzleH: 11,
+    eyeX: 8,
+    eyeY: 84,
+    eyeR: 3.4,
+    blushX: 13,
+    blushY: 92,
+  },
+  raccoon: {
+    skullR: 26,
+    skullRY: 26,
+    skullY: 55,
+    ear: 'triangle',
+    earX: 23,
+    earY: 14,
+    earW: 18,
+    earH: 26,
+    earTilt: 0.12,
+    muzzle: 'round',
+    muzzleY: 70,
+    muzzleW: 26,
+    muzzleH: 18,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 3.8,
+    blushX: 24,
+    blushY: 66,
+  },
+  deer: {
+    skullR: 26,
+    skullRY: 26,
+    skullY: 55,
+    ear: 'floppy',
+    earX: 28,
+    earY: 48,
+    earW: 16,
+    earH: 24,
+    earTilt: 0.4,
+    muzzle: 'snout',
+    muzzleY: 70,
+    muzzleW: 25,
+    muzzleH: 18,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 4.3,
+    blushX: 24,
+    blushY: 66,
+  },
+  owl: {
+    skullR: 30,
+    skullRY: 25,
+    skullY: 58,
+    ear: 'tuft',
+    earX: 20,
+    earY: 15,
+    earW: 14,
+    earH: 24,
+    earTilt: 0.08,
+    muzzle: 'beak',
+    muzzleY: 65,
+    muzzleW: 14,
+    muzzleH: 13,
+    eyeX: 17,
+    eyeY: 58,
+    eyeR: 7.5,
+    blushX: 23,
+    blushY: 68,
+  },
+  duck: {
+    skullR: 26,
+    skullRY: 26,
+    skullY: 55,
+    ear: 'none',
+    earX: 0,
+    earY: 0,
+    earW: 0,
+    earH: 0,
+    earTilt: 0,
+    muzzle: 'beak',
+    muzzleY: 68,
+    muzzleW: 26,
+    muzzleH: 12,
+    eyeX: 12,
+    eyeY: 52,
+    eyeR: 4,
+    blushX: 24,
+    blushY: 66,
+  },
+}
+
+interface TurnedEye extends BlinkEye {
+  readonly scale: number
+}
+
+/** Eye anchor shared by the turn renderer and the blink overlay. */
+function turnedEye(species: SpeciesId, turn: number, far: boolean): TurnedEye {
+  const head = TURN_HEADS[species]
+  if (species === 'frog') {
+    const scale = far ? 1 - 0.45 * turn : 1
+    return {
+      x: far ? 64 - 18 * (1 - 0.25 * turn) : 64 + 18 * (0.95 + 0.05 * turn),
+      y: head.eyeY,
+      r: head.eyeR * scale,
+      scale,
+    }
+  }
+  if (species === 'owl') {
+    const scale = far ? 1 - 0.5 * turn : 1
+    return {
+      x: far ? 64 - 17 * (1 - 0.3 * turn) : 64 + 17 * (0.95 + 0.05 * turn),
+      y: head.eyeY,
+      r: head.eyeR * scale,
+      scale,
+    }
+  }
+  const scale = far ? Math.max(0, 1 - 0.9 * turn) : 1
+  return {
+    x: far ? 64 - head.eyeX * (1 - 0.35 * turn) : 64 + head.eyeX * (0.65 + 0.25 * turn),
+    y: head.eyeY,
+    r: head.eyeR * scale,
+    scale,
+  }
+}
+
+function drawTurnedHead(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  player: boolean,
+  view: AnimalView,
+): void {
+  const turn = view === 'side' ? 1 : view === 'back' ? 0 : 0.55
+  if (view === 'back' || view === 'backSide') drawTurnedBackHead(g, species, s, player, turn)
+  else drawTurnedFaceHead(g, species, s, player, turn)
+}
+
+function drawTurnedEar(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  head: TurnHead,
+  x: number,
+  y: number,
+  scale: number,
+  sideSign: 1 | -1,
+  back: boolean,
+  inner: boolean,
+): void {
+  if (head.ear === 'none') return
+  const panda = species === 'panda'
+  const outer = panda ? INK : s.bodyDark
+  const fill = panda ? 0x4a4045 : s.body
+  const w = head.earW * scale
+  const h = head.earH * scale
+  g.save()
+  g.translateCanvas(x, y)
+  g.rotateCanvas(head.earTilt * sideSign)
+  if (head.ear === 'round') {
+    g.fillStyle(INK, 1)
+    g.fillCircle(0, 0, w + 1)
+    g.fillStyle(outer, 1)
+    g.fillCircle(0, 0, w)
+    g.fillStyle(fill, 1)
+    g.fillCircle(0, 0, w - 2)
+    if (inner && !back) {
+      g.fillStyle(s.earInner, 1)
+      g.fillCircle(0, 1, w * 0.42)
+    }
+    if (back) {
+      g.fillStyle(s.bodyDark, 0.5)
+      g.fillCircle(0, 1, w * 0.45)
+    }
+  } else if (head.ear === 'triangle') {
+    g.fillStyle(INK, 1)
+    g.fillTriangle(-w, h / 2, w, h / 2, w * 0.55, -h / 2)
+    g.fillStyle(outer, 1)
+    g.fillTriangle(-w + 2, h / 2 - 1, w - 2, h / 2 - 1, w * 0.55, -h / 2 + 2)
+    g.fillStyle(fill, 1)
+    g.fillTriangle(-w + 4, h / 2 - 2, w - 4, h / 2 - 2, w * 0.55, -h / 2 + 4)
+    if (inner && !back) {
+      g.fillStyle(s.earInner, 1)
+      g.fillTriangle(-w * 0.45, h / 2 - 3, w * 0.45, h / 2 - 3, w * 0.45, -h / 2 + 8)
+    }
+    if (back) {
+      g.lineStyle(1.4, outer, 0.7)
+      g.lineBetween(0, -h / 2 + 4, 0, h / 2 - 3)
+    }
+  } else if (head.ear === 'long') {
+    g.fillStyle(INK, 1)
+    g.fillEllipse(0, 0, w + 2, h + 2)
+    g.fillStyle(outer, 1)
+    g.fillEllipse(0, 0, w, h)
+    g.fillStyle(fill, 1)
+    g.fillEllipse(0, -1, w - 3, h - 3)
+    if (inner && !back) {
+      g.fillStyle(s.earInner, 1)
+      g.fillEllipse(0, 1, w * 0.5, h * 0.64)
+    } else if (back) {
+      g.lineStyle(1.4, outer, 0.55)
+      g.lineBetween(0, -h * 0.4, 0, h * 0.4)
+    }
+  } else if (head.ear === 'floppy') {
+    g.fillStyle(INK, 1)
+    g.fillEllipse(0, 0, w + 2, h + 2)
+    g.fillStyle(outer, 1)
+    g.fillEllipse(0, 0, w, h)
+    g.fillStyle(fill, 1)
+    g.fillEllipse(0, -1, w - 3, h - 3)
+    if (inner && !back) {
+      g.fillStyle(s.earInner, 1)
+      g.fillEllipse(0, 2, w * 0.55, h * 0.62)
+    } else if (back) {
+      g.lineStyle(1.2, outer, 0.45)
+      g.lineBetween(0, -h * 0.35, 0, h * 0.35)
+    }
+  } else if (head.ear === 'tuft') {
+    g.fillStyle(INK, 1)
+    g.fillTriangle(-w, h / 2, w, h / 2, w * 0.35, -h / 2)
+    g.fillStyle(outer, 1)
+    g.fillTriangle(-w + 2, h / 2 - 1, w - 2, h / 2 - 1, w * 0.35, -h / 2 + 2)
+    g.fillStyle(fill, 1)
+    g.fillTriangle(-w + 4, h / 2 - 2, w - 4, h / 2 - 2, w * 0.35, -h / 2 + 4)
+    if (inner && !back) {
+      g.fillStyle(s.earInner, 1)
+      g.fillTriangle(-w * 0.4, h / 2 - 3, w * 0.4, h / 2 - 3, w * 0.35, -h / 2 + 10)
+    }
+    g.fillStyle(panda ? 0xd4cec2 : s.bodyLight, 1)
+    g.fillTriangle(w * 0.35, -h / 2 + 3, w * 0.2, -h / 2 - 7, w * 0.55, -h / 2 + 1)
+    g.fillTriangle(w * 0.2, -h / 2 + 3, w * 0.02, -h / 2 - 5, w * 0.4, -h / 2 + 1)
+  }
+  g.restore()
+}
+
+function drawTurnedFaceHead(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  player: boolean,
+  turn: number,
+): void {
+  const head = TURN_HEADS[species]
+  const farScale = 1 - 0.18 * turn
+  const nearScale = 1
+
+  if (species === 'deer') drawAntlers(g, turn)
+  if (head.ear !== 'none') {
+    drawTurnedEar(
+      g,
+      species,
+      s,
+      head,
+      64 - head.earX * (1 - 0.28 * turn),
+      head.earY,
+      farScale,
+      -1,
+      false,
+      true,
+    )
+    drawTurnedEar(
+      g,
+      species,
+      s,
+      head,
+      64 + head.earX * (0.92 + 0.08 * turn),
+      head.earY,
+      nearScale,
+      1,
+      false,
+      true,
+    )
+  }
+
+  drawTurnedSkull(g, species, s, head, turn)
+  drawTurnedMuzzle(g, s, head, turn)
+  drawTurnedFaceExtrasBefore(g, species, s, turn)
+  drawTurnedEyes(g, species, s, head, turn)
+  drawTurnedNoseAndMouth(g, species, s, head, turn)
+  drawTurnedFaceExtrasAfter(g, species, s, head, turn)
+
+  const nearBlush = 64 + head.blushX * (0.9 + 0.1 * turn)
+  drawBlush(g, nearBlush, head.blushY, s.accent)
+  if (turn < 0.75) {
+    drawBlush(g, 64 - head.blushX * (1 - 0.3 * turn), head.blushY, s.accent)
+  }
+
+  if (player) drawCapTurned(g, turn)
+}
+
+function drawTurnedSkull(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  head: TurnHead,
+  turn: number,
+): void {
+  const rx = head.skullR * (1 - 0.04 * turn) * (1 - 0.18 * turn)
+  const ry = head.skullRY
+  if (species === 'hedgehog') {
+    g.fillStyle(INK, 1)
+    g.fillEllipse(64, head.skullY, rx * 2 + 2, ry * 2 + 2)
+    g.fillStyle(s.bodyDark, 1)
+    g.fillEllipse(64, head.skullY, rx * 2, ry * 2)
+    g.fillStyle(s.face, 1)
+    g.fillEllipse(64, head.skullY, rx * 2 - 3, ry * 2 - 3)
+    g.fillStyle(s.bodyLight, 0.65)
+    g.fillEllipse(64 - 7, head.skullY - 9, 10, 6)
+    return
+  }
+  g.fillStyle(INK, 1)
+  g.fillEllipse(64, head.skullY, rx * 2 + 2, ry * 2 + 2)
+  g.fillStyle(s.bodyDark, 1)
+  g.fillEllipse(64, head.skullY, rx * 2, ry * 2)
+  g.fillStyle(s.body, 1)
+  g.fillEllipse(63, head.skullY - 1, rx * 2 - 3, ry * 2 - 3)
+  g.fillStyle(WHITE, 0.18)
+  g.fillEllipse(64 - rx * 0.4, head.skullY - ry * 0.62, 13, 8)
+  if (turn > 0) {
+    g.fillStyle(INK, 0.05 + 0.05 * turn)
+    g.fillEllipse(64 - rx * 0.55, head.skullY + 2, rx * 0.7, ry * 1.5)
+  }
+}
+
+function drawTurnedMuzzle(
+  g: Phaser.GameObjects.Graphics,
+  s: AnimalStyle,
+  head: TurnHead,
+  turn: number,
+): void {
+  if (head.muzzle === 'none') return
+  const mx = 64 + (1 + head.muzzleW * 0.24) * turn
+  const my = head.muzzleY
+  if (head.muzzle === 'beak') {
+    const tip = mx + head.muzzleW * (0.55 + 0.25 * turn)
+    g.fillStyle(BEAK, 1)
+    g.fillTriangle(
+      mx - head.muzzleW * 0.5,
+      my - head.muzzleH * 0.55,
+      tip,
+      my,
+      mx - head.muzzleW * 0.5,
+      my + head.muzzleH * 0.55,
+    )
+    g.fillStyle(0xc98b2f, 1)
+    g.fillTriangle(
+      mx - head.muzzleW * 0.35,
+      my + 1,
+      tip - 2,
+      my + 1,
+      mx - head.muzzleW * 0.3,
+      my + head.muzzleH * 0.5,
+    )
+    return
+  }
+  if (head.muzzle === 'pig') {
+    g.fillStyle(s.nose, 1)
+    g.fillEllipse(mx, my, head.muzzleW * (0.9 + 0.2 * turn), head.muzzleH)
+    g.fillStyle(0x8f3f52, 0.8)
+    g.fillCircle(mx - 5 + 4 * turn, my, 2)
+    g.fillCircle(mx + 5 + 4 * turn, my, 2)
+    g.fillStyle(WHITE, 0.35)
+    g.fillEllipse(mx - 3, my - 5, 8, 3)
+    return
+  }
+  if (head.muzzle === 'wide') {
+    g.fillStyle(s.bodyLight, 0.9)
+    g.fillEllipse(mx, my, head.muzzleW, head.muzzleH)
+    g.lineStyle(2.6, INK, 0.8)
+    g.beginPath()
+    g.arc(mx, my - 4, head.muzzleW * 0.42, 0.2, Math.PI - 0.2)
+    g.strokePath()
+    return
+  }
+  g.fillStyle(s.face, 1)
+  g.fillEllipse(mx, my, head.muzzleW * (0.9 + 0.2 * turn), head.muzzleH)
+  if (head.muzzle === 'snout') {
+    g.fillStyle(WHITE, 0.18)
+    g.fillEllipse(mx - 3, my - head.muzzleH * 0.3, head.muzzleW * 0.4, 4)
+  }
+}
+
+function drawTurnedFaceExtrasBefore(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  turn: number,
+): void {
+  if (species === 'panda') {
+    for (const far of [true, false]) {
+      const eye = turnedEye(species, turn, far)
+      if (eye.scale < 0.25) continue
+      g.save()
+      g.translateCanvas(eye.x, eye.y)
+      g.rotateCanvas((far ? -1 : 1) * 0.22)
+      g.scaleCanvas(eye.scale, eye.scale)
+      g.fillStyle(INK, 1)
+      g.fillEllipse(0, 0, 21, 17)
+      g.restore()
+    }
+  }
+  if (species === 'raccoon') {
+    const near = turnedEye(species, turn, false)
+    const far = turnedEye(species, turn, true)
+    g.fillStyle(s.accent, 1)
+    g.fillEllipse(near.x, near.y, 24, 17)
+    if (far.scale > 0.3) g.fillEllipse(far.x, far.y, 24 * far.scale, 17 * far.scale)
+    g.fillStyle(INK, 0.85)
+    g.fillRect(64 - 12, near.y - 5, 24 + 12 * turn, 2)
+  }
+  if (species === 'owl') {
+    for (const far of [true, false]) {
+      const eye = turnedEye(species, turn, far)
+      g.save()
+      g.translateCanvas(eye.x, eye.y)
+      g.scaleCanvas(eye.scale, eye.scale)
+      g.fillStyle(s.bodyDark, 1)
+      g.fillCircle(0, 0, 18)
+      g.fillStyle(s.face, 1)
+      g.fillCircle(0, 0, 15)
+      g.restore()
+    }
+  }
+  if (species === 'frog') {
+    for (const far of [true, false]) {
+      const eye = turnedEye(species, turn, far)
+      g.save()
+      g.translateCanvas(eye.x, eye.y - 6)
+      g.scaleCanvas(eye.scale, eye.scale)
+      g.fillStyle(INK, 1)
+      g.fillCircle(0, 0, 16)
+      g.fillStyle(s.bodyDark, 1)
+      g.fillCircle(0, 0, 14)
+      g.fillStyle(WHITE, 1)
+      g.fillCircle(0, 0, 9)
+      g.fillStyle(INK, 1)
+      g.fillCircle(eye.x > 64 ? 1 : -1, 0, 4.4)
+      g.fillStyle(WHITE, 0.9)
+      g.fillCircle(-2, -2, 1.6)
+      g.restore()
+    }
+  }
+  if (species === 'cat') {
+    g.lineStyle(1.5, s.bodyDark, 0.8)
+    for (let index = -1; index <= 1; index += 1) {
+      g.lineBetween(64 - 12 + index * 2, 42 + index * 3, 64 - 22 + index * 2, 40 + index * 5)
+    }
+  }
+}
+
+function drawTurnedEyes(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  _s: AnimalStyle,
+  head: TurnHead,
+  turn: number,
+): void {
+  if (species === 'frog') return
+  if (species === 'owl') {
+    for (const far of [true, false]) {
+      const eye = turnedEye(species, turn, far)
+      if (eye.scale < 0.3) continue
+      g.save()
+      g.translateCanvas(eye.x, eye.y)
+      g.scaleCanvas(eye.scale, eye.scale)
+      drawEye(g, 0, 0, 7)
+      g.restore()
+    }
+    return
+  }
+  const far = turnedEye(species, turn, true)
+  const near = turnedEye(species, turn, false)
+  if (far.scale > 0.3) {
+    g.save()
+    g.translateCanvas(far.x, far.y)
+    g.scaleCanvas(far.scale, far.scale)
+    drawEye(g, 0, 0, head.eyeR)
+    g.restore()
+  }
+  drawEye(g, near.x, near.y, head.eyeR)
+  if (species === 'fox') {
+    g.lineStyle(2, _s.bodyDark, 0.8)
+    g.lineBetween(near.x - 5, near.y - 6, near.x + 4, near.y - 4)
+    if (far.scale > 0.3) g.lineBetween(far.x - 4, far.y - 4, far.x + 5, far.y - 6)
+  }
+}
+
+function drawTurnedNoseAndMouth(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  head: TurnHead,
+  turn: number,
+): void {
+  const mx = 64 + (1 + head.muzzleW * 0.24) * turn
+  const my = head.muzzleY
+  if (head.muzzle === 'pig' || head.muzzle === 'wide') return
+  if (head.muzzle === 'beak') {
+    g.lineStyle(1.6, 0xc98b2f, 0.9)
+    g.lineBetween(mx - 2, my + 2, mx + head.muzzleW * 0.55, my + 2)
+    return
+  }
+  if (head.muzzle === 'none') return
+  const nx = mx + (head.muzzleW * 0.12 + 2) * turn
+  const ny = my - head.muzzleH * 0.14
+  if (species === 'cat' || species === 'rabbit' || species === 'squirrel') {
+    g.fillStyle(s.nose, 1)
+    g.fillTriangle(nx - 4, ny - 2, nx + 4, ny - 2, nx, ny + 4)
+  } else {
+    g.fillStyle(s.nose, 1)
+    g.fillEllipse(nx, ny, 9, 7)
+    g.fillStyle(WHITE, 0.35)
+    g.fillEllipse(nx - 1, ny - 1, 3, 2)
+  }
+  drawMouth(g, nx - 1, my + head.muzzleH * 0.22, 4.5)
+
+  if (species === 'rabbit' || species === 'squirrel') {
+    g.fillStyle(WHITE, 1)
+    g.fillRoundedRect(nx - 4, my + head.muzzleH * 0.28, 3.5, 6, 1.4)
+    g.fillRoundedRect(nx + 1, my + head.muzzleH * 0.28, 3.5, 6, 1.4)
+  }
+  if (species === 'dog') {
+    g.fillStyle(0xe87a86, 1)
+    g.fillRoundedRect(nx - 4, my + 5, 8, 10, 4)
+    g.fillStyle(0xc95b70, 0.7)
+    g.lineBetween(nx, my + 8, nx, my + 13)
+  }
+  if (species === 'deer') {
+    g.fillStyle(s.accent, 0.8)
+    g.fillCircle(64, 39, 2.2)
+    g.fillCircle(57, 42, 1.7)
+    g.fillCircle(71, 42, 1.7)
+  }
+}
+
+function drawTurnedFaceExtrasAfter(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  head: TurnHead,
+  turn: number,
+): void {
+  if (species === 'cat') {
+    const near = turnedEye(species, turn, false)
+    g.lineStyle(1.2, INK, 0.55)
+    for (let index = 0; index < 3; index += 1) {
+      g.lineBetween(near.x + 2, near.y + 12 + index * 3, near.x + 20, near.y + 9 + index * 4)
+    }
+  }
+  if (species === 'fox') {
+    g.fillStyle(s.face, 1)
+    g.fillTriangle(64 + 18, head.muzzleY + 4, 64 + 30, head.muzzleY - 4, 64 + 22, head.muzzleY + 12)
+  }
+  if (species === 'duck') {
+    g.fillStyle(s.bodyDark, 1)
+    g.fillTriangle(64 + 2, head.eyeY - 20, 64 + 12, head.eyeY - 34, 64 + 14, head.eyeY - 18)
+  }
+  if (species === 'hedgehog') {
+    g.fillStyle(s.bodyLight, 1)
+    g.fillEllipse(64 + 6 * turn, head.muzzleY, 12, 8)
+  }
+}
+
+function drawTurnedBackHead(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  player: boolean,
+  turn: number,
+): void {
+  const head = TURN_HEADS[species]
+  if (species === 'deer') drawAntlers(g, turn)
+  if (head.ear !== 'none') {
+    const farScale = 1 - 0.15 * turn
+    drawTurnedEar(
+      g,
+      species,
+      s,
+      head,
+      64 - head.earX * (1 - 0.24 * turn),
+      head.earY,
+      farScale,
+      -1,
+      true,
+      false,
+    )
+    drawTurnedEar(
+      g,
+      species,
+      s,
+      head,
+      64 + head.earX * (0.94 + 0.06 * turn),
+      head.earY,
+      1,
+      1,
+      true,
+      false,
+    )
+  }
+
+  if (species === 'hedgehog') {
+    g.fillStyle(INK, 1)
+    g.fillEllipse(64, head.skullY, 33, 29)
+    g.fillStyle(s.bodyDark, 1)
+    g.fillEllipse(64, head.skullY, 31, 27)
+    g.fillStyle(s.face, 1)
+    g.fillEllipse(64, head.skullY, 28, 24)
+  } else {
+    drawTurnedSkull(g, species, s, head, turn)
+  }
+
+  g.fillStyle(s.bodyDark, 0.22)
+  g.fillEllipse(64, head.skullY + head.skullRY * 0.55, head.skullR * 1.1, head.skullRY * 0.65)
+  g.fillStyle(s.bodyLight, 0.28)
+  g.fillEllipse(64 - 5, head.skullY + head.skullRY * 0.3, 10, 6)
+
+  if (species === 'frog') {
+    for (const far of [true, false]) {
+      const eye = turnedEye(species, turn, far)
+      g.save()
+      g.translateCanvas(eye.x, eye.y - 6)
+      g.scaleCanvas(eye.scale, eye.scale)
+      g.fillStyle(INK, 1)
+      g.fillCircle(0, 0, 16)
+      g.fillStyle(s.bodyDark, 1)
+      g.fillCircle(0, 0, 14)
+      g.fillStyle(s.body, 1)
+      g.fillCircle(0, 0, 12)
+      g.restore()
+    }
+  }
+
+  if (turn > 0.15) {
+    const mx = 64 + (2 + head.muzzleW * 0.42) * turn
+    if (head.muzzle === 'beak') {
+      g.fillStyle(BEAK, 1)
+      g.fillTriangle(
+        mx - 8,
+        head.muzzleY - 5,
+        mx + 12 * turn,
+        head.muzzleY,
+        mx - 8,
+        head.muzzleY + 5,
+      )
+    } else if (head.muzzle === 'pig') {
+      g.fillStyle(s.nose, 1)
+      g.fillEllipse(mx, head.muzzleY, 14 * turn, 12)
+    } else if (head.muzzle !== 'none' && head.muzzle !== 'wide') {
+      g.fillStyle(s.face, 1)
+      g.fillEllipse(mx, head.muzzleY, head.muzzleW * 0.5 * turn, head.muzzleH * 0.6)
+    }
+  }
+
+  if (player) drawCapBack(g)
+}
+
+function drawAntlers(g: Phaser.GameObjects.Graphics, turn: number): void {
+  g.lineStyle(4, HORN, 1)
+  g.lineBetween(55, 42, 46, 22)
+  g.lineBetween(46, 22, 39, 14)
+  g.lineBetween(48, 30, 39, 28)
+  g.lineBetween(73, 42, 82 - 4 * turn, 22)
+  g.lineBetween(82 - 4 * turn, 22, 89 - 6 * turn, 14)
+  g.lineBetween(80 - 4 * turn, 30, 89 - 6 * turn, 28)
+}
+
+function drawCapTurned(g: Phaser.GameObjects.Graphics, turn: number): void {
+  g.fillStyle(0xf28b5b, 1)
+  g.fillEllipse(64 + 4 * turn, 28, 42, 16)
+  g.fillStyle(0xe5724a, 1)
+  g.fillRoundedRect(42 + 8 * turn, 31, 46, 8, 4)
+  g.fillStyle(0xfff3dd, 1)
+  g.fillCircle(64 + 2 * turn, 23, 3.4)
+}
+
+function drawCapBack(g: Phaser.GameObjects.Graphics): void {
+  g.fillStyle(0x8f4b2f, 0.45)
+  g.fillEllipse(64, 30, 44, 18)
+  g.fillStyle(0xf28b5b, 1)
+  g.fillEllipse(64, 28, 42, 17)
+  g.fillStyle(0xe5724a, 1)
+  g.fillRoundedRect(50, 32, 28, 7, 3.5)
+  g.fillStyle(0xfff3dd, 1)
+  g.fillCircle(64, 23, 3.4)
+  g.lineStyle(2, 0xe5724a, 0.8)
+  g.lineBetween(50, 30, 44, 34)
+  g.lineBetween(78, 30, 84, 34)
+}
+
+function drawTurnedBody(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  player: boolean,
+  view: AnimalView,
+): void {
+  const turn = view === 'side' ? 1 : view === 'back' ? 0 : 0.55
+  const isOwl = species === 'owl'
+  const isFrog = species === 'frog'
+  const isHedgehog = species === 'hedgehog'
+  const rx = isOwl
+    ? 28
+    : isFrog
+      ? 31
+      : isHedgehog
+        ? 23
+        : view === 'side'
+          ? 26
+          : view === 'backSide'
+            ? 27
+            : 29
+  const ry = isOwl ? 26 : isFrog ? 24 : isHedgehog ? 17 : 22
+  const y = isHedgehog ? 96 : 92
+
+  if (isHedgehog) drawHedgehogSpines(g, s, view)
+  if (isFrog) {
+    g.fillStyle(s.bodyDark, 0.45)
+    for (const [sx, sy, r] of [
+      [43, 86, 5],
+      [54, 98, 4],
+      [80, 88, 4.5],
+      [88, 102, 3.5],
+    ] as const) {
+      g.fillCircle(sx, sy, r)
+    }
+  }
+
+  g.fillStyle(INK, 1)
+  g.fillEllipse(64, y, rx * 2 + 2, ry * 2 + 2)
+  g.fillStyle(s.bodyDark, 1)
+  g.fillEllipse(64, y, rx * 2, ry * 2)
+  g.fillStyle(s.body, 1)
+  g.fillEllipse(63, y - 1, rx * 2 - 4, ry * 2 - 4)
+  g.fillStyle(WHITE, 0.15)
+  g.fillEllipse(64 - rx * 0.35, y - ry * 0.55, 18, 10)
+
+  if (species === 'deer') {
+    g.fillStyle(s.accent, 0.8)
+    for (const [sx, sy] of [
+      [48, 88],
+      [58, 82],
+      [76, 88],
+      [84, 82],
+      [65, 94],
+    ] as const) {
+      g.fillCircle(sx, sy, 2.4)
+    }
+  }
+
+  if (view === 'side' || view === 'frontSide') {
+    g.fillStyle(s.face, 0.8)
+    g.fillEllipse(64 + 8 * turn, y + 10, 28, 18)
+  }
+
+  if (species === 'panda') {
+    g.fillStyle(INK, 1)
+    g.fillRoundedRect(28, y - 10, 13, 28, 6)
+    g.fillRoundedRect(87, y - 10, 13, 28, 6)
+  } else if (view === 'side') {
+    g.fillStyle(s.bodyDark, 0.55)
+    g.fillRoundedRect(31, y - 7, 10, 20, 5)
+    g.fillStyle(s.bodyDark, 1)
+    g.fillRoundedRect(83, y - 9, 13, 22, 6)
+    g.fillStyle(s.body, 1)
+    g.fillRoundedRect(85, y - 7, 9, 17, 4)
+  } else {
+    g.fillStyle(s.bodyDark, 1)
+    g.fillRoundedRect(29, y - 9, 12, 22, 6)
+    g.fillRoundedRect(87, y - 9, 12, 22, 6)
+    g.fillStyle(s.body, 1)
+    g.fillRoundedRect(31, y - 7, 8, 17, 4)
+    g.fillRoundedRect(89, y - 7, 8, 17, 4)
+  }
+
+  if (species === 'duck') {
+    g.fillStyle(s.bodyLight, 1)
+    g.fillEllipse(62 + 6 * turn, y - 2, 16, 22)
+    g.fillStyle(s.accent, 0.85)
+    g.fillRoundedRect(60 + 6 * turn, y + 1, 8, 5, 2.5)
+  }
+  if (isOwl) {
+    g.lineStyle(1.6, s.bodyDark, 0.6)
+    for (let index = 0; index < 3; index += 1) {
+      g.beginPath()
+      g.arc(64 - 6 + 4 * turn, y - 8 + index * 8, 10, 0.25, Math.PI - 0.25)
+      g.strokePath()
+    }
+  }
+  if (species === 'dog') {
+    if (view === 'side' || view === 'frontSide') {
+      g.lineStyle(5, 0xd9574f, 1)
+      g.lineBetween(48, y - 10, 80, y - 10)
+      g.fillStyle(0xffd166, 1)
+      g.fillCircle(64, y - 5, 5)
+      g.fillStyle(0xc98b2f, 1)
+      g.fillCircle(64, y - 5, 2.4)
+    } else {
+      g.lineStyle(4, 0xd9574f, 0.9)
+      g.lineBetween(50, y - 13, 78, y - 13)
+    }
+  }
+
+  if (turn > 0) {
+    g.fillStyle(INK, 0.05 + 0.05 * turn)
+    g.fillEllipse(64 - rx * 0.55, y, rx * 0.7, ry * 1.5)
+  }
+  if (view === 'back' || view === 'backSide') {
+    g.lineStyle(1.5, s.bodyDark, 0.35)
+    g.lineBetween(64, y - ry * 0.8, 64, y + ry * 0.6)
+  }
+
+  if (player) drawApronTurned(g, view, turn)
+}
+
+function drawHedgehogSpines(
+  g: Phaser.GameObjects.Graphics,
+  s: AnimalStyle,
+  view: AnimalView,
+): void {
+  const turn = view === 'side' ? 1 : view === 'back' ? 0 : 0.55
+  for (let index = 0; index < 13; index += 1) {
+    const x = 26 + index * 6.3
+    const tipY = 50 + Math.abs(6 - index) * 3
+    g.fillStyle(index % 2 === 0 ? s.bodyDark : s.body, 1)
+    g.fillTriangle(x - 6, 89, x + 6, 89, x, tipY)
+  }
+  const sideOffset = 18 * turn
+  for (const side of [-1, 1]) {
+    for (const offset of [-8, 4, 16]) {
+      const baseX = 64 + side * 20 - sideOffset
+      const baseY = 78 + offset
+      g.fillStyle(s.bodyDark, 1)
+      g.fillTriangle(baseX, baseY - 6, baseX, baseY + 6, baseX + side * 18, baseY)
+    }
+  }
+}
+
+function drawApronTurned(g: Phaser.GameObjects.Graphics, view: AnimalView, turn: number): void {
+  if (view === 'side' || view === 'backSide') {
+    const x = 64 + 18 * turn
+    g.fillStyle(0x5fbf9f, 1)
+    g.fillRoundedRect(x, 80, 10, 30, 4)
+    g.fillStyle(0x4aa98a, 1)
+    g.fillRoundedRect(x + 2, 92, 6, 10, 2)
+    g.lineStyle(3, 0x4aa98a, 1)
+    g.lineBetween(x + 2, 84, x - 10, 78)
+    return
+  }
+  g.lineStyle(4, 0x4aa98a, 1)
+  g.lineBetween(50, 88, 57, 72)
+  g.lineBetween(78, 88, 71, 72)
+  g.lineBetween(50, 88, 78, 104)
+  g.lineBetween(78, 88, 50, 104)
+  g.fillStyle(0x5fbf9f, 1)
+  g.fillRoundedRect(50, 100, 28, 9, 4)
+  g.fillStyle(0x4aa98a, 1)
+  g.fillCircle(64, 104, 4)
+}
+
+function drawSidePawArt(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  x: number,
+  y: number,
+): void {
+  const width = species === 'rabbit' ? 20 : species === 'hedgehog' ? 12 : 17
+  const color = species === 'panda' ? INK : s.bodyDark
+  g.fillStyle(INK, 1)
+  g.fillEllipse(x, y, width + 2, 10)
+  g.fillStyle(color, 1)
+  g.fillEllipse(x, y - 1, width, 8)
+  g.lineStyle(1, INK, 0.3)
+  g.lineBetween(x - 2, y, x - 2, y + 4)
+  g.lineBetween(x + 2, y, x + 2, y + 4)
+}
+
 function drawPawArt(
   g: Phaser.GameObjects.Graphics,
   species: SpeciesId,
@@ -625,6 +1838,24 @@ function drawBody(
   species: SpeciesId,
   s: AnimalStyle,
   player: boolean,
+  view: AnimalView,
+): void {
+  if (view === 'front') {
+    drawFrontBody(g, species, s, player)
+    return
+  }
+  if (view === 'frontSide') {
+    drawFrontBody(g, species, s, player)
+    return
+  }
+  drawTurnedBody(g, species, s, player, view)
+}
+
+function drawFrontBody(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  player: boolean,
 ): void {
   switch (species) {
     case 'bear':
@@ -673,6 +1904,20 @@ function drawBody(
 }
 
 function drawHead(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  player: boolean,
+  view: AnimalView,
+): void {
+  if (view === 'front') {
+    drawFrontHead(g, species, s, player)
+    return
+  }
+  drawTurnedHead(g, species, s, player, view)
+}
+
+function drawFrontHead(
   g: Phaser.GameObjects.Graphics,
   species: SpeciesId,
   s: AnimalStyle,

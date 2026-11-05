@@ -4,6 +4,7 @@ import {
   ANIMAL_FOOT_GAP,
   ANIMAL_SCALE,
   ANIMAL_TEXTURE_SIZE,
+  ANIMAL_VIEWS,
   animalFace,
   animalPartKey,
   animalTextureKey,
@@ -21,7 +22,11 @@ describe('animal art registry', () => {
     expect(ALL_SPECIES.length).toBe(14)
   })
 
-  it('exposes usable anchors and a unique texture key for every species', () => {
+  it('ships five directional views per rigged part', () => {
+    expect(ANIMAL_VIEWS).toEqual(['front', 'frontSide', 'side', 'backSide', 'back'])
+  })
+
+  it('exposes usable anchors and a unique texture key for every species and view', () => {
     const keys = new Set<string>()
     for (const species of ALL_SPECIES) {
       const face = animalFace(species, 1)
@@ -31,9 +36,13 @@ describe('animal art registry', () => {
       expect(face.topY).toBeLessThan(face.eyeY)
       expect(face.mouthColor).toBeGreaterThan(0)
 
-      const eyes = blinkEyes(species)
-      expect(eyes).toHaveLength(2)
-      for (const eye of eyes) expect(eye.r).toBeGreaterThan(0)
+      const frontEyes = blinkEyes(species)
+      expect(frontEyes).toHaveLength(2)
+      for (const eye of frontEyes) expect(eye.r).toBeGreaterThan(0)
+      expect(blinkEyes(species, 'side')).toHaveLength(1)
+      expect(blinkEyes(species, 'frontSide').length).toBeGreaterThanOrEqual(1)
+      expect(blinkEyes(species, 'backSide')).toHaveLength(0)
+      expect(blinkEyes(species, 'back')).toHaveLength(0)
 
       const pivot = tailPivot(species)
       expect(pivot.x).toBeGreaterThan(0)
@@ -41,18 +50,29 @@ describe('animal art registry', () => {
       expect(pivot.y).toBeGreaterThan(0)
       expect(pivot.y).toBeLessThan(ANIMAL_TEXTURE_SIZE)
 
-      const key = animalTextureKey(species)
-      expect(keys.has(key)).toBe(false)
-      keys.add(key)
-      for (const part of ['body', 'head', 'tail', 'paw'] as const) {
-        const partKey = animalPartKey(species, part)
-        expect(keys.has(partKey)).toBe(false)
-        keys.add(partKey)
+      const portrait = animalTextureKey(species)
+      expect(keys.has(portrait)).toBe(false)
+      keys.add(portrait)
+      for (const view of ANIMAL_VIEWS) {
+        for (const part of ['body', 'head', 'tail'] as const) {
+          const partKey = animalPartKey(species, part, view)
+          expect(keys.has(partKey)).toBe(false)
+          keys.add(partKey)
+          const sidePivot = tailPivot(species, view)
+          expect(sidePivot.x).toBeGreaterThan(0)
+          expect(sidePivot.x).toBeLessThan(ANIMAL_TEXTURE_SIZE)
+        }
       }
     }
 
     expect(keys.has(playerTextureKey())).toBe(false)
-    expect(keys.has(playerPartKey('body'))).toBe(false)
+    for (const view of ANIMAL_VIEWS) {
+      for (const part of ['body', 'head', 'tail'] as const) {
+        const key = playerPartKey(part, view)
+        expect(keys.has(key)).toBe(false)
+        keys.add(key)
+      }
+    }
   })
 
   it('keeps the split paw spacing and the 96-unit display footprint', () => {

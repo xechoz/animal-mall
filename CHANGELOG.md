@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Give the player, customers and staff eight-direction bodies. Walking up now
+  shows the back of the head and a back view; walking down shows the face, and
+  the four diagonals use dedicated three-quarter art. The rig turns through
+  intermediate views over a short beat, keeps the last heading when standing
+  still, and lets working staff hold a readable three-quarter pose. Front,
+  three-quarter, side and back art is generated for all 14 species; shop cards
+  and staff portraits stay front-facing. Save data and game rules are unchanged.
+
 - Ground the cast and make the shelves easier to read. The player, staff and
   customers are slightly larger and stand on layered contact/cast shadows; the
   player also gets a soft warm floor marker. A stockable shelf now answers with
