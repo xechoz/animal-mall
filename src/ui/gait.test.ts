@@ -113,3 +113,17 @@ describe('gait turn', () => {
     expect(gait.update(x, 0, now).turn).toBe(1)
   })
 })
+
+describe('grounded feet', () => {
+  it('marks walkers as grounded so a support foot can stay planted', () => {
+    const gait = new GaitAnimator(gaitProfile('bear'), 0.3)
+    gait.update(0, 0, 0)
+    expect(gait.update(1.5, 0, 16).grounded).toBe(true)
+  })
+
+  it('leaves hop gaits airborne instead of pinning the feet', () => {
+    const gait = new GaitAnimator(gaitProfile('rabbit'), 0.3)
+    gait.update(0, 0, 0)
+    expect(gait.update(1.5, 0, 16).grounded).toBe(false)
+  })
+})

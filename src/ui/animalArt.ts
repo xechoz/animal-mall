@@ -8,8 +8,8 @@ import type { AnimalView } from './heading'
  * The rig splits every animal into body, head, tail and paw textures so the
  * gait can move the parts independently; the full texture is kept for menus
  * and shop portraits. The rigged parts have five directional views, mirrored to
- * cover the eight walking headings; turned bodies bake the head in so a wide
- * flank can never cover it.
+ * cover the eight walking headings. Every view keeps the head separate so it
+ * can lag behind the body and blink without drifting off the face.
  */
 const SIZE = 128
 const BASE_SIZE = 96
@@ -45,8 +45,6 @@ type Layer = 'shadow' | 'tail' | 'feet' | 'body' | 'head'
 const ALL_LAYERS: ReadonlySet<Layer> = new Set(['shadow', 'tail', 'feet', 'body', 'head'])
 /** Everything below the head, in drawing order. */
 const BODY_LAYERS: ReadonlySet<Layer> = new Set(['shadow', 'tail', 'feet', 'body'])
-/** Turned views bake the head into the body so a wide flank cannot cover it. */
-const BODY_AND_HEAD: ReadonlySet<Layer> = new Set(['body', 'head'])
 
 const PART_LAYERS: Readonly<Record<Exclude<AnimalPart, 'paw'>, ReadonlySet<Layer>>> = {
   body: new Set(['body']),
@@ -410,9 +408,9 @@ export function playerPartKey(part: AnimalPart, view: AnimalView = 'front'): str
   return view === 'front' ? `animal-player-${part}` : `animal-player-${view}-${part}`
 }
 
-/** Side-on paws read better than the rounded front paw at a quarter turn. */
+/** Turned views need a leg with a real foot; only the straight-on views keep the front paw. */
 export function pawView(view: AnimalView): 'front' | 'side' {
-  return view === 'side' || view === 'frontSide' ? 'side' : 'front'
+  return view === 'front' || view === 'back' ? 'front' : 'side'
 }
 
 export function createAnimalTextures(scene: Phaser.Scene): void {
@@ -423,11 +421,8 @@ export function createAnimalTextures(scene: Phaser.Scene): void {
     )
     for (const view of ANIMAL_VIEWS) {
       for (const part of ['body', 'head', 'tail'] as const) {
-        // Turned bodies bake the head in; only the front needs a separate head.
-        if (part === 'head' && view !== 'front') continue
-        const layers = part === 'body' && view !== 'front' ? BODY_AND_HEAD : PART_LAYERS[part]
         createTexture(scene, animalPartKey(species, part, view), () =>
-          drawAnimal(scene, species, false, layers, view),
+          drawAnimal(scene, species, false, PART_LAYERS[part], view),
         )
       }
     }
@@ -437,9 +432,8 @@ export function createAnimalTextures(scene: Phaser.Scene): void {
   }
   for (const view of ANIMAL_VIEWS) {
     for (const part of ['body', 'head', 'tail'] as const) {
-      const layers = part === 'body' && view !== 'front' ? BODY_AND_HEAD : PART_LAYERS[part]
       createTexture(scene, playerPartKey(part, view), () =>
-        drawAnimal(scene, 'bear', true, layers, view),
+        drawAnimal(scene, 'bear', true, PART_LAYERS[part], view),
       )
     }
   }
@@ -464,7 +458,9 @@ function drawPaw(
   view: 'front' | 'side' = 'front',
 ): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics()
-  if (view === 'side') drawSidePawArt(g, species, STYLES[species], FOOT_LEFT, 112)
+  // The side part is drawn around the texture centre so the rig can place the
+  // leg at the foot position without an extra anchor offset.
+  if (view === 'side') drawSidePawArt(g, species, STYLES[species], 64, 112)
   else drawPawArt(g, species, STYLES[species], FOOT_LEFT, 112)
   return g
 }
@@ -511,6 +507,7 @@ function drawAnimalInto(
 /**
  * A role's body piece with clothing baked in: the staff rig swaps this texture
  * in for the bare `body` part so the uniform inherits every gait transform.
+ * The head stays a separate part so it can bob and blink in every view.
  */
 export function drawClothedBody(
   scene: Phaser.Scene,
@@ -521,7 +518,6 @@ export function drawClothedBody(
   const g = scene.add.graphics()
   drawAnimalInto(g, species, false, PART_LAYERS.body, view)
   dress(g, view)
-  if (view !== 'front') drawAnimalInto(g, species, false, PART_LAYERS.head, view)
   return g
 }
 
@@ -1579,6 +1575,11 @@ function drawCapBack(g: Phaser.GameObjects.Graphics): void {
   g.lineBetween(78, 30, 84, 34)
 }
 
+/**
+ * Turned bodies are built from a chest, a belly and a haunch so a profile reads
+ * as an animal instead of a circle with a turned head. The front and back views
+ * stay symmetric; only the three-quarter and side views stagger the masses.
+ */
 function drawTurnedBody(
   g: Phaser.GameObjects.Graphics,
   species: SpeciesId,
@@ -1587,121 +1588,214 @@ function drawTurnedBody(
   view: AnimalView,
 ): void {
   const turn = view === 'side' ? 1 : view === 'back' ? 0 : 0.55
+  const backView = view === 'back' || view === 'backSide'
   const isOwl = species === 'owl'
   const isFrog = species === 'frog'
   const isHedgehog = species === 'hedgehog'
-  const rx = isOwl
-    ? 28
-    : isFrog
-      ? 31
-      : isHedgehog
-        ? 23
-        : view === 'side'
-          ? 26
-          : view === 'backSide'
-            ? 27
-            : 29
-  const ry = isOwl ? 26 : isFrog ? 24 : isHedgehog ? 17 : 22
-  const y = isHedgehog ? 96 : 92
+  const bodyY = isHedgehog ? 94 : isFrog ? 90 : isOwl ? 89 : 89
 
   if (isHedgehog) drawHedgehogSpines(g, s, view)
   if (isFrog) {
     g.fillStyle(s.bodyDark, 0.45)
     for (const [sx, sy, r] of [
-      [43, 86, 5],
-      [54, 98, 4],
-      [80, 88, 4.5],
-      [88, 102, 3.5],
+      [46, bodyY - 2, 5],
+      [57, bodyY + 8, 4],
+      [72, bodyY - 2, 4.5],
+      [80, bodyY + 10, 3.5],
     ] as const) {
       g.fillCircle(sx, sy, r)
     }
   }
 
+  if (view === 'back') {
+    drawTurnedBackBody(g, species, s)
+  } else {
+    drawTurnedProfileBody(g, species, s, bodyY, turn)
+  }
+
+  if (species === 'deer') {
+    g.fillStyle(s.accent, 0.8)
+    for (const [sx, sy] of [
+      [51, bodyY - 2],
+      [61, bodyY - 8],
+      [76, bodyY - 2],
+      [84, bodyY - 8],
+      [65, bodyY + 5],
+    ] as const) {
+      g.fillCircle(sx, sy, 2.4)
+    }
+  }
+
+  if (!backView) {
+    g.fillStyle(s.face, 0.8)
+    g.fillEllipse(64 + 10 * turn, bodyY + 9, 24, 14)
+  }
+
+  if (species === 'duck') {
+    g.fillStyle(s.bodyLight, 1)
+    g.fillEllipse(62 + 10 * turn, bodyY - 2, 17, 23)
+    g.fillStyle(s.accent, 0.85)
+    g.fillRoundedRect(60 + 10 * turn, bodyY + 1, 8, 5, 2.5)
+  }
+  if (isOwl) {
+    g.lineStyle(1.6, s.bodyDark, 0.6)
+    for (let index = 0; index < 3; index += 1) {
+      g.beginPath()
+      g.arc(61 + 6 * turn, bodyY - 9 + index * 8, 10, 0.25, Math.PI - 0.25)
+      g.strokePath()
+    }
+  }
+  if (species === 'dog') {
+    if (!backView) {
+      g.lineStyle(5, 0xd9574f, 1)
+      g.lineBetween(66 + 6 * turn, bodyY - 8, 82 + 6 * turn, bodyY - 8)
+      g.fillStyle(0xffd166, 1)
+      g.fillCircle(74 + 6 * turn, bodyY - 3, 5)
+      g.fillStyle(0xc98b2f, 1)
+      g.fillCircle(74 + 6 * turn, bodyY - 3, 2.4)
+    } else {
+      g.lineStyle(4, 0xd9574f, 0.9)
+      g.lineBetween(50, bodyY - 13, 78, bodyY - 13)
+    }
+  }
+
+  if (view === 'back') drawTurnedBackArms(g, species, s, bodyY)
+
+  if (turn > 0) {
+    g.fillStyle(INK, 0.05 + 0.05 * turn)
+    g.fillEllipse(44, bodyY + 2, 20, 28)
+  }
+  if (backView) {
+    g.lineStyle(1.5, s.bodyDark, 0.35)
+    g.lineBetween(64, bodyY - 15, 64, bodyY + 12)
+  }
+
+  if (player) drawApronTurned(g, view, turn)
+  // The near arm hangs over the apron, so it goes on last.
+  if (view !== 'back') drawTurnedNearArm(g, species, s, bodyY, turn)
+}
+
+/** Round torso for the straight-from-behind view; the head carries the identity. */
+function drawTurnedBackBody(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+): void {
+  const isOwl = species === 'owl'
+  const isFrog = species === 'frog'
+  const isHedgehog = species === 'hedgehog'
+  const rx = isOwl ? 28 : isFrog ? 31 : isHedgehog ? 23 : 28
+  const ry = isOwl ? 26 : isFrog ? 24 : isHedgehog ? 17 : 21
+  const y = isHedgehog ? 96 : 91
   g.fillStyle(INK, 1)
   g.fillEllipse(64, y, rx * 2 + 2, ry * 2 + 2)
   g.fillStyle(s.bodyDark, 1)
   g.fillEllipse(64, y, rx * 2, ry * 2)
   g.fillStyle(s.body, 1)
   g.fillEllipse(63, y - 1, rx * 2 - 4, ry * 2 - 4)
-  g.fillStyle(WHITE, 0.15)
+  g.fillStyle(WHITE, 0.14)
   g.fillEllipse(64 - rx * 0.35, y - ry * 0.55, 18, 10)
+}
 
-  if (species === 'deer') {
-    g.fillStyle(s.accent, 0.8)
-    for (const [sx, sy] of [
-      [48, 88],
-      [58, 82],
-      [76, 88],
-      [84, 82],
-      [65, 94],
-    ] as const) {
-      g.fillCircle(sx, sy, 2.4)
-    }
+/**
+ * Profile torso: chest forward, haunch behind, belly lifted off the ground so
+ * the legs show. Three overlapping masses give the silhouette a readable front
+ * and rear without drawing an internal outline.
+ */
+function drawTurnedProfileBody(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  bodyY: number,
+  turn: number,
+): void {
+  const isOwl = species === 'owl'
+  const isFrog = species === 'frog'
+  const isHedgehog = species === 'hedgehog'
+  const baseRX = isOwl ? 27 : isFrog ? 30 : isHedgehog ? 22 : 28
+  const baseRY = isOwl ? 22 : isFrog ? 20 : isHedgehog ? 16 : 19
+  const offset = 7 + 4 * turn
+  const chestX = 64 + offset
+  const haunchX = 64 - offset
+  const chestY = bodyY - 1
+  const haunchY = bodyY + 3
+  const bellyY = bodyY + 5
+  const chestRX = baseRX * 0.6
+  const chestRY = baseRY * 0.82
+  const haunchRX = baseRX * 0.6
+  const haunchRY = baseRY * 0.78
+  const bellyRX = baseRX * 0.62
+  const bellyRY = baseRY * 0.55
+  const masses = [
+    { x: haunchX, y: haunchY, rx: haunchRX, ry: haunchRY },
+    { x: chestX, y: chestY, rx: chestRX, ry: chestRY },
+    { x: 64, y: bellyY, rx: bellyRX, ry: bellyRY },
+  ] as const
+
+  for (const mass of masses) {
+    g.fillStyle(INK, 1)
+    g.fillEllipse(mass.x, mass.y, mass.rx * 2 + 2, mass.ry * 2 + 2)
+  }
+  for (const mass of masses) {
+    g.fillStyle(s.bodyDark, 1)
+    g.fillEllipse(mass.x, mass.y, mass.rx * 2 - 1, mass.ry * 2 - 1)
+  }
+  for (const mass of masses) {
+    g.fillStyle(s.body, 1)
+    g.fillEllipse(mass.x, mass.y - 1, mass.rx * 2 - 5, mass.ry * 2 - 5)
   }
 
-  if (view === 'side' || view === 'frontSide') {
-    g.fillStyle(s.face, 0.8)
-    g.fillEllipse(64 + 8 * turn, y + 10, 28, 18)
-  }
+  // Bridge the waist so the two masses read as one body, then shade the haunch
+  // and catch the light on the chest so the profile is not a flat blob.
+  g.fillStyle(s.body, 1)
+  g.fillEllipse(64, bodyY - 2, 18, baseRY * 1.5)
+  g.fillStyle(s.bodyDark, 0.22)
+  g.fillEllipse(haunchX - 3, haunchY + 1, haunchRX * 1.5, haunchRY * 1.7)
+  g.fillStyle(WHITE, 0.14)
+  g.fillEllipse(chestX - 3, chestY - chestRY * 0.45, 15, 8)
+}
 
+/** One near-side arm in profile; the far arm is hidden behind the torso. */
+function drawTurnedNearArm(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  bodyY: number,
+  turn: number,
+): void {
+  const x = 72 + 3 * turn
+  const top = bodyY - 4
+  const height = 12
+  const width = species === 'panda' ? 12 : 11
+  const fill = species === 'panda' ? INK : s.bodyDark
+  const highlight = species === 'panda' ? 0x4a4045 : s.body
+  g.fillStyle(INK, 1)
+  g.fillRoundedRect(x - width / 2 - 1, top - 1, width + 2, height + 2, width / 2)
+  g.fillStyle(fill, 1)
+  g.fillRoundedRect(x - width / 2, top, width, height, width / 2 - 1)
+  g.fillStyle(highlight, 1)
+  g.fillRoundedRect(x - width / 2 + 2, top + 1, Math.max(2, width - 4), height - 3, 3)
+}
+
+function drawTurnedBackArms(
+  g: Phaser.GameObjects.Graphics,
+  species: SpeciesId,
+  s: AnimalStyle,
+  bodyY: number,
+): void {
+  const y = bodyY - 1
   if (species === 'panda') {
     g.fillStyle(INK, 1)
-    g.fillRoundedRect(28, y - 10, 13, 28, 6)
-    g.fillRoundedRect(87, y - 10, 13, 28, 6)
-  } else if (view === 'side') {
-    g.fillStyle(s.bodyDark, 0.55)
-    g.fillRoundedRect(31, y - 7, 10, 20, 5)
+    g.fillRoundedRect(29, y - 9, 12, 24, 6)
+    g.fillRoundedRect(87, y - 9, 12, 24, 6)
+    return
+  }
+  for (const x of [29, 87]) {
     g.fillStyle(s.bodyDark, 1)
-    g.fillRoundedRect(83, y - 9, 13, 22, 6)
+    g.fillRoundedRect(x, y - 9, 12, 22, 6)
     g.fillStyle(s.body, 1)
-    g.fillRoundedRect(85, y - 7, 9, 17, 4)
-  } else {
-    g.fillStyle(s.bodyDark, 1)
-    g.fillRoundedRect(29, y - 9, 12, 22, 6)
-    g.fillRoundedRect(87, y - 9, 12, 22, 6)
-    g.fillStyle(s.body, 1)
-    g.fillRoundedRect(31, y - 7, 8, 17, 4)
-    g.fillRoundedRect(89, y - 7, 8, 17, 4)
+    g.fillRoundedRect(x + 2, y - 7, 8, 17, 4)
   }
-
-  if (species === 'duck') {
-    g.fillStyle(s.bodyLight, 1)
-    g.fillEllipse(62 + 6 * turn, y - 2, 16, 22)
-    g.fillStyle(s.accent, 0.85)
-    g.fillRoundedRect(60 + 6 * turn, y + 1, 8, 5, 2.5)
-  }
-  if (isOwl) {
-    g.lineStyle(1.6, s.bodyDark, 0.6)
-    for (let index = 0; index < 3; index += 1) {
-      g.beginPath()
-      g.arc(64 - 6 + 4 * turn, y - 8 + index * 8, 10, 0.25, Math.PI - 0.25)
-      g.strokePath()
-    }
-  }
-  if (species === 'dog') {
-    if (view === 'side' || view === 'frontSide') {
-      g.lineStyle(5, 0xd9574f, 1)
-      g.lineBetween(48, y - 10, 80, y - 10)
-      g.fillStyle(0xffd166, 1)
-      g.fillCircle(64, y - 5, 5)
-      g.fillStyle(0xc98b2f, 1)
-      g.fillCircle(64, y - 5, 2.4)
-    } else {
-      g.lineStyle(4, 0xd9574f, 0.9)
-      g.lineBetween(50, y - 13, 78, y - 13)
-    }
-  }
-
-  if (turn > 0) {
-    g.fillStyle(INK, 0.05 + 0.05 * turn)
-    g.fillEllipse(64 - rx * 0.55, y, rx * 0.7, ry * 1.5)
-  }
-  if (view === 'back' || view === 'backSide') {
-    g.lineStyle(1.5, s.bodyDark, 0.35)
-    g.lineBetween(64, y - ry * 0.8, 64, y + ry * 0.6)
-  }
-
-  if (player) drawApronTurned(g, view, turn)
 }
 
 function drawHedgehogSpines(
@@ -1729,26 +1823,32 @@ function drawHedgehogSpines(
 
 function drawApronTurned(g: Phaser.GameObjects.Graphics, view: AnimalView, turn: number): void {
   if (view === 'side' || view === 'backSide') {
-    const x = 64 + 18 * turn
+    const x = 64 + 14 * turn
     g.fillStyle(0x5fbf9f, 1)
-    g.fillRoundedRect(x, 80, 10, 30, 4)
+    g.fillRoundedRect(x, 80, 11, 27, 4)
     g.fillStyle(0x4aa98a, 1)
-    g.fillRoundedRect(x + 2, 92, 6, 10, 2)
+    g.fillRoundedRect(x + 2, 91, 7, 10, 2)
     g.lineStyle(3, 0x4aa98a, 1)
-    g.lineBetween(x + 2, 84, x - 10, 78)
+    g.lineBetween(x + 2, 84, x - 12, 78)
     return
   }
+  const shift = 4 * turn
   g.lineStyle(4, 0x4aa98a, 1)
-  g.lineBetween(50, 88, 57, 72)
-  g.lineBetween(78, 88, 71, 72)
-  g.lineBetween(50, 88, 78, 104)
-  g.lineBetween(78, 88, 50, 104)
+  g.lineBetween(50 + shift, 88, 57 + shift, 72)
+  g.lineBetween(78 + shift, 88, 71 + shift, 72)
+  g.lineBetween(50 + shift, 88, 78 + shift, 104)
+  g.lineBetween(78 + shift, 88, 50 + shift, 104)
   g.fillStyle(0x5fbf9f, 1)
-  g.fillRoundedRect(50, 100, 28, 9, 4)
+  g.fillRoundedRect(50 + shift, 100, 28, 9, 4)
   g.fillStyle(0x4aa98a, 1)
-  g.fillCircle(64, 104, 4)
+  g.fillCircle(64 + shift, 104, 4)
 }
 
+/**
+ * Profile leg and foot. The old side paw was a flat oval hidden under the
+ * belly, which is why turned animals looked like they were sliding. The leg
+ * rises into the body so only the lower half shows below the raised belly.
+ */
 function drawSidePawArt(
   g: Phaser.GameObjects.Graphics,
   species: SpeciesId,
@@ -1756,15 +1856,27 @@ function drawSidePawArt(
   x: number,
   y: number,
 ): void {
-  const width = species === 'rabbit' ? 20 : species === 'hedgehog' ? 12 : 17
-  const color = species === 'panda' ? INK : s.bodyDark
+  const legWidth = species === 'rabbit' ? 10 : species === 'hedgehog' ? 7 : 9
+  const footWidth = species === 'rabbit' ? 20 : species === 'hedgehog' ? 12 : 16
+  const bird = species === 'duck' || species === 'owl'
+  const panda = species === 'panda'
+  const legColor = bird ? BEAK : panda ? INK : s.bodyDark
+  const highlight = bird ? 0xffc76a : panda ? 0x4a4045 : s.body
+  const footColor = bird ? BEAK : panda ? INK : s.bodyDark
+  const top = y - 14
+
   g.fillStyle(INK, 1)
-  g.fillEllipse(x, y, width + 2, 10)
-  g.fillStyle(color, 1)
-  g.fillEllipse(x, y - 1, width, 8)
+  g.fillRoundedRect(x - legWidth / 2 - 1, top - 1, legWidth + 2, 16, legWidth / 2 + 1)
+  g.fillEllipse(x, y, footWidth + 2, 11)
+  g.fillStyle(legColor, 1)
+  g.fillRoundedRect(x - legWidth / 2, top, legWidth, 14, legWidth / 2)
+  g.fillStyle(highlight, 1)
+  g.fillRoundedRect(x - legWidth / 2 + 2, top + 2, Math.max(2, legWidth - 4), 10, 2)
+  g.fillStyle(footColor, 1)
+  g.fillEllipse(x, y - 1, footWidth, 9)
   g.lineStyle(1, INK, 0.3)
-  g.lineBetween(x - 2, y, x - 2, y + 4)
-  g.lineBetween(x + 2, y, x + 2, y + 4)
+  g.lineBetween(x - 2, y + 1, x - 2, y + 5)
+  g.lineBetween(x + 2, y + 1, x + 2, y + 5)
 }
 
 function drawPawArt(
@@ -1841,10 +1953,6 @@ function drawBody(
   view: AnimalView,
 ): void {
   if (view === 'front') {
-    drawFrontBody(g, species, s, player)
-    return
-  }
-  if (view === 'frontSide') {
     drawFrontBody(g, species, s, player)
     return
   }

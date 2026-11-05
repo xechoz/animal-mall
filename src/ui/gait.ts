@@ -271,6 +271,12 @@ export interface GaitFrame {
   readonly weight: number
   readonly landed: boolean
   readonly blink: boolean
+  /**
+   * True for gaits that keep at least one foot on the ground. The rig cancels
+   * the body bob for the feet so the support foot does not slide; hop profiles
+   * leave both feet in the air.
+   */
+  readonly grounded: boolean
 }
 
 const ZERO_FOOT: FootPose = { x: 0, y: 0, rotation: 0, scaleY: 1 }
@@ -461,6 +467,7 @@ export class GaitAnimator {
       weight,
       landed: this.landing && weight > 0.35,
       blink: now < this.blinkUntil,
+      grounded: profile.kind !== 'hop',
     }
   }
 }

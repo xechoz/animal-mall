@@ -9,6 +9,7 @@ import {
   animalPartKey,
   animalTextureKey,
   blinkEyes,
+  pawView,
   playerPartKey,
   playerTextureKey,
   tailPivot,
@@ -73,6 +74,14 @@ describe('animal art registry', () => {
         keys.add(key)
       }
     }
+  })
+
+  it('uses the leg-and-foot art for every turned view', () => {
+    expect(pawView('front')).toBe('front')
+    expect(pawView('back')).toBe('front')
+    expect(pawView('frontSide')).toBe('side')
+    expect(pawView('side')).toBe('side')
+    expect(pawView('backSide')).toBe('side')
   })
 
   it('keeps the split paw spacing and the 96-unit display footprint', () => {

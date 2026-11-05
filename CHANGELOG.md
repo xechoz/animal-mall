@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Rebuild the turned animal bodies as profiles. Side and three-quarter views now
+  use a chest/haunch silhouette, one near-side arm and fore/aft legs with a real
+  leg-and-foot texture instead of a front torso with a turned head. The support
+  foot stays planted while the body bobs, the head is a separate part in every
+  view so it can lag and blink, and the staff uniform follows the turned torso.
+  Game rules, save data and collision are unchanged.
+
 - Give the player, customers and staff eight-direction bodies. Walking up now
   shows the back of the head and a back view; walking down shows the face, and
   the four diagonals use dedicated three-quarter art. The rig turns through

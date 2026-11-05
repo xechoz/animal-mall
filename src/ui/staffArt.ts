@@ -96,8 +96,8 @@ function drawUniform(g: Phaser.GameObjects.Graphics, kind: StaffKind, view: Anim
     drawUniformBack(g, kind, u, view)
     return
   }
-  if (view === 'side') {
-    drawUniformSide(g, kind, u)
+  if (view === 'side' || view === 'frontSide') {
+    drawUniformSide(g, kind, u, view)
     return
   }
 
@@ -121,24 +121,48 @@ function drawUniform(g: Phaser.GameObjects.Graphics, kind: StaffKind, view: Anim
   if (kind === 'chef') drawChefKit(g, u)
 }
 
-function drawUniformSide(g: Phaser.GameObjects.Graphics, kind: StaffKind, u: StaffUniform): void {
+function drawUniformSide(
+  g: Phaser.GameObjects.Graphics,
+  kind: StaffKind,
+  u: StaffUniform,
+  view: AnimalView,
+): void {
+  const turn = view === 'frontSide' ? 0.55 : 1
+  const shirtX = 64 + turn
   g.fillStyle(u.shirt, 1)
-  g.fillEllipse(64, 94, 42, 32)
+  g.fillEllipse(shirtX, 91, 50 + 4 * turn, 30)
+  // The turned torso takes a yoke and one near sleeve; the far sleeve is
+  // hidden behind the body exactly like the near arm in the animal art.
   g.fillStyle(u.shirtDark, 1)
-  g.fillRoundedRect(80, 85, 13, 15, 6)
+  g.fillRoundedRect(58 + 6 * turn, 80, 27, 8, 4)
+  g.fillRoundedRect(66 + 5 * turn, 83, 15, 16, 7)
   g.fillStyle(u.trim, 1)
-  g.fillRoundedRect(52, 80, 20, 7, 3.5)
+  g.fillRoundedRect(67 + 5 * turn, 95, 13, 4, 2)
+  g.fillRoundedRect(64 + 7 * turn, 78, 20, 7, 3.5)
   g.lineStyle(1.5, u.trimDark, 0.7)
-  g.lineBetween(52, 87, 72, 87)
+  g.lineBetween(66 + 7 * turn, 85, 82 + 7 * turn, 85)
   g.fillStyle(u.badge, 1)
-  g.fillRoundedRect(78, 90, 7, 6, 2)
+  g.fillRoundedRect(84, 90, 7, 6, 2)
   if (kind === 'picker') {
     g.fillStyle(u.trimDark, 1)
-    g.fillRoundedRect(46, 102, 36, 5, 2)
+    g.fillRoundedRect(42 + 4 * turn, 102, 38, 5, 2)
+    g.lineStyle(3, u.shirtDark, 1)
+    g.lineBetween(62 + 6 * turn, 80, 59 + 6 * turn, 94)
   }
   if (kind === 'chef') {
     g.fillStyle(u.badge, 1)
-    g.fillTriangle(56, 80, 66, 80, 60, 92)
+    g.fillTriangle(66 + 6 * turn, 80, 76 + 6 * turn, 80, 70 + 6 * turn, 90)
+    for (let row = 0; row < 2; row += 1) {
+      g.fillStyle(u.badge, 1)
+      g.fillCircle(70 + 6 * turn, 92 + row * 6, 2)
+      g.fillCircle(80 + 6 * turn, 92 + row * 6, 2)
+    }
+  }
+  if (kind === 'cashier') {
+    g.fillStyle(u.trim, 1)
+    g.fillRoundedRect(60 + 6 * turn, 88, 20, 14, 5)
+    g.fillStyle(u.trimDark, 0.55)
+    g.fillRoundedRect(65 + 6 * turn, 95, 11, 6, 2)
   }
 }
 
@@ -148,13 +172,14 @@ function drawUniformBack(
   u: StaffUniform,
   view: AnimalView,
 ): void {
-  const shift = view === 'backSide' ? 4 : 0
+  const backSide = view === 'backSide'
+  const shift = backSide ? 4 : 0
   g.fillStyle(u.shirt, 1)
-  g.fillEllipse(64, 94, 46, 32)
+  g.fillEllipse(64, backSide ? 92 : 94, backSide ? 54 : 46, 32)
   g.fillStyle(u.shirtDark, 1)
   g.fillRoundedRect(46 + shift, 82, 36, 8, 4)
-  g.fillRoundedRect(33 + shift, 85, 13, 15, 6)
-  g.fillRoundedRect(82 + shift, 85, 13, 15, 6)
+  g.fillRoundedRect(backSide ? 38 : 33, 85, 13, 15, 6)
+  g.fillRoundedRect(backSide ? 79 : 82, 85, 13, 15, 6)
   g.fillStyle(u.trim, 1)
   g.fillRoundedRect(52 + shift, 79, 24, 6, 3)
   g.fillStyle(u.trimDark, 1)

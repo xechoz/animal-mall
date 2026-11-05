@@ -59,24 +59,37 @@ export interface RigPose {
 const TEXTURE_ANCHOR_Y = ANIMAL_TEXTURE_SIZE * ANIMAL_ORIGIN_Y
 const BASE_SCALE = 0.82
 /** One 45-degree step of the turn animation. */
-const TURN_STEP_MS = 34
+const TURN_STEP_MS = 48
 /** A jump larger than this is a teleport, not a walk. */
 const TELEPORT_DISTANCE = 64
 
+/**
+ * Turned views read as walking only when the two legs sit fore and aft along
+ * the travel axis. The front and back views keep the symmetric stance.
+ */
 const FOOT_GAP: Readonly<Record<AnimalView, number>> = {
   front: ANIMAL_FOOT_GAP,
-  frontSide: 14,
-  side: 7,
-  backSide: 12,
+  frontSide: 18,
+  side: 22,
+  backSide: 18,
   back: ANIMAL_FOOT_GAP,
 }
 
 const FOOT_SHIFT: Readonly<Record<AnimalView, number>> = {
   front: 0,
-  frontSide: 3,
-  side: 6,
-  backSide: 1,
+  frontSide: -6,
+  side: -10,
+  backSide: -7,
   back: 0,
+}
+
+/** Turned legs need a longer stride than the hidden front paws. */
+const FOOT_MOTION: Readonly<Record<AnimalView, number>> = {
+  front: 1,
+  frontSide: 1.15,
+  side: 1.35,
+  backSide: 1.15,
+  back: 1,
 }
 
 /**
@@ -275,9 +288,13 @@ export class AnimalRig extends Phaser.GameObjects.Container {
 
     const gap = FOOT_GAP[this.viewValue] * this.baseScale
     const shift = FOOT_SHIFT[this.viewValue] * this.baseScale
+    const motion = FOOT_MOTION[this.viewValue]
+    const liftScaleY = frame.squashY * (pose.scaleY ?? 1)
     this.feet.setScale(this.mirrorValue, 1)
-    this.placeFoot(this.pawLeft, this.mirrorValue * shift, frame.footLeft)
-    this.placeFoot(this.pawRight, this.mirrorValue * (shift + gap), frame.footRight)
+    // The body bobs on the planted leg instead of carrying both feet with it.
+    this.feet.setY(frame.grounded ? (frame.lift - (pose.y ?? 0)) / liftScaleY : 0)
+    this.placeFoot(this.pawLeft, shift, frame.footLeft, motion)
+    this.placeFoot(this.pawRight, shift + gap, frame.footRight, motion)
 
     this.bodyImage.setScale(this.mirrorValue * this.baseScale, this.baseScale)
     this.headImage
@@ -339,19 +356,18 @@ export class AnimalRig extends Phaser.GameObjects.Container {
     this.viewValue = view
     this.bodyImage.setTexture(this.partKey('body', view))
     this.tailImage.setTexture(this.partKey('tail', view))
-    // Turned bodies bake the head in so the wide side silhouette cannot cover
-    // it; only the front view keeps a separately animated head.
-    const attached = view !== 'front'
-    this.headImage.setVisible(!attached)
-    if (!attached) this.headImage.setTexture(this.partKey('head', view))
+    // Every view keeps the head as its own image so the gait can lag and bob it
+    // and the blink overlay stays glued to the eyes.
+    this.headImage.setVisible(true).setTexture(this.partKey('head', view))
     const paw = pawView(view)
     const pawKey = this.partKey('paw', paw)
     this.pawLeft.setTexture(pawKey)
     this.pawRight.setTexture(pawKey)
 
-    // From behind the tail sits on the back, not behind the silhouette.
+    // From behind the tail sits on the back, not behind the silhouette, but it
+    // still belongs under the head so a squirrel tail cannot cover the ears.
     const tailOnTop = view === 'back'
-    this.tailImage.setDepth(tailOnTop ? 3.5 : 0)
+    this.tailImage.setDepth(tailOnTop ? 2.5 : 0)
     if (tailOnTop) this.lift.moveAbove(this.tailImage, this.bodyImage)
     else this.lift.moveBelow(this.tailImage, this.bodyImage)
 
@@ -372,8 +388,9 @@ export class AnimalRig extends Phaser.GameObjects.Container {
     paw: Phaser.GameObjects.Image,
     baseX: number,
     foot: GaitFrame['footLeft'],
+    motion: number,
   ): void {
-    paw.setPosition(baseX + foot.x, foot.y)
+    paw.setPosition(baseX + foot.x * motion, foot.y * motion)
     paw.setRotation(foot.rotation)
     paw.setScale(this.baseScale, this.baseScale * foot.scaleY)
   }
