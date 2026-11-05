@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Dress the four shop zones as places instead of tinted rectangles. Seedbeds
+  gain a low timber/earth lip and a seed packet clipped to the front edge, pen
+  fences are taller with ground shadows, and the orchard, field, farm and
+  scullery use layered lawn, furrow, straw and checker-tile textures. Soft
+  patch edges and a few ground props (produce crates, burlap sacks, buckets)
+  break up the large empty areas. Collision, hit areas, save data and game
+  rules are unchanged.
+
 - Turn the game scene into a cutaway 2.5D stage. A wooden platform base, a
   vertical plank back wall, deeper floor grain, warm/cool floor light, baked
   contact and cast shadows, and a screen vignette now frame the existing

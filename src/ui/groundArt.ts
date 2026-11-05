@@ -72,9 +72,10 @@ export function drawClover(g: Phaser.GameObjects.Graphics, x: number, y: number,
 }
 
 /**
- * A flat, mostly rectangular seedbed. The dark rim, tilled grooves, soil
- * surface and crumbs keep it from reading as a UI card while still matching the
- * rectangular `PLOT_SIZE` footprint.
+ * A low raised seedbed. The footprint still matches `PLOT_SIZE`, but a short
+ * front lip, a shaded side and a soft cast shadow make the soil read as a
+ * shallow box instead of a painted rectangle. Crops keep their existing anchor
+ * at the bed centre.
  */
 export function drawTilledBed(
   g: Phaser.GameObjects.Graphics,
@@ -87,21 +88,48 @@ export function drawTilledBed(
   const left = x - shape.w / 2
   const top = y - shape.h / 2
   const radius = shape.radius
+  const lip = 4
+  const soilBottom = top + shape.h - 6
 
-  // Tilled soil is a flat patch, not a table. A soft offset shadow grounds it;
-  // the soil edge, furrows and crumbs carry the depth instead of a front face.
-  g.fillStyle(0x3b2f3a, 0.12)
-  g.fillRoundedRect(left + 2, top + 4, shape.w, shape.h, radius)
+  // Long, soft cast shadow first; the bed body covers most of it.
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillRoundedRect(left + 3, top + 5, shape.w, shape.h + lip, radius + 2)
+  g.fillStyle(0x1a120c, 0.06)
+  g.fillRoundedRect(left + 9, top + 11, shape.w + 4, shape.h + lip + 2, radius + 3)
+
+  // Timber/earth rim and its front face.
   g.fillStyle(palette.rim, 1)
-  g.fillRoundedRect(left, top, shape.w, shape.h, radius)
+  g.fillRoundedRect(left, top, shape.w, shape.h + lip, radius)
   g.fillStyle(palette.base, 1)
-  g.fillRoundedRect(left + 2, top + 2, shape.w - 4, shape.h - 4, Math.max(1, radius - 1))
-  g.fillStyle(palette.top, 0.92)
-  g.fillRoundedRect(left + 4, top + 4, shape.w - 8, shape.h - 8, Math.max(1, radius - 2))
-  g.fillStyle(palette.light, 0.45)
-  g.fillRoundedRect(left + 6, top + 5, shape.w - 12, 3.5, 1.8)
-  g.fillStyle(0x3b2f3a, 0.1)
-  g.fillRoundedRect(left + 4, top + shape.h - 8, shape.w - 8, 4, 2)
+  g.fillRoundedRect(left + 2, top + 2, shape.w - 4, shape.h + lip - 4, Math.max(1, radius - 1))
+
+  // Tilled top face. It stops above the lip, which is drawn afterwards.
+  g.fillStyle(palette.top, 0.98)
+  g.fillRoundedRect(
+    left + 3.5,
+    top + 3.5,
+    shape.w - 7,
+    soilBottom - top - 3.5,
+    Math.max(1, radius - 2),
+  )
+  g.fillStyle(palette.light, 0.42)
+  g.fillRoundedRect(left + 7, top + 5, shape.w - 14, 3, 1.5)
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillRoundedRect(left + 4, soilBottom - 3, shape.w - 8, 3.5, 1.8)
+
+  // Front lip catches the light on top and falls into shadow underneath.
+  g.fillStyle(palette.rim, 1)
+  g.fillRoundedRect(left, soilBottom - 2, shape.w, shape.h + lip - (soilBottom - top) + 2, radius)
+  g.fillStyle(palette.light, 0.35)
+  g.fillRoundedRect(left + 3, soilBottom - 1, shape.w - 6, 1.5, 0.75)
+  g.fillStyle(0x1a120c, 0.2)
+  g.fillRoundedRect(left + 3, top + shape.h + lip - 2.5, shape.w - 6, 2.5, 1.2)
+
+  // Side shading: light on the left, a narrow dark plane on the right.
+  g.fillStyle(palette.light, 0.18)
+  g.fillRoundedRect(left + 2, top + 4, 2, shape.h + lip - 8, 1)
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillRoundedRect(left + shape.w - 4, top + 4, 2, shape.h + lip - 8, 1)
 
   drawFurrows(g, x, y, shape, palette, zone)
   drawSoilSpecks(g, x, y, shape, palette)
@@ -112,6 +140,10 @@ export function drawTilledBed(
   if (zone === 'fruit') {
     g.fillEllipse(left + shape.w + 1, top + shape.h * 0.34, 3.5, 2.6)
   }
+  // Small clods spilling over the front lip.
+  g.fillStyle(palette.speckLight, 0.5)
+  g.fillEllipse(left + shape.w * 0.2, top + shape.h + lip - 1, 3.4, 2)
+  g.fillEllipse(left + shape.w * 0.72, top + shape.h + lip - 0.5, 2.6, 1.6)
 }
 
 /**
@@ -138,7 +170,9 @@ export function drawEmptyBed(
     g.fillEllipse(holeX, holeY - 0.7, 1.6, 0.9)
   }
 
-  drawSeedPacket(g, x + shape.w * 0.34, y + shape.h * 0.2, zone === 'veg' ? 0.8 : 1)
+  // The packet sits on the front lip, like a label clipped to the bed edge,
+  // instead of floating in the middle of the soil.
+  drawSeedPacket(g, x + shape.w * 0.34, y + shape.h * 0.5 + 1, zone === 'veg' ? 0.8 : 1)
 }
 
 /** A small seed bag standing in the soil; no text, so it needs no translation. */

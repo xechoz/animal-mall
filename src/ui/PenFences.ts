@@ -22,30 +22,36 @@ export class PenFences {
       const bottom = pen.y + PEN_SIZE.h / 2
 
       const back = scene.add.graphics()
+      // A soft ground line under the rails and taller posts turn the pen from a
+      // flat rectangle into a little fenced yard.
+      back.fillStyle(0x1a120c, 0.1)
+      back.fillRoundedRect(left + 2, top + 9, right - left - 4, 5, 2)
       drawFence(
         back,
         { x1: left, y1: top + 6, x2: right, y2: top + 6 },
-        { height: 12, postGap: 28, moss: false, seed: pen.index + 3 },
+        { height: 18, postGap: 28, moss: false, seed: pen.index + 3 },
       )
       drawFence(
         back,
         { x1: left + 2, y1: top, x2: left + 2, y2: bottom },
-        { height: 12, postGap: 28, moss: false, seed: pen.index + 5 },
+        { height: 18, postGap: 28, moss: false, seed: pen.index + 5 },
       )
       drawFence(
         back,
         { x1: right - 2, y1: top, x2: right - 2, y2: bottom },
-        { height: 12, postGap: 28, moss: false, seed: pen.index + 7 },
+        { height: 18, postGap: 28, moss: false, seed: pen.index + 7 },
       )
       back.setDepth(top)
       this.back.push(back)
 
       const front = scene.add.graphics()
+      front.fillStyle(0x1a120c, 0.12)
+      front.fillRoundedRect(left + 2, bottom + 1, right - left - 4, 5, 2)
       drawFence(
         front,
         { x1: left, y1: bottom, x2: right, y2: bottom },
         {
-          height: 10,
+          height: 16,
           postGap: 16,
           gapStart: PEN_SIZE.w / 2 - 12,
           gapEnd: PEN_SIZE.w / 2 + 12,
