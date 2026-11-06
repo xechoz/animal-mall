@@ -4,7 +4,7 @@ import { isProcessedKind } from '../logic/config'
 import type { ProcessedKind, ProducerState } from '../logic/types'
 
 /**
- * Kitchen machinery is drawn with a shared three-quarter-view language: a
+ * Factory machinery is drawn with a shared three-quarter-view language: a
  * ground shadow, a darker side face, a lit top face and one product-specific
  * silhouette. Keeping it procedural means the four stations stay crisp at every
  * world scale without adding atlas pages.

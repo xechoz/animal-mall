@@ -7,11 +7,11 @@ describe('save data', () => {
     const save = initialSave()
     expect(save.coins).toBe(STARTING_COINS)
     expect(save.producers).toHaveLength(0)
-    expect(save.zones).toEqual({ fruit: true, veg: false, farm: false, kitchen: false })
+    expect(save.zones).toEqual({ fruit: true, veg: false, farm: false, factory: false })
     expect(save.served).toBe(0)
     expect(save.pendingCoins).toBe(0)
     expect(save.staff).toEqual({ cashier: 0, picker: 0, chef: 0 })
-    expect(save.shelfLevels).toEqual({ fruit: 0, veg: 0, farm: 0, kitchen: 0 })
+    expect(save.shelfLevels).toEqual({ fruit: 0, veg: 0, farm: 0, factory: 0 })
     expect(save.deposits).toEqual({})
     expect(save.day).toBe(1)
   })
@@ -48,7 +48,7 @@ describe('save data', () => {
     expect(save.zones.fruit).toBe(true)
     expect(save.zones.veg).toBe(true)
     expect(save.upgrades.carry).toBe(2)
-    expect(save.shelfLevels).toEqual({ fruit: 3, veg: 3, farm: 3, kitchen: 3 })
+    expect(save.shelfLevels).toEqual({ fruit: 3, veg: 3, farm: 3, factory: 3 })
     expect(save.upgrades.scan).toBe(0)
     expect(save.upgrades.speed).toBe(0)
   })
@@ -65,7 +65,7 @@ describe('save data', () => {
         { product: 'cake', slot: 0 },
         { product: 'unknown', slot: 0 },
       ],
-      zones: { farm: true, kitchen: true },
+      zones: { farm: true, factory: true },
     })
     expect(save.producers).toEqual([
       { product: 'apple', slot: 0 },
@@ -76,7 +76,7 @@ describe('save data', () => {
     ])
     expect(save.zones.fruit).toBe(true)
     expect(save.zones.farm).toBe(true)
-    expect(save.zones.kitchen).toBe(true)
+    expect(save.zones.factory).toBe(true)
     expect(save.zones.veg).toBe(true)
   })
 
@@ -106,7 +106,7 @@ describe('save data', () => {
         { product: 'jam', slot: 1 },
         { product: 'iceCream', slot: 3 },
       ],
-      zones: { farm: true, kitchen: true },
+      zones: { farm: true, factory: true },
     })
     expect(save.producers).toEqual([
       { product: 'cheese', slot: 2 },
@@ -117,7 +117,7 @@ describe('save data', () => {
     ])
   })
 
-  it('validates farm and kitchen slots and moves an occupied duplicate', () => {
+  it('validates farm and factory slots and moves an occupied duplicate', () => {
     const save = migrateSave({
       coins: 100,
       producers: [
@@ -127,7 +127,7 @@ describe('save data', () => {
         { product: 'jam', slot: 4 },
         { product: 'cake', slot: 0 },
       ],
-      zones: { farm: true, kitchen: true },
+      zones: { farm: true, factory: true },
     })
     expect(save.producers).toEqual([
       { product: 'egg', slot: 1 },
@@ -141,12 +141,23 @@ describe('save data', () => {
     const save = migrateSave({
       coins: 100,
       producers: [{ product: 'grilledFish', slot: 2 }],
-      zones: { kitchen: true },
+      zones: { factory: true },
     })
     expect(save.producers).toEqual([
       { product: 'skewer', slot: 2 },
       { product: 'juice', slot: 0 },
     ])
+  })
+
+  it('migrates the version 10 kitchen zone to factory', () => {
+    const save = migrateSave({
+      coins: 100,
+      producers: [{ product: 'cake', slot: 0 }],
+      zones: { kitchen: true },
+      shelfLevels: { kitchen: 2 },
+    })
+    expect(save.zones.factory).toBe(true)
+    expect(save.shelfLevels.factory).toBe(2)
   })
 
   it('restores the newer fruit and vegetable kinds', () => {

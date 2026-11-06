@@ -254,7 +254,7 @@ export function purchaseProducer(state: ShopState, product: ProductKind): Purcha
   if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
   if (isPlantKind(product)) return purchasePlant(state, product)
   if (isAnimalProductKind(product) || isProcessedKind(product)) {
-    if (zone !== 'farm' && zone !== 'kitchen') return { state, result: 'missing', events: [] }
+    if (zone !== 'farm' && zone !== 'factory') return { state, result: 'missing', events: [] }
     if (state.producers.some((producer) => producer.product === product)) {
       return { state, result: 'maxed', events: [] }
     }
@@ -266,7 +266,7 @@ export function purchaseProducer(state: ShopState, product: ProductKind): Purcha
 }
 
 /**
- * Installs one animal or machine into a specific farm/kitchen slot. Replacing
+ * Installs one animal or machine into a specific farm/factory slot. Replacing
  * an existing producer refunds half of its cost in the same transaction and
  * never clears the player's carried goods: those are already harvested stock.
  * A product can only be installed once, so every pen/station has a purpose.
@@ -277,7 +277,7 @@ export function installProducerAt(
   slot: number,
 ): PurchaseOutcome {
   const zone = zoneOf(product)
-  if (zone !== 'farm' && zone !== 'kitchen') return { state, result: 'missing', events: [] }
+  if (zone !== 'farm' && zone !== 'factory') return { state, result: 'missing', events: [] }
   if (!state.zones[zone]) return { state, result: 'lockedZone', events: [] }
   if (!Number.isInteger(slot) || slot < 0 || slot >= producerSlotCount(zone)) {
     return { state, result: 'missing', events: [] }
@@ -321,7 +321,7 @@ export function installProducerAt(
 
 export function producerAtSlot(
   state: ShopState,
-  zone: 'farm' | 'kitchen',
+  zone: 'farm' | 'factory',
   slot: number,
 ): ProducerState | undefined {
   return state.producers.find(
@@ -329,7 +329,7 @@ export function producerAtSlot(
   )
 }
 
-export function firstFreeProducerSlot(state: ShopState, zone: 'farm' | 'kitchen'): number | null {
+export function firstFreeProducerSlot(state: ShopState, zone: 'farm' | 'factory'): number | null {
   for (let slot = 0; slot < producerSlotCount(zone); slot += 1) {
     if (producerAtSlot(state, zone, slot) === undefined) return slot
   }
@@ -352,7 +352,7 @@ export function purchaseZone(state: ShopState, zone: ZoneId): PurchaseOutcome {
   for (const includes of config.includes) {
     if (next.producers.some((producer) => producer.product === includes)) continue
     const includesZone = zoneOf(includes)
-    if (includesZone !== 'farm' && includesZone !== 'kitchen') continue
+    if (includesZone !== 'farm' && includesZone !== 'factory') continue
     const slot = firstFreeProducerSlot(next, includesZone)
     if (slot === null) continue
     const producer = createProducer(includes, slot, next.nextProducerId, next.map, true)
@@ -422,7 +422,7 @@ export function purchaseStaff(
   kind: StaffKind,
   allowDeposit: boolean,
 ): PurchaseOutcome {
-  if (kind === 'chef' && !state.zones.kitchen) {
+  if (kind === 'chef' && !state.zones.factory) {
     return { state, result: 'lockedZone', events: [] }
   }
   const level = state.staff[kind]

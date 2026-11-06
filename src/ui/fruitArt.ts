@@ -11,6 +11,10 @@ export const FRUIT_COLORS: Readonly<Record<FruitKind, number>> = {
   cherry: 0xb8324a,
   strawberry: 0xe84f63,
   grape: 0x8e5bb5,
+  orange: 0xf08a2e,
+  banana: 0xf2cf4f,
+  mango: 0xe86a4f,
+  watermelon: 0x3f8f4f,
 }
 
 export function fruitTextureKey(kind: FruitKind): string {
@@ -158,6 +162,75 @@ function drawFruit(g: Phaser.GameObjects.Graphics, kind: FruitKind): void {
       g.fillCircle(13.5, 19.5, 1.4)
       g.fillCircle(23.5, 19.5, 1.4)
       g.fillCircle(18.5, 24.5, 1.4)
+      break
+    }
+    case 'orange': {
+      g.fillStyle(0x3b2f3a, 1)
+      g.fillCircle(20, 24, 12)
+      g.fillStyle(FRUIT_COLORS.orange, 1)
+      g.fillCircle(20, 23, 10)
+      g.fillStyle(0xffb066, 0.8)
+      g.fillEllipse(16, 19, 4, 6)
+      g.fillStyle(0xd9702a, 1)
+      g.fillCircle(20, 13, 2)
+      g.lineStyle(2, 0x6f4b2e, 1)
+      g.lineBetween(20, 13, 21, 8)
+      g.fillStyle(0x5aa96f, 1)
+      g.fillEllipse(25, 8, 9, 5)
+      break
+    }
+    case 'banana': {
+      g.fillStyle(0x3b2f3a, 1)
+      g.fillTriangle(10, 10, 30, 12, 20, 37)
+      g.fillStyle(FRUIT_COLORS.banana, 1)
+      for (const [x0, y0, x1, y1] of [
+        [13, 12, 19, 33],
+        [18, 13, 22, 34],
+        [23, 13, 25, 33],
+      ]) {
+        g.lineStyle(4, FRUIT_COLORS.banana, 1)
+        g.lineBetween(x0, y0, x1, y1)
+      }
+      g.fillStyle(0x6f4b2e, 1)
+      g.fillRoundedRect(11, 8, 18, 5, 2)
+      g.fillStyle(0x3b2f3a, 1)
+      g.fillCircle(19, 34, 1.6)
+      g.fillCircle(22, 35, 1.6)
+      g.fillCircle(25, 34, 1.6)
+      break
+    }
+    case 'mango': {
+      g.fillStyle(0x3b2f3a, 1)
+      g.fillEllipse(20, 24, 20, 26)
+      g.fillStyle(FRUIT_COLORS.mango, 1)
+      g.fillEllipse(20, 23, 18, 24)
+      g.fillStyle(0xf2a93b, 1)
+      g.fillEllipse(20, 26, 12, 16)
+      g.fillStyle(0xffd08a, 0.7)
+      g.fillEllipse(16, 19, 4, 6)
+      g.lineStyle(2, 0x6f4b2e, 1)
+      g.lineBetween(20, 12, 22, 7)
+      g.fillStyle(0x5aa96f, 1)
+      g.fillEllipse(25, 7, 9, 5)
+      break
+    }
+    case 'watermelon': {
+      g.fillStyle(0x3b2f3a, 1)
+      g.fillEllipse(20, 24, 24, 18)
+      g.fillStyle(0x2f6f3f, 1)
+      g.fillEllipse(20, 24, 24, 18)
+      g.fillStyle(0x3f8f4f, 1)
+      g.fillEllipse(20, 23, 22, 16)
+      g.lineStyle(2, 0x2f6f3f, 1)
+      for (const dx of [-7, 0, 7]) {
+        g.beginPath()
+        g.arc(20 + dx, 23, 9, -1.2, 1.2)
+        g.strokePath()
+      }
+      g.fillStyle(0x5aa96f, 1)
+      g.fillEllipse(26, 12, 8, 4)
+      g.lineStyle(2, 0x6f4b2e, 1)
+      g.lineBetween(20, 15, 24, 10)
       break
     }
   }

@@ -10,7 +10,7 @@ function pondState(carry: Record<string, number> = {}): ShopState {
     {
       ...initialSave(),
       coins: 1_000,
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
       producers: [{ product: 'fish', slot: 3 }],
     },
     PORTRAIT_MAP,

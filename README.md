@@ -45,7 +45,7 @@ morning.
   each morning, and only the day number is saved.
 - Harvest, stocking and checkout happen automatically when you are close enough.
   The counter has a wide service area.
-- The locked farm and kitchen zones can be bought in place: stand still anywhere
+- The locked farm and factory zones can be bought in place: stand still anywhere
   inside one, or just next to it, for half a second once you can afford it. The
   shop still lists both zones as an alternative.
 - Every empty plot keeps its seed packet on the soil; the nearest one fades in a
@@ -67,9 +67,9 @@ morning.
   still has the remove button as a fallback. Partial payments stay on the bed
   where they were paid; other beds keep their normal price instead of all showing
   the same deposit ring.
-- The farm has four animal slots and the kitchen four machine slots. Any farm
+- The farm has four animal slots and the factory four machine slots. Any farm
   animal, including the pond, can go in any farm slot; any machine can go in any
-  kitchen slot. Empty slots show a plus sticker: tap it or stand still for half a
+  factory slot. Empty slots show a plus sticker: tap it or stand still for half a
   second to choose. To change an installed one, hold the pen/station or tap its
   swap tag. The chooser is modal, shows the current product and
   refund, refunds half of the old one and charges full price for the new one.
@@ -93,22 +93,22 @@ morning.
   or filling the basket stops it; freeing basket space resumes it without
   walking away. Pickers do not fish and the pond has no trough. Replacing the
   pond removes fishing until it is installed again.
-- Kitchen stations pull eggs, milk, yarn, fish, cheese, fruit or vegetables from
+- Factory stations pull eggs, milk, yarn, fish, cheese, fruit or vegetables from
   the matching shelf and leave one of each for customers. Walking past a machine with
   matching goods loads its hopper automatically, up to four production batches;
   finished cakes, sweaters, skewers, juice, jam, ice cream, grilled fish, salad,
   omelettes and pillows
   wait on the station tray and are collected on contact, ready to stock the
-  kitchen shelf. The Fish Grill and Salad Bar are shelf-fed instead: they pull
+  factory shelf. The Fish Grill and Salad Bar are shelf-fed instead: they pull
   straight from stock and cannot be hand-loaded. A hired chef does that loop for
-  you: finished dishes go to the kitchen shelf, and idle stations get their
+  you: finished dishes go to the factory shelf, and idle stations get their
   hoppers topped up from shelf stock. If the destination shelf stays full, a
   worker eats one carried item when due for a meal and otherwise takes the load
   to the trash bin instead of waiting forever.
 - Staff signs use the same quick-buy flow and disappear once their station is
   fully staffed. A cashier serves customers
   automatically; pickers harvest fruit, vegetables and land-animal products, but
-  not station output or the pond. Chefs only work once the kitchen is unlocked.
+  not station output or the pond. Chefs only work once the factory is unlocked.
   Cashier income waits as a coin pile on the counter.
 - Staff take breaks at the dining table or the free drink machine in the
   bottom-left corner. After roughly a minute they eat when a chair is free and
@@ -163,13 +163,13 @@ The game starts with 100 coins and an in-world guide for the first apple tree.
 Fruits are apple, pear, peach, cherry, strawberry and grape; vegetables are
 carrot, tomato, corn, pumpkin, potato and eggplant. Vegetables unlock
 automatically after the first sale; stand anywhere inside the locked farm or
-kitchen zone for half a second to buy it, or unlock it in the shop. Farm
-animals are chicken, cow, sheep, goat, beehive and the pond; kitchen machines
+factory zone for half a second to buy it, or unlock it in the shop. Farm
+animals are chicken, cow, sheep, goat, beehive and the pond; factory machines
 are oven, loom, BBQ grill, juicer, jam pot, churn, fish grill and salad bar.
 
 ## Save and language
 
-- Progress is stored as `mg:animal-mall:progress`, save version `10`.
+- Progress is stored as `mg:animal-mall:progress`, save version `11`.
 - Coins, pending counter coins, earned coins, served customers, the day number,
   zones, planted crops, animals, stations, tool levels, per-zone shelf levels,
   staff levels and non-refundable deposits persist. Shelf stock, station hoppers,

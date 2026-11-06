@@ -15,8 +15,8 @@ import {
 
 describe('plant configuration', () => {
   it('has a complete and unique plant table', () => {
-    expect(FRUIT_ORDER).toHaveLength(6)
-    expect(VEG_ORDER).toHaveLength(6)
+    expect(FRUIT_ORDER).toHaveLength(10)
+    expect(VEG_ORDER).toHaveLength(10)
     expect(new Set(PLANT_ORDER).size).toBe(PLANT_ORDER.length)
     expect(Object.keys(PLANTS).sort()).toEqual([...PLANT_ORDER].sort())
   })

@@ -13,8 +13,8 @@ import {
 } from './production'
 import type { PlantKind, ProductKind, ShelfState, ZoneId } from './types'
 
-const ZONES = { fruit: true, veg: true, farm: true, kitchen: true } as const
-const LEVELS = { fruit: 0, veg: 0, farm: 0, kitchen: 0 } as const
+const ZONES = { fruit: true, veg: true, farm: true, factory: true } as const
+const LEVELS = { fruit: 0, veg: 0, farm: 0, factory: 0 } as const
 
 function shelvesWith(stock: Partial<Record<ProductKind, number>>): Record<ZoneId, ShelfState> {
   let shelves = emptyShelves(ZONES, LEVELS)
@@ -245,7 +245,7 @@ describe('production', () => {
 
   it('makes a salad from every crop type', () => {
     const stock = Object.fromEntries(PLANT_ORDER.map((product) => [product, 2]))
-    const { producer, shelves } = run('salad', stock, 400)
+    const { producer, shelves } = run('salad', stock, 480)
     expect(producer.ready).toBe(1)
     for (const product of PLANT_ORDER) {
       expect(shelves[zoneOf(product)].stock[product]).toBe(1)
@@ -254,7 +254,7 @@ describe('production', () => {
 
   it('lets the salad spend the last unit of each crop', () => {
     const stock = Object.fromEntries(PLANT_ORDER.map((product) => [product, 1]))
-    const { producer, shelves } = run('salad', stock, 400)
+    const { producer, shelves } = run('salad', stock, 480)
     expect(producer.ready).toBe(1)
     for (const product of PLANT_ORDER) {
       expect(shelves[zoneOf(product)].stock[product]).toBe(0)

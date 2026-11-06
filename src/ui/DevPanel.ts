@@ -17,7 +17,7 @@ import { DRINK_CUP_COLORS, drawCup } from './facilitiesArt'
 import type { GameLayout } from './layout'
 import { productTextureKey } from './productArt'
 
-type ProductTab = 'fruit' | 'veg' | 'farm' | 'kitchen'
+type ProductTab = 'fruit' | 'veg' | 'farm' | 'factory'
 type DevTab = 'coins' | ProductTab | 'drinks'
 
 interface TabButton {
@@ -37,14 +37,14 @@ const TAB_LABEL: Readonly<Record<DevTab, string>> = {
   fruit: 'dev.fruit',
   veg: 'dev.veg',
   farm: 'dev.farm',
-  kitchen: 'dev.kitchen',
+  factory: 'dev.factory',
   drinks: 'dev.drinks',
 }
 const PRODUCTS: Readonly<Record<ProductTab, readonly ProductKind[]>> = {
   fruit: FRUIT_ORDER,
   veg: VEG_ORDER,
   farm: ANIMAL_ORDER,
-  kitchen: PROCESSED_ORDER,
+  factory: PROCESSED_ORDER,
 }
 
 export interface DevPanelOptions {
@@ -136,7 +136,7 @@ export class DevPanel {
   }
 
   private createTabs(): void {
-    const ids: readonly DevTab[] = ['coins', 'fruit', 'veg', 'farm', 'kitchen', 'drinks']
+    const ids: readonly DevTab[] = ['coins', 'fruit', 'veg', 'farm', 'factory', 'drinks']
     ids.forEach((id, index) => {
       const x = -225 + index * 90
       const y = -PANEL_H / 2 + 82

@@ -884,7 +884,7 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
 }
 
 /**
- * Walking next to a kitchen station pours every matching ingredient into its
+ * Walking next to a factory station pours every matching ingredient into its
  * hopper until the per-input buffer is full. There is no dwell: the same contact
  * rule that harvests and stocks also loads machines. Shelf stock stays the
  * automated source; the hopper is the hand-fed buffer.

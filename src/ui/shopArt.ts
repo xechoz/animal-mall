@@ -315,7 +315,7 @@ function drawDirtPath(
 
 function drawGhostFacilities(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
   // Pen floors stay plain; each installed animal adds its own small props in
-  // ProducerView.ground. Only the kitchen work pads are part of the floor plan.
+  // ProducerView.ground. Only the factory work pads are part of the floor plan.
   for (const station of map.stationSlots) {
     // A shallow stone plinth instead of a painted round rect: the front face
     // and cast shadow give the work pad a little thickness.

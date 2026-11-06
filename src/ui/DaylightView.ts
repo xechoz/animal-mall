@@ -25,7 +25,7 @@ interface LightSpec {
   readonly color: number
   readonly strength: number
   readonly flicker: number
-  /** Kitchen slots only light up while a machine is installed there. */
+  /** Factory slots only light up while a machine is installed there. */
   readonly slot: number | null
 }
 
@@ -37,7 +37,7 @@ interface LightPool {
 /**
  * Screen-space time-of-day lighting. The grey night wash and its vignette sit
  * above every world object but below the HUD, tutorial arrows and map offers.
- * Practical lights are anchored to real lanterns, the vending machine, kitchen
+ * Practical lights are anchored to real lanterns, the vending machine, factory
  * stations and the till, so the evening reads as lit darkness instead of
  * coloured rings.
  */

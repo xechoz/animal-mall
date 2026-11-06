@@ -386,8 +386,8 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
 }
 
 /**
- * Chefs run the kitchen. They carry finished dishes from station output trays
- * to the kitchen shelf, and top up station hoppers with shelf ingredients while
+ * Chefs run the factory. They carry finished dishes from station output trays
+ * to the factory shelf, and top up station hoppers with shelf ingredients while
  * no dish is waiting. The stations already draw from shelf stock by themselves,
  * so the hopper run is a buffer, not the only supply path.
  */
@@ -863,7 +863,7 @@ function finishStock(member: StaffState, ctx: StaffContext, dtMs: number, rng: R
  * A full destination shelf is a soft block: wait a few seconds for a customer
  * to make room, then eat one carried item if the worker is due for a meal, or
  * take the whole load to the bin. Waiting forever used to freeze a chef at the
- * kitchen shelf and stop the entire kitchen.
+ * factory shelf and stop the entire factory.
  */
 function handleFullShelf(
   member: StaffState,
@@ -1362,7 +1362,7 @@ function pickProducer(
     if (shelfFull && !(feedNeeded && isPlantKind(producer.product))) continue
     // Service the emptiest shelf first, then the nearest producer. Distance-only
     // picking lets a picker spend the whole day on the nearby orchard while the
-    // farm and kitchen shelves sit empty.
+    // farm and factory shelves sit empty.
     const fill = shelf.stock[producer.product] / shelf.capacity
     const distanceToProducer = distanceSq(pos, producer.pos)
     if (fill < bestFill || (fill === bestFill && distanceToProducer < bestDistance)) {

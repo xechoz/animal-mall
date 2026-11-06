@@ -19,7 +19,7 @@ function staffedShop(): ShopState {
     {
       ...initialSave(),
       served: 1,
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
       producers: [
         { product: 'apple', slot: 0 },
         { product: 'carrot', slot: 0 },
@@ -65,7 +65,7 @@ function staffedShop(): ShopState {
 }
 
 describe('playtest', () => {
-  it('keeps the starter farm and kitchen producing without the player', () => {
+  it('keeps the starter farm and factory producing without the player', () => {
     let state = staffedShop()
     const events: GameEvent[] = []
     const rng = fixedRng(0)

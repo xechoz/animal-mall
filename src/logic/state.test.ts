@@ -53,7 +53,7 @@ function appleSave(overrides: Partial<SaveData> = {}): SaveData {
 function eggSave(): SaveData {
   return {
     ...initialSave(),
-    zones: { fruit: true, veg: true, farm: true, kitchen: true },
+    zones: { fruit: true, veg: true, farm: true, factory: true },
     producers: [{ product: 'egg', slot: 0 }],
   }
 }
@@ -432,7 +432,7 @@ describe('shop simulation', () => {
   it('stocks both shelves when standing between them', () => {
     const save: SaveData = {
       ...initialSave(),
-      zones: { fruit: true, veg: true, farm: false, kitchen: false },
+      zones: { fruit: true, veg: true, farm: false, factory: false },
       producers: [
         { product: 'apple', slot: 0 },
         { product: 'carrot', slot: 0 },
@@ -592,10 +592,10 @@ describe('shop simulation', () => {
     expect(result.state.customers[0]?.wanted).toContain('apple')
   })
 
-  it('loads a carried batch into a kitchen station by hand', () => {
+  it('loads a carried batch into a factory station by hand', () => {
     const save: SaveData = {
       ...initialSave(),
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
       producers: [{ product: 'cake', slot: 0 }],
     }
     let state = createShopState(save, PORTRAIT_MAP)
@@ -612,10 +612,10 @@ describe('shop simulation', () => {
     ).toBeGreaterThanOrEqual(1)
   })
 
-  it('buffers several kitchen batches while walking past a station', () => {
+  it('buffers several factory batches while walking past a station', () => {
     const save: SaveData = {
       ...initialSave(),
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
       producers: [{ product: 'cake', slot: 0 }],
     }
     let state = createShopState(save, PORTRAIT_MAP)
@@ -634,10 +634,10 @@ describe('shop simulation', () => {
     expect(result.state.player.carry.milk).toBeUndefined()
   })
 
-  it('lets a hired chef carry a finished dish to the kitchen shelf', () => {
+  it('lets a hired chef carry a finished dish to the factory shelf', () => {
     const save: SaveData = {
       ...initialSave(),
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
       producers: [{ product: 'cake', slot: 0 }],
       staff: { cashier: 0, picker: 0, chef: 1 },
     }
@@ -648,7 +648,7 @@ describe('shop simulation', () => {
     }
 
     const result = simulate(state, 400)
-    expect(result.state.shelves.kitchen.stock.cake).toBeGreaterThan(0)
+    expect(result.state.shelves.factory.stock.cake).toBeGreaterThan(0)
     expect(result.state.producers.find((producer) => producer.product === 'cake')?.ready).toBe(0)
   })
 })

@@ -281,7 +281,7 @@ describe('quick buy', () => {
     ).toBe(false)
   })
 
-  it('only offers the chef once the kitchen is unlocked', () => {
+  it('only offers the chef once the factory is unlocked', () => {
     const locked = createShopState(appleSave(2_000), PORTRAIT_MAP)
     expect(mapOffers(locked).some((offer) => offer.type === 'staff' && offer.kind === 'chef')).toBe(
       false,
@@ -291,7 +291,7 @@ describe('quick buy', () => {
     const open = createShopState(
       {
         ...appleSave(2_000),
-        zones: { fruit: true, veg: true, farm: true, kitchen: true },
+        zones: { fruit: true, veg: true, farm: true, factory: true },
       },
       PORTRAIT_MAP,
     )
@@ -323,7 +323,7 @@ describe('quick buy', () => {
       {
         ...initialSave(),
         coins: 1_000,
-        zones: { fruit: true, veg: true, farm: true, kitchen: false },
+        zones: { fruit: true, veg: true, farm: true, factory: false },
       },
       PORTRAIT_MAP,
     )
@@ -343,7 +343,7 @@ describe('quick buy', () => {
       {
         ...initialSave(),
         coins: 1_000,
-        zones: { fruit: true, veg: true, farm: true, kitchen: false },
+        zones: { fruit: true, veg: true, farm: true, factory: false },
         producers: [{ product: 'milk', slot: 1 }],
       },
       PORTRAIT_MAP,
@@ -389,10 +389,10 @@ describe('quick buy', () => {
     expect(result.state.zones.farm).toBe(false)
   })
 
-  it('unlocks the kitchen after standing at its shelf', () => {
+  it('unlocks the factory after standing at its shelf', () => {
     const state = createShopState({ ...initialSave(), coins: 1_200 }, PORTRAIT_MAP)
-    const result = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.kitchen), 11)
-    expect(result.state.zones.kitchen).toBe(true)
+    const result = simulate(withPlayer(state, PORTRAIT_MAP.shelfAccess.factory), 11)
+    expect(result.state.zones.factory).toBe(true)
     expect(result.state.coins).toBe(400)
     expect(result.state.producers.some((producer) => producer.product === 'cake')).toBe(true)
   })

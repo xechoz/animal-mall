@@ -16,7 +16,7 @@ const CHAIN: readonly Goal[] = [
   { type: 'zone', zone: 'farm' },
   { type: 'staff', kind: 'picker' },
   { type: 'producer', product: 'milk' },
-  { type: 'zone', zone: 'kitchen' },
+  { type: 'zone', zone: 'factory' },
   { type: 'staff', kind: 'chef' },
   { type: 'producer', product: 'yarn' },
   { type: 'producer', product: 'sweater' },

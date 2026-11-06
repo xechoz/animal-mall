@@ -26,6 +26,10 @@ export const FRUIT_ORDER: readonly FruitKind[] = [
   'cherry',
   'strawberry',
   'grape',
+  'orange',
+  'banana',
+  'mango',
+  'watermelon',
 ]
 export const VEG_ORDER: readonly VegKind[] = [
   'carrot',
@@ -34,6 +38,10 @@ export const VEG_ORDER: readonly VegKind[] = [
   'pumpkin',
   'potato',
   'eggplant',
+  'cabbage',
+  'cucumber',
+  'onion',
+  'mushroom',
 ]
 export const ANIMAL_ORDER: readonly AnimalProductKind[] = [
   'egg',
@@ -72,13 +80,13 @@ export const PRODUCT_ORDER: readonly ProductKind[] = [
   ...ANIMAL_ORDER,
   ...PROCESSED_ORDER,
 ]
-export const ZONE_ORDER: readonly ZoneId[] = ['fruit', 'veg', 'farm', 'kitchen']
+export const ZONE_ORDER: readonly ZoneId[] = ['fruit', 'veg', 'farm', 'factory']
 
 export const ZONE_PRODUCTS: Readonly<Record<ZoneId, readonly ProductKind[]>> = {
   fruit: FRUIT_ORDER,
   veg: VEG_ORDER,
   farm: ANIMAL_ORDER,
-  kitchen: PROCESSED_ORDER,
+  factory: PROCESSED_ORDER,
 }
 
 export function isFruitKind(value: unknown): value is FruitKind {
@@ -109,7 +117,7 @@ export function zoneOf(product: ProductKind): ZoneId {
   if (isFruitKind(product)) return 'fruit'
   if (isVegKind(product)) return 'veg'
   if (isAnimalProductKind(product)) return 'farm'
-  return 'kitchen'
+  return 'factory'
 }
 
 export interface PlantConfig {
@@ -133,6 +141,14 @@ export const PLANTS: Readonly<Record<PlantKind, PlantConfig>> = {
   pumpkin: { cost: 300, price: 22, growMs: 14_000, fruitMs: 8_000, maxFruit: 2 },
   potato: { cost: 230, price: 17, growMs: 12_000, fruitMs: 7_000, maxFruit: 3 },
   eggplant: { cost: 520, price: 30, growMs: 16_000, fruitMs: 10_000, maxFruit: 3 },
+  banana: { cost: 200, price: 11, growMs: 13_000, fruitMs: 7_500, maxFruit: 4 },
+  orange: { cost: 300, price: 14, growMs: 18_000, fruitMs: 10_000, maxFruit: 3 },
+  mango: { cost: 460, price: 19, growMs: 21_000, fruitMs: 11_000, maxFruit: 3 },
+  watermelon: { cost: 640, price: 27, growMs: 23_000, fruitMs: 12_000, maxFruit: 2 },
+  cabbage: { cost: 120, price: 8, growMs: 8_000, fruitMs: 5_500, maxFruit: 3 },
+  cucumber: { cost: 200, price: 12, growMs: 11_000, fruitMs: 6_000, maxFruit: 4 },
+  onion: { cost: 340, price: 20, growMs: 13_000, fruitMs: 8_000, maxFruit: 3 },
+  mushroom: { cost: 560, price: 32, growMs: 16_000, fruitMs: 10_000, maxFruit: 2 },
 }
 
 /** Shop and chooser order: cheapest first, independent of the demand order. */
@@ -199,10 +215,10 @@ export const ANIMALS: Readonly<Record<AnimalProductKind, AnimalConfig>> = {
 
 /** Every farm pen can host any of these, including the pond. */
 export const PEN_SLOT_COUNT = 4
-/** Every kitchen station can host any processed product. */
+/** Every factory station can host any processed product. */
 export const STATION_SLOT_COUNT = 4
 
-export function producerSlotCount(zone: 'farm' | 'kitchen'): number {
+export function producerSlotCount(zone: 'farm' | 'factory'): number {
   return zone === 'farm' ? PEN_SLOT_COUNT : STATION_SLOT_COUNT
 }
 
@@ -228,7 +244,7 @@ export function troughCapacity(product: AnimalProductKind): number {
 }
 
 /**
- * Kitchen stations accept several production batches of ingredients at once.
+ * Factory stations accept several production batches of ingredients at once.
  * The buffer is per input slot: cake keeps 3 × (2 eggs, 1 milk), juice keeps
  * 3 × (1 fruit, 1 vegetable).
  */
@@ -324,7 +340,7 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
   },
   fishDish: {
     cost: 500,
-    price: 110,
+    price: 120,
     craftMs: 12_000,
     capacity: 3,
     handLoad: false,
@@ -335,8 +351,8 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
   },
   salad: {
     cost: 650,
-    price: 300,
-    craftMs: 20_000,
+    price: 500,
+    craftMs: 24_000,
     capacity: 2,
     handLoad: false,
     // The rainbow salad is the late-game sink for every crop type. It is
@@ -517,7 +533,7 @@ export const FOOD_BUFF: Readonly<Record<ZoneId, readonly FoodBuff[]>> = {
   fruit: [{ drink: 'appleSoda', ms: 10_000 }],
   veg: [{ drink: 'milkTea', ms: 10_000 }],
   farm: [{ drink: 'lemonTea', ms: 10_000 }],
-  kitchen: [
+  factory: [
     { drink: 'appleSoda', ms: 8_000 },
     { drink: 'milkTea', ms: 8_000 },
     { drink: 'lemonTea', ms: 8_000 },
@@ -582,7 +598,7 @@ export const QUICK_BUY = {
   zoneMargin: 36,
   /** How far outside a crop bed still counts as standing at that bed. */
   plotMargin: 38,
-  /** How far outside a farm pen or kitchen station counts as standing at it. */
+  /** How far outside a farm pen or factory station counts as standing at it. */
   slotMargin: 42,
 } as const
 
@@ -633,9 +649,9 @@ export const ZONES: Readonly<Record<ZoneId, ZoneConfig>> = {
   fruit: { unlockCost: 0, includes: [] },
   veg: { unlockCost: 0, includes: [] },
   farm: { unlockCost: 350, includes: ['egg'] },
-  // The juicer is the crop-fed starter machine, so the kitchen can run on the
+  // The juicer is the crop-fed starter machine, so the factory can run on the
   // player's existing fruit and vegetables before the first cow is bought.
-  kitchen: { unlockCost: 800, includes: ['cake', 'juice'] },
+  factory: { unlockCost: 800, includes: ['cake', 'juice'] },
 }
 
 export const REGISTER_RADIUS = 50
@@ -787,8 +803,8 @@ export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   fruit: 3,
   veg: 3,
   farm: 3,
-  kitchen: 4,
+  factory: 4,
 }
 
-export const SAVE_VERSION = 10
+export const SAVE_VERSION = 11
 export const STARTING_COINS = 100

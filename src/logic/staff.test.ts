@@ -72,7 +72,7 @@ function farmPickerState(): ShopState {
   return createShopState(
     {
       ...initialSave(),
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
       producers: [{ product: 'egg', slot: 0 }],
       staff: { cashier: 0, picker: 1, chef: 0 },
     },
@@ -166,9 +166,9 @@ describe('staff shelf overflow', () => {
     expect(result.state.shelves.fruit.stock.apple).toBe(state.shelves.fruit.capacity)
   })
 
-  it('sends a chef with a full kitchen shelf to the bin', () => {
+  it('sends a chef with a full factory shelf to the bin', () => {
     let state = chefState()
-    state = withShelfStock(state, 'kitchen', 'cake', state.shelves.kitchen.capacity)
+    state = withShelfStock(state, 'factory', 'cake', state.shelves.factory.capacity)
     const chef = member(state, 'chef')
     state = withStaffState(state, chef.id, {
       workMs: 0,
@@ -459,7 +459,7 @@ function chefState(chefs = 1): ShopState {
   return createShopState(
     {
       ...initialSave(),
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
       producers: [
         { product: 'cake', slot: 0 },
         { product: 'egg', slot: 0 },
@@ -501,7 +501,7 @@ function withShelfStock(
 }
 
 describe('chef staff', () => {
-  it('carries a finished dish from the station tray to the kitchen shelf', () => {
+  it('carries a finished dish from the station tray to the factory shelf', () => {
     let state = withStationReady(chefState(), 1)
     const chef = member(state, 'chef')
     state = withStaffState(state, chef.id, {
@@ -519,13 +519,13 @@ describe('chef staff', () => {
     expect(
       result.events.some((event) => event.type === 'staffStock' && event.product === 'cake'),
     ).toBe(true)
-    expect(result.state.shelves.kitchen.stock.cake).toBe(1)
+    expect(result.state.shelves.factory.stock.cake).toBe(1)
     expect(result.state.producers.find((producer) => producer.product === 'cake')?.ready).toBe(0)
   })
 
-  it('waits instead of collecting when the kitchen shelf is full', () => {
+  it('waits instead of collecting when the factory shelf is full', () => {
     const base = chefState()
-    const full = withShelfStock(base, 'kitchen', 'cake', base.shelves.kitchen.capacity)
+    const full = withShelfStock(base, 'factory', 'cake', base.shelves.factory.capacity)
     let state = withStationReady(full, 1)
     const chef = member(state, 'chef')
     state = withStaffState(state, chef.id, { phase: 'idle', waitMs: 0 })
@@ -579,7 +579,7 @@ describe('chef staff', () => {
     let state = createShopState(
       {
         ...initialSave(),
-        zones: { fruit: true, veg: true, farm: true, kitchen: true },
+        zones: { fruit: true, veg: true, farm: true, factory: true },
         producers: [
           { product: 'cake', slot: 0 },
           { product: 'juice', slot: 3 },

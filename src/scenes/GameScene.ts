@@ -448,7 +448,7 @@ export class GameScene extends Phaser.Scene {
       fruit: i18n.t('zone.fruit'),
       veg: i18n.t('zone.veg'),
       farm: i18n.t('zone.farm'),
-      kitchen: i18n.t('zone.kitchen'),
+      factory: i18n.t('zone.factory'),
     }
     const bakeScale = this.artBakeScale()
     const bakeKey = `shop-bg-${this.layout.map.id}-${bakeScale}`
@@ -586,7 +586,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Every growing bed, farm pen and kitchen station is tappable. A short tap
+   * Every growing bed, farm pen and factory station is tappable. A short tap
    * opens the chooser on an empty slot, while holding the finger down opens the
    * swap chooser on an occupied one. This is the touch-friendly twin of the
    * half-second dwell.
@@ -599,7 +599,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.addProducerHits('farm', this.layout.map.animalPens, PEN_SIZE.w, PEN_SIZE.h)
-    this.addProducerHits('kitchen', this.layout.map.stationSlots, STATION_SIZE.w, STATION_SIZE.h)
+    this.addProducerHits('factory', this.layout.map.stationSlots, STATION_SIZE.w, STATION_SIZE.h)
   }
 
   /**
@@ -639,7 +639,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private addProducerHits(
-    zone: 'farm' | 'kitchen',
+    zone: 'farm' | 'factory',
     slots: readonly Plot[],
     width: number,
     height: number,
@@ -740,7 +740,7 @@ export class GameScene extends Phaser.Scene {
           this.services.i18n.t(
             zone === 'farm'
               ? 'toast.animalSwapHint'
-              : zone === 'kitchen'
+              : zone === 'factory'
                 ? 'toast.machineSwapHint'
                 : 'toast.swapHint',
           ),
@@ -800,7 +800,7 @@ export class GameScene extends Phaser.Scene {
     const point = worldToScreen(this.viewCamera, slot)
     const ui = this.layout.worldUi
     const size =
-      press.zone === 'farm' ? PEN_SIZE.w : press.zone === 'kitchen' ? STATION_SIZE.w : PLOT_SIZE.w
+      press.zone === 'farm' ? PEN_SIZE.w : press.zone === 'factory' ? STATION_SIZE.w : PLOT_SIZE.w
     const radius = (size / 2 + 4) * this.viewCamera.scale
     const ratio = Math.min(1, (time - press.startedAt) / INTERACTION.holdMs)
     ring.clear()
@@ -1210,7 +1210,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     for (const kind of STAFF_ORDER) {
-      const available = kind !== 'chef' || this.state.zones.kitchen
+      const available = kind !== 'chef' || this.state.zones.factory
       this.staffStations[kind].updateStaffLevel(this.state.staff[kind], available)
     }
   }
@@ -1355,11 +1355,11 @@ export class GameScene extends Phaser.Scene {
               name: this.services.i18n.t(`zone.${event.zone}`),
             }),
           )
-          if (event.zone === 'farm' || event.zone === 'kitchen') {
+          if (event.zone === 'farm' || event.zone === 'factory') {
             this.time.delayedCall(1_200, () => {
               this.toast.show(
                 this.services.i18n.t(
-                  event.zone === 'farm' ? 'toast.farmHint' : 'toast.kitchenHint',
+                  event.zone === 'farm' ? 'toast.farmHint' : 'toast.factoryHint',
                 ),
               )
             })
@@ -2107,7 +2107,7 @@ export class GameScene extends Phaser.Scene {
       canSwap &&
       !this.hintMachineSwap &&
       offer?.type === 'producerSwap' &&
-      offer.zone === 'kitchen'
+      offer.zone === 'factory'
     ) {
       this.hintMachineSwap = true
       this.toast.show(this.services.i18n.t('toast.machineSwapHint'))

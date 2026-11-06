@@ -130,16 +130,16 @@ describe('purchases', () => {
     expect(outcome.state.zones.veg).toBe(true)
   })
 
-  it('unlocks the farm with a chicken and the kitchen with an oven', () => {
+  it('unlocks the farm with a chicken and the factory with an oven', () => {
     const farm = purchaseZone(createShopState(saveWith(600), PORTRAIT_MAP), 'farm')
     expect(farm.result).toBe('ok')
     expect(farm.state.zones.farm).toBe(true)
     expect(farm.state.producers.some((producer) => producer.product === 'egg')).toBe(true)
 
-    const kitchen = purchaseZone(createShopState(saveWith(1_200), PORTRAIT_MAP), 'kitchen')
-    expect(kitchen.result).toBe('ok')
-    expect(kitchen.state.zones.kitchen).toBe(true)
-    expect(kitchen.state.producers.some((producer) => producer.product === 'cake')).toBe(true)
+    const factory = purchaseZone(createShopState(saveWith(1_200), PORTRAIT_MAP), 'factory')
+    expect(factory.result).toBe('ok')
+    expect(factory.state.zones.factory).toBe(true)
+    expect(factory.state.producers.some((producer) => producer.product === 'cake')).toBe(true)
   })
 
   it('locks animal purchases behind their zone', () => {
@@ -165,7 +165,7 @@ describe('producer slots', () => {
     return {
       ...initialSave(),
       coins: 10_000,
-      zones: { fruit: true, veg: true, farm: true, kitchen: true },
+      zones: { fruit: true, veg: true, farm: true, factory: true },
     }
   }
 
@@ -192,7 +192,7 @@ describe('producer slots', () => {
     ).toBe(true)
   })
 
-  it('replaces a kitchen machine with the new recipe', () => {
+  it('replaces a factory machine with the new recipe', () => {
     let state = createShopState(richSave(), PORTRAIT_MAP)
     state = installProducerAt(state, 'cake', 1).state
     const before = state.coins
@@ -200,8 +200,8 @@ describe('producer slots', () => {
     expect(outcome.result).toBe('ok')
     expect(outcome.state.producers.find((producer) => producer.slot === 1)?.product).toBe('jam')
     expect(outcome.state.coins).toBe(before - 380)
-    expect(outcome.state.shelves.kitchen.bins.jam).toBe(true)
-    expect(outcome.state.shelves.kitchen.bins.cake).toBe(false)
+    expect(outcome.state.shelves.factory.bins.jam).toBe(true)
+    expect(outcome.state.shelves.factory.bins.cake).toBe(false)
   })
 
   it('reports no free slot when all four pens are full', () => {

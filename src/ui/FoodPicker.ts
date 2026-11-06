@@ -267,7 +267,7 @@ export class FoodPicker {
     const { i18n } = this.options
     const zone = zoneOf(product)
     const bonus = FOOD_BUFF[zone]
-    if (zone === 'kitchen') {
+    if (zone === 'factory') {
       return i18n.t('dining.bonusAll', { seconds: Math.round((bonus[0]?.ms ?? 0) / 1000) })
     }
     const entry = bonus[0]

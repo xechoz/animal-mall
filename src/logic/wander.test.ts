@@ -59,7 +59,7 @@ describe('wander path', () => {
       it('is deterministic for a given seed', () => {
         const first = wanderPath(
           map.doorSpawn,
-          map.shelfAccess.kitchen,
+          map.shelfAccess.factory,
           CUSTOMER_RADIUS,
           map,
           createRng(1234),
@@ -67,7 +67,7 @@ describe('wander path', () => {
         )
         const second = wanderPath(
           map.doorSpawn,
-          map.shelfAccess.kitchen,
+          map.shelfAccess.factory,
           CUSTOMER_RADIUS,
           map,
           createRng(1234),

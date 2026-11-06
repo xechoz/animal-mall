@@ -185,7 +185,7 @@ for (const map of MAPS) {
         expect(contains(map.zoneAreas.farm, sizedRect(pen, PEN_SIZE))).toBe(true)
       }
       for (const station of map.stationSlots) {
-        expect(contains(map.zoneAreas.kitchen, sizedRect(station, STATION_SIZE))).toBe(true)
+        expect(contains(map.zoneAreas.factory, sizedRect(station, STATION_SIZE))).toBe(true)
       }
     })
 
@@ -282,7 +282,7 @@ describe('remapping a run', () => {
           { product: 'apple', slot: 0 },
           { product: 'milk', slot: 1 },
         ],
-        zones: { fruit: true, veg: true, farm: true, kitchen: false },
+        zones: { fruit: true, veg: true, farm: true, factory: false },
         staff: { cashier: 1, picker: 1, chef: 0 },
       },
       PORTRAIT_MAP,

@@ -76,6 +76,10 @@ export function migrateSave(data: unknown, version = 0): SaveData {
   const zones = zeroZones()
   if (typeof record.zones === 'object' && record.zones !== null) {
     const source = record.zones as Record<string, unknown>
+    // Version 11 renames the kitchen zone to factory; old saves keep the flag.
+    if (source.factory === undefined && source.kitchen !== undefined) {
+      source.factory = source.kitchen
+    }
     for (const zone of ZONE_ORDER) {
       if (source[zone] === false) zones[zone] = false
       if (source[zone] === true) zones[zone] = true
@@ -108,6 +112,10 @@ export function migrateSave(data: unknown, version = 0): SaveData {
   let hasShelfLevels = false
   if (typeof record.shelfLevels === 'object' && record.shelfLevels !== null) {
     const source = record.shelfLevels as Record<string, unknown>
+    // Version 11 renames the kitchen shelf level to factory.
+    if (source.factory === undefined && source.kitchen !== undefined) {
+      source.factory = source.kitchen
+    }
     for (const zone of ZONE_ORDER) {
       const level = source[zone]
       if (typeof level === 'number' && Number.isFinite(level)) {
@@ -194,17 +202,17 @@ export function migrateSave(data: unknown, version = 0): SaveData {
     if (coins < cheapest) coins = cheapest
   }
 
-  // Version 10 bundles the crop-fed juicer with the kitchen starter. Old saves
-  // that already opened the kitchen keep their cake oven and gain a juicer in
-  // the first free station, so their kitchen can still run on crops.
+  // Version 10 bundles the crop-fed juicer with the factory starter. Old saves
+  // that already opened the factory keep their cake oven and gain a juicer in
+  // the first free station, so their factory can still run on crops.
   if (
     version < 10 &&
-    zones.kitchen &&
+    zones.factory &&
     !producers.some((producer) => producer.product === 'juice')
   ) {
     const used = new Set(
       producers
-        .filter((producer) => producerZone(producer.product) === 'kitchen')
+        .filter((producer) => producerZone(producer.product) === 'factory')
         .map((producer) => producer.slot),
     )
     for (let slot = 0; slot < STATION_SLOT_COUNT; slot += 1) {
@@ -241,7 +249,7 @@ function parseProducers(record: Record<string, unknown>): SaveProducer[] {
 
   const add = (product: unknown, rawSlot: unknown): void => {
     // Version 9 turns the fish-only grill into a BBQ grill whose product is a
-    // skewer, so an older kitchen keeps its machine in the same slot.
+    // skewer, so an older factory keeps its machine in the same slot.
     const kind = product === 'grilledFish' ? 'skewer' : product
     if (!isProductKind(kind)) return
     if (!isPlantKind(kind) && usedProducts.has(kind)) return
@@ -290,7 +298,7 @@ function firstFreeProducerSlot(
   usedSlots: ReadonlySet<string>,
   preferred: number,
 ): number | null {
-  const count = zone === 'farm' ? PEN_SLOT_COUNT : zone === 'kitchen' ? STATION_SLOT_COUNT : 0
+  const count = zone === 'farm' ? PEN_SLOT_COUNT : zone === 'factory' ? STATION_SLOT_COUNT : 0
   if (count === 0) return null
   if (preferred < count && !usedSlots.has(`${zone}:${preferred}`)) return preferred
   for (let slot = 0; slot < count; slot += 1) {
@@ -327,7 +335,7 @@ function normalizeSlot(product: ProductKind, rawSlot: unknown): number | null {
 function producerZone(product: ProductKind): ZoneId | null {
   if (isPlantKind(product)) return isFruitKind(product) ? 'fruit' : 'veg'
   if (isAnimalProductKind(product)) return 'farm'
-  if (isProcessedKind(product)) return 'kitchen'
+  if (isProcessedKind(product)) return 'factory'
   return null
 }
 

@@ -56,7 +56,7 @@ submodule. Do not copy platform source into this repo.
 - In-world buying is proximity based. A player who stands still inside the
   configured range fills a dwell ring, and the purchase fires when it completes;
   walking resets the ring.
-- Zone unlocks never use a single access point. The farm and kitchen unlock when
+- Zone unlocks never use a single access point. The farm and factory unlock when
   the player stands anywhere inside `map.zoneAreas[zone]` or within
   `QUICK_BUY.zoneMargin` of that rectangle. `zoneAreas` is the single source of
   truth for the floor tint, the locked overlay and the trigger area.
@@ -106,7 +106,7 @@ submodule. Do not copy platform source into this repo.
   leaving the rectangle or a full basket stops it. Fish never eat trough feed
   and pickers must skip them.
 - Contact transfers (harvesting, stocking, feeding a trough and loading a
-  kitchen station) fire while walking, with short cooldowns in `INTERACT`.
+  factory station) fire while walking, with short cooldowns in `INTERACT`.
   They must never require the player to stop.
 - Dwell interactions are reserved for purchases, menus and irreversible choices:
   quick buys, zone unlocks, plant chooser, staff nudges, the drink menu and the
@@ -133,7 +133,7 @@ submodule. Do not copy platform source into this repo.
   drop their secondary copy and under `CARD_SCALE_HEIGHT` their whole layout
   scales down (`ShopPanel.cardUnit`), so a short landscape panel never pushes the
   price button into the name. Tap targets stay at 64 units at every scale.
-- Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
+- Factory hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
   slot. Walking past a machine pours matching carried goods in until the buffer
   is full; the output tray is collected on contact. Shelf-fed machines
   (`handLoad: false`, currently the Fish Grill and Salad Bar) pull directly from
@@ -157,7 +157,7 @@ submodule. Do not copy platform source into this repo.
   wait forever. If the worker is due for a meal and a seat is free, it eats one
   carried item at the table; otherwise it walks the load to the trash bin and
   discards it. A retired shelf bin skips the wait. This applies to pickers and
-  chefs, including a chef holding dishes when the kitchen shelf is full.
+  chefs, including a chef holding dishes when the factory shelf is full.
 - The shop runs in five-minute working days (`DAY` in `src/logic/config.ts`),
   displayed as 09:00–21:00. The lighting curve in `src/ui/lighting.ts` starts the
   golden hour at 17:00 and deepens every hour to a full grey night at 21:00. The
@@ -197,13 +197,13 @@ submodule. Do not copy platform source into this repo.
   The chooser is modal: movement input is locked until it closes through `×`, the
   backdrop or `Esc`, and it shows the planted crop and its refund. The old crop
   refunds half, and the new crop costs full price.
-- Farm pens and kitchen stations are generic slots. `map.animalPens` and
+- Farm pens and factory stations are generic slots. `map.animalPens` and
   `map.stationSlots` are arrays; every farm product (including the pond) can be
   installed in any pen and every processed product in any station.
   `producerPosition` and `producerAccess` index by `slot`, never by product.
   Save version 7 stores the slot, rejects a duplicate product and relocates a
   duplicate slot instead of losing the producer.
-- The kitchen's BBQ grill is the only pooled recipe: one batch consumes any two
+- The factory's BBQ grill is the only pooled recipe: one batch consumes any two
   of the six vegetables, fish, eggs or cheese, may mix them, and always produces
   `skewer`. Save version 9 renames the old `grilledFish` producer to `skewer`;
   keep that alias in `migrateSave`. Do not reuse the `grilledFish` key for the
@@ -212,8 +212,10 @@ submodule. Do not copy platform source into this repo.
   vegetables (`distinct: true`). `salad` is shelf-fed and needs one of every
   fruit and every vegetable; it is the only recipe with `reserve: 0`, because
   the player deliberately chooses to spend the last crop units on it. Save
-  version 10 gives an old kitchen a juicer when it had none; do not grant staff.
-- Kitchen stations spend the cheapest valid input first, but always spend a
+  version 10 gives an old factory a juicer when it had none; do not grant staff.
+  Save version 11 renames the `kitchen` zone to `factory`; keep the
+  `kitchen` → `factory` alias in `migrateSave` for zones and shelf levels.
+- Factory stations spend the cheapest valid input first, but always spend a
   hand-loaded hopper before shelf stock. Shelf draws keep `reserve` units
   (default 1) for customers; the salad opts out.
 - Producer swapping follows the crop rule: long press the pen/station or tap its

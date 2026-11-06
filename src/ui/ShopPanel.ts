@@ -58,7 +58,7 @@ export interface ShopPanelOptions {
   readonly i18n: I18n
   readonly state: ShopState
   readonly onPurchasePlant: (product: PlantKind) => ShopState
-  readonly onOpenProducerPicker: (zone: 'farm' | 'kitchen', slot: number) => void
+  readonly onOpenProducerPicker: (zone: 'farm' | 'factory', slot: number) => void
   readonly onUnlockZone: (zone: ZoneId) => ShopState
   readonly onRemove: (id: number) => ShopState
   readonly onUpgrade: (kind: UpgradeKind) => ShopState
@@ -765,7 +765,7 @@ export class ShopPanel {
     top: number,
     bottom: number,
   ): void {
-    if (zone !== 'farm' && zone !== 'kitchen') return
+    if (zone !== 'farm' && zone !== 'factory') return
     const ui = this.options.layout.ui
     const gap = 10 * ui
     // Keep the shelf upgrade reachable on short landscape panels; the card
@@ -797,12 +797,12 @@ export class ShopPanel {
   }
 
   /**
-   * Farm pens and kitchen stations are slots, not products. The card shows what
+   * Farm pens and factory stations are slots, not products. The card shows what
    * is installed and opens the same chooser as the in-world tool tag, so the
    * player can compare every animal or machine before paying.
    */
   private slotCard(
-    zone: 'farm' | 'kitchen',
+    zone: 'farm' | 'factory',
     slot: number,
     x: number,
     y: number,
@@ -1163,8 +1163,8 @@ export class ShopPanel {
   ): void {
     const ui = this.options.layout.ui
     const gap = 10 * ui
-    // The chef only turns up once the kitchen itself exists.
-    const kinds = STAFF_ORDER.filter((kind) => kind !== 'chef' || this.state.zones.kitchen)
+    // The chef only turns up once the factory itself exists.
+    const kinds = STAFF_ORDER.filter((kind) => kind !== 'chef' || this.state.zones.factory)
     // Portrait is a vertical roster: one readable row per hire instead of
     // squeezing four 120px cards across the panel.
     const columns = this.options.layout.portrait ? 1 : kinds.length
@@ -1352,7 +1352,7 @@ export class ShopPanel {
   }
 
   /** The first empty pen/station is the one primary "choose" action. */
-  private firstEmptySlot(zone: 'farm' | 'kitchen'): number | null {
+  private firstEmptySlot(zone: 'farm' | 'factory'): number | null {
     const slots =
       zone === 'farm' ? this.options.layout.map.animalPens : this.options.layout.map.stationSlots
     for (const slot of slots) {

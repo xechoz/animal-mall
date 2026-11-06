@@ -20,6 +20,10 @@ const LEAF_PALETTES = {
   cherry: { dark: 0x3f7258, base: 0x5c9a6e, light: 0x8cc48c },
   strawberry: { dark: 0x4f9458, base: 0x74c46a, light: 0xa9e58b },
   grape: { dark: 0x667f3f, base: 0x8aa654, light: 0xb8cc7a },
+  orange: { dark: 0x4a7f43, base: 0x63a854, light: 0x9bcf7d },
+  banana: { dark: 0x5f8442, base: 0x7fa65a, light: 0xb5d68a },
+  mango: { dark: 0x557f3a, base: 0x75994c, light: 0xacc47a },
+  watermelon: { dark: 0x4a7f43, base: 0x63a854, light: 0x9bcf7d },
 } as const
 
 const YIELD_TINT: Readonly<Record<PlantKind, number>> = {
@@ -29,12 +33,20 @@ const YIELD_TINT: Readonly<Record<PlantKind, number>> = {
   cherry: FRUIT_COLORS.cherry,
   strawberry: FRUIT_COLORS.strawberry,
   grape: FRUIT_COLORS.grape,
+  orange: FRUIT_COLORS.orange,
+  banana: FRUIT_COLORS.banana,
+  mango: FRUIT_COLORS.mango,
+  watermelon: FRUIT_COLORS.watermelon,
   carrot: 0xf08a3c,
   tomato: 0xe25d5d,
   corn: 0xf2c94c,
   pumpkin: 0xe07a2f,
   potato: 0xa9773f,
   eggplant: 0x7a4f9c,
+  cabbage: 0x9bc477,
+  cucumber: 0x4f9b5f,
+  onion: 0xf2cf7a,
+  mushroom: 0xe87a6f,
 }
 
 type Slots = readonly (readonly [number, number])[]
@@ -101,6 +113,46 @@ const EGGPLANT_SLOTS: Slots = [
   [15, -28],
   [0, -46],
 ]
+const ORANGE_SLOTS: Slots = [
+  [-19, -63],
+  [18, -66],
+  [0, -88],
+]
+const BANANA_SLOTS: Slots = [
+  [-8, -34],
+  [8, -30],
+  [-4, -22],
+  [10, -20],
+]
+const MANGO_SLOTS: Slots = [
+  [-22, -58],
+  [21, -61],
+  [0, -76],
+]
+const WATERMELON_SLOTS: Slots = [
+  [-15, -2],
+  [15, -3],
+]
+const CABBAGE_SLOTS: Slots = [
+  [-16, -4],
+  [2, -6],
+  [18, -4],
+]
+const CUCUMBER_SLOTS: Slots = [
+  [-18, -14],
+  [-6, -20],
+  [7, -18],
+  [18, -12],
+]
+const ONION_SLOTS: Slots = [
+  [-17, 0],
+  [0, 1],
+  [17, 0],
+]
+const MUSHROOM_SLOTS: Slots = [
+  [-12, -4],
+  [12, -6],
+]
 
 /** Growth scale for the whole crop, anchored at the soil line. */
 export function plantGrowthScale(ratio: number): number {
@@ -161,6 +213,18 @@ function drawFruitPlant(g: Phaser.GameObjects.Graphics, product: PlantKind, read
     case 'grape':
       drawGrapeVine(g, ready)
       break
+    case 'orange':
+      drawOrangeTree(g, ready)
+      break
+    case 'banana':
+      drawBananaTree(g, ready)
+      break
+    case 'mango':
+      drawMangoTree(g, ready)
+      break
+    case 'watermelon':
+      drawWatermelonVine(g, ready)
+      break
     default:
       drawAppleTree(g, ready)
   }
@@ -185,6 +249,18 @@ function drawVegetable(g: Phaser.GameObjects.Graphics, product: PlantKind, ready
       break
     case 'eggplant':
       drawEggplants(g, ready)
+      break
+    case 'cabbage':
+      drawCabbages(g, ready)
+      break
+    case 'cucumber':
+      drawCucumbers(g, ready)
+      break
+    case 'onion':
+      drawOnions(g, ready)
+      break
+    case 'mushroom':
+      drawMushrooms(g, ready)
       break
     default:
       drawCarrots(g, ready)
@@ -354,6 +430,131 @@ function drawGrapeVine(g: Phaser.GameObjects.Graphics, ready: number): void {
   drawYield(g, ready, GRAPE_SLOTS, drawGrapeCluster)
 }
 
+function drawOrangeTree(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.orange
+  g.fillStyle(SHADOW, 0.14)
+  g.fillEllipse(0, -3, 31, 8)
+  drawTrunk(g, 44, 12)
+  g.lineStyle(4.5, TRUNK, 1)
+  g.beginPath()
+  g.moveTo(0, -34)
+  g.lineTo(-10, -46)
+  g.lineTo(-18, -54)
+  g.moveTo(0, -38)
+  g.lineTo(10, -49)
+  g.lineTo(19, -56)
+  g.strokePath()
+
+  // Dense round crown, slightly taller than the apple tree.
+  canopy(g, 0, -74, 28, 25, leaf, 1.1)
+  blob(g, -26, -58, 7, 4.5, leaf.base)
+  blob(g, 25, -62, 6, 4, leaf.dark)
+
+  drawYield(g, ready, ORANGE_SLOTS, drawOrange)
+}
+
+function drawBananaTree(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.banana
+  g.fillStyle(SHADOW, 0.13)
+  g.fillEllipse(0, -3, 26, 7)
+  // Straight smooth trunk with ring marks.
+  g.fillStyle(0x7a9a52, 1)
+  g.fillRoundedRect(-5, -52, 10, 52, 4)
+  g.fillStyle(0x9bc477, 1)
+  g.fillRoundedRect(-3, -50, 4, 48, 2)
+  g.lineStyle(1, 0x5f8442, 0.6)
+  for (const y of [-44, -34, -24, -14]) {
+    g.lineBetween(-5, y, 5, y)
+  }
+
+  // Big drooping leaves from the crown.
+  for (const [angle, length] of [
+    [-2.6, 34],
+    [-2.1, 38],
+    [-1.1, 38],
+    [-0.6, 34],
+    [-1.6, 40],
+  ] as const) {
+    const x1 = Math.cos(angle) * length
+    const y1 = -52 + Math.sin(angle) * length * 0.55 - 6
+    blade(g, 0, -52, x1, y1, 9, leaf.dark)
+    blade(g, 0, -52, x1 * 0.9, y1 * 0.9 - 52 * 0.1, 5, leaf.base)
+  }
+  blob(g, 0, -54, 7, 5, leaf.base)
+
+  // The bunch hangs from the crown centre.
+  g.lineStyle(2, TRUNK_DARK, 1)
+  g.lineBetween(0, -50, 0, -40)
+  drawYield(g, ready, BANANA_SLOTS, drawBananaHand)
+}
+
+function drawMangoTree(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const leaf = LEAF_PALETTES.mango
+  g.fillStyle(SHADOW, 0.14)
+  g.fillEllipse(0, -3, 33, 8)
+  drawTrunk(g, 42, 13)
+  g.lineStyle(4.5, TRUNK, 1)
+  g.beginPath()
+  g.moveTo(0, -32)
+  g.lineTo(-13, -44)
+  g.lineTo(-26, -51)
+  g.moveTo(0, -36)
+  g.lineTo(13, -46)
+  g.lineTo(26, -52)
+  g.strokePath()
+
+  // Broad dome, a touch taller and looser than the peach crown.
+  canopy(g, 0, -66, 36, 19, leaf, 2.2)
+  blob(g, -32, -56, 8, 4.5, leaf.base)
+  blob(g, 31, -59, 7, 4, leaf.dark)
+
+  drawYield(g, ready, MANGO_SLOTS, drawMango)
+}
+
+function drawWatermelonVine(g: Phaser.GameObjects.Graphics, ready: number): void {
+  const tone = LEAF_PALETTES.watermelon
+  g.fillStyle(SHADOW, 0.1)
+  g.fillEllipse(0, -2, 32, 6)
+  g.lineStyle(3, LEAF_DARK, 1)
+  g.beginPath()
+  g.moveTo(-25, -6)
+  g.lineTo(-10, -10)
+  g.lineTo(6, -5)
+  g.lineTo(25, -9)
+  g.strokePath()
+  g.lineStyle(1.5, LEAF, 1)
+  g.beginPath()
+  g.arc(-21, -13, 5, 0.4, 3.6)
+  g.strokePath()
+  g.beginPath()
+  g.arc(21, -14, 4, 0.6, 3.8)
+  g.strokePath()
+  // Large lobed leaves along the runner.
+  leaf(g, -18, -17, 24, 15, -0.5, LEAF_DARK)
+  leaf(g, 20, -19, 24, 15, 0.5, LEAF_DARK)
+  leaf(g, -17, -19, 16, 10, -0.55, tone.base)
+  leaf(g, 19, -21, 16, 10, 0.55, tone.base)
+  blob(g, 0, -16, 10, 6, tone.dark)
+
+  for (let index = 0; index < Math.min(ready, WATERMELON_SLOTS.length); index += 1) {
+    const [x, y] = WATERMELON_SLOTS[index]
+    g.fillStyle(SHADOW, 0.16)
+    g.fillEllipse(x + 1, y + 7, 30, 8)
+    g.fillStyle(0x2f6f3f, 1)
+    g.fillEllipse(x, y, 30, 21)
+    g.fillStyle(0x3f8f4f, 1)
+    g.fillEllipse(x, y - 1, 27, 18)
+    g.lineStyle(2, 0x2f6f3f, 0.9)
+    for (const dx of [-8, 0, 8]) {
+      g.beginPath()
+      g.arc(x + dx, y, 10, -1.2, 1.2)
+      g.strokePath()
+    }
+    g.fillStyle(0x5f7a35, 1)
+    g.fillRoundedRect(x + 8, y - 15, 4, 8, 2)
+  }
+}
+
 function drawCarrots(g: Phaser.GameObjects.Graphics, ready: number): void {
   g.fillStyle(SHADOW, 0.1)
   g.fillEllipse(0, -3, 24, 6)
@@ -518,6 +719,80 @@ function drawEggplants(g: Phaser.GameObjects.Graphics, ready: number): void {
   drawFlower(g, 15, -28, 0xffe08a)
 
   drawYield(g, ready, EGGPLANT_SLOTS, drawEggplant)
+}
+
+function drawCabbages(g: Phaser.GameObjects.Graphics, ready: number): void {
+  g.fillStyle(SHADOW, 0.1)
+  g.fillEllipse(0, -3, 26, 6)
+  // Low leafy base under each head.
+  for (const [x] of CABBAGE_SLOTS) {
+    leaf(g, x - 9, -8, 18, 10, -0.4, LEAF_DARK)
+    leaf(g, x + 9, -8, 18, 10, 0.4, LEAF_DARK)
+  }
+
+  for (let index = 0; index < Math.min(ready, CABBAGE_SLOTS.length); index += 1) {
+    const [x, y] = CABBAGE_SLOTS[index]
+    drawCabbageHead(g, x, y)
+  }
+}
+
+function drawCucumbers(g: Phaser.GameObjects.Graphics, ready: number): void {
+  g.fillStyle(SHADOW, 0.1)
+  g.fillEllipse(0, -3, 26, 6)
+  // Two short stakes with a vine strung between them.
+  g.fillStyle(TRUNK_DARK, 1)
+  g.fillRoundedRect(-22, -34, 4, 34, 2)
+  g.fillRoundedRect(18, -34, 4, 34, 2)
+  g.lineStyle(2, LEAF_DARK, 1)
+  g.lineBetween(-20, -30, -10, -27)
+  g.lineBetween(-10, -27, 0, -26)
+  g.lineBetween(0, -26, 10, -27)
+  g.lineBetween(10, -27, 20, -30)
+  g.lineStyle(1.5, LEAF, 1)
+  g.lineBetween(-14, -28, -9, -33)
+  g.lineBetween(-9, -33, -3, -30)
+  g.lineBetween(8, -28, 13, -33)
+  g.lineBetween(13, -33, 18, -29)
+  leaf(g, -12, -32, 18, 11, -0.3, LEAF)
+  leaf(g, 12, -32, 18, 11, 0.3, LEAF)
+  blob(g, 0, -30, 9, 6, LEAF_LIGHT)
+
+  drawYield(g, ready, CUCUMBER_SLOTS, drawCucumberFruit)
+}
+
+function drawOnions(g: Phaser.GameObjects.Graphics, ready: number): void {
+  g.fillStyle(SHADOW, 0.1)
+  g.fillEllipse(0, -3, 24, 6)
+  // Tall green stalks behind each bulb.
+  for (const [x] of ONION_SLOTS) {
+    blade(g, x, -4, x - 7, -34, 4, LEAF)
+    blade(g, x, -4, x - 1, -40, 4, LEAF)
+    blade(g, x, -4, x + 6, -32, 4, LEAF_LIGHT)
+  }
+
+  for (let index = 0; index < Math.min(ready, ONION_SLOTS.length); index += 1) {
+    const [x, y] = ONION_SLOTS[index]
+    drawOnionBulb(g, x, y)
+  }
+}
+
+function drawMushrooms(g: Phaser.GameObjects.Graphics, ready: number): void {
+  g.fillStyle(SHADOW, 0.1)
+  g.fillEllipse(0, -3, 26, 6)
+  // Mulch mound: mushrooms grow from damp soil, not foliage.
+  g.fillStyle(0x6f4b2e, 1)
+  g.fillEllipse(0, -3, 34, 10)
+  g.fillStyle(0x8f6238, 1)
+  g.fillEllipse(0, -4, 28, 8)
+  g.fillStyle(0x5a3a28, 1)
+  g.fillCircle(-8, -4, 1.4)
+  g.fillCircle(6, -3, 1.6)
+  g.fillCircle(12, -5, 1.2)
+
+  for (let index = 0; index < Math.min(ready, MUSHROOM_SLOTS.length); index += 1) {
+    const [x, y] = MUSHROOM_SLOTS[index]
+    drawMushroomCap(g, x, y)
+  }
 }
 
 function drawYield(
@@ -697,6 +972,114 @@ function drawEggplant(g: Phaser.GameObjects.Graphics, x: number, y: number): voi
   g.lineStyle(1.5, 0x4f8f5f, 1)
   g.lineBetween(0, -16, 0, -19)
   g.restore()
+}
+
+function drawOrange(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(SHADOW, 0.2)
+  g.fillCircle(x + 1, y + 2, 6)
+  g.fillStyle(FRUIT_COLORS.orange, 1)
+  g.fillCircle(x, y, 5.8)
+  g.fillStyle(0xffb066, 0.8)
+  g.fillEllipse(x - 2, y - 2, 3.2, 4.4)
+  g.fillStyle(0x8f4b1e, 1)
+  g.fillCircle(x, y - 5, 1.4)
+  g.fillStyle(LEAF, 1)
+  g.fillEllipse(x + 4, y - 8, 6, 3)
+}
+
+function drawBananaHand(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.lineStyle(3.4, FRUIT_COLORS.banana, 1)
+  g.beginPath()
+  g.arc(x - 1, y - 8, 8, 1.1, 2.4)
+  g.strokePath()
+  g.fillStyle(0x3b2f3a, 1)
+  g.fillCircle(x - 4, y - 1, 1.3)
+  g.fillStyle(0xd9a93d, 1)
+  g.fillCircle(x + 3, y - 14, 1.6)
+}
+
+function drawMango(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(SHADOW, 0.18)
+  g.fillEllipse(x + 1, y + 6, 12, 4)
+  g.save()
+  g.translateCanvas(x, y)
+  g.rotateCanvas(0.35)
+  g.fillStyle(FRUIT_COLORS.mango, 1)
+  g.fillEllipse(0, 0, 11, 14)
+  g.fillStyle(0xf2a93b, 1)
+  g.fillEllipse(0, 2, 7, 9)
+  g.fillStyle(0xffd08a, 0.7)
+  g.fillEllipse(-2, -3, 2.4, 4)
+  g.restore()
+  g.fillStyle(LEAF, 1)
+  g.fillEllipse(x + 3, y - 8, 6, 3)
+}
+
+function drawCabbageHead(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(SHADOW, 0.16)
+  g.fillEllipse(x + 1, y + 6, 24, 7)
+  g.fillStyle(0x5f8442, 1)
+  g.fillCircle(x, y, 11)
+  g.fillStyle(0x9bc477, 1)
+  g.fillCircle(x, y - 1, 9)
+  g.fillStyle(0xc4e0a0, 1)
+  g.fillCircle(x, y - 1, 6)
+  g.lineStyle(1.4, 0x5f8442, 0.8)
+  g.beginPath()
+  g.arc(x, y - 1, 6, 0.4, 2.6)
+  g.strokePath()
+  g.beginPath()
+  g.arc(x, y - 1, 3.4, 0.6, 2.8)
+  g.strokePath()
+}
+
+function drawCucumberFruit(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.save()
+  g.translateCanvas(x, y)
+  g.rotateCanvas(0.25)
+  g.fillStyle(SHADOW, 0.16)
+  g.fillEllipse(1, 1, 9, 20)
+  g.fillStyle(0x2f6f3f, 1)
+  g.fillRoundedRect(-4, -9, 8, 18, 4)
+  g.fillStyle(0x4f9b5f, 1)
+  g.fillRoundedRect(-2.8, -8, 5.6, 16, 2.8)
+  g.fillStyle(0x8fd07a, 1)
+  g.fillRoundedRect(-1.2, -6, 2.4, 12, 1.2)
+  g.fillStyle(0xfff3b0, 1)
+  g.fillCircle(0, -5, 1.2)
+  g.restore()
+  g.lineStyle(1.2, LEAF_DARK, 1)
+  g.lineBetween(x, y - 9, x + 2, y - 14)
+}
+
+function drawOnionBulb(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(SHADOW, 0.16)
+  g.fillEllipse(x + 1, y + 6, 15, 4)
+  g.fillStyle(0xd9a93d, 1)
+  g.fillEllipse(x, y, 13, 14)
+  g.fillStyle(0xf2cf7a, 1)
+  g.fillEllipse(x, y, 10, 11)
+  g.lineStyle(1, 0xc9952f, 0.8)
+  g.beginPath()
+  g.arc(x, y, 6, -1.2, 1.2)
+  g.strokePath()
+  g.fillStyle(0x8a6a20, 1)
+  g.fillTriangle(x - 4, y + 6, x + 4, y + 6, x, y + 10)
+}
+
+function drawMushroomCap(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(SHADOW, 0.16)
+  g.fillEllipse(x + 1, y + 6, 14, 4)
+  g.fillStyle(0xd9c4a0, 1)
+  g.fillRoundedRect(x - 3, y - 2, 6, 10, 2)
+  g.fillStyle(0xb8574f, 1)
+  g.fillEllipse(x, y - 4, 17, 11)
+  g.fillStyle(0xe87a6f, 1)
+  g.fillEllipse(x, y - 5, 14, 9)
+  g.fillStyle(0xfff7e8, 1)
+  g.fillCircle(x - 4, y - 6, 1.6)
+  g.fillCircle(x + 2, y - 8, 1.3)
+  g.fillCircle(x + 5, y - 4, 1)
 }
 
 function drawTrunk(g: Phaser.GameObjects.Graphics, height: number, width: number): void {

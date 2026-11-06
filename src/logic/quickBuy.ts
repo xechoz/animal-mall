@@ -91,7 +91,7 @@ export interface ProducerSlotOffer {
   readonly type: 'producerSlot'
   readonly id: string
   readonly key: string
-  readonly zone: 'farm' | 'kitchen'
+  readonly zone: 'farm' | 'factory'
   readonly slot: number
   /** Cheapest option that is not installed yet, used for the price chip. */
   readonly product: ProductKind
@@ -107,7 +107,7 @@ export interface ProducerSwapOffer {
   readonly type: 'producerSwap'
   readonly id: string
   readonly key: string
-  readonly zone: 'farm' | 'kitchen'
+  readonly zone: 'farm' | 'factory'
   readonly slot: number
   readonly product: ProductKind
   readonly cost: number
@@ -236,7 +236,7 @@ export function swapOfferForSlot(
 
 export function producerSlotOffer(
   state: ShopState,
-  zone: 'farm' | 'kitchen',
+  zone: 'farm' | 'factory',
   slot: number,
 ): ProducerSlotOffer | null {
   if (!state.zones[zone]) return null
@@ -266,7 +266,7 @@ export function producerSlotOffer(
 
 export function producerSwapOffer(
   state: ShopState,
-  zone: 'farm' | 'kitchen',
+  zone: 'farm' | 'factory',
   slot: number,
 ): ProducerSwapOffer | null {
   if (!state.zones[zone]) return null
@@ -291,7 +291,7 @@ export function producerSwapOffer(
 
 function slotLayout(
   state: ShopState,
-  zone: 'farm' | 'kitchen',
+  zone: 'farm' | 'factory',
   slot: number,
 ): { point: Vec2; rect: Rect } | null {
   const point = zone === 'farm' ? state.map.animalPens[slot] : state.map.stationSlots[slot]
@@ -309,8 +309,8 @@ function slotLayout(
 }
 
 export function staffOfferFor(state: ShopState, kind: StaffKind): StaffOffer | null {
-  // A chef has nothing to do until the kitchen floor exists.
-  if (kind === 'chef' && !state.zones.kitchen) return null
+  // A chef has nothing to do until the factory floor exists.
+  if (kind === 'chef' && !state.zones.factory) return null
   const level = state.staff[kind]
   const cost = staffCost(kind, level)
   if (cost === null) return null
@@ -366,7 +366,7 @@ export function mapOffers(state: ShopState): readonly PurchaseOffer[] {
     }
   }
   for (const zone of ZONE_ORDER) {
-    if (zone !== 'farm' && zone !== 'kitchen') continue
+    if (zone !== 'farm' && zone !== 'factory') continue
     if (!state.zones[zone]) {
       const unlock = zoneOfferFor(state, zone)
       if (unlock !== null) offers.push(unlock)

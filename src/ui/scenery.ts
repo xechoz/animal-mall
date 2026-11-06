@@ -38,7 +38,7 @@ export function drawIndoorScenery(g: Phaser.GameObjects.Graphics, map: ShopMap):
     if (zone === 'fruit') drawFruitGround(g, map, area)
     else if (zone === 'veg') drawVegGround(g, area)
     else if (zone === 'farm') drawFarmGround(g, map, area)
-    else drawKitchenGround(g, map, area)
+    else drawFactoryGround(g, map, area)
   }
 
   drawWildlife(g, map)
@@ -304,7 +304,7 @@ function drawFarmGround(
   drawPatchEdge(g, area, 'farm')
 }
 
-function drawKitchenGround(
+function drawFactoryGround(
   g: Phaser.GameObjects.Graphics,
   map: ShopMap,
   area: { x: number; y: number; w: number; h: number },
@@ -352,7 +352,7 @@ function drawKitchenGround(
   drawBarrel(g, area.x + 22, area.y + area.h - 34, 0.8)
   drawBucket(g, area.x + 30, area.y + 58, 0.9)
   drawCrate(g, area.x + area.w - 30, area.y + area.h - 10, 0.78, 'jar')
-  drawPatchEdge(g, area, 'kitchen')
+  drawPatchEdge(g, area, 'factory')
 }
 
 function drawHerbPot(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
@@ -662,7 +662,7 @@ function drawStrawTuft(g: Phaser.GameObjects.Graphics, x: number, y: number, sca
 function drawPatchEdge(
   g: Phaser.GameObjects.Graphics,
   area: { x: number; y: number; w: number; h: number },
-  zone: 'fruit' | 'veg' | 'farm' | 'kitchen',
+  zone: 'fruit' | 'veg' | 'farm' | 'factory',
 ): void {
   const points = zonePatchPoints(area)
   for (let index = 0; index < points.length; index += 2) {

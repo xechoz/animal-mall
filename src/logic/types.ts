@@ -1,5 +1,25 @@
-export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry' | 'strawberry' | 'grape'
-export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin' | 'potato' | 'eggplant'
+export type FruitKind =
+  | 'apple'
+  | 'pear'
+  | 'peach'
+  | 'cherry'
+  | 'strawberry'
+  | 'grape'
+  | 'orange'
+  | 'banana'
+  | 'mango'
+  | 'watermelon'
+export type VegKind =
+  | 'carrot'
+  | 'tomato'
+  | 'corn'
+  | 'pumpkin'
+  | 'potato'
+  | 'eggplant'
+  | 'cabbage'
+  | 'cucumber'
+  | 'onion'
+  | 'mushroom'
 export type AnimalProductKind =
   | 'egg'
   | 'milk'
@@ -28,7 +48,7 @@ export type ProductKind = PlantKind | AnimalProductKind | ProcessedKind
 /** A mixed basket: how many of each product the player is carrying. */
 export type Carry = Readonly<Partial<Record<ProductKind, number>>>
 
-export type ZoneId = 'fruit' | 'veg' | 'farm' | 'kitchen'
+export type ZoneId = 'fruit' | 'veg' | 'farm' | 'factory'
 export type ProducerKind = 'plant' | 'animal' | 'station'
 
 export type UpgradeKind = 'carry' | 'speed' | 'scan' | 'fertilizer'
@@ -159,7 +179,7 @@ export interface ShopMap {
    */
   readonly animalPens: readonly Plot[]
   readonly animalAccess: readonly Vec2[]
-  /** Kitchen stations are generic slots for the same reason. */
+  /** Factory stations are generic slots for the same reason. */
   readonly stationSlots: readonly Plot[]
   readonly stationAccess: readonly Vec2[]
   readonly staffStations: Readonly<Record<StaffKind, StaffSpot>>
@@ -170,7 +190,7 @@ export interface ShopMap {
   /** Solid props for every walker: shelves, counter, pens and stations. */
   readonly obstacles: readonly Rect[]
   /**
-   * Player-only collision. Animal pens and kitchen stations are deliberately
+   * Player-only collision. Animal pens and factory stations are deliberately
    * left out so the player can walk through their footprint like crop beds,
    * while customers and staff still route around them.
    */
@@ -495,7 +515,7 @@ export type GameEvent =
     }
   | {
       readonly type: 'producerPickerReady'
-      readonly zone: 'farm' | 'kitchen'
+      readonly zone: 'farm' | 'factory'
       readonly slot: number
     }
   | {

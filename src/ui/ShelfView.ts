@@ -116,7 +116,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
       y: riserTop + 7,
       w: 48,
       h: 20,
-      icon: zone === 'kitchen' ? 'fish' : zone === 'farm' ? 'coin' : 'leaf',
+      icon: zone === 'factory' ? 'fish' : zone === 'farm' ? 'coin' : 'leaf',
     })
     drawHangingBundle(g, width * 0.16, riserTop + 8, 0.9, 'herb')
     drawHangingBundle(g, width * 0.3, riserTop + 8, 0.72, 'garlic')
