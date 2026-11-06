@@ -107,7 +107,7 @@ export class ShelfView extends Phaser.GameObjects.Container {
     g.fillRoundedRect(riserX + riserW - 9, riserTop + 4, 7, SHELF_RISER_HEIGHT + 4, 2)
     const awning: readonly [number, number] =
       zone === 'fruit'
-        ? [0xd97757, 0xfff3dd]
+        ? [0x7ac74f, 0xfff3dd]
         : zone === 'veg'
           ? [0x7fae63, 0xfff3dd]
           : zone === 'farm'

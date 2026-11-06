@@ -249,7 +249,7 @@ export function drawAwning(
   y: number,
   w: number,
   h: number,
-  colors: readonly [number, number] = [0xd97757, 0xfff3dd],
+  colors: readonly [number, number] = [0x7ac74f, 0xfff3dd],
 ): void {
   const stripe = 12
   let index = 0

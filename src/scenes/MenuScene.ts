@@ -102,7 +102,7 @@ export class MenuScene extends Phaser.Scene {
     const showBrandDot = !['zh', 'ja', 'ko'].includes(i18n.lang)
     const dot = showBrandDot
       ? this.add
-          .text(0, 4 * ui, '.', textStyle(theme, 46 * ui, '#e0913f', true))
+          .text(0, 4 * ui, '.', textStyle(theme, 46 * ui, '#e6b34a', true))
           .setOrigin(0, 0.5)
           .setDepth(20)
       : undefined
@@ -408,7 +408,7 @@ export class MenuScene extends Phaser.Scene {
     g.fillRoundedRect(-258, -137, 516, 30, 9)
     g.fillStyle(gameColors.hay, 0.4)
     g.fillRoundedRect(-250, -133, 500, 3, 1.5)
-    drawAwning(g, -256, -122, 512, 13, [0xd97757, 0xfff3dd])
+    drawAwning(g, -256, -122, 512, 13, [0x7ac74f, 0xfff3dd])
     g.fillStyle(gameColors.moss, 0.55)
     g.fillEllipse(-214, -143, 64, 12)
     g.fillEllipse(198, -143, 52, 10)
