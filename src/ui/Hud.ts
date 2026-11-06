@@ -34,7 +34,6 @@ const PHASE_PULSE_MS = 350
 export class Hud {
   private readonly theme: Theme
   private readonly i18n: I18n
-  private readonly scrim: Phaser.GameObjects.Graphics
   private readonly bar: Phaser.GameObjects.Graphics
   private readonly coinIcon: Phaser.GameObjects.Image
   private readonly coinsText: Phaser.GameObjects.Text
@@ -65,9 +64,8 @@ export class Hud {
     this.i18n = i18n
     this.layout = layout
 
-    // The top row floats over the world on phones; a soft canopy wash keeps the
-    // clock and purse readable without putting them on another card.
-    this.scrim = scene.add.graphics().setDepth(5990)
+    // The top row floats over the world on phones; the coin and clock pills
+    // carry their own frosted plates, so no scrim sits behind them.
     this.bar = scene.add.graphics().setDepth(6000)
     this.coinIcon = scene.add
       .image(0, 0, coinTextureKey())
@@ -129,17 +127,6 @@ export class Hud {
     const hud = layout.hud
     const ui = layout.ui
     this.bar.clear()
-
-    // A short gradient, not a solid bar: the canopy stays visible while world
-    // labels sliding under the top row lose enough contrast to stop competing.
-    this.scrim.clear()
-    const scrimHeight = Math.max(hud.bar.y + hud.bar.h + 8 * ui, layout.content.y + 10 * ui)
-    const bands = 10
-    for (let index = 0; index < bands; index += 1) {
-      const t = index / (bands - 1)
-      this.scrim.fillStyle(this.theme.overlay, 0.3 * (1 - t) ** 1.4)
-      this.scrim.fillRect(0, (scrimHeight * index) / bands, layout.width, scrimHeight / bands + 1)
-    }
 
     this.coinBaseScale = 0.78 * ui
     this.coinIcon.setPosition(hud.coins.x, hud.coins.y).setScale(this.coinBaseScale)
@@ -377,7 +364,6 @@ export class Hud {
 
   /** Blocking dialogs take the whole top row away instead of leaving it dim. */
   setVisible(visible: boolean): void {
-    this.scrim.setVisible(visible)
     this.bar.setVisible(visible)
     this.coinIcon.setVisible(visible)
     this.coinsText.setVisible(visible)

@@ -56,9 +56,10 @@ export const gameColors = {
     highlight: 0xffffff,
     overlay: ui.overlay,
     shadow: ui.ink,
-    // Shared Button radius. It is clamped to half the button height, so this
-    // value makes every action bar a capsule while cards keep their own radius.
-    radius: 32,
+    // Shared Button radius. Button clamps this to half the button height,
+    // so a large value keeps every action bar a capsule on every ui scale
+    // (button heights scale with ui); cards keep their own radius.
+    radius: 999,
     radiusLarge: 24,
   } satisfies Partial<Theme>,
   ui,

@@ -46,6 +46,4 @@ export function drawHudGlass(
   // adding another high-contrast line to the top row.
   g.fillStyle(theme.highlight, 0.2)
   g.fillEllipse(rect.x + rect.w / 2, rect.y + rect.h * 0.16, rect.w * 0.7, rect.h * 0.16)
-  g.fillStyle(gameColors.cream, 0.16)
-  g.fillRoundedRect(rect.x + 10 * scale, rect.y + 2 * scale, rect.w - 20 * scale, 1.5 * scale, 1)
 }
