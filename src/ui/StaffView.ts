@@ -17,14 +17,11 @@ const CARRY_HAND_X = 15
 const CARRY_HAND_Y = -22
 const CARRY_STEP = 11
 const CARRY_LEAN = 1.2
-const CARRY_BADGE_X = 10
-const CARRY_BADGE_Y = -3
 
 export class StaffView extends AnimalRig {
   readonly hit: Phaser.GameObjects.Zone
   private readonly hatImage: Phaser.GameObjects.Image
   private readonly carrying: Phaser.GameObjects.Image[] = []
-  private readonly carryCount: Phaser.GameObjects.Text
   private readonly mood: Phaser.GameObjects.Graphics
   private readonly food: Phaser.GameObjects.Image
   private readonly sleep: Phaser.GameObjects.Text
@@ -61,18 +58,6 @@ export class StaffView extends AnimalRig {
       this.addAbove(icon)
     }
 
-    this.carryCount = scene.add
-      .text(
-        CARRY_HAND_X + CARRY_BADGE_X,
-        CARRY_HAND_Y + CARRY_BADGE_Y,
-        '',
-        textStyle(theme, 12 * textScale, theme.text, true),
-      )
-      .setOrigin(0, 0.5)
-      .setBackgroundColor('#fff7e8')
-      .setPadding(3, 0, 3, 0)
-      .setVisible(false)
-    this.addAbove(this.carryCount)
     this.layoutCarry(1)
 
     this.mood = scene.add.graphics()
@@ -81,7 +66,7 @@ export class StaffView extends AnimalRig {
     this.addAbove(this.food)
 
     this.sleep = scene.add
-      .text(18, -96, 'Zzz', textStyle(theme, 14 * textScale, theme.text, true))
+      .text(18, -84, 'Zzz', textStyle(theme, 14 * textScale, theme.text, true))
       .setOrigin(0.5)
       .setBackgroundColor('#fff7e8')
       .setPadding(5, 1, 5, 1)
@@ -149,7 +134,7 @@ export class StaffView extends AnimalRig {
       this.sleep.setAlpha(0.62 + Math.abs(Math.sin(time * 0.004)) * 0.38)
       this.sleep.setPosition(
         this.mirror * 18 + frame.headX * 0.5,
-        -96 + frame.headY * 0.5 + Math.sin(time * 0.004) * 3,
+        -84 + frame.headY * 0.5 + Math.sin(time * 0.004) * 3,
       )
     }
 
@@ -161,10 +146,6 @@ export class StaffView extends AnimalRig {
         icon.setVisible(visible)
         if (visible && member.carry !== null) icon.setTexture(productTextureKey(member.carry))
       })
-      const overflow = member.carryCount > 4
-      this.carryCount
-        .setText(overflow ? `×${member.carryCount}` : '')
-        .setVisible(overflow && member.carry !== null)
     }
   }
 
@@ -199,9 +180,6 @@ export class StaffView extends AnimalRig {
         CARRY_HAND_Y - index * CARRY_STEP,
       )
     })
-    this.carryCount
-      .setOrigin(facing > 0 ? 0 : 1, 0.5)
-      .setPosition(facing * (CARRY_HAND_X + CARRY_BADGE_X), CARRY_HAND_Y + CARRY_BADGE_Y)
   }
 
   private drawMood(phase: StaffState['phase']): void {

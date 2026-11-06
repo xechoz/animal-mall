@@ -421,19 +421,6 @@ export function hopperInputTotal(producer: ProducerState, input: RecipeInput): n
   )
 }
 
-/** Hopper plus shelf stock for an input, used to explain why a station is idle. */
-export function recipeInputAvailable(
-  producer: ProducerState,
-  shelves: Readonly<Record<ZoneId, ShelfState>>,
-  input: RecipeInput,
-): number {
-  let best = 0
-  for (const product of recipeInputProducts(input)) {
-    best = Math.max(best, availableCount(producer, shelves, product))
-  }
-  return best
-}
-
 /** Total hopper plus shelf stock across every product that satisfies an input. */
 export function recipeInputTotal(
   producer: ProducerState,
@@ -530,28 +517,6 @@ function consumeResolvedInputs(
     }
   }
   return { producer: nextProducer, shelves: nextShelves }
-}
-
-/**
- * Nearest kitchen station the player can load by hand. Stations whose output
- * is full are skipped: they would not start another batch yet.
- */
-export function nearestLoadableStation(
-  producers: readonly ProducerState[],
-  pos: Vec2,
-  radius = INTERACT.loadRadius,
-): ProducerState | null {
-  let best: ProducerState | null = null
-  let bestDistance = Number.POSITIVE_INFINITY
-  for (const producer of producers) {
-    if (!isProcessedKind(producer.product)) continue
-    if (producer.ready >= RECIPES[producer.product].capacity) continue
-    const distanceToStation = distance(pos, producer.pos)
-    if (distanceToStation > radius || distanceToStation >= bestDistance) continue
-    best = producer
-    bestDistance = distanceToStation
-  }
-  return best
 }
 
 export function feedCount(producer: ProducerState): number {

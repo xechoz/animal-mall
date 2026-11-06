@@ -1,6 +1,5 @@
 import { Button, type I18n, mixColor, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { DAY } from '../logic/config'
 import { dayClockLabel, dayPhase, dayProgress } from '../logic/day'
 import { goalCost, nextGoal } from '../logic/goals'
 import type { DayPhase, ShopState, Vec2 } from '../logic/types'
@@ -31,7 +30,8 @@ const CLOCK_TRACK_DOTS = (CLOCK_MILESTONES - 1) * 3 + 1
 const CLOCK_ARC_DOT_RADIUS = 1.4
 const CLOCK_MILESTONE_RADIUS = 3.4
 const PHASE_PULSE_MS = 350
-const CLOSING_PULSE_RATE = 0.003
+/** The clock text changes in quarter-hour steps instead of every game minute. */
+const CLOCK_STEP_MINUTES = 15
 
 export class Hud {
   private readonly theme: Theme
@@ -170,7 +170,7 @@ export class Hud {
       this.phaseStartMs = this.lastPhase === null ? ms - PHASE_PULSE_MS : ms
       this.lastPhase = phase
     }
-    const clock = `${state.day.index}|${dayClockLabel(ms)}|${phase}`
+    const clock = `${state.day.index}|${dayClockLabel(ms, CLOCK_STEP_MINUTES)}|${phase}`
     if (clock !== this.lastClock) {
       this.lastClock = clock
       this.updateClockText(state)
@@ -219,7 +219,7 @@ export class Hud {
 
   private updateClockText(state: ShopState): void {
     this.dayText.setText(this.i18n.t('day.label', { day: state.day.index }))
-    this.clockText.setText(dayClockLabel(state.day.ms))
+    this.clockText.setText(dayClockLabel(state.day.ms, CLOCK_STEP_MINUTES))
   }
 
   /**
@@ -237,7 +237,6 @@ export class Hud {
     const radius = height / 2
     const tint = daySkyTint(ms)
     const pulse = this.phasePulse(ms)
-    const closing = this.closingPulse(ms)
 
     const bg = this.clockBg
     bg.clear()
@@ -278,10 +277,7 @@ export class Hud {
       ui,
     )
 
-    const edge =
-      closing > 0
-        ? mixColor(this.theme.borderSoft, this.theme.accent, closing * 0.85)
-        : mixColor(this.theme.borderSoft, tint.band, 0.3 + pulse * 0.5)
+    const edge = mixColor(this.theme.borderSoft, tint.band, 0.3 + pulse * 0.5)
     bg.lineStyle(1.2 * ui + pulse * 0.6 * ui, edge, 0.7 + pulse * 0.2)
     bg.strokeRoundedRect(left, top, width, height, radius)
 
@@ -294,12 +290,6 @@ export class Hud {
     const elapsed = ms - this.phaseStartMs
     if (elapsed <= 0 || elapsed >= PHASE_PULSE_MS) return 0
     return 1 - elapsed / PHASE_PULSE_MS
-  }
-
-  /** Warm border breathing from 20:30 until closing, derived from the shop clock. */
-  private closingPulse(ms: number): number {
-    if (ms < DAY.lastSpawnMs || ms >= DAY.lengthMs) return 0
-    return 0.5 + 0.5 * Math.sin((ms - DAY.lastSpawnMs) * CLOSING_PULSE_RATE)
   }
 
   private drawClockBody(

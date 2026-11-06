@@ -1,4 +1,4 @@
-import { type Theme, textStyle } from '@mg/core'
+import { type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { carriedKinds, carryOf, carryTotal } from '../logic/carry'
 import type { DrinkKind, PlayerState, ProductKind, Vec2 } from '../logic/types'
@@ -20,8 +20,8 @@ const CARRY_HAND_X = 18
 const CARRY_HAND_Y = -24
 const CARRY_STEP = 12
 const CARRY_LEAN = 1.5
-const CARRY_BADGE_X = 12
-const CARRY_BADGE_Y = -4
+const FULL_BADGE_X = 12
+const FULL_BADGE_Y = -4
 /** Delighted face after a catch; longer than the line pull so it reads. */
 const CATCH_FACE_MS = 1_100
 /** Sip and swallow beats baked into drink-gulp.mp3, in milliseconds. */
@@ -77,15 +77,16 @@ export class PlayerView extends AnimalRig {
   private readonly moodArt: Phaser.GameObjects.Graphics
   private readonly face: AnimalFace
   private readonly carrying: Phaser.GameObjects.Image[] = []
-  private readonly carryCount: Phaser.GameObjects.Text
-  private readonly theme: Theme
+  private readonly fullBadge: Phaser.GameObjects.Text
+  private readonly fullLabel: string
   private carryKey = ''
   private carryFacing: -1 | 1 = 1
+  private isFull = false
   private drink: DrinkState | null = null
   private eat: EatState | null = null
   private catchFaceStart = Number.NEGATIVE_INFINITY
 
-  constructor(scene: Phaser.Scene, theme: Theme) {
+  constructor(scene: Phaser.Scene, theme: Theme, i18n: I18n) {
     super(scene, {
       species: 'bear',
       player: true,
@@ -94,7 +95,7 @@ export class PlayerView extends AnimalRig {
       shadow: { width: 48, height: 14, alpha: 0.22 },
       marker: true,
     })
-    this.theme = theme
+    this.fullLabel = i18n.t('carry.full')
     this.face = animalFace('bear', BODY_SCALE * ANIMAL_SCALE)
     this.moodArt = scene.add.graphics()
 
@@ -113,18 +114,18 @@ export class PlayerView extends AnimalRig {
     this.food = scene.add.image(0, 0, productTextureKey('apple')).setScale(0.5).setVisible(false)
     this.addAbove(this.food)
 
-    this.carryCount = scene.add
+    this.fullBadge = scene.add
       .text(
-        CARRY_HAND_X + CARRY_BADGE_X,
-        CARRY_HAND_Y + CARRY_BADGE_Y,
-        '',
+        CARRY_HAND_X + FULL_BADGE_X,
+        CARRY_HAND_Y + FULL_BADGE_Y,
+        this.fullLabel,
         textStyle(theme, 13, theme.text, true),
       )
       .setOrigin(0, 0.5)
       .setBackgroundColor('#fff7e8')
       .setPadding(4, 0, 4, 0)
       .setVisible(false)
-    this.addAbove(this.carryCount)
+    this.addAbove(this.fullBadge)
     this.addAbove(this.moodArt)
     this.layoutCarry(1)
 
@@ -174,7 +175,13 @@ export class PlayerView extends AnimalRig {
     }
   }
 
-  updatePlayer(player: PlayerState, alpha: number, time: number, seated = false): void {
+  updatePlayer(
+    player: PlayerState,
+    alpha: number,
+    time: number,
+    seated: boolean,
+    carryMax: number,
+  ): void {
     const x = player.prevPos.x + (player.pos.x - player.prevPos.x) * alpha
     const y = player.prevPos.y + (player.pos.y - player.prevPos.y) * alpha
 
@@ -203,7 +210,8 @@ export class PlayerView extends AnimalRig {
       scaleY: poseScaleY,
       rotation: poseRotation,
     }
-    const load = Math.min(1, carryTotal(player.carry) / 8)
+    const carried = carryTotal(player.carry)
+    const load = Math.min(1, carried / 8)
     const frame = this.updateRig(x, y, time, pose, load)
     if (this.mirror !== this.carryFacing) {
       this.carryFacing = this.mirror
@@ -252,11 +260,12 @@ export class PlayerView extends AnimalRig {
         icon.setVisible(product !== undefined)
         if (product !== undefined) icon.setTexture(productTextureKey(product))
       })
-      const total = carryTotal(player.carry)
-      const overflow = total > 5
-      this.carryCount.setText(overflow ? `×${total}` : '').setVisible(overflow)
     }
-    this.carryCount.setColor(this.theme.text)
+    const full = carried >= carryMax
+    if (full !== this.isFull) {
+      this.isFull = full
+      this.fullBadge.setVisible(full)
+    }
   }
 
   /**
@@ -345,9 +354,9 @@ export class PlayerView extends AnimalRig {
         CARRY_HAND_Y - index * CARRY_STEP,
       )
     })
-    this.carryCount
+    this.fullBadge
       .setOrigin(facing > 0 ? 0 : 1, 0.5)
-      .setPosition(facing * (CARRY_HAND_X + CARRY_BADGE_X), CARRY_HAND_Y + CARRY_BADGE_Y)
+      .setPosition(facing * (CARRY_HAND_X + FULL_BADGE_X), CARRY_HAND_Y + FULL_BADGE_Y)
   }
 
   private spawnFizz(index: number): void {

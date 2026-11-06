@@ -11,7 +11,6 @@ import {
   shelfCapacity,
   shelfUpgradeCost,
   shelfUpgradeMax,
-  UPGRADE_ORDER,
   UPGRADES,
   ZONES,
   zoneOf,
@@ -484,11 +483,6 @@ export function removeProducer(state: ShopState, id: number): PurchaseOutcome {
     result: 'ok',
     events: [{ type: 'producerRemoved', product: producer.product, slot: producer.slot }],
   }
-}
-
-export function nextUpgradeKind(state: ShopState): UpgradeKind | null {
-  const kind = UPGRADE_ORDER.find((candidate) => state.upgrades[candidate] < upgradeMax(candidate))
-  return kind ?? null
 }
 
 export type { ProducerState }

@@ -50,24 +50,6 @@ export function drawPanelFrame(
   leafCorner(g, x + width - 14, y + height - 14, scale, -1, -1)
 }
 
-/** A lighter inner card: parchment, dry-grass edge, no corner ornaments. */
-export function drawCardFrame(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  theme: Theme,
-  radius = theme.radius,
-): void {
-  g.fillStyle(theme.shadow, 0.12)
-  g.fillRoundedRect(x, y + 4, width, height, radius)
-  g.fillStyle(theme.surface, 0.96)
-  g.fillRoundedRect(x, y, width, height, radius)
-  g.lineStyle(1.5, theme.borderSoft, 0.95)
-  g.strokeRoundedRect(x, y, width, height, radius)
-}
-
 /**
  * A light popover shell for slot pickers. It shares the parchment face and
  * bark edge with the big dialogs but skips the leaf corners and the heavy
@@ -113,21 +95,4 @@ export function drawTagFrame(
   g.lineBetween(x + 4, y + height - 3, x + width - 4, y + height - 3)
   g.fillStyle(gameColors.barkDark, 0.8)
   g.fillCircle(x + 7, y + height / 2, 1.4)
-}
-
-/** A low-key vine divider for lists and cards. */
-export function drawVineDivider(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  width: number,
-): void {
-  g.lineStyle(1.2, gameColors.mossDark, 0.45)
-  g.lineBetween(x, y, x + width, y)
-  for (let index = 1; index < 5; index += 1) {
-    const px = x + (width * index) / 5
-    g.fillStyle(gameColors.moss, 0.5)
-    g.fillEllipse(px, y - 1, 4, 2)
-    g.fillEllipse(px + 3, y + 1, 3.5, 1.8)
-  }
 }

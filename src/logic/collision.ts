@@ -55,14 +55,3 @@ export function moveWithCollision(
   if (!blockedAt(x, y + dy, radius, map, obstacles)) y += dy
   return { x, y }
 }
-
-export function moveToward(from: Vec2, to: Vec2, maxStep: number): { pos: Vec2; arrived: boolean } {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  const length = Math.hypot(dx, dy)
-  if (length <= maxStep || length === 0) return { pos: to, arrived: true }
-  return {
-    pos: { x: from.x + (dx / length) * maxStep, y: from.y + (dy / length) * maxStep },
-    arrived: false,
-  }
-}

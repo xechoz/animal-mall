@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Trim the world UI: the counter coin pile, animal pens, staff and customer
+  hands no longer print quantities, and a full player hand shows `MAX`/`满`
+  instead of a count. The shelf keeps its per-bin stock but drops the
+  `total/capacity` line, and the day clock updates in quarter-hour steps
+  instead of every game minute.
+
+- Close the shop exactly at 21:00. New customers still stop at 20:30, but
+  anyone left inside leaves when the clock lands on closing time, so the clock
+  and the day report agree and the 90-second closing grace is gone.
+
+- Remove unused drawing/logic exports and stale static i18n keys left behind by
+  earlier UI iterations.
+
+- Bake the static menu backdrop, pen fences, producer plots, crop/station art
+  and coin piles into cached textures. Phaser was re-walking every Graphics
+  command buffer each frame; a loaded shop now renders at 60 fps on the desktop
+  test machine instead of 22–30, with no gameplay changes.
+
 - Keep the player on the original waddle. The hop experiment is removed, so the
   shopkeeper walks like the rest of the cast again.
 

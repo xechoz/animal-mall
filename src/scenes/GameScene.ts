@@ -64,7 +64,14 @@ import {
 } from '../logic/purchase'
 import { nearestOffer, type PurchaseOffer, staffOfferFor } from '../logic/quickBuy'
 import { urgeStaff } from '../logic/staff'
-import { createShopState, remapShopState, stepShop, stockReach, toSave } from '../logic/state'
+import {
+  carryLimit,
+  createShopState,
+  remapShopState,
+  stepShop,
+  stockReach,
+  toSave,
+} from '../logic/state'
 import type {
   DayReport as DayReportData,
   DrinkKind,
@@ -300,6 +307,9 @@ export class GameScene extends Phaser.Scene {
     // shutdown, so view caches from the previous run would point at views whose
     // `scene` is already undefined.
     this.resetSessionViews()
+    // The menu backdrop is full-screen and no longer visible once the shop
+    // starts. Drop its texture so a phone does not carry both scenes' art.
+    if (this.textures.exists('menu-backdrop')) this.textures.remove('menu-backdrop')
     this.hungryNotified.clear()
     this.hungryCueAt.clear()
 
@@ -460,7 +470,7 @@ export class GameScene extends Phaser.Scene {
     this.sceneryView.setDepth(2)
     this.world.add(this.sceneryView)
 
-    this.penFences = new PenFences(this, this.layout.map)
+    this.penFences = new PenFences(this, this.layout.map, this.artBakeScale())
     this.penFences.addTo(this.world)
     this.penFences.setLocked(!this.state.zones.farm)
 
@@ -563,11 +573,11 @@ export class GameScene extends Phaser.Scene {
       }),
     ) as Record<StaffKind, StaffStationView>
 
-    this.coinPile = new CoinPileView(this, theme, this.layout.map)
+    this.coinPile = new CoinPileView(this, this.layout.map)
     this.world.add(this.coinPile)
     this.fishingView = new FishingView(this, theme)
     this.world.add(this.fishingView)
-    this.playerView = new PlayerView(this, theme)
+    this.playerView = new PlayerView(this, theme, this.services.i18n)
     this.playerView.landHandler = (x, y) => this.spawnDust(x, y)
     this.world.add(this.playerView)
     this.buildSlotHits()
@@ -991,6 +1001,7 @@ export class GameScene extends Phaser.Scene {
       alpha,
       time,
       this.state.dining.playerSeat !== null,
+      carryLimit(this.state),
     )
     followWorldCamera(
       this.layout,
@@ -1078,13 +1089,7 @@ export class GameScene extends Phaser.Scene {
       alive.add(customer.id)
       let view = this.customerViews.get(customer.id)
       if (view === undefined) {
-        view = new CustomerView(
-          this,
-          this.services.theme,
-          customer.species,
-          this.layout.worldText,
-          customer.id,
-        )
+        view = new CustomerView(this, this.services.theme, customer.species, customer.id)
         view.landHandler = (x, y) => this.spawnDust(x, y)
         this.world.add(view)
         this.customerViews.set(customer.id, view)
@@ -1174,6 +1179,7 @@ export class GameScene extends Phaser.Scene {
           producer,
           this.layout.worldText,
           this.services.i18n,
+          this.artBakeScale(),
         )
         this.world.add(view)
         // The soil bed is a separate ground layer so actors stand on top of it

@@ -1,36 +1,33 @@
-import { type Theme, textStyle } from '@mg/core'
 import Phaser from 'phaser'
 import type { ShopMap } from '../logic/types'
+import { ensureTexture } from './bakeArt'
 import { coinTextureKey } from './fruitArt'
 
 const COIN_CAP = 14
+const PILE_BOX = { x: -30, y: -24, w: 60, h: 44 } as const
+const PILE_SCALE = 3
 
 export class CoinPileView extends Phaser.GameObjects.Container {
-  private readonly theme: Theme
-  private readonly pile: Phaser.GameObjects.Graphics
+  private readonly pile: Phaser.GameObjects.Image
   private readonly coin: Phaser.GameObjects.Image
-  private readonly amount: Phaser.GameObjects.Text
   private lastAmount = -1
 
-  constructor(scene: Phaser.Scene, theme: Theme, map: ShopMap) {
+  constructor(scene: Phaser.Scene, map: ShopMap) {
     super(scene, map.counter.x + map.counter.w - 15, map.counter.y + 22)
-    this.theme = theme
     // The counter is its own depth-sorted view now, so the coins have to sit
     // just above its footprint or the raised top board hides them.
     this.setDepth(map.counter.y + map.counter.h + 1)
 
-    this.pile = scene.add.graphics()
+    this.pile = scene.add
+      .image(0, 0, '__DEFAULT')
+      .setOrigin(0.5, -PILE_BOX.y / PILE_BOX.h)
+      .setVisible(false)
     this.add(this.pile)
 
-    this.coin = scene.add.image(14, -38, coinTextureKey()).setScale(0.5)
+    // The coin is the "walk over here to collect" cue; the exact amount stays
+    // out of the world and only appears in the HUD purse once collected.
+    this.coin = scene.add.image(0, -38, coinTextureKey()).setScale(0.5)
     this.add(this.coin)
-
-    this.amount = scene.add
-      .text(24, -38, '', textStyle(theme, 18, theme.text, true))
-      .setOrigin(0, 0.5)
-      .setBackgroundColor('#fff7e8')
-      .setPadding(5, 1, 5, 1)
-    this.add(this.amount)
 
     this.setVisible(false)
     scene.add.existing(this)
@@ -42,30 +39,42 @@ export class CoinPileView extends Phaser.GameObjects.Container {
     this.lastAmount = amount
     this.setVisible(amount > 0)
     if (amount <= 0) {
-      this.pile.clear()
-      this.amount.setText('')
+      this.pile.setVisible(false)
       return
     }
 
     const coins = Math.min(COIN_CAP, amount)
-    this.pile.clear()
-    for (let index = 0; index < coins; index += 1) {
-      const stack = index % 3
-      const level = Math.floor(index / 3)
-      const x = (stack - 1) * 15 + (level % 2) * 2
-      const y = 6 - level * 4
-      this.pile.fillStyle(0x3b2f3a, 0.16)
-      this.pile.fillEllipse(x + 1, y + 3, 16, 6)
-      this.pile.fillStyle(0xd89a2b, 1)
-      this.pile.fillEllipse(x, y, 16, 7)
-      this.pile.fillStyle(0xffd166, 1)
-      this.pile.fillEllipse(x, y - 1, 14, 5)
-      this.pile.lineStyle(1, 0xd89a2b, 1)
-      this.pile.strokeEllipse(x, y - 1, 9, 3)
-    }
+    const key = ensureTexture(
+      this.scene,
+      `coin-pile-${coins}-${PILE_SCALE}`,
+      { x: PILE_BOX.x, y: PILE_BOX.y },
+      PILE_BOX.w,
+      PILE_BOX.h,
+      PILE_SCALE,
+      (g) => {
+        for (let index = 0; index < coins; index += 1) {
+          const stack = index % 3
+          const level = Math.floor(index / 3)
+          const x = (stack - 1) * 15 + (level % 2) * 2
+          const y = 6 - level * 4
+          g.fillStyle(0x3b2f3a, 0.16)
+          g.fillEllipse(x + 1, y + 3, 16, 6)
+          g.fillStyle(0xd89a2b, 1)
+          g.fillEllipse(x, y, 16, 7)
+          g.fillStyle(0xffd166, 1)
+          g.fillEllipse(x, y - 1, 14, 5)
+          g.lineStyle(1, 0xd89a2b, 1)
+          g.strokeEllipse(x, y - 1, 9, 3)
+        }
+      },
+    )
+    const source = this.scene.textures.get(key).getSourceImage()
+    this.pile
+      .setTexture(key)
+      .setScale(PILE_BOX.w / source.width, PILE_BOX.h / source.height)
+      .setVisible(true)
 
-    this.coin.setVisible(amount > 0)
-    this.amount.setText(String(amount)).setColor(`#${this.theme.text.slice(1)}`)
+    this.coin.setVisible(true)
     if (previous >= 0 && amount > previous) {
       this.scene.tweens.add({
         targets: this,

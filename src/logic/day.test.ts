@@ -3,7 +3,6 @@ import { DAY } from './config'
 import {
   dayAcceptsCustomers,
   dayClockLabel,
-  dayGraceOver,
   dayPhase,
   dayProgress,
   dayRating,
@@ -24,6 +23,12 @@ describe('day clock', () => {
     expect(dayProgress(DAY.lengthMs + 5)).toBe(1)
   })
 
+  it('floors the label to the display step without passing closing time', () => {
+    expect(dayClockLabel(DAY.lengthMs / 24, 30)).toBe('09:30')
+    expect(dayClockLabel(DAY.lengthMs - 1, 30)).toBe('20:30')
+    expect(dayClockLabel(DAY.lengthMs, 30)).toBe('21:00')
+  })
+
   it('splits the day into dawn, day, dusk, night and closing', () => {
     expect(dayPhase(0)).toBe('dawn')
     expect(dayPhase(DAY.dawnEndMs - 1)).toBe('dawn')
@@ -36,11 +41,9 @@ describe('day clock', () => {
     expect(isNightPhase('dusk')).toBe(false)
   })
 
-  it('stops new shoppers before closing and keeps a grace window', () => {
+  it('stops new shoppers before closing', () => {
     expect(dayAcceptsCustomers(DAY.lastSpawnMs - 1)).toBe(true)
     expect(dayAcceptsCustomers(DAY.lastSpawnMs)).toBe(false)
-    expect(dayGraceOver(DAY.lengthMs)).toBe(false)
-    expect(dayGraceOver(DAY.lengthMs + DAY.closeGraceMs)).toBe(true)
   })
 })
 

@@ -101,9 +101,10 @@ export class DaylightView {
 
     const night = lighting.night
     const dark = night > 0.002
-    // The night veil already carries its own vignette; keep the day vignette
-    // strong enough to focus the stage and let it recede after dark.
-    this.vignette.setAlpha(0.16 * (1 - night * 0.62))
+    // The night veil already carries its own vignette, so once the wash is
+    // deep enough the day vignette can stop drawing altogether. On a phone
+    // canvas this saves a full-screen alpha pass during the darkest hours.
+    this.vignette.setAlpha(0.16 * (1 - night * 0.62)).setVisible(night < 0.5)
     this.multiply.setVisible(dark).setAlpha(night * 0.95)
     this.veil.setVisible(dark).setAlpha(night)
     if (!dark) {

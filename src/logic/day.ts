@@ -34,22 +34,22 @@ export function dayProgress(ms: number): number {
 }
 
 /** The shop clock, compressed from the configured opening hours. */
-export function dayClockLabel(ms: number): string {
+export function dayClockLabel(ms: number, stepMinutes = 1): string {
   const progress = dayProgress(ms)
-  const minutes = Math.round(DAY.openHour * 60 + progress * (DAY.closeHour - DAY.openHour) * 60)
+  const raw = DAY.openHour * 60 + progress * (DAY.closeHour - DAY.openHour) * 60
+  // Floor instead of round so the label reaches closing exactly at 21:00 and
+  // never shows a time that has already passed. A larger step keeps the HUD
+  // text calm on a five-minute day without moving the sun arc.
+  const step = Math.max(1, Math.floor(stepMinutes))
+  const minutes = Math.min(DAY.closeHour * 60, Math.floor(raw / step) * step)
   const hour = Math.floor(minutes / 60)
   const minute = minutes % 60
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
-/** New shoppers stop before the door closes, but the queue may finish. */
+/** New shoppers stop before the door closes; anyone left leaves at closing. */
 export function dayAcceptsCustomers(ms: number): boolean {
   return ms < DAY.lastSpawnMs
-}
-
-/** Safety net for a shopper stuck on a broken path after closing. */
-export function dayGraceOver(ms: number): boolean {
-  return ms >= DAY.lengthMs + DAY.closeGraceMs
 }
 
 /**

@@ -188,12 +188,3 @@ export function computeGameLayout(
     panelHeight: Math.min(mobile ? 1330 : 1180, height - 20 * ui),
   }
 }
-
-export function pointInRect(point: Vec2, rect: Rect): boolean {
-  return (
-    point.x >= rect.x &&
-    point.x <= rect.x + rect.w &&
-    point.y >= rect.y &&
-    point.y <= rect.y + rect.h
-  )
-}

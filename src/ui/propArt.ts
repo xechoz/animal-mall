@@ -242,28 +242,6 @@ function drawBoardIcon(
   g.fillCircle(x - size * 0.75, y - size * 0.15, size * 0.16)
 }
 
-/** A small A-frame menu board standing on the floor. */
-export function drawEaselBoard(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  baseY: number,
-  scale = 1,
-  icon: BoardIcon = 'leaf',
-): void {
-  const s = scale
-  const boardW = 38 * s
-  const boardH = 34 * s
-  const boardTop = baseY - boardH - 10 * s
-  g.fillStyle(0x1a120c, 0.14)
-  g.fillEllipse(x + 3 * s, baseY + 2 * s, 38 * s, 8 * s)
-  g.lineStyle(2.6 * s, 0x6f4b2e, 1)
-  g.lineBetween(x - 13 * s, baseY, x - 8 * s, boardTop + 12 * s)
-  g.lineBetween(x + 13 * s, baseY, x + 8 * s, boardTop + 12 * s)
-  drawChalkboard(g, { x: x - boardW / 2, y: boardTop, w: boardW, h: boardH, icon })
-  g.fillStyle(0x8f5734, 1)
-  g.fillRoundedRect(x - 14 * s, baseY - 3 * s, 28 * s, 3 * s, 1.5 * s)
-}
-
 /** A striped fabric valance with a scalloped hem. */
 export function drawAwning(
   g: Phaser.GameObjects.Graphics,
@@ -349,19 +327,6 @@ export function addPropShadow(
     .setAlpha(alpha * 0.55)
   parent.addAt(contact, 0)
   parent.addAt(cast, 0)
-}
-
-export function strokeGroundEllipse(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  radius: number,
-  color: number,
-  alpha: number,
-  lineWidth: number,
-): void {
-  g.lineStyle(lineWidth, color, alpha)
-  g.strokeEllipse(x, y, radius * 2, radius * 2 * GROUND_RING_SQUASH)
 }
 
 /** Phaser has no elliptical arc helper, so walk the ellipse in short steps. */

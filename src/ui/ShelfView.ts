@@ -29,7 +29,6 @@ export class ShelfView extends Phaser.GameObjects.Container {
   private readonly reachGlow: Phaser.GameObjects.Graphics
   private readonly reachRim: Phaser.GameObjects.Graphics
   private reachOn = false
-  private readonly countText: Phaser.GameObjects.Text
   private readonly slotCount: number
   private readonly upgrade: Phaser.GameObjects.Container
   private readonly upgradePrice: Phaser.GameObjects.Text
@@ -237,16 +236,6 @@ export class ShelfView extends Phaser.GameObjects.Container {
       this.counts.push(count)
     }
 
-    this.countText = scene.add
-      .text(
-        width / 2 - 7,
-        top + topDepth - 10,
-        '',
-        textStyle(theme, 9 * textScale, '#fff7e8', true),
-      )
-      .setOrigin(1, 0.5)
-    this.add(this.countText)
-
     // The stall body never changes after this point, so it is baked into one
     // quad instead of being re-tessellated from ~1600 commands every frame.
     const baked = bakeLayer(
@@ -352,38 +341,57 @@ export class ShelfView extends Phaser.GameObjects.Container {
     if (cost === this.upgradeCost && affordable === this.upgradeAffordable) return
     this.upgradeCost = cost
     this.upgradeAffordable = affordable
-    this.scene.tweens.killTweensOf(this.upgrade)
     if (cost === null) {
+      this.scene.tweens.killTweensOf(this.upgrade)
       this.upgrade.setVisible(false)
       this.upgradeHit.disableInteractive()
       return
     }
     this.upgradePrice.setText(String(cost))
-    // Keep the price visible when the player cannot pay yet: hiding it removed
-    // the only clue that the shelf can be upgraded at all.
-    this.upgrade
-      .setVisible(true)
-      .setY(this.upgradeBaseY)
-      .setAlpha(affordable ? 1 : 0.62)
-    this.upgradeHit.setInteractive({ useHandCursor: true })
-    if (!affordable) {
-      this.upgrade.setY(this.upgradeBaseY)
+    this.applyUpgradeVisibility()
+  }
+
+  /**
+   * The upgrade tag only advertises the interaction while the player is at the
+   * shelf. Far away it is just another floating price chip, so it stays hidden
+   * until the same proximity check that enables stocking lights it up.
+   */
+  private applyUpgradeVisibility(): void {
+    const show = this.reachOn && this.upgradeCost !== null
+    if (!show) {
+      if (this.upgrade.visible) {
+        this.scene.tweens.killTweensOf(this.upgrade)
+        this.upgrade.setVisible(false)
+        this.upgrade.setY(this.upgradeBaseY)
+        this.upgradeHit.disableInteractive()
+      }
       return
     }
-    this.scene.tweens.add({
-      targets: this.upgrade,
-      y: this.upgradeBaseY - 3,
-      duration: 680,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    })
+    if (!this.upgrade.visible) {
+      this.upgrade.setVisible(true).setY(this.upgradeBaseY)
+      this.scene.tweens.killTweensOf(this.upgrade)
+      if (this.upgradeAffordable) {
+        this.scene.tweens.add({
+          targets: this.upgrade,
+          y: this.upgradeBaseY - 3,
+          duration: 680,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        })
+      }
+    }
+    // Keep the price visible when the player cannot pay yet: hiding it removed
+    // the only clue that the shelf can be upgraded at all.
+    this.upgrade.setAlpha(this.upgradeAffordable ? 1 : 0.62)
+    this.upgradeHit.setInteractive({ useHandCursor: true })
   }
 
   /** Soft outline while the player can stock here. Kept faint on purpose. */
   setReach(on: boolean): void {
     if (on === this.reachOn) return
     this.reachOn = on
+    this.applyUpgradeVisibility()
     const targets = [this.reachGlow, this.reachRim]
     this.scene.tweens.killTweensOf(targets)
     if (on) {
@@ -463,9 +471,6 @@ export class ShelfView extends Phaser.GameObjects.Container {
         unlocked && shelf.stock[product] > 0 ? String(shelf.stock[product]) : '',
       )
     })
-    const total = ZONE_PRODUCTS[shelf.zone].reduce((sum, product) => sum + shelf.stock[product], 0)
-    const capacity = this.slotCount * shelf.capacity
-    this.countText.setText(shelf.active && total > 0 ? `${total}/${capacity}` : '')
     if (!shelf.active) return
 
     if (wasVisible) {

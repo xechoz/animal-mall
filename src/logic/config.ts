@@ -637,8 +637,6 @@ export const DAY = {
   duskStartMs: dayMsAt(18),
   nightStartMs: dayMsAt(19.5),
   lastSpawnMs: dayMsAt(20.5),
-  /** Safety net: clear a stuck shop 90 s after closing so the report appears. */
-  closeGraceMs: 90_000,
 } as const
 
 export const SATISFACTION = {

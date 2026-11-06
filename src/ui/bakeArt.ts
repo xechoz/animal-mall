@@ -84,6 +84,26 @@ export function bakeGraphics(
     .setScale(1 / factor)
 }
 
+/** Builds a texture once and returns its key; later calls reuse the cached art. */
+export function ensureTexture(
+  scene: Phaser.Scene,
+  key: string,
+  origin: { readonly x: number; readonly y: number },
+  width: number,
+  height: number,
+  scale: number,
+  draw: (graphics: Phaser.GameObjects.Graphics) => void,
+): string {
+  if (scene.textures.exists(key)) return key
+
+  const graphics = scene.add.graphics()
+  draw(graphics)
+  const image = bakeLayer(scene, graphics, key, origin, width, height, scale)
+  graphics.destroy()
+  image.destroy()
+  return key
+}
+
 /**
  * Bakes a Graphics whose drawing is centred on its own origin, or otherwise
  * extends into negative coordinates. `generateTexture` clips anything left of

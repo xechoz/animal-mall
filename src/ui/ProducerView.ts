@@ -15,6 +15,7 @@ import {
 } from '../logic/config'
 import { inputCapacity, recipeInputIcon, recipeInputTotal } from '../logic/production'
 import type { PlantKind, ProducerState, ShelfState, ZoneId } from '../logic/types'
+import { bakeLayer, ensureTexture } from './bakeArt'
 import { feedTextureKey } from './fruitArt'
 import { drawClover, drawGrassTuft, drawPenDecor, drawTilledBed } from './groundArt'
 import { drawPlantCrop, plantGrowthScale } from './plantArt'
@@ -26,8 +27,11 @@ export class ProducerView extends Phaser.GameObjects.Container {
    * Soil bed drawn below every actor so the player can stand on it while the
    * crop layer above hides them, giving the feeling of walking through bushes.
    */
-  readonly ground: Phaser.GameObjects.Graphics
+  readonly ground: Phaser.GameObjects.Image
   private readonly art: Phaser.GameObjects.Graphics
+  private readonly artImage: Phaser.GameObjects.Image
+  private readonly bakeScale: number
+  private readonly groundKey: string
   private readonly ring: Phaser.GameObjects.Graphics
   private readonly feedRing: Phaser.GameObjects.Graphics
   private readonly hungryRing: Phaser.GameObjects.Graphics
@@ -60,25 +64,44 @@ export class ProducerView extends Phaser.GameObjects.Container {
     producer: ProducerState,
     textScale: number,
     i18n: I18n,
+    bakeScale = 1,
   ) {
     super(scene, producer.pos.x, producer.pos.y)
     this.i18n = i18n
-    this.ground = scene.add.graphics().setPosition(producer.pos.x, producer.pos.y)
-    if (producer.kind === 'plant') drawPlantBed(this.ground, producer)
+    this.bakeScale = bakeScale
+
+    // Keep the Graphics at the local origin: bakeLayer captures its local
+    // coordinates, and the resulting image is moved to producer.pos below.
+    const groundArt = scene.add.graphics()
+    if (producer.kind === 'plant') drawPlantBed(groundArt, producer)
     if (producer.kind === 'animal' && isAnimalProductKind(producer.product)) {
-      drawPenDecor(this.ground, producer.product, producer.slot)
+      drawPenDecor(groundArt, producer.product, producer.slot)
     }
     if (producer.kind === 'station' && isProcessedKind(producer.product)) {
       // The work mat follows the installed machine, so a swapped station never
       // keeps the old oven pad under a jam pot.
-      drawStationPad(this.ground, producer.product, 0, 0)
+      drawStationPad(groundArt, producer.product, 0, 0)
     }
+    const groundScale = Math.min(3, bakeScale)
+    this.groundKey = `producer-ground-${producer.id}-${producer.kind}-${producer.product}-${producer.slot}-${groundScale}`
+    this.ground = bakeLayer(
+      scene,
+      groundArt,
+      this.groundKey,
+      { x: -80, y: -70 },
+      160,
+      140,
+      groundScale,
+    ).setPosition(producer.pos.x - 80, producer.pos.y - 70)
+    groundArt.destroy()
+
     this.art = scene.add.graphics()
+    this.artImage = scene.add.image(0, 0, '__DEFAULT').setVisible(false)
     this.ring = scene.add.graphics()
     this.feedRing = scene.add.graphics()
     this.hungryRing = scene.add.graphics()
     this.stationFx = scene.add.graphics()
-    this.add([this.art, this.ring, this.feedRing, this.hungryRing, this.stationFx])
+    this.add([this.artImage, this.art, this.ring, this.feedRing, this.hungryRing, this.stationFx])
 
     const bubbleBg = scene.add.graphics()
     bubbleBg.fillStyle(0x3b2f3a, 0.16)
@@ -155,6 +178,20 @@ export class ProducerView extends Phaser.GameObjects.Container {
     scene.add.existing(this)
   }
 
+  private setArtTexture(key: string, width: number, height: number, growth: number): void {
+    const source = this.scene.textures.get(key).getSourceImage()
+    this.artImage
+      .setTexture(key)
+      .setScale((width / source.width) * growth, (height / source.height) * growth)
+      .setVisible(true)
+  }
+
+  destroy(fromScene?: boolean): void {
+    const textures = this.scene?.textures
+    super.destroy(fromScene)
+    if (textures?.exists(this.groundKey)) textures.remove(this.groundKey)
+  }
+
   /** Highlights the trough while the player carries something it accepts. */
   setFeedActive(active: boolean): void {
     this.feedRing.clear()
@@ -176,6 +213,8 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.lastKey = key
 
     this.art.clear()
+    this.art.setVisible(true)
+    this.artImage.setVisible(false)
     this.ring.clear()
     this.art.setScale(1)
     this.badge.setVisible(false)
@@ -188,17 +227,41 @@ export class ProducerView extends Phaser.GameObjects.Container {
     for (const count of this.inputCounts) count.setVisible(false)
 
     if (producer.kind === 'plant' && isPlantKind(producer.product)) {
-      const ratio = producer.mature
-        ? 1
-        : Math.min(1, producer.progressMs / PLANTS[producer.product].growMs)
-      this.art.setScale(plantGrowthScale(ratio))
-      drawPlantCrop(this.art, producer.product, ratio, producer.mature, producer.ready)
+      const product = producer.product
+      const ratio = producer.mature ? 1 : Math.min(1, producer.progressMs / PLANTS[product].growMs)
+      const sprout = !producer.mature && ratio < 0.38
+      const textureScale = Math.min(3, this.bakeScale)
+      const texture = ensureTexture(
+        this.scene,
+        `crop-${product}-${sprout ? 'sprout' : 'full'}-${producer.ready}-${textureScale}`,
+        { x: -72, y: -120 },
+        144,
+        150,
+        textureScale,
+        (g) => drawPlantCrop(g, product, sprout ? 0.2 : 1, !sprout, producer.ready),
+      )
+      this.art.setVisible(false)
+      this.artImage.setOrigin(0.5, 0.8).setPosition(0, 0)
+      this.setArtTexture(texture, 144, 150, plantGrowthScale(ratio))
     } else if (producer.kind === 'animal') {
       // The animal layer is redrawn every frame by updateAnimal so it can walk,
       // rest and react to hunger without touching the simulation.
     } else if (producer.kind === 'station') {
-      drawStation(this.art, producer)
       if (isProcessedKind(producer.product)) {
+        const textureScale = Math.min(3, this.bakeScale)
+        const texture = ensureTexture(
+          this.scene,
+          `station-${producer.product}-${producer.ready}-${textureScale}`,
+          { x: -80, y: -100 },
+          160,
+          160,
+          textureScale,
+          (g) => drawStation(g, producer),
+        )
+        this.art.setVisible(false)
+        this.artImage.setOrigin(0.5, 0.625).setPosition(0, 0)
+        this.setArtTexture(texture, 160, 160, 1)
+
         const config = RECIPES[producer.product]
         const crafting = producer.progressMs > 0
         config.inputs.forEach((input, index) => {
@@ -246,12 +309,10 @@ export class ProducerView extends Phaser.GameObjects.Container {
       configStationInputPositions(this.inputIcons, this.inputCounts)
     }
 
-    // Plants show their ripe produce as art on the crop instead of a counter.
-    if (producer.ready > 0 && producer.kind !== 'plant') {
-      this.badge
-        .setPosition(0, stationTop ? (producer.hungry ? -98 : -94) : producer.hungry ? -80 : -62)
-        .setText(String(producer.ready))
-        .setVisible(true)
+    // Animals show their produce as art in the pen, so only a station keeps a
+    // numeric ready badge above its chimney.
+    if (producer.ready > 0 && producer.kind === 'station') {
+      this.badge.setPosition(0, -94).setText(String(producer.ready)).setVisible(true)
     }
 
     if (producer.hungry && isAnimalProductKind(producer.product)) {
@@ -419,7 +480,7 @@ export class ProducerView extends Phaser.GameObjects.Container {
     this.emoteBg.lineStyle(2, 0x3b2f3a, 0.28)
     this.emoteBg.strokeRoundedRect(-width / 2, -13, width, 24, 10)
     this.emoteBg.fillTriangle(-4, 11, 4, 11, 0, 17)
-    this.emote.setVisible(true).setY(-102 + Math.sin(time * 0.006) * 2)
+    this.emote.setVisible(true).setY(-78 + Math.sin(time * 0.006) * 2)
   }
 
   private random(): number {
@@ -659,17 +720,6 @@ function drawAnimalFrame(
   if (isHive) {
     drawBeehive(g, producer.ready, frame.time)
     return
-  }
-
-  g.fillStyle(0x8f5734, 1)
-  g.fillRoundedRect(-width / 2, -height / 2, width, height, 10)
-  g.fillStyle(0xc98b5c, 1)
-  g.fillRoundedRect(-width / 2 + 5, -height / 2 + 5, width - 10, height - 10, 8)
-  g.lineStyle(3, 0x8f5734, 1)
-  g.lineBetween(-width / 2 + 8, -10, width / 2 - 8, -10)
-  g.lineBetween(-width / 2 + 8, 12, width / 2 - 8, 12)
-  for (let x = -width / 2 + 8; x < width / 2 - 4; x += 16) {
-    g.lineBetween(x, -height / 2 + 5, x, height / 2 - 5)
   }
 
   g.save()

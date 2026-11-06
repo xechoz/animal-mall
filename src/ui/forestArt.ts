@@ -67,23 +67,6 @@ function pickTone(x: number, y: number, tones: readonly FoliageTone[]): FoliageT
   return tones[index] ?? tones[0] ?? 'green'
 }
 
-export function drawFoliageTone(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  scale: number,
-  tone: FoliageTone,
-): void {
-  const palette = FOLIAGE[tone]
-  g.fillStyle(palette.dark, 0.9)
-  g.fillCircle(x - 4 * scale, y, 7 * scale)
-  g.fillCircle(x + 4 * scale, y - 1 * scale, 7 * scale)
-  g.fillStyle(palette.mid, 0.95)
-  g.fillCircle(x, y - 4 * scale, 8 * scale)
-  g.fillStyle(palette.light, 0.8)
-  g.fillCircle(x + 2 * scale, y - 6 * scale, 4 * scale)
-}
-
 /**
  * A tiny deterministic hash. Decorative scatter must be stable across rebuilds
  * and must never consume the simulation RNG, so we derive positions from a

@@ -11,6 +11,7 @@ import { startMusic, syncMusic } from '../audio/music'
 import { gameColors } from '../colors'
 import { hasProgress, progressSave } from '../save'
 import { ANIMAL_SCALE, createAnimalTextures, playerTextureKey } from '../ui/animalArt'
+import { bakeGraphics, screenBakeScale } from '../ui/bakeArt'
 import { DebugFps } from '../ui/DebugFps'
 import {
   drawAntTrail,
@@ -340,6 +341,11 @@ export class MenuScene extends Phaser.Scene {
     drawFrog(g, width * 0.24, height * 0.95, 0.9)
     drawBird(g, width * 0.74, height * 0.86, 0.9, -1)
     drawAntTrail(g, width * 0.34, height * 0.93, 1)
+
+    // The clearing never changes after this point, so bake it once. Phaser
+    // otherwise re-walks this Graphics command buffer on every frame.
+    bakeGraphics(this, g, 'menu-backdrop', width, height, screenBakeScale()).setDepth(0)
+    g.destroy()
 
     this.addMenuFireflies(width, height)
   }

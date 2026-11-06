@@ -186,9 +186,9 @@ describe('shop simulation', () => {
     const customer = spawned.customers[0]
     expect(customer?.tutorial).toBe(true)
 
-    // Well past the old 120-second patience and past the closing grace: the
-    // first-sale shopper must still be waiting for the player.
-    const waited = simulate(spawned, 8_000)
+    // Well past the old 120-second patience but still before closing: the
+    // first-sale shopper must keep waiting for the player.
+    const waited = simulate(spawned, 3_000)
     expect(waited.state.customers.some((candidate) => candidate.id === customer?.id)).toBe(true)
     expect(
       waited.events.some(
@@ -696,23 +696,11 @@ describe('working day', () => {
     expect(result.events.some((event) => event.type === 'dayEnded')).toBe(true)
   })
 
-  it('waits for the last shopper before closing the books', () => {
+  it('closes at 21:00 and clears the last shopper', () => {
     const base = createShopState(appleSave({ coins: 0, served: 1 }), PORTRAIT_MAP)
     const state: ShopState = {
       ...base,
       day: { ...base.day, ms: DAY.lengthMs, entered: 1 },
-      customers: [waitingCustomer(base, 1)],
-    }
-    const result = simulate(state, 1)
-    expect(result.state.day.report).toBeNull()
-    expect(result.state.customers).toHaveLength(1)
-  })
-
-  it('clears a stuck shopper after the closing grace window', () => {
-    const base = createShopState(appleSave({ coins: 0, served: 1 }), PORTRAIT_MAP)
-    const state: ShopState = {
-      ...base,
-      day: { ...base.day, ms: DAY.lengthMs + DAY.closeGraceMs, entered: 1 },
       customers: [waitingCustomer(base, 1)],
     }
     const result = simulate(state, 1)

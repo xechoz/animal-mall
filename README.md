@@ -36,9 +36,9 @@ morning.
   embedded portals keep the portrait plan, and exiting fullscreen returns
   control to the device orientation. Each zone has one shelf for its products.
 - The floating clock shows the day and the shop time. A shift is 09:00–21:00 in
-  five minutes; new customers stop at 20:30, and the shop closes only after the
-  last shopper leaves. The report card pauses the simulation and lists revenue,
-  served and lost customers, out-of-stock items, average spend, satisfaction and
+  five minutes; new customers stop at 20:30, and the shop closes at 21:00, when
+  anyone still inside leaves. The report card pauses the simulation and lists
+  revenue, served and lost customers, out-of-stock items, average spend, satisfaction and
   the service tip. Satisfaction starts at 100 per checkout, drops by 20 for each
   skipped item and by 20 when the patience bar is nearly empty; 75/85/95 pays a
   2/5/8% tip. There is no rent, quota or failure state, daily counters reset

@@ -1,6 +1,7 @@
 import type Phaser from 'phaser'
 import { PEN_SIZE } from '../logic/config'
 import type { ShopMap } from '../logic/types'
+import { bakeLayer } from './bakeArt'
 import { drawFence } from './forestArt'
 
 /**
@@ -10,11 +11,11 @@ import { drawFence } from './forestArt'
  * whole pen would put the front rail behind the animal.
  */
 export class PenFences {
-  private readonly back: Phaser.GameObjects.Graphics[] = []
-  private readonly front: Phaser.GameObjects.Graphics[] = []
+  private readonly back: Phaser.GameObjects.Image[] = []
+  private readonly front: Phaser.GameObjects.Image[] = []
   private locked = false
 
-  constructor(scene: Phaser.Scene, map: ShopMap) {
+  constructor(scene: Phaser.Scene, map: ShopMap, bakeScale = 1) {
     for (const pen of map.animalPens) {
       const left = pen.x - PEN_SIZE.w / 2
       const right = pen.x + PEN_SIZE.w / 2
@@ -41,8 +42,18 @@ export class PenFences {
         { x1: right - 2, y1: top, x2: right - 2, y2: bottom },
         { height: 18, postGap: 28, moss: false, seed: pen.index + 7 },
       )
-      back.setDepth(top)
-      this.back.push(back)
+      const backImage = bakeLayer(
+        scene,
+        back,
+        `fence-back-${map.id}-${pen.index}-${bakeScale}`,
+        { x: left - 24, y: top - 40 },
+        PEN_SIZE.w + 48,
+        PEN_SIZE.h + 56,
+        bakeScale,
+      )
+      back.destroy()
+      backImage.setDepth(top)
+      this.back.push(backImage)
 
       const front = scene.add.graphics()
       front.fillStyle(0x1a120c, 0.12)
@@ -59,8 +70,18 @@ export class PenFences {
           seed: pen.index + 9,
         },
       )
-      front.setDepth(bottom)
-      this.front.push(front)
+      const frontImage = bakeLayer(
+        scene,
+        front,
+        `fence-front-${map.id}-${pen.index}-${bakeScale}`,
+        { x: left - 24, y: bottom - 32 },
+        PEN_SIZE.w + 48,
+        48,
+        bakeScale,
+      )
+      front.destroy()
+      frontImage.setDepth(bottom)
+      this.front.push(frontImage)
     }
   }
 

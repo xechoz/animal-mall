@@ -33,7 +33,6 @@ import {
 import { pickCustomerSpecies } from './customers'
 import {
   dayAcceptsCustomers,
-  dayGraceOver,
   dayPhase,
   discountClearedCustomers,
   finishDay,
@@ -225,14 +224,20 @@ export function toSave(state: ShopState): SaveData {
   }
 }
 
+/** Carrying capacity after upgrades and the milk-tea buff. */
+export function carryLimit(state: ShopState): number {
+  return (
+    carryCapacity(state.upgrades.carry) + (state.buffs.milkTea > 0 ? DRINKS.milkTea.carryBonus : 0)
+  )
+}
+
 export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: number): StepResult {
   const dt = Math.max(0, Math.min(dtMs, 50))
   const events: GameEvent[] = []
   const growth =
     fertilizerMultiplier(state.upgrades.fertilizer) *
     (state.tutorial === 'done' ? 1 : TUTORIAL.growthMultiplier)
-  const carryMax =
-    carryCapacity(state.upgrades.carry) + (state.buffs.milkTea > 0 ? DRINKS.milkTea.carryBonus : 0)
+  const carryMax = carryLimit(state)
   const speed = Math.round(
     moveSpeed(state.upgrades.speed) *
       (state.buffs.appleSoda > 0 ? 1 + DRINKS.appleSoda.speedBonus : 1),
@@ -749,33 +754,24 @@ export function stepShop(state: ShopState, input: StepInput, rng: Rng, dtMs: num
   if (tutorial === 'checkout' && served > 0) tutorial = 'done'
 
   /**
-   * Closing is a wind-down, not a cut: new shoppers stop at 21:30, the last
-   * queue finishes, and the report appears once the shop is empty. The grace
-   * clears a shopper stuck on a broken path so the day can never wedge.
+   * Closing is a hard stop at 21:00: new shoppers stop at 20:30, and anyone
+   * still inside leaves as the clock lands on closing time so the report and
+   * the clock can never disagree.
    */
-  if (dayGraceOver(day.ms) && customers.length > 0) {
-    const leaving = customers.filter((customer) => customer.tutorial !== true)
-    if (leaving.length > 0) {
-      for (const customer of leaving) {
-        events.push({
-          type: 'customerLeave',
-          customerId: customer.id,
-          sad: customer.phase !== 'leaving' || customer.sad,
-        })
-      }
-      customers = customers.filter((customer) => customer.tutorial === true)
-      queue = queue.filter((id) => customers.some((customer) => customer.id === id))
-      if (
-        register.customerId !== null &&
-        !customers.some((customer) => customer.id === register.customerId)
-      ) {
-        register = { customerId: null, scanMs: 0 }
-      }
-    }
-  }
-
   const phase = dayPhase(day.ms)
-  if (phase === 'closing' && customers.length === 0) {
+  if (phase === 'closing') {
+    for (const customer of customers) {
+      if (customer.tutorial === true) continue
+      events.push({
+        type: 'customerLeave',
+        customerId: customer.id,
+        sad: customer.phase !== 'leaving' || customer.sad,
+      })
+    }
+    customers = []
+    queue = []
+    register = { customerId: null, scanMs: 0 }
+
     const closed = finishDay(day)
     day = { ...closed.day, report: closed.report }
     coins += closed.report.tip

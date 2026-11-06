@@ -16,19 +16,12 @@ export class CustomerView extends AnimalRig {
   private readonly patienceBg: Phaser.GameObjects.Rectangle
   private readonly patienceFill: Phaser.GameObjects.Rectangle
   private readonly basket: Phaser.GameObjects.Container
-  private readonly basketText: Phaser.GameObjects.Text
   private readonly face: AnimalFace
   private readonly theme: Theme
   private bubbleKey = ''
   private basketKey = ''
 
-  constructor(
-    scene: Phaser.Scene,
-    theme: Theme,
-    species: CustomerState['species'],
-    textScale: number,
-    seed: number,
-  ) {
+  constructor(scene: Phaser.Scene, theme: Theme, species: CustomerState['species'], seed: number) {
     super(scene, {
       species,
       player: false,
@@ -80,10 +73,6 @@ export class CustomerView extends AnimalRig {
     basketArt.fillStyle(0xd39a65, 0.8)
     basketArt.fillRect(-10, 0, 20, 2)
     this.basket.add(basketArt)
-    this.basketText = scene.add
-      .text(0, -1, '', textStyle(theme, 10 * textScale, '#fff7e8', true))
-      .setOrigin(0.5)
-    this.basket.add(this.basketText)
     this.basket.setVisible(false)
     this.addAbove(this.basket)
 
@@ -117,7 +106,6 @@ export class CustomerView extends AnimalRig {
     if (basketKey !== this.basketKey) {
       this.basketKey = basketKey
       this.basket.setVisible(customer.basket.length > 0)
-      this.basketText.setText(customer.basket.length > 1 ? `×${customer.basket.length}` : '')
     }
 
     this.setTint(customer.sad ? 0xd9b0b0 : null)

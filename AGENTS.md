@@ -158,9 +158,9 @@ submodule. Do not copy platform source into this repo.
   moths and the bat sit around 3910. All of it stays below the tutorial arrows,
   map offers and HUD. Fence lanterns are unlit by day and light with the same
   curve; never bring back the stacked coloured ellipse glow.
-  New customers stop at `DAY.lastSpawnMs` (20:30), and the report appears only
-  after the last shopper leaves. A 90 s grace clears a shopper stuck after
-  closing. The report pauses the simulation, pays the tip and starts the next
+  New customers stop at `DAY.lastSpawnMs` (20:30); when the clock reaches
+  21:00 anyone still inside leaves and the report opens immediately. The
+  report pauses the simulation, pays the tip and starts the next
   morning; there is no rent, quota or failure state. The clock only advances in
   `playing`/`shop` mode, so pause, blur and the report all stop the day.
 - Daily counters (`revenue`, `served`, `entered`, `missed`, `scoreSum`) are
