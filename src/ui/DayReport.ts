@@ -62,24 +62,15 @@ export class DayReport {
         .setOrigin(0.5),
     )
 
-    // Hero badge: one large number, a soft disc, and the label underneath.
+    // Five stars instead of a percentage: the shape reads at a glance, while
+    // the exact number is noise on a card the player only skims.
     const heroY = -cardH / 2 + 112 * unit
-    const hero = scene.add.graphics()
-    hero.fillStyle(emptyDay ? theme.surfaceAlt : theme.accentWarm, 1)
-    hero.fillCircle(0, heroY, 42 * unit)
-    hero.lineStyle(2.5 * unit, emptyDay ? theme.borderSoft : theme.accent, 0.9)
-    hero.strokeCircle(0, heroY, 42 * unit)
-    card.add(hero)
-    card.add(
-      scene.add
-        .text(
-          0,
-          heroY,
-          emptyDay ? '—' : String(report.rating),
-          textStyle(theme, 52 * unit, emptyDay ? theme.textMuted : theme.text, true),
-        )
-        .setOrigin(0.5),
-    )
+    const filledStars = emptyDay
+      ? 0
+      : Math.max(0, Math.min(5, Math.round((report.rating ?? 0) / 20)))
+    const stars = scene.add.graphics()
+    drawStars(stars, 0, heroY, filledStars, unit, theme)
+    card.add(stars)
     card.add(
       scene.add
         .text(
@@ -106,16 +97,6 @@ export class DayReport {
       drawToolIcon(shelf, 'shelf', 0, cardH / 2 - 145 * unit, 58 * unit)
       card.add(shelf)
     } else {
-      const dots = scene.add.graphics()
-      const filled = Math.round((report.rating ?? 0) / 20)
-      for (let index = 0; index < 5; index += 1) {
-        const x = (index - 2) * 18 * unit
-        dots.fillStyle(index < filled ? theme.accent : theme.surfaceAlt, 1)
-        dots.fillCircle(x, -cardH / 2 + 194 * unit, 4.5 * unit)
-        dots.lineStyle(1.2 * unit, theme.borderSoft, 1)
-        dots.strokeCircle(x, -cardH / 2 + 194 * unit, 4.5 * unit)
-      }
-      card.add(dots)
       this.drawRows(card, options, cardW, cardH, unit)
     }
 
@@ -151,7 +132,7 @@ export class DayReport {
       { label: i18n.t('day.report.served'), value: String(report.served) },
     ]
     if (report.lost > 0) {
-      rows.push({ label: i18n.t('day.report.lost'), value: String(report.lost) })
+      rows.push({ label: `☹ ${i18n.t('day.report.lost')}`, value: String(report.lost) })
     }
     if (report.missed > 0) {
       rows.push({ label: i18n.t('day.report.missed'), value: String(report.missed) })
@@ -205,6 +186,46 @@ export class DayReport {
   destroy(): void {
     this.root.destroy(true)
   }
+}
+
+/** Five equal stars, the first `filled` in accent and the rest as empty paper. */
+function drawStars(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  filled: number,
+  unit: number,
+  theme: Theme,
+): void {
+  const radius = 18 * unit
+  const gap = 12 * unit
+  const step = radius * 2 + gap
+  const startX = cx - ((5 - 1) * step) / 2
+  for (let index = 0; index < 5; index += 1) {
+    const points = starPoints(startX + index * step, cy, radius)
+    const on = index < filled
+    g.fillStyle(on ? theme.accent : theme.surfaceAlt, 1)
+    g.lineStyle(1.5 * unit, on ? theme.accentInk : theme.borderSoft, on ? 0.45 : 0.9)
+    g.beginPath()
+    points.forEach((point, pointIndex) => {
+      if (pointIndex === 0) g.moveTo(point.x, point.y)
+      else g.lineTo(point.x, point.y)
+    })
+    g.closePath()
+    g.fillPath()
+    g.strokePath()
+  }
+}
+
+function starPoints(cx: number, cy: number, radius: number): Array<{ x: number; y: number }> {
+  const inner = radius * 0.46
+  const points: Array<{ x: number; y: number }> = []
+  for (let index = 0; index < 10; index += 1) {
+    const angle = -Math.PI / 2 + (index * Math.PI) / 5
+    const length = index % 2 === 0 ? radius : inner
+    points.push({ x: cx + Math.cos(angle) * length, y: cy + Math.sin(angle) * length })
+  }
+  return points
 }
 
 function ratingLabel(i18n: I18n, rating: number | null): string {

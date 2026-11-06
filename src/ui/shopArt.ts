@@ -180,19 +180,15 @@ function drawFloor(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
     }
   }
 
-  // Soft inner shadow and moss keep the floor from meeting the platform as a
-  // flat seam. The shadow is cool and the moss warm, so the edge has depth.
+  // Soft inner shadow keeps the floor from meeting the platform as a flat
+  // seam. The perimeter fence is the visual border, so no moss strip is painted
+  // around the floor: it only added a second green frame inside the rails.
   g.fillStyle(0x1a120c, 0.07)
   g.fillRect(floorLeft, floorTop, floorWidth, 12)
   g.fillRect(floorLeft, floorBottom - 12, floorWidth, 12)
   g.fillRect(floorLeft, floorTop, 12, floorBottom - floorTop)
   g.fillRect(floorRight - 12, floorTop, 12, floorBottom - floorTop)
 
-  g.fillStyle(gameColors.moss, 0.13)
-  g.fillRect(floorLeft, floorTop, 8, floorBottom - floorTop)
-  g.fillRect(floorRight - 8, floorTop, 8, floorBottom - floorTop)
-  g.fillRect(floorLeft, floorTop, floorWidth, 6)
-  g.fillRect(floorLeft, floorBottom - 6, floorWidth, 6)
   g.fillStyle(gameColors.moss, 0.09)
   const floorHeight = floorBottom - floorTop
   g.fillEllipse(floorLeft + floorWidth * 0.3, floorTop + floorHeight * 0.58, 150, 46)

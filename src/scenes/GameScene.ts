@@ -19,7 +19,7 @@ import { playDiningEatSfx } from '../audio/diningSfx'
 import { playDrinkSfx, playGulpSfx } from '../audio/drinkSfx'
 import { startMusic } from '../audio/music'
 import { gameColors } from '../colors'
-import { carriedKinds } from '../logic/carry'
+import { carriedKinds, carryTotal } from '../logic/carry'
 import { distance } from '../logic/collision'
 import {
   DRINK_RADIUS,
@@ -1788,6 +1788,9 @@ export class GameScene extends Phaser.Scene {
     this.handleEvents(outcome.events)
     this.hud.update(this.state)
     this.foodPicker?.update(this.state)
+    // The meal is over once the hands are empty: closing the panel also stands
+    // the player up, so an empty table does not leave them stuck in the chair.
+    if (carryTotal(this.state.player.carry) === 0) this.closeFoodPicker()
   }
 
   private openDevPanel(): void {

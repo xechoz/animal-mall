@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Simplify the interface: the menu drops the bark pill behind its stats, the
+  fruit sign board above the house and the thatched roof (now a shelf-stall
+  awning), the shop floor loses
+  its moss frame inside the perimeter fence, and the trash bin no longer draws
+  an orange dwell ring. The day report replaces the numeric rating with five
+  stars, marks lost customers with `☹`, and the dining panel closes and stands
+  the player up once the last carried item is eaten.
+
 - Trim the world UI: the counter coin pile, animal pens, staff and customer
   hands no longer print quantities, and a full player hand shows `MAX`/`满`
   instead of a count. The shelf keeps its per-bin stock but drops the

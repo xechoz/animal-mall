@@ -92,13 +92,8 @@ export class FacilityOverlay {
     if (!enabled) return
 
     const facilities = state.map.facilities
-    if (state.facility.trashDwellMs > 0) {
-      this.drawProgress(
-        facilities.trashPoint,
-        state.facility.trashDwellMs / FACILITY_DWELL_MS,
-        this.theme.accent,
-      )
-    }
+    // The bin empties on its own and already answers with a toast and a squash
+    // tween, so it needs no ground ring; only the vending and dining dwells do.
     if (state.facility.drinkDwellMs > 0) {
       this.drawProgress(
         facilities.vendingPoint,

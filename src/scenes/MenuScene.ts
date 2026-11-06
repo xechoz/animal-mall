@@ -43,6 +43,7 @@ import {
 } from '../ui/fullscreen'
 import { LanguageModal } from '../ui/LanguageModal'
 import { computeGameLayout } from '../ui/layout'
+import { drawAwning } from '../ui/propArt'
 import { RoundButton } from '../ui/RoundButton'
 import { SettingsModal } from '../ui/SettingsModal'
 import { readCssShortSide } from '../ui/scale'
@@ -112,7 +113,7 @@ export class MenuScene extends Phaser.Scene {
     dot?.setY(titleY)
 
     const zoneCount = Object.values(save.zones).filter(Boolean).length
-    const stats = this.add
+    this.add
       .text(
         width / 2,
         titleY + 48 * ui,
@@ -125,28 +126,6 @@ export class MenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5)
       .setDepth(20)
-    // A quiet bark wash keeps the stats legible over the painted canopy without
-    // turning them into another bright card.
-    const statsBg = this.add.graphics().setDepth(19)
-    const statsW = stats.width + 28 * ui
-    const statsH = stats.height + 10 * ui
-    statsBg.fillStyle(gameColors.barkDark, 0.28)
-    statsBg.fillRoundedRect(
-      width / 2 - statsW / 2,
-      stats.y - statsH / 2,
-      statsW,
-      statsH,
-      statsH / 2,
-    )
-    statsBg.lineStyle(1 * ui, gameColors.ui.cream, 0.14)
-    statsBg.strokeRoundedRect(
-      width / 2 - statsW / 2,
-      stats.y - statsH / 2,
-      statsW,
-      statsH,
-      statsH / 2,
-    )
-
     const startY = portrait ? height * 0.72 : height * 0.8
     this.startButton = new Button(
       this,
@@ -419,39 +398,20 @@ export class MenuScene extends Phaser.Scene {
     g.fillRoundedRect(-246, -82, 492, 12, 6)
     g.fillRoundedRect(-246, 142, 492, 12, 6)
 
-    // Thatched roof with a mossy, scalloped edge.
+    // The stall awnings from the shop carry the shopfront too: a bark fascia
+    // under a striped, scalloped valance instead of a thatched roof.
     g.fillStyle(0x1a120c, 0.2)
-    g.fillRoundedRect(-272, -132, 544, 58, 20)
+    g.fillRoundedRect(-268, -136, 536, 42, 14)
     g.fillStyle(gameColors.barkDark, 1)
-    g.fillRoundedRect(-270, -138, 540, 58, 20)
-    g.fillStyle(gameColors.straw, 1)
-    g.fillRoundedRect(-264, -134, 528, 48, 16)
-    g.fillStyle(gameColors.hay, 0.95)
-    for (let index = 0; index < 13; index += 1) {
-      const x = -252 + index * 42
-      g.fillEllipse(x, -90, 46, 22)
-      g.fillStyle(index % 2 === 0 ? gameColors.hay : gameColors.straw, 0.9)
-    }
-    g.fillStyle(gameColors.moss, 0.6)
-    g.fillEllipse(-190, -122, 74, 18)
-    g.fillEllipse(148, -118, 64, 16)
-    g.fillStyle(gameColors.fern, 0.75)
-    for (const x of [-236, -120, 10, 150, 232]) {
-      g.fillEllipse(x, -88, 28, 10)
-    }
-
-    // Sign above the roof.
-    g.fillStyle(0x1a120c, 0.2)
-    g.fillRoundedRect(-148, -198, 300, 54, 14)
-    g.fillStyle(gameColors.barkDark, 1)
-    g.fillRoundedRect(-150, -200, 300, 54, 14)
-    g.fillStyle(gameColors.woodLight, 1)
-    g.fillRoundedRect(-145, -196, 290, 46, 11)
-    g.fillStyle(gameColors.hay, 0.45)
-    g.fillRoundedRect(-132, -190, 264, 3, 1.5)
-    for (const [index, kind] of (['apple', 'pear', 'peach'] as const).entries()) {
-      shop.add(this.add.image(-52 + index * 52, -173, fruitTextureKey(kind)).setScale(0.8))
-    }
+    g.fillRoundedRect(-264, -142, 528, 40, 12)
+    g.fillStyle(gameColors.wood, 1)
+    g.fillRoundedRect(-258, -137, 516, 30, 9)
+    g.fillStyle(gameColors.hay, 0.4)
+    g.fillRoundedRect(-250, -133, 500, 3, 1.5)
+    drawAwning(g, -256, -122, 512, 13, [0xd97757, 0xfff3dd])
+    g.fillStyle(gameColors.moss, 0.55)
+    g.fillEllipse(-214, -143, 64, 12)
+    g.fillEllipse(198, -143, 52, 10)
 
     // Windows with fruit shelves and flower boxes.
     for (const x of [-148, 148]) {
