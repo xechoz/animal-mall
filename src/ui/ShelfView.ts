@@ -7,19 +7,16 @@ import { bakeLayer } from './bakeArt'
 import { productTextureKey } from './productArt'
 import {
   addPropShadow,
-  type CrateGoods,
   drawAwning,
   drawChalkboard,
-  drawCrate,
   drawLeg,
-  drawSack,
   PROP_TOP_SCALE,
   SHELF_HEIGHT,
   SHELF_RISER_HEIGHT,
 } from './propArt'
 
 /** On-screen size of a shelf basket icon, shared with the stock flight. */
-export const SHELF_ICON_SCALE = 0.42
+export const SHELF_ICON_SCALE = 0.58
 
 export class ShelfView extends Phaser.GameObjects.Container {
   private readonly icons: Phaser.GameObjects.Image[] = []
@@ -64,12 +61,12 @@ export class ShelfView extends Phaser.GameObjects.Container {
           : map.stationSlots.length
     this.bins = Array<ProductKind | null>(this.slotCount).fill(null)
     this.showLock = map.id !== 'landscape'
-    const gap = 5
-    const pad = 8
+    const gap = 2
+    const pad = 6
     const binWidth = (width - pad * 2 - gap * (this.slotCount - 1)) / this.slotCount
     const floorY = height / 2
     const frontFaceTop = floorY - SHELF_HEIGHT
-    const topDepth = height * PROP_TOP_SCALE
+    const topDepth = Math.max(height * PROP_TOP_SCALE, 36)
     const top = frontFaceTop - topDepth
 
     addPropShadow(scene, this, { width: width + 18, height: height + 14, alpha: 0.14 })
@@ -124,35 +121,36 @@ export class ShelfView extends Phaser.GameObjects.Container {
     drawHangingBundle(g, width * 0.16, riserTop + 8, 0.9, 'herb')
     drawHangingBundle(g, width * 0.3, riserTop + 8, 0.72, 'garlic')
 
-    // Market stall: a thin top board on two front legs and an apron. The open
-    // space between the legs is what keeps it from reading as a solid block.
-    const legTop = frontFaceTop - 6
-    const legW = 8
+    // Closed cabinet front with short feet: the old tall legs plus the open
+    // under-counter gap ate ~38px of height while the baskets only got ~18px.
+    // A solid front pushes that budget back to the goods; 8px feet keep it
+    // grounded without the stilt look.
+    const footH = 8
+    const legW = 10
     const leftLeg = -width / 2 + 10
     const rightLeg = width / 2 - 10 - legW
-    drawLeg(g, {
-      x: leftLeg,
-      y: legTop,
-      w: legW,
-      h: floorY - legTop,
-      color: gameColors.woodLight,
-      edge: 0xd9a066,
-    })
-    drawLeg(g, {
-      x: rightLeg,
-      y: legTop,
-      w: legW,
-      h: floorY - legTop,
-      color: gameColors.woodLight,
-      edge: 0xd9a066,
-    })
+    const frontTop = frontFaceTop - 6
+    const frontBottom = floorY - footH
     g.fillStyle(gameColors.wood, 1)
-    g.fillRoundedRect(leftLeg + legW, floorY - 9, rightLeg - leftLeg - legW, 9, 2)
-    g.fillStyle(0xb07a4a, 1)
-    g.fillRoundedRect(leftLeg + legW + 2, floorY - 8, rightLeg - leftLeg - legW - 4, 2, 1)
-    g.fillStyle(0x3b2f3a, 0.85)
-    g.fillRoundedRect(leftLeg - 1, floorY - 2, legW + 2, 3, 1)
-    g.fillRoundedRect(rightLeg - 1, floorY - 2, legW + 2, 3, 1)
+    g.fillRoundedRect(-width / 2, frontTop, width, frontBottom - frontTop, 3)
+    g.fillStyle(gameColors.woodLight, 0.5)
+    g.fillRoundedRect(-width / 2 + 4, frontTop + 3, width - 8, 4, 2)
+    g.lineStyle(1, gameColors.barkDark, 0.25)
+    for (let x = -width / 2 + 22; x < width / 2 - 10; x += 30) {
+      g.lineBetween(x, frontTop + 4, x, frontBottom - 4)
+    }
+    g.fillStyle(gameColors.woodDark, 1)
+    g.fillRect(-width / 2, frontBottom - 3, width, 3)
+    for (const footX of [leftLeg, rightLeg]) {
+      drawLeg(g, {
+        x: footX,
+        y: frontBottom,
+        w: legW,
+        h: footH,
+        color: gameColors.woodLight,
+        edge: 0xd9a066,
+      })
+    }
 
     // Foreshortened top board, its front edge and a shaded right side.
     g.fillStyle(gameColors.wood, 1)
@@ -177,61 +175,46 @@ export class ShelfView extends Phaser.GameObjects.Container {
       g.fillEllipse(x + 8, top + 7, 5, 2.4)
     }
 
-    // The floor under the counter is used, not empty: a produce crate and a
-    // sack make the stall read as a working market stand.
-    g.lineStyle(1, gameColors.barkDark, 0.35)
-    for (let x = leftLeg + legW + 10; x < rightLeg - 6; x += 26) {
-      g.lineBetween(x, floorY - 8, x, floorY - 1)
-    }
-    const crateGoods: CrateGoods =
-      zone === 'fruit' || zone === 'veg' ? 'produce' : zone === 'farm' ? 'bottle' : 'jar'
-    drawCrate(g, {
-      x: -width / 2 + 48,
-      baseY: floorY + 4,
-      scale: 0.82,
-      goods: crateGoods,
-    })
-    drawSack(g, width / 2 - 24, floorY + 3, 0.75)
     this.add(g)
+
+    // One shared tray instead of a wicker cup per basket: per-bin rounded
+    // rects plus gap/pad ate ~70px on the 12-bin veg shelf. Dividers are
+    // 1px lines so narrow bins keep almost all of their width for the goods.
+    const basketTop = top + 4
+    const basketH = topDepth - 8
+    g.fillStyle(0x3b2f3a, 0.12)
+    g.fillRoundedRect(-width / 2 + 2, basketTop + 2, width - 4, basketH, 6)
+    g.fillStyle(0xe4cfa9, 0.5)
+    g.fillRoundedRect(-width / 2 + 2, basketTop, width - 4, basketH, 6)
+    g.fillStyle(0xf0dcb8, 0.55)
+    g.fillRoundedRect(-width / 2 + 5, basketTop + 1, width - 10, 4, 2)
 
     for (let index = 0; index < this.slotCount; index += 1) {
       const product = this.bins[index]
       const x = -width / 2 + pad + index * (binWidth + gap) + binWidth / 2
-      // Wicker produce basket instead of a flat white slot. It shares the shelf
-      // body's Graphics so the whole stall bakes into one texture.
-      const basketTop = top + 5
-      const basketH = topDepth - 10
-      g.fillStyle(0x3b2f3a, 0.12)
-      g.fillRoundedRect(x - binWidth / 2, basketTop + 2, binWidth, basketH, 5)
-      g.fillStyle(0xe4cfa9, 0.55)
-      g.fillRoundedRect(x - binWidth / 2, basketTop, binWidth, basketH, 5)
-      g.fillStyle(0xf0dcb8, 0.6)
-      g.fillRoundedRect(x - binWidth / 2 + 2, basketTop + 1, binWidth - 4, 5, 3)
-      g.lineStyle(1, 0x8f6b45, 0.3)
-      for (let row = 1; row < 3; row += 1) {
-        g.lineBetween(
-          x - binWidth / 2 + 3,
-          basketTop + row * 5,
-          x + binWidth / 2 - 3,
-          basketTop + row * 5,
-        )
+      if (index > 0) {
+        const dividerX = x - binWidth / 2 - gap / 2
+        g.lineStyle(1, 0x8f6b45, 0.35)
+        g.lineBetween(dividerX, basketTop + 3, dividerX, basketTop + basketH - 3)
       }
 
-      const iconY = top + topDepth * 0.42
+      const iconY = top + topDepth * 0.5
       const icon = scene.add
-        .image(
-          x - binWidth / 2 + 14,
-          iconY,
-          productTextureKey(product ?? (products[0] as ProductKind)),
-        )
+        .image(x, iconY, productTextureKey(product ?? (products[0] as ProductKind)))
         .setScale(SHELF_ICON_SCALE)
         .setVisible(product !== null)
       this.add(icon)
       this.icons.push(icon)
 
       const count = scene.add
-        .text(x + binWidth / 2 - 6, iconY, '', textStyle(theme, 10 * textScale, '#fff7e8', true))
-        .setOrigin(1, 0.5)
+        .text(
+          x,
+          frontTop + (frontBottom - frontTop) / 2,
+          '',
+          textStyle(theme, 12 * textScale, '#fff7e8', true),
+        )
+        .setOrigin(0.5)
+        .setStroke('#3b2f3a', Math.max(2, 3 * textScale))
       this.add(count)
       this.counts.push(count)
     }
