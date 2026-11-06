@@ -3,6 +3,9 @@ import type Phaser from 'phaser'
 import { gameColors } from '../colors'
 import {
   ANIMALS,
+  animalNeedsTrough,
+  feedPerCycle,
+  isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
   PLANT_SHOP_ORDER,
@@ -46,7 +49,7 @@ export interface SlotPickerOptions {
 const PADDING = 14
 const HEADER_H = 64
 const COLUMNS = 2
-const BUTTON_H = 82
+const BUTTON_H = 68
 const GAP = 10
 
 function pickerProducts(zone: ZoneId): readonly ProductKind[] {
@@ -221,8 +224,8 @@ export class SlotPicker {
       const by =
         -height / 2 + (PADDING + HEADER_H) * ui + row * (buttonHeight + GAP * ui) + buttonHeight / 2
       this.hint = new TapHint(scene, theme, ui)
-      // The left half carries the name and price; the finger stays in the
-      // quiet bottom-right corner so it never sits on the number.
+      // The left half carries the name; the finger stays in the
+      // quiet bottom-right corner so it never sits on the price.
       this.hint.setPosition(bx + buttonWidth / 2 - 24 * ui, by + buttonHeight / 2 - 14 * ui)
       this.hint.addTo(panel)
       this.hint.update(scene.time.now)
@@ -282,8 +285,12 @@ export class SlotPicker {
       button.add(tag.container)
     }
 
+    const row1Y = -buttonH / 2 + 20 * ui
+    const row2Y = -buttonH / 2 + 46 * ui
+    const rightX = buttonW / 2 - 12 * ui
+
     const icon = scene.add
-      .image(-buttonW / 2 + 32 * ui, -buttonH / 2 + 32 * ui, productTextureKey(product))
+      .image(-buttonW / 2 + 32 * ui, -buttonH / 2 + 33 * ui, productTextureKey(product))
       .setScale(0.62 * ui)
     if (!enabled) icon.setAlpha(0.45)
     button.add(icon)
@@ -291,7 +298,7 @@ export class SlotPicker {
     const name = scene.add
       .text(
         -buttonW / 2 + 58 * ui,
-        -buttonH / 2 + 22 * ui,
+        row1Y,
         producerName(options, product),
         textStyle(theme, font.body, enabled ? theme.text : theme.textMuted, true),
       )
@@ -300,50 +307,44 @@ export class SlotPicker {
 
     if (current) {
       // The installed product is a "keep this" choice, not a purchase, so the
-      // check replaces the price instead of crowding it in the corner.
+      // check replaces the price on the name row instead of crowding the card.
       const mark = scene.add
-        .text(
-          -buttonW / 2 + 58 * ui,
-          -buttonH / 2 + 48 * ui,
-          '✓',
-          textStyle(theme, 18 * ui, cssColor(theme.accentAlt), true),
-        )
-        .setOrigin(0, 0.5)
+        .text(rightX, row1Y, '✓', textStyle(theme, 18 * ui, cssColor(theme.accentAlt), true))
+        .setOrigin(1, 0.5)
       button.add(mark)
     } else if (installedElsewhere) {
       button.add(
         scene.add
           .text(
-            -buttonW / 2 + 58 * ui,
-            -buttonH / 2 + 48 * ui,
+            rightX,
+            row1Y,
             i18n.t('picker.installed'),
             textStyle(theme, font.caption, theme.textMuted, true),
           )
-          .setOrigin(0, 0.5),
+          .setOrigin(1, 0.5),
       )
     } else {
+      const value = scene.add
+        .text(
+          rightX,
+          row1Y,
+          String(price),
+          textStyle(theme, font.body, enabled ? theme.text : theme.textMuted, true),
+        )
+        .setOrigin(1, 0.5)
+      button.add(value)
       const coin = scene.add
-        .image(-buttonW / 2 + 58 * ui, -buttonH / 2 + 49 * ui, coinTextureKey())
+        .image(rightX - value.width - 6 * ui, row1Y, coinTextureKey())
         .setScale(0.34 * ui)
       if (!enabled) coin.setAlpha(0.5)
       button.add(coin)
-      button.add(
-        scene.add
-          .text(
-            -buttonW / 2 + 67 * ui,
-            -buttonH / 2 + 49 * ui,
-            String(price),
-            textStyle(theme, font.body, enabled ? theme.text : theme.textMuted, true),
-          )
-          .setOrigin(0, 0.5),
-      )
     }
 
     button.add(
       scene.add
         .text(
           -buttonW / 2 + 58 * ui,
-          -buttonH / 2 + 70 * ui,
+          row2Y,
           pickerStat(options, product),
           textStyle(theme, font.caption, theme.textMuted, false),
         )
@@ -413,6 +414,11 @@ function pickerStat(options: SlotPickerOptions, product: ProductKind): string {
         return input.count > 1 ? `${input.count}× ${name}` : name
       })
       .join(' + ')
+  }
+  if (isAnimalProductKind(product) && animalNeedsTrough(product)) {
+    return `${i18n.t('picker.cycle', {
+      seconds: Math.round(ANIMALS[product].cycleMs / 1000),
+    })} · ${i18n.t('picker.diet', { count: feedPerCycle(product) })}`
   }
   return i18n.t('picker.cycle', {
     seconds: Math.round(ANIMALS[product].cycleMs / 1000),

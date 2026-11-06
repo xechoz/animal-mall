@@ -141,7 +141,7 @@ submodule. Do not copy platform source into this repo.
 - The dining table is free and always unlocked: landscape uses the bottom-right
   four-seat table, portrait reuses the rest nook with a two-seat table. Tap a
   free chair, or stand still for `DINING.dwellMs` while carrying goods, to sit.
-  The food panel lists every carried `ProductKind`; all 26 products are edible,
+  The food panel lists every carried `ProductKind`; all 32 products are edible,
   each bite consumes one and stacks the `FOOD_BUFF` category time onto the shared
   drink timers (processed food adds all three). There is no per-visit limit.
   Seats are exclusive, and a seated player skips harvest, stock, feed, facility,
@@ -189,10 +189,10 @@ submodule. Do not copy platform source into this repo.
   the chip fades in within a short radius of the bed rectangle. A short tap (or
   500 ms dwell) still opens the plant chooser, with or without the chip.
 - Crop swapping is explicit only: a long press on the bed (`INTERACTION.holdMs`)
-  or a tap on its round shovel badge opens the chooser. Standing next to a bed never
+  or a tap on its round swap badge opens the chooser. Standing next to a bed never
   swaps, because a harvest empties the bed under the player's feet and an
   automatic chooser would fire on every pick. Every planted bed advertises a small
-  round shovel badge just above its base: it fades in after the player stops for
+  round swap badge just above its base: it fades in after the player stops for
   ~250 ms, only appears within ~130 units, and only the badge itself is tappable.
   The chooser is modal: movement input is locked until it closes through `×`, the
   backdrop or `Esc`, and it shows the planted crop and its refund. The old crop
@@ -217,7 +217,7 @@ submodule. Do not copy platform source into this repo.
   hand-loaded hopper before shelf stock. Shelf draws keep `reserve` units
   (default 1) for customers; the salad opts out.
 - Producer swapping follows the crop rule: long press the pen/station or tap its
-  pitchfork/wrench tag, never a proximity dwell. The tag appears after the
+  swap tag, never a proximity dwell. The tag appears after the
   player stops, fades over the last ~35 units, and only the tag itself is
   tappable. An empty slot opens the chooser after 500 ms or a short tap. The old
   producer refunds half, the new one costs full price, the player keeps carried

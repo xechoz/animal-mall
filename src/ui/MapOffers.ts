@@ -119,8 +119,8 @@ export class MapOffers {
     const plantFocusId = this.plantFocus(visible, state)
     const offers = visible.filter((offer) => {
       if (offer.type === 'zone') return true
-      // A new player has not learned the loop yet; the shovel, pitchfork and
-      // wrench tags only add noise while the first-sale tutorial is running.
+      // A new player has not learned the loop yet; the swap tags only add
+      // noise while the first-sale tutorial is running.
       if (state.tutorial !== 'done' && isSwapTag(offer)) return false
       // Only the nearest empty bed advertises; the rest keep their own hit
       // zones, so a short tap still opens any plot without a chip.
@@ -463,7 +463,7 @@ function drawChipBody(g: Phaser.GameObjects.Graphics, body: ChipBody): void {
   if (tag) {
     // A single round wooden token: the crop or machine is already visible on
     // the slot, so a full chip would only repeat it. The pale hay face keeps
-    // the shovel/fork/wrench line art readable.
+    // the swap-arrow line art readable.
     const radius = (SWAP_TAG / 2) * ui
     g.fillStyle(theme.shadow, 0.2)
     g.fillCircle(0, 3 * ui, radius)
@@ -524,115 +524,31 @@ function drawChipBody(g: Phaser.GameObjects.Graphics, body: ChipBody): void {
   )
 }
 
-function drawShovelBadge(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  scale: number,
-): void {
+/**
+ * Two opposing arrows on the round token: the same badge marks a planted bed,
+ * an occupied pen and an occupied station, so every "tap to swap" spot reads
+ * as one gesture. Bold straight shafts keep it crisp at 34 px, where curved
+ * arrows would collapse into a blob.
+ */
+function drawSwapBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
   const s = scale
   const ink = 0x3b2f3a
-  const blade = 0x5fbf9f
-  // Handle and T-grip.
-  g.lineStyle(3 * s, ink, 1)
+  // Upper shaft, pointing right.
+  g.lineStyle(4.5 * s, ink, 1)
   g.beginPath()
-  g.moveTo(x, y - 11 * s)
-  g.lineTo(x, y + s)
+  g.moveTo(x - 10 * s, y - 4 * s)
+  g.lineTo(x + 7 * s, y - 4 * s)
   g.strokePath()
-  g.beginPath()
-  g.moveTo(x - 5 * s, y - 11 * s)
-  g.lineTo(x + 5 * s, y - 11 * s)
-  g.strokePath()
-  // Spade blade: a flat top with a rounded point, so it reads as a shovel and
-  // not as an arrow at 34 px.
-  g.fillStyle(blade, 1)
-  g.beginPath()
-  g.moveTo(x - 5.5 * s, y + 1 * s)
-  g.lineTo(x + 5.5 * s, y + 1 * s)
-  g.lineTo(x + 4.5 * s, y + 7 * s)
-  g.lineTo(x, y + 11.5 * s)
-  g.lineTo(x - 4.5 * s, y + 7 * s)
-  g.closePath()
-  g.fillPath()
-  g.lineStyle(1.4 * s, ink, 0.85)
-  g.beginPath()
-  g.moveTo(x - 5.5 * s, y + 1 * s)
-  g.lineTo(x + 5.5 * s, y + 1 * s)
-  g.strokePath()
-}
-
-function drawPitchforkBadge(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  scale: number,
-): void {
-  const s = scale
-  const ink = 0x3b2f3a
-  const metal = 0x4f5a5f
-  // Wooden handle, deliberately thicker than the tines so the tool reads at
-  // 34 px instead of collapsing into a thin line.
-  g.lineStyle(4.2 * s, 0x8f5734, 1)
-  g.beginPath()
-  g.moveTo(x, y + 12 * s)
-  g.lineTo(x, y + 1 * s)
-  g.strokePath()
-  g.lineStyle(1.4 * s, ink, 0.65)
-  g.beginPath()
-  g.moveTo(x, y + 12 * s)
-  g.lineTo(x, y + 1 * s)
-  g.strokePath()
-  // Crossbar and three tines.
-  g.lineStyle(3.4 * s, metal, 1)
-  g.beginPath()
-  g.moveTo(x - 9 * s, y)
-  g.lineTo(x + 9 * s, y)
-  g.strokePath()
-  for (const offset of [-8, 0, 8]) {
-    g.lineStyle(3.2 * s, metal, 1)
-    g.beginPath()
-    g.moveTo(x + offset * s, y)
-    g.lineTo(x + offset * s, y - 13 * s)
-    g.strokePath()
-  }
-  // Dark tips keep the fork silhouette crisp against the cream badge.
   g.fillStyle(ink, 1)
-  for (const offset of [-8, 0, 8]) {
-    g.fillTriangle(
-      x + (offset - 2) * s,
-      y - 13 * s,
-      x + (offset + 2) * s,
-      y - 13 * s,
-      x + offset * s,
-      y - 16 * s,
-    )
-  }
-}
-
-function drawWrenchBadge(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  scale: number,
-): void {
-  const s = scale
-  const ink = 0x3b2f3a
-  // Handle from the lower left to the jaw at the upper right.
-  g.lineStyle(4 * s, ink, 1)
+  g.fillTriangle(x + 12 * s, y - 4 * s, x + 5 * s, y - 8.5 * s, x + 5 * s, y + 0.5 * s)
+  // Lower shaft, pointing left.
+  g.lineStyle(4.5 * s, ink, 1)
   g.beginPath()
-  g.moveTo(x - 8 * s, y + 9 * s)
-  g.lineTo(x + 5 * s, y - 5 * s)
+  g.moveTo(x + 10 * s, y + 5 * s)
+  g.lineTo(x - 7 * s, y + 5 * s)
   g.strokePath()
-  // Open-end jaw: an arc with a deliberate gap so it still reads as a wrench.
-  g.lineStyle(4 * s, ink, 1)
-  g.beginPath()
-  g.arc(x + 6 * s, y - 7 * s, 5.5 * s, -0.7, 3.7)
-  g.strokePath()
-  g.lineStyle(2 * s, 0xfff7e8, 0.9)
-  g.beginPath()
-  g.moveTo(x - 7 * s, y + 8 * s)
-  g.lineTo(x + 4 * s, y - 4 * s)
-  g.strokePath()
+  g.fillStyle(ink, 1)
+  g.fillTriangle(x - 12 * s, y + 5 * s, x - 5 * s, y + 0.5 * s, x - 5 * s, y + 9.5 * s)
 }
 
 function drawPlusBadge(g: Phaser.GameObjects.Graphics, x: number, y: number, ui: number): void {
@@ -689,12 +605,8 @@ function badgeTexture(scene: Phaser.Scene, offer: PurchaseOffer, ui: number): st
   if (offer.type === 'zone') {
     drawLockBadge(g, -22 * ui, 0, ui)
   }
-  if (offer.type === 'swap') {
-    drawShovelBadge(g, 0, 0, 1 * ui)
-  }
-  if (offer.type === 'producerSwap') {
-    if (offer.zone === 'farm') drawPitchforkBadge(g, 0, 0, 1 * ui)
-    else drawWrenchBadge(g, 0, 0, 1 * ui)
+  if (offer.type === 'swap' || offer.type === 'producerSwap') {
+    drawSwapBadge(g, 0, 0, 1 * ui)
   }
   if (offer.type === 'producerSlot') {
     drawPlusBadge(g, -22 * ui, 0, ui)

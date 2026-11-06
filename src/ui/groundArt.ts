@@ -275,6 +275,30 @@ export function drawPenDecor(
       drawFlower(g, 28, 2, 0xe9b7a3)
       drawClover(g, -12, 18, 0.7)
       break
+    case 'truffle':
+      drawMudPuddle(g, -8 * flip, 12)
+      drawStone(g, 24, -10, 0.8)
+      drawStone(g, -28, -8, 0.6)
+      drawGrassTuft(g, 28, 10, 0.6)
+      break
+    case 'duckEgg':
+      drawPuddle(g, 4, 10, 18, 7)
+      drawLilyPad(g, -4, 8, 0.7)
+      drawStone(g, -26, 14, 0.6)
+      drawStrawTuft(g, 26, -10, 0.7)
+      break
+    case 'donkeyMilk':
+      drawHayPile(g, -22 * flip, 8)
+      drawStone(g, 20, -8, 0.7)
+      drawGrassTuft(g, -28, -10, 0.6)
+      drawClover(g, 14, 16, 0.6)
+      break
+    case 'feather':
+      drawNest(g, -20 * flip, 10)
+      drawStone(g, 20, 12, 0.7)
+      drawGrassTuft(g, 28, -10, 0.7)
+      drawGrassTuft(g, -28, -12, 0.6)
+      break
   }
 }
 
@@ -320,6 +344,17 @@ function drawWorm(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: n
   g.strokePath()
   g.fillStyle(0x2b241d, 0.6)
   g.fillCircle(x - 4 * scale, y, 0.8)
+}
+
+function drawMudPuddle(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  g.fillStyle(0x1a120c, 0.12)
+  g.fillEllipse(x, y + 2, 34, 12)
+  g.fillStyle(0x6f4b2e, 0.9)
+  g.fillEllipse(x, y, 32, 11)
+  g.fillStyle(0x8a5f3d, 0.9)
+  g.fillEllipse(x - 3, y - 1, 22, 7)
+  g.fillStyle(0xb98a5c, 0.5)
+  g.fillEllipse(x - 6, y - 2, 8, 3)
 }
 
 function drawStone(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {

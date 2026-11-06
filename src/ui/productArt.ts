@@ -256,6 +256,53 @@ function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void
       g.fillEllipse(18, 23, 3, 2.4)
       g.fillEllipse(27, 24, 2.6, 2)
       break
+    case 'truffle':
+      g.fillStyle(0x5a3a32, 1)
+      g.fillEllipse(20, 24, 22, 17)
+      g.fillStyle(0x6f4b3e, 1)
+      g.fillEllipse(20, 22, 17, 13)
+      g.fillStyle(0x8a6a52, 1)
+      g.fillCircle(14, 20, 1.8)
+      g.fillCircle(22, 24, 2.2)
+      g.fillCircle(26, 19, 1.5)
+      g.fillCircle(17, 27, 1.3)
+      g.fillStyle(0xc9a06a, 0.6)
+      g.fillEllipse(15, 18, 5, 3)
+      break
+    case 'duckEgg':
+      g.fillStyle(0xbfe8ef, 1)
+      g.fillEllipse(20, 22, 17, 23)
+      g.fillStyle(0xdff3ef, 1)
+      g.fillEllipse(20, 26, 11, 13)
+      g.fillStyle(0xffffff, 0.7)
+      g.fillEllipse(15, 16, 3, 5)
+      break
+    case 'donkeyMilk':
+      g.fillStyle(0xdfe9f2, 1)
+      g.fillRoundedRect(13, 8, 14, 26, 4)
+      g.fillStyle(0xffffff, 1)
+      g.fillRoundedRect(15, 10, 10, 20, 3)
+      g.fillStyle(0x9aa5aa, 1)
+      g.fillRoundedRect(15, 16, 10, 5, 2)
+      g.fillStyle(0x6f757c, 1)
+      g.fillRoundedRect(15, 7, 10, 5, 2)
+      g.fillStyle(0xffffff, 0.8)
+      g.fillEllipse(18, 22, 3, 6)
+      break
+    case 'feather':
+      g.fillStyle(0xfff7e8, 1)
+      g.fillEllipse(22, 20, 10, 26)
+      g.fillStyle(0xe8e1d0, 1)
+      g.fillEllipse(22, 20, 6, 22)
+      g.lineStyle(1.4, 0xdccbb4, 1)
+      g.lineBetween(22, 8, 22, 34)
+      g.lineBetween(22, 14, 15, 10)
+      g.lineBetween(22, 18, 29, 14)
+      g.lineBetween(22, 22, 15, 18)
+      g.lineBetween(22, 26, 29, 22)
+      g.fillStyle(0x9aa5aa, 1)
+      g.fillRoundedRect(20, 30, 4, 6, 2)
+      break
     case 'honey':
       g.fillStyle(0xe0a93d, 1)
       g.fillRoundedRect(11, 14, 18, 17, 4)
@@ -293,6 +340,29 @@ function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void
       g.fillCircle(14, 14, 3.2)
       g.fillStyle(0xffffff, 0.6)
       g.fillCircle(18, 7, 1.6)
+      break
+    case 'omelette':
+      g.fillStyle(0x8f5734, 1)
+      g.fillEllipse(20, 26, 30, 10)
+      g.fillStyle(0xffd166, 1)
+      g.fillEllipse(20, 23, 26, 12)
+      g.fillStyle(0xf2a93b, 1)
+      g.fillEllipse(20, 24, 18, 8)
+      g.fillStyle(0x7fb069, 1)
+      g.fillCircle(14, 22, 2)
+      g.fillCircle(26, 24, 2)
+      g.fillStyle(0xd94b45, 1)
+      g.fillCircle(20, 21, 1.8)
+      break
+    case 'pillow':
+      g.fillStyle(0xfff7e8, 1)
+      g.fillRoundedRect(7, 14, 26, 16, 6)
+      g.fillStyle(0xdff3ef, 1)
+      g.fillRoundedRect(10, 16, 20, 12, 5)
+      g.fillStyle(0xe8e1d0, 1)
+      g.fillRoundedRect(18, 14, 4, 16, 2)
+      g.lineStyle(1.4, 0xdccbb4, 0.9)
+      g.strokeRoundedRect(7, 14, 26, 16, 6)
       break
     case 'fishDish':
       g.fillStyle(0xfff7e8, 1)

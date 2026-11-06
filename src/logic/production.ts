@@ -316,7 +316,7 @@ function advanceAnimal(producer: ProducerState, dtMs: number, events: GameEvent[
 
   let current = producer
   if (config.feed === 'trough' && current.progressMs === 0) {
-    const fed = takeFeed(current)
+    const fed = takeFeeds(current, Math.max(1, config.feedCount))
     if (fed === null) {
       if (!current.hungry) {
         events.push({ type: 'producerHungry', producerId: current.id, product: current.product })
@@ -617,15 +617,32 @@ export function nearestTrough(
 }
 
 export function takeFeed(producer: ProducerState): ProducerState | null {
-  for (const product of FEED_ORDER) {
-    const amount = producer.feed[product] ?? 0
-    if (amount <= 0) continue
-    const feed = { ...producer.feed }
-    if (amount <= 1) delete feed[product]
-    else feed[product] = amount - 1
-    return { ...producer, feed }
+  return takeFeeds(producer, 1)
+}
+
+/**
+ * Eats `count` whole items from the trough, cheapest first. All-or-nothing:
+ * a 4-per-cycle pig with only 3 items in the trough stays hungry and keeps
+ * all 3, instead of burning a partial meal.
+ */
+export function takeFeeds(producer: ProducerState, count: number): ProducerState | null {
+  if (count <= 0) return producer
+  let current = producer
+  for (let index = 0; index < count; index += 1) {
+    let next: ProducerState | null = null
+    for (const product of FEED_ORDER) {
+      const amount = current.feed[product] ?? 0
+      if (amount <= 0) continue
+      const feed = { ...current.feed }
+      if (amount <= 1) delete feed[product]
+      else feed[product] = amount - 1
+      next = { ...current, feed }
+      break
+    }
+    if (next === null) return null
+    current = next
   }
-  return null
+  return current
 }
 
 function consumeProduct(

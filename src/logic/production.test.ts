@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PLANT_ORDER, PORTRAIT_MAP, troughCapacity, zoneOf } from './config'
+import { feedPerCycle, PLANT_ORDER, PORTRAIT_MAP, troughCapacity, zoneOf } from './config'
 import {
   addFeed,
   addStock,
@@ -81,28 +81,67 @@ describe('production', () => {
     expect(shelves.fruit.stock.apple).toBe(5)
   })
 
-  it('eats a whole item from the trough and produces', () => {
-    const { producer } = run('egg', {}, 200, { apple: 1 })
+  it('eats whole items from the trough and produces', () => {
+    const { producer } = run('egg', {}, 200, { apple: 2 })
     expect(producer.hungry).toBe(false)
     expect(producer.ready).toBe(1)
     expect(feedCount(producer)).toBe(0)
   })
 
-  it('eats the cheapest trough item first', () => {
-    const { producer } = run('egg', {}, 2, { pear: 1, pumpkin: 2 })
+  it('eats the cheapest trough items first', () => {
+    const { producer } = run('egg', {}, 2, { pear: 2, pumpkin: 2 })
     expect(producer.hungry).toBe(false)
     expect(producer.feed.pear ?? 0).toBe(0)
     expect(producer.feed.pumpkin ?? 0).toBe(2)
   })
 
-  it('consumes the whole item even when it is worth more than the product', () => {
-    const { producer } = run('egg', {}, 2, { eggplant: 1 })
+  it('consumes the whole items even when one is worth more than the product', () => {
+    const { producer } = run('egg', {}, 2, { eggplant: 2 })
     expect(producer.hungry).toBe(false)
     expect(producer.feed.eggplant ?? 0).toBe(0)
   })
 
-  it('caps the trough at the animal capacity', () => {
-    const producer = withFeed('egg', { apple: 5 })
+  it('stays hungry on a partial trough instead of burning it', () => {
+    const { producer } = run('egg', {}, 2, { apple: 1 })
+    expect(producer.hungry).toBe(true)
+    expect(producer.ready).toBe(0)
+    expect(producer.feed.apple ?? 0).toBe(1)
+  })
+
+  it('a pig needs four items per cycle', () => {
+    const full = run('truffle', {}, 600, { apple: 4, carrot: 4 })
+    expect(full.producer.hungry).toBe(false)
+    expect(full.producer.ready).toBe(1)
+    const partial = run('truffle', {}, 2, { apple: 3 })
+    expect(partial.producer.hungry).toBe(true)
+    expect(partial.producer.feed.apple ?? 0).toBe(3)
+  })
+
+  it('every trough animal eats every fruit and vegetable', () => {
+    const troughAnimals = [
+      'egg',
+      'milk',
+      'yarn',
+      'cheese',
+      'truffle',
+      'duckEgg',
+      'donkeyMilk',
+      'feather',
+    ] as const
+    for (const animal of troughAnimals) {
+      const perCycle = feedPerCycle(animal)
+      expect(perCycle).toBeGreaterThan(0)
+      for (const crop of PLANT_ORDER) {
+        const feed = { [crop]: perCycle } as Partial<Record<PlantKind, number>>
+        const { producer } = run(animal, {}, 2, feed)
+        expect(producer.hungry, `${animal} eats ${crop}`).toBe(false)
+        expect(producer.feed[crop] ?? 0, `${animal} ate ${crop}`).toBe(0)
+      }
+    }
+  })
+
+  it('caps the trough at cycles times feed per cycle', () => {
+    const producer = withFeed('egg', { apple: 10 })
     expect(feedCount(producer)).toBe(troughCapacity('egg'))
   })
 

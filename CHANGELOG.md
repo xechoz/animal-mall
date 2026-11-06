@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Expand the farm: pig (truffle), duck (duck egg), donkey (donkey milk) and
+  turkey (feather) join the farm slots, and the kitchen gains an omelette pan
+  (duck egg + vegetables) and a sewing table (feathers). Every trough animal
+  now eats several whole items per cycle — two for chicken, cow and sheep,
+  three for goat, four for the four newcomers — so deep troughs hold multiple
+  cycles of feed and a short trough is never partially burned. Troughs with
+  more than six slots wrap to two rows in the pen art.
+
 - Rebalance the farm and kitchen around a working production loop. Cheaper
   pickers and chefs work longer shifts and always return after a short lounge;
   the kitchen now opens with a cake oven and a crop-fed juicer. Kitchen

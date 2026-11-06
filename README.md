@@ -56,7 +56,7 @@ morning.
   field; both grids are configuration in `src/logic/shopMap.ts`, so the counts
   can be tuned without touching save or UI code. Fruit trees and vegetable crops
   grow on their own; harvested goods go to the matching shelf.
-- Hold a finger on a planted bed, or tap its round shovel badge, to open the crop
+- Hold a finger on a planted bed, or tap its round swap badge, to open the crop
   chooser and swap it. Standing next to it never does: a harvest empties the bed
   under your feet, so a proximity chooser would fire on every pick. Every planted
   bed shows the badge just above its base; it fades in after you stop and only
@@ -71,7 +71,7 @@ morning.
   animal, including the pond, can go in any farm slot; any machine can go in any
   kitchen slot. Empty slots show a plus sticker: tap it or stand still for half a
   second to choose. To change an installed one, hold the pen/station or tap its
-  pitchfork/wrench tag. The chooser is modal, shows the current product and
+  swap tag. The chooser is modal, shows the current product and
   refund, refunds half of the old one and charges full price for the new one.
   Carried goods and shelf stock survive a swap, and the same animal or machine
   cannot be installed twice.
@@ -79,7 +79,10 @@ morning.
   vegetables fills it automatically, cheapest produce first; pickers also fill
   troughs with produce they harvest. The trough shows each item currently
   inside, and a hungry animal asks for food with a local bubble. Animals eat
-  the cheapest item in the trough, one whole item per production cycle. Trough
+  the cheapest items in the trough, several whole items per production cycle
+  (two for chicken, cow and sheep, three for goat, four for pig, duck, donkey
+  and turkey); a trough short of a full meal is left untouched until it holds
+  enough. Trough
   contents are not saved and reset on reload. The goat works like the other
   trough animals; the beehive is the exception and makes honey on its own.
 - The pond is one of the farm-slot options, not a fixed pen: install it in any
@@ -93,7 +96,8 @@ morning.
 - Kitchen stations pull eggs, milk, yarn, fish, cheese, fruit or vegetables from
   the matching shelf and leave one of each for customers. Walking past a machine with
   matching goods loads its hopper automatically, up to four production batches;
-  finished cakes, sweaters, skewers, juice, jam, ice cream, grilled fish and salad
+  finished cakes, sweaters, skewers, juice, jam, ice cream, grilled fish, salad,
+  omelettes and pillows
   wait on the station tray and are collected on contact, ready to stock the
   kitchen shelf. The Fish Grill and Salad Bar are shelf-fed instead: they pull
   straight from stock and cannot be hand-loaded. A hired chef does that loop for
@@ -142,7 +146,7 @@ morning.
   drink menu, nudge staff, discard goods); paid purchases keep the longer
   one-second dwell so a passing tap cannot spend coins. Crop and animal/machine
   swapping is the exception: it is explicit only, via a long press or the
-  shovel/pitchfork/wrench tag, because a harvest or a swap would otherwise fire
+  swap tag, because a harvest or a swap would otherwise fire
   under a stationary player. Walking always cancels the ring.
 - Beds, pens, stations and offer labels are tappable as well. A short tap plants
   or opens an empty slot, a `INTERACTION.holdMs` long press swaps with a "Hold to

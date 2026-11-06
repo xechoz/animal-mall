@@ -42,6 +42,10 @@ export const ANIMAL_ORDER: readonly AnimalProductKind[] = [
   'fish',
   'cheese',
   'honey',
+  'truffle',
+  'duckEgg',
+  'donkeyMilk',
+  'feather',
 ]
 export const PROCESSED_ORDER: readonly ProcessedKind[] = [
   'cake',
@@ -52,6 +56,8 @@ export const PROCESSED_ORDER: readonly ProcessedKind[] = [
   'iceCream',
   'fishDish',
   'salad',
+  'omelette',
+  'pillow',
 ]
 /**
  * The grill accepts any two of these per skewer, in any mix. Vegetables come
@@ -146,15 +152,49 @@ export interface AnimalConfig {
   readonly capacity: number
   /** `none` producers (fish, honey) work without a trough. */
   readonly feed: 'trough' | 'none'
+  /** Whole fruit/veg items eaten from the trough per production cycle. */
+  readonly feedCount: number
 }
 
 export const ANIMALS: Readonly<Record<AnimalProductKind, AnimalConfig>> = {
-  egg: { cost: 0, price: 14, cycleMs: 10_000, capacity: 4, feed: 'trough' },
-  milk: { cost: 260, price: 24, cycleMs: 16_000, capacity: 3, feed: 'trough' },
-  yarn: { cost: 550, price: 30, cycleMs: 20_000, capacity: 3, feed: 'trough' },
-  fish: { cost: 250, price: 21, cycleMs: 14_000, capacity: 4, feed: 'none' },
-  cheese: { cost: 700, price: 38, cycleMs: 22_000, capacity: 3, feed: 'trough' },
-  honey: { cost: 900, price: 48, cycleMs: 26_000, capacity: 3, feed: 'none' },
+  egg: { cost: 0, price: 14, cycleMs: 10_000, capacity: 4, feed: 'trough', feedCount: 2 },
+  milk: { cost: 260, price: 24, cycleMs: 16_000, capacity: 3, feed: 'trough', feedCount: 2 },
+  yarn: { cost: 550, price: 30, cycleMs: 20_000, capacity: 3, feed: 'trough', feedCount: 2 },
+  fish: { cost: 250, price: 21, cycleMs: 14_000, capacity: 4, feed: 'none', feedCount: 0 },
+  cheese: { cost: 700, price: 38, cycleMs: 22_000, capacity: 3, feed: 'trough', feedCount: 3 },
+  honey: { cost: 900, price: 48, cycleMs: 26_000, capacity: 3, feed: 'none', feedCount: 0 },
+  truffle: {
+    cost: 1200,
+    price: 68,
+    cycleMs: 26_000,
+    capacity: 2,
+    feed: 'trough',
+    feedCount: 4,
+  },
+  duckEgg: {
+    cost: 500,
+    price: 32,
+    cycleMs: 18_000,
+    capacity: 3,
+    feed: 'trough',
+    feedCount: 4,
+  },
+  donkeyMilk: {
+    cost: 850,
+    price: 44,
+    cycleMs: 22_000,
+    capacity: 2,
+    feed: 'trough',
+    feedCount: 4,
+  },
+  feather: {
+    cost: 950,
+    price: 42,
+    cycleMs: 24_000,
+    capacity: 2,
+    feed: 'trough',
+    feedCount: 4,
+  },
 }
 
 /** Every farm pen can host any of these, including the pond. */
@@ -170,9 +210,21 @@ export function animalNeedsTrough(product: AnimalProductKind): boolean {
   return ANIMALS[product].feed === 'trough'
 }
 
-/** A trough holds one full production batch of whole produce items. */
+/** Whole fruit/veg items an animal eats per production cycle (0 when trough-free). */
+export function feedPerCycle(product: AnimalProductKind): number {
+  const config = ANIMALS[product]
+  return config.feed === 'trough' ? config.feedCount : 0
+}
+
+/**
+ * A trough holds `capacity` production cycles worth of feed, so a 4-per-cycle
+ * animal needs a deeper trough than the old 1-per-cycle chicken. The UI shows
+ * a count instead of one icon per unit once the trough grows past 4 slots.
+ */
 export function troughCapacity(product: AnimalProductKind): number {
-  return ANIMALS[product].capacity
+  const config = ANIMALS[product]
+  if (config.feed !== 'trough') return config.capacity
+  return config.capacity * Math.max(1, config.feedCount)
 }
 
 /**
@@ -291,6 +343,23 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
     // allowed to spend the last unit because the player deliberately chose it.
     reserve: 0,
     inputs: PLANT_ORDER.map((product) => ({ product, count: 1 })),
+  },
+  omelette: {
+    cost: 620,
+    price: 120,
+    craftMs: 8_000,
+    capacity: 4,
+    inputs: [
+      { product: 'duckEgg', count: 1 },
+      { category: 'veg', count: 2 },
+    ],
+  },
+  pillow: {
+    cost: 700,
+    price: 115,
+    craftMs: 14_000,
+    capacity: 4,
+    inputs: [{ product: 'feather', count: 2 }],
   },
 }
 

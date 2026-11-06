@@ -39,6 +39,12 @@ export function drawStation(g: Phaser.GameObjects.Graphics, producer: ProducerSt
     case 'salad':
       drawSaladBar(g)
       break
+    case 'omelette':
+      drawFryingPan(g)
+      break
+    case 'pillow':
+      drawSewingTable(g)
+      break
   }
 
   // Finished goods wait on a small side tray instead of floating over the art.
@@ -135,6 +141,23 @@ export function drawStationFx(
       g.fillStyle(0x9bc477, 0.5)
       g.fillCircle(-4, -20 - Math.sin(time * 0.004) * 3, 3)
       g.fillCircle(5, -24 - Math.cos(time * 0.005) * 3, 2.4)
+      return
+    }
+    case 'omelette': {
+      if (!working) return
+      const sizzle = 0.5 + Math.abs(Math.sin(time * 0.012)) * 0.4
+      g.fillStyle(0xffd166, sizzle)
+      g.fillEllipse(0, -6, 26, 8)
+      drawSmoke(g, 0, -16, time, 3, 0xd9cba8)
+      return
+    }
+    case 'pillow': {
+      if (!working) return
+      const shuttle = Math.sin(time * 0.006) * 20
+      g.fillStyle(0x8f5734, 1)
+      g.fillRoundedRect(shuttle - 6, -8, 12, 5, 2)
+      g.fillStyle(0xfff7e8, 1)
+      g.fillCircle(shuttle, -5, 2)
       return
     }
   }
@@ -239,6 +262,33 @@ export function drawStationPad(
     g.fillTriangle(x - 36, y + 8, x - 22, y + 8, x - 29, y + 24)
     g.fillStyle(0xfff7e8, 1)
     g.fillCircle(x - 29, y + 6, 6)
+    return
+  }
+
+  if (product === 'omelette') {
+    // Warm breakfast mat with an egg crate.
+    g.fillStyle(0xd97b2f, 0.16)
+    g.fillRoundedRect(x - 42, y - 30, 84, 62, 12)
+    g.fillStyle(0xffe0a8, 0.3)
+    g.fillRoundedRect(x - 40, y - 32, 80, 58, 11)
+    g.fillStyle(0xb87545, 1)
+    g.fillRoundedRect(x + 22, y + 10, 22, 14, 3)
+    g.fillStyle(0xfff3dd, 1)
+    g.fillCircle(x + 28, y + 10, 4)
+    g.fillCircle(x + 36, y + 9, 4)
+    return
+  }
+
+  if (product === 'pillow') {
+    // Sewing corner with a fabric basket.
+    g.fillStyle(gameColors.woodDark, 0.16)
+    g.fillRoundedRect(x - 42, y - 30, 84, 62, 12)
+    g.fillStyle(0xdff3ef, 0.3)
+    g.fillRoundedRect(x - 40, y - 32, 80, 58, 11)
+    g.fillStyle(0xe88a9a, 1)
+    g.fillCircle(x + 28, y + 14, 5)
+    g.fillStyle(0xfff7e8, 1)
+    g.fillRoundedRect(x + 20, y + 10, 16, 10, 3)
     return
   }
 
@@ -563,6 +613,52 @@ function drawIceCreamChurn(g: Phaser.GameObjects.Graphics): void {
   g.fillCircle(29, 9, 6)
   g.fillStyle(0xf5a3b5, 1)
   g.fillCircle(29, 5, 4)
+}
+
+function drawFryingPan(g: Phaser.GameObjects.Graphics): void {
+  // Countertop burner with a wide pan and a sizzling omelette.
+  g.fillStyle(0x4f5a5f, 1)
+  g.fillRoundedRect(-34, 4, 68, 24, 6)
+  g.fillStyle(0x8a9098, 1)
+  g.fillRoundedRect(-31, 6, 62, 18, 5)
+  g.lineStyle(4, 0x3b2f3a, 1)
+  g.lineBetween(28, -6, 40, -16)
+  g.fillStyle(0x2f3a3f, 1)
+  g.fillEllipse(0, -8, 52, 18)
+  g.fillStyle(0x4f5a5f, 1)
+  g.fillEllipse(0, -9, 46, 15)
+  g.fillStyle(0xffd166, 1)
+  g.fillEllipse(0, -9, 36, 11)
+  g.fillStyle(0xf2a93b, 1)
+  g.fillEllipse(0, -8, 24, 7)
+  g.fillStyle(0x7fb069, 1)
+  g.fillCircle(-8, -10, 2.4)
+  g.fillCircle(9, -9, 2.4)
+  g.fillStyle(0xd94b45, 1)
+  g.fillCircle(0, -11, 1.8)
+}
+
+function drawSewingTable(g: Phaser.GameObjects.Graphics): void {
+  // Wooden sewing table with a folded pillow and a thread spool.
+  g.fillStyle(gameColors.woodDark, 1)
+  g.fillRoundedRect(-34, 6, 68, 20, 5)
+  g.fillStyle(gameColors.wood, 1)
+  g.fillRoundedRect(-31, 8, 62, 14, 4)
+  g.fillStyle(gameColors.woodDark, 1)
+  g.fillRoundedRect(-27, 24, 7, 8, 2)
+  g.fillRoundedRect(20, 24, 7, 8, 2)
+  g.fillStyle(0x4f5a5f, 1)
+  g.fillRoundedRect(-14, -22, 28, 20, 4)
+  g.fillStyle(0x8a9098, 1)
+  g.fillRoundedRect(-12, -20, 24, 6, 3)
+  g.fillStyle(0xfff7e8, 1)
+  g.fillRoundedRect(-22, -2, 44, 12, 6)
+  g.fillStyle(0xdff3ef, 1)
+  g.fillRoundedRect(-19, 0, 38, 8, 4)
+  g.fillStyle(0xe88a9a, 1)
+  g.fillCircle(24, -30, 5)
+  g.lineStyle(1.4, 0xe88a9a, 1)
+  g.lineBetween(21, -27, 12, -8)
 }
 
 function drawSmoke(

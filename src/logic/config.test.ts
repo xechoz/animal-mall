@@ -34,11 +34,15 @@ describe('plant configuration', () => {
     }
   })
 
-  it('uses the animal batch size as trough capacity', () => {
-    expect(troughCapacity('egg')).toBe(4)
-    expect(troughCapacity('milk')).toBe(3)
-    expect(troughCapacity('yarn')).toBe(3)
+  it('uses cycles times feed per cycle as trough capacity', () => {
+    expect(troughCapacity('egg')).toBe(8)
+    expect(troughCapacity('milk')).toBe(6)
+    expect(troughCapacity('yarn')).toBe(6)
     expect(troughCapacity('fish')).toBe(4)
+    expect(troughCapacity('truffle')).toBe(8)
+    expect(troughCapacity('duckEgg')).toBe(12)
+    expect(troughCapacity('donkeyMilk')).toBe(8)
+    expect(troughCapacity('feather')).toBe(8)
   })
 
   it('keeps every recipe profitable with its most expensive valid inputs', () => {

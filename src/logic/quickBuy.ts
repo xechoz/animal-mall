@@ -102,7 +102,7 @@ export interface ProducerSlotOffer {
   readonly rect: Rect
 }
 
-/** An occupied pen/station. Only its pitchfork/wrench tag opens the chooser. */
+/** An occupied pen/station. Only its swap tag opens the chooser. */
 export interface ProducerSwapOffer {
   readonly type: 'producerSwap'
   readonly id: string
