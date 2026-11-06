@@ -135,11 +135,13 @@ submodule. Do not copy platform source into this repo.
   price button into the name. Tap targets stay at 64 units at every scale.
 - Kitchen hoppers buffer `STATION_BUFFER_BATCHES` production batches per input
   slot. Walking past a machine pours matching carried goods in until the buffer
-  is full; the output tray is collected on contact.
+  is full; the output tray is collected on contact. Shelf-fed machines
+  (`handLoad: false`, currently the Fish Grill and Salad Bar) pull directly from
+  shelf stock and ignore the hopper; the player and chef must not load them.
 - The dining table is free and always unlocked: landscape uses the bottom-right
   four-seat table, portrait reuses the rest nook with a two-seat table. Tap a
   free chair, or stand still for `DINING.dwellMs` while carrying goods, to sit.
-  The food panel lists every carried `ProductKind`; all 24 products are edible,
+  The food panel lists every carried `ProductKind`; all 26 products are edible,
   each bite consumes one and stacks the `FOOD_BUFF` category time onto the shared
   drink timers (processed food adds all three). There is no per-visit limit.
   Seats are exclusive, and a seated player skips harvest, stock, feed, facility,
@@ -151,6 +153,11 @@ submodule. Do not copy platform source into this repo.
   and finishes the delivery first; an empty-handed worker with no seat or no
   shelf food still drinks at the rest corner. Dining state is transient; it must
   not change the save version or shelf stock except for the fetched meal.
+- A worker whose destination shelf stays full for `STAFF_FULL_WAIT_MS` must not
+  wait forever. If the worker is due for a meal and a seat is free, it eats one
+  carried item at the table; otherwise it walks the load to the trash bin and
+  discards it. A retired shelf bin skips the wait. This applies to pickers and
+  chefs, including a chef holding dishes when the kitchen shelf is full.
 - The shop runs in five-minute working days (`DAY` in `src/logic/config.ts`),
   displayed as 09:00–21:00. The lighting curve in `src/ui/lighting.ts` starts the
   golden hour at 17:00 and deepens every hour to a full grey night at 21:00. The
@@ -199,7 +206,16 @@ submodule. Do not copy platform source into this repo.
 - The kitchen's BBQ grill is the only pooled recipe: one batch consumes any two
   of the six vegetables, fish, eggs or cheese, may mix them, and always produces
   `skewer`. Save version 9 renames the old `grilledFish` producer to `skewer`;
-  keep that alias in `migrateSave`.
+  keep that alias in `migrateSave`. Do not reuse the `grilledFish` key for the
+  new Fish Grill; its key is `fishDish`.
+- `fishDish` is shelf-fed and needs one fish plus three different fruits or
+  vegetables (`distinct: true`). `salad` is shelf-fed and needs one of every
+  fruit and every vegetable; it is the only recipe with `reserve: 0`, because
+  the player deliberately chooses to spend the last crop units on it. Save
+  version 10 gives an old kitchen a juicer when it had none; do not grant staff.
+- Kitchen stations spend the cheapest valid input first, but always spend a
+  hand-loaded hopper before shelf stock. Shelf draws keep `reserve` units
+  (default 1) for customers; the salad opts out.
 - Producer swapping follows the crop rule: long press the pen/station or tap its
   pitchfork/wrench tag, never a proximity dwell. The tag appears after the
   player stops, fades over the last ~35 units, and only the tag itself is

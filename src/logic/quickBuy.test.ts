@@ -238,7 +238,7 @@ describe('quick buy', () => {
     expect(hired.result).toBe('ok')
     expect(hired.state.staff.picker).toBe(1)
     expect(hired.state.deposits['staff:picker']).toBeUndefined()
-    expect(hired.state.coins).toBe(60)
+    expect(hired.state.coins).toBe(100)
   })
 
   it('reports a blocked dwell when the staff hire is unaffordable', () => {
@@ -257,7 +257,7 @@ describe('quick buy', () => {
     const state = createShopState(appleSave(400), PORTRAIT_MAP)
     const result = simulate(withPlayer(state, { x: station.x - 40, y: station.y + 20 }), 30)
     expect(result.state.staff.cashier).toBe(1)
-    expect(result.state.coins).toBe(80)
+    expect(result.state.coins).toBe(140)
     expect(
       result.events.some((event) => event.type === 'staffBought' && event.kind === 'cashier'),
     ).toBe(true)
@@ -301,7 +301,7 @@ describe('quick buy', () => {
     const hired = purchaseStaff(open, 'chef', false)
     expect(hired.result).toBe('ok')
     expect(hired.state.staff.chef).toBe(1)
-    expect(hired.state.coins).toBe(1_200)
+    expect(hired.state.coins).toBe(1_500)
   })
 
   it('uses a plant deposit in the shop', () => {

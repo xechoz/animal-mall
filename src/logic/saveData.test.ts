@@ -72,6 +72,7 @@ describe('save data', () => {
       { product: 'carrot', slot: 1 },
       { product: 'egg', slot: 0 },
       { product: 'cake', slot: 0 },
+      { product: 'juice', slot: 1 },
     ])
     expect(save.zones.fruit).toBe(true)
     expect(save.zones.farm).toBe(true)
@@ -112,6 +113,7 @@ describe('save data', () => {
       { product: 'honey', slot: 3 },
       { product: 'jam', slot: 1 },
       { product: 'iceCream', slot: 3 },
+      { product: 'juice', slot: 0 },
     ])
   })
 
@@ -131,6 +133,7 @@ describe('save data', () => {
       { product: 'egg', slot: 1 },
       { product: 'milk', slot: 0 },
       { product: 'cake', slot: 0 },
+      { product: 'juice', slot: 1 },
     ])
   })
 
@@ -140,7 +143,10 @@ describe('save data', () => {
       producers: [{ product: 'grilledFish', slot: 2 }],
       zones: { kitchen: true },
     })
-    expect(save.producers).toEqual([{ product: 'skewer', slot: 2 }])
+    expect(save.producers).toEqual([
+      { product: 'skewer', slot: 2 },
+      { product: 'juice', slot: 0 },
+    ])
   })
 
   it('restores the newer fruit and vegetable kinds', () => {

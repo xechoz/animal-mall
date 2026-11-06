@@ -24,6 +24,19 @@ function withStaffState(state: ShopState, id: number, patch: Partial<StaffState>
   }
 }
 
+function withAppleBin(state: ShopState): ShopState {
+  return {
+    ...state,
+    shelves: {
+      ...state.shelves,
+      fruit: {
+        ...state.shelves.fruit,
+        bins: { ...state.shelves.fruit.bins, apple: true },
+      },
+    },
+  }
+}
+
 function member(state: ShopState, kind: StaffKind, index = 0): StaffState {
   const found = state.staffMembers.find((candidate) => candidate.id === staffMemberId(kind, index))
   if (found === undefined) throw new Error('missing staff member')
@@ -68,8 +81,8 @@ function farmPickerState(): ShopState {
 }
 
 describe('staff feeding', () => {
-  it('carries harvested produce to an empty trough before stocking shelves', () => {
-    let state = farmPickerState()
+  it('stocks a low shelf before diverting produce to a trough', () => {
+    let state = withAppleBin(farmPickerState())
     const picker = member(state, 'picker')
     state = withStaffState(state, picker.id, {
       workMs: 0,
@@ -81,9 +94,120 @@ describe('staff feeding', () => {
       prevPos: PORTRAIT_MAP.staffStations.picker.home,
     })
 
-    const result = simulate(state, 320, fixedRng(0))
+    const result = simulate(state, 500, fixedRng(0))
+    expect(result.events.some((event) => event.type === 'staffStock')).toBe(true)
+    expect(result.state.shelves.fruit.stock.apple).toBe(2)
+    expect(result.state.producers[0]?.feed.apple ?? 0).toBe(0)
+  })
+
+  it('carries produce to an empty trough once the shelf is stocked', () => {
+    let state = withAppleBin(farmPickerState())
+    const picker = member(state, 'picker')
+    state = {
+      ...state,
+      shelves: {
+        ...state.shelves,
+        fruit: { ...state.shelves.fruit, stock: { ...state.shelves.fruit.stock, apple: 3 } },
+      },
+    }
+    state = withStaffState(state, picker.id, {
+      workMs: 0,
+      phase: 'idle',
+      carry: 'apple',
+      carryCount: 2,
+      waitMs: 0,
+      pos: PORTRAIT_MAP.staffStations.picker.home,
+      prevPos: PORTRAIT_MAP.staffStations.picker.home,
+    })
+
+    const result = simulate(state, 500, fixedRng(0))
     expect(result.events.some((event) => event.type === 'staffFeed')).toBe(true)
     expect(result.state.producers[0]?.feed.apple).toBe(2)
+  })
+})
+
+describe('staff shelf overflow', () => {
+  it('trashes a carried load when its shelf stays full', () => {
+    let state = withAppleBin(pickerState())
+    state = withShelfStock(state, 'fruit', 'apple', state.shelves.fruit.capacity)
+    const picker = member(state, 'picker')
+    state = withStaffState(state, picker.id, {
+      workMs: 0,
+      phase: 'idle',
+      carry: 'apple',
+      carryCount: 2,
+      waitMs: 0,
+      pos: PORTRAIT_MAP.staffStations.picker.home,
+      prevPos: PORTRAIT_MAP.staffStations.picker.home,
+    })
+
+    const result = simulate(state, 500, fixedRng(0))
+    expect(result.events.some((event) => event.type === 'staffTrash')).toBe(true)
+    expect(member(result.state, 'picker').carry).toBeNull()
+  })
+
+  it('stocks normally when room opens before the disposal timer', () => {
+    let state = withAppleBin(pickerState())
+    state = withShelfStock(state, 'fruit', 'apple', state.shelves.fruit.capacity - 1)
+    const picker = member(state, 'picker')
+    state = withStaffState(state, picker.id, {
+      workMs: 0,
+      phase: 'idle',
+      carry: 'apple',
+      carryCount: 1,
+      waitMs: 0,
+      pos: PORTRAIT_MAP.staffStations.picker.home,
+      prevPos: PORTRAIT_MAP.staffStations.picker.home,
+    })
+
+    const result = simulate(state, 300, fixedRng(0))
+    expect(result.events.some((event) => event.type === 'staffStock')).toBe(true)
+    expect(result.events.some((event) => event.type === 'staffTrash')).toBe(false)
+    expect(result.state.shelves.fruit.stock.apple).toBe(state.shelves.fruit.capacity)
+  })
+
+  it('sends a chef with a full kitchen shelf to the bin', () => {
+    let state = chefState()
+    state = withShelfStock(state, 'kitchen', 'cake', state.shelves.kitchen.capacity)
+    const chef = member(state, 'chef')
+    state = withStaffState(state, chef.id, {
+      workMs: 0,
+      phase: 'idle',
+      carry: 'cake',
+      carryCount: 2,
+      waitMs: 0,
+    })
+
+    const result = simulate(state, 600, fixedRng(0))
+    expect(result.events.some((event) => event.type === 'staffTrash')).toBe(true)
+    expect(member(result.state, 'chef').carry).toBeNull()
+  })
+
+  it('walks the load to the bin when its shelf bin is gone', () => {
+    let state = withAppleBin(farmPickerState())
+    state = {
+      ...state,
+      shelves: {
+        ...state.shelves,
+        fruit: {
+          ...state.shelves.fruit,
+          bins: { ...state.shelves.fruit.bins, apple: false },
+        },
+      },
+    }
+    const picker = member(state, 'picker')
+    state = withStaffState(state, picker.id, {
+      workMs: 0,
+      phase: 'idle',
+      carry: 'apple',
+      carryCount: 1,
+      waitMs: 0,
+      pos: PORTRAIT_MAP.staffStations.picker.home,
+      prevPos: PORTRAIT_MAP.staffStations.picker.home,
+    })
+
+    const result = simulate(state, 500, fixedRng(0))
+    expect(result.events.some((event) => event.type === 'staffTrash')).toBe(true)
   })
 })
 
@@ -419,8 +543,8 @@ describe('chef staff', () => {
 
     const result = simulate(state, 220, fixedRng(0))
     const station = result.state.producers.find((producer) => producer.product === 'cake')
-    expect(station?.hopper.egg).toBe(6)
-    expect(result.state.shelves.farm.stock.egg).toBe(0)
+    expect(station?.hopper.egg).toBe(5)
+    expect(result.state.shelves.farm.stock.egg).toBe(1)
     expect(
       result.events.some((event) => event.type === 'stationLoad' && event.product === 'egg'),
     ).toBe(true)

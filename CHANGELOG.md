@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Rebalance the farm and kitchen around a working production loop. Cheaper
+  pickers and chefs work longer shifts and always return after a short lounge;
+  the kitchen now opens with a cake oven and a crop-fed juicer. Kitchen
+  stations buffer four batches, craft faster, and spend the cheapest valid
+  input first while leaving one unit per product for customers. The new
+  shelf-fed Fish Grill needs one fish and three different crops; the Salad Bar
+  needs one of every fruit and vegetable and is allowed to spend the last
+  units. Staff whose destination shelf stays full eat one carried item when due
+  for a meal or walk the rest to the bin instead of waiting forever. Prices,
+  animal buffers and customer weights rise so the advanced zones repay their
+  investment. Save version 10 grants an old kitchen a juicer and never grants
+  staff.
+
 - Simplify the interface: the menu drops the bark pill behind its stats, the
   fruit sign board above the house and the thatched roof (now a shelf-stall
   awning), the shop floor loses
@@ -13,8 +26,7 @@
 - Trim the world UI: the counter coin pile, animal pens, staff and customer
   hands no longer print quantities, and a full player hand shows `MAX`/`满`
   instead of a count. The shelf keeps its per-bin stock but drops the
-  `total/capacity` line, and the day clock updates in quarter-hour steps
-  instead of every game minute.
+  `total/capacity` line.
 
 - Close the shop exactly at 21:00. New customers still stop at 20:30, but
   anyone left inside leaves when the clock lands on closing time, so the clock

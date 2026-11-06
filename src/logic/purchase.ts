@@ -349,16 +349,14 @@ export function purchaseZone(state: ShopState, zone: ZoneId): PurchaseOutcome {
     zones: { ...state.zones, [zone]: true },
   }
 
-  const includes = config.includes
-  if (includes !== null && !state.producers.some((producer) => producer.product === includes)) {
+  for (const includes of config.includes) {
+    if (next.producers.some((producer) => producer.product === includes)) continue
     const includesZone = zoneOf(includes)
-    if (includesZone === 'farm' || includesZone === 'kitchen') {
-      const slot = firstFreeProducerSlot(next, includesZone)
-      if (slot !== null) {
-        const producer = createProducer(includes, slot, next.nextProducerId, next.map, true)
-        next = addProducerToState(next, producer)
-      }
-    }
+    if (includesZone !== 'farm' && includesZone !== 'kitchen') continue
+    const slot = firstFreeProducerSlot(next, includesZone)
+    if (slot === null) continue
+    const producer = createProducer(includes, slot, next.nextProducerId, next.map, true)
+    next = addProducerToState(next, producer)
   }
 
   return { state: refreshStateShelves(next), result: 'ok', events }

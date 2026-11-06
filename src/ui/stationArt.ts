@@ -33,6 +33,12 @@ export function drawStation(g: Phaser.GameObjects.Graphics, producer: ProducerSt
     case 'iceCream':
       drawIceCreamChurn(g)
       break
+    case 'fishDish':
+      drawGrill(g)
+      break
+    case 'salad':
+      drawSaladBar(g)
+      break
   }
 
   // Finished goods wait on a small side tray instead of floating over the art.
@@ -113,6 +119,22 @@ export function drawStationFx(
       g.fillCircle(12, -30 - puff * 10, 3 + puff * 2)
       g.fillStyle(0xffffff, 0.5)
       g.fillCircle(-14, -30 - puff * 12, 2.4)
+      return
+    }
+    case 'fishDish': {
+      const flicker = 0.6 + Math.sin(time * 0.02) * 0.25
+      g.fillStyle(0xf08a3c, flicker)
+      g.fillEllipse(0, 2, 30, 9)
+      g.fillStyle(0xffd166, flicker * 0.8)
+      g.fillEllipse(-3, 1, 14, 5)
+      if (working) drawSmoke(g, 0, -24, time, 4, 0x9aa5aa)
+      return
+    }
+    case 'salad': {
+      if (!working) return
+      g.fillStyle(0x9bc477, 0.5)
+      g.fillCircle(-4, -20 - Math.sin(time * 0.004) * 3, 3)
+      g.fillCircle(5, -24 - Math.cos(time * 0.005) * 3, 2.4)
       return
     }
   }
@@ -236,6 +258,34 @@ export function drawStationPad(
   g.fillCircle(x + 36, y + 9, 4)
   g.fillStyle(0x8cd08b, 1)
   g.fillEllipse(x + 32, y + 5, 9, 5)
+}
+
+function drawSaladBar(g: Phaser.GameObjects.Graphics): void {
+  // A low wooden counter with a wide bowl and a few bright salad pieces.
+  g.fillStyle(gameColors.woodDark, 1)
+  g.fillRoundedRect(-38, 4, 76, 24, 6)
+  g.fillStyle(gameColors.wood, 1)
+  g.fillRoundedRect(-35, 6, 70, 16, 5)
+  g.fillStyle(gameColors.woodLight, 1)
+  g.fillRoundedRect(-35, 6, 70, 4, 2)
+  g.fillStyle(0xffffff, 0.9)
+  g.fillEllipse(0, 0, 46, 20)
+  g.fillStyle(0xdff3ef, 1)
+  g.fillEllipse(0, -2, 40, 16)
+  g.fillStyle(0x5aa96f, 1)
+  g.fillCircle(-13, -4, 7)
+  g.fillCircle(1, -7, 8)
+  g.fillCircle(12, -2, 6)
+  g.fillStyle(0x9bc477, 1)
+  g.fillCircle(-5, 2, 6)
+  g.fillCircle(8, 1, 5)
+  g.fillStyle(0xd94b45, 1)
+  g.fillCircle(6, -9, 4)
+  g.fillCircle(-16, 0, 3.4)
+  g.fillStyle(0xffd166, 1)
+  g.fillCircle(-2, -10, 3)
+  g.fillStyle(0x8f5734, 1)
+  g.fillRoundedRect(-26, 18, 52, 4, 2)
 }
 
 function drawOven(g: Phaser.GameObjects.Graphics): void {

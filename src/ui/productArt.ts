@@ -294,5 +294,42 @@ function drawProduct(g: Phaser.GameObjects.Graphics, product: ProductKind): void
       g.fillStyle(0xffffff, 0.6)
       g.fillCircle(18, 7, 1.6)
       break
+    case 'fishDish':
+      g.fillStyle(0xfff7e8, 1)
+      g.fillEllipse(20, 28, 30, 10)
+      g.fillStyle(0xd6e6ea, 1)
+      g.fillEllipse(20, 27, 24, 7)
+      g.fillStyle(0x7fa6b3, 1)
+      g.fillEllipse(20, 22, 20, 11)
+      g.fillStyle(0xa9c9d2, 1)
+      g.fillEllipse(18, 20, 12, 6)
+      g.fillStyle(0x4f6f78, 1)
+      g.fillTriangle(30, 22, 35, 18, 35, 26)
+      g.fillStyle(0x3b2f3a, 1)
+      g.fillCircle(13, 20, 1.4)
+      g.lineStyle(1.4, 0x5a3a32, 0.8)
+      g.lineBetween(15, 24, 25, 24)
+      g.lineBetween(17, 27, 23, 27)
+      break
+    case 'salad':
+      g.fillStyle(0xffffff, 0.9)
+      g.fillEllipse(20, 24, 30, 16)
+      g.fillStyle(0xdff3ef, 1)
+      g.fillEllipse(20, 22, 26, 13)
+      g.fillStyle(0x5aa96f, 1)
+      g.fillCircle(14, 20, 5)
+      g.fillCircle(23, 18, 5.5)
+      g.fillCircle(27, 23, 4)
+      g.fillStyle(0x9bc477, 1)
+      g.fillCircle(17, 24, 4)
+      g.fillCircle(21, 22, 3.4)
+      g.fillStyle(0xd94b45, 1)
+      g.fillCircle(25, 20, 3)
+      g.fillCircle(12, 24, 2.6)
+      g.fillStyle(0xffd166, 1)
+      g.fillCircle(19, 17, 2.4)
+      g.fillStyle(0x8f5734, 1)
+      g.fillRoundedRect(8, 27, 24, 3, 1.5)
+      break
   }
 }

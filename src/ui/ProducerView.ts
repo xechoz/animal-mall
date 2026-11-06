@@ -264,21 +264,30 @@ export class ProducerView extends Phaser.GameObjects.Container {
 
         const config = RECIPES[producer.product]
         const crafting = producer.progressMs > 0
-        config.inputs.forEach((input, index) => {
-          const icon = this.inputIcons[index]
-          const count = this.inputCounts[index]
-          if (icon === undefined || count === undefined) return
-          const available = recipeInputTotal(producer, shelves, input)
-          const capacity = inputCapacity(input)
-          icon
-            .setTexture(inputChipTexture(input))
-            .setVisible(true)
-            .setAlpha(crafting ? 0.45 : 1)
-          count
-            .setText(crafting ? `×${input.count}` : `${Math.min(available, capacity)}/${capacity}`)
-            .setColor(!crafting && available < input.count ? '#e25d5d' : '#3b2f3a')
-            .setVisible(true)
-        })
+        if (config.handLoad === false) {
+          // Shelf-fed machines have no hopper chips; their recipe card explains
+          // that they pull straight from the shelf.
+          for (const icon of this.inputIcons) icon.setVisible(false)
+          for (const count of this.inputCounts) count.setVisible(false)
+        } else {
+          config.inputs.forEach((input, index) => {
+            const icon = this.inputIcons[index]
+            const count = this.inputCounts[index]
+            if (icon === undefined || count === undefined) return
+            const available = recipeInputTotal(producer, shelves, input, config.reserve ?? 1)
+            const capacity = inputCapacity(input)
+            icon
+              .setTexture(inputChipTexture(input))
+              .setVisible(true)
+              .setAlpha(crafting ? 0.45 : 1)
+            count
+              .setText(
+                crafting ? `×${input.count}` : `${Math.min(available, capacity)}/${capacity}`,
+              )
+              .setColor(!crafting && available < input.count ? '#e25d5d' : '#3b2f3a')
+              .setVisible(true)
+          })
+        }
         if (producer.ready >= config.capacity) {
           this.status.setText(this.i18n.t('station.full')).setColor('#e08a2f').setVisible(true)
         }
@@ -509,9 +518,20 @@ function producerKey(
 ): string {
   const station =
     producer.kind === 'station' && isProcessedKind(producer.product)
-      ? RECIPES[producer.product].inputs
-          .map((input) => `${inputKey(input)}${recipeInputTotal(producer, shelves, input)}`)
-          .join(',')
+      ? (() => {
+          const recipe = RECIPES[producer.product]
+          return recipe.inputs
+            .map(
+              (input) =>
+                `${inputKey(input)}${recipeInputTotal(
+                  producer,
+                  shelves,
+                  input,
+                  recipe.reserve ?? 1,
+                )}`,
+            )
+            .join(',')
+        })()
       : ''
   return [
     producer.kind,

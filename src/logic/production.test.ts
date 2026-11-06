@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PORTRAIT_MAP, troughCapacity } from './config'
+import { PLANT_ORDER, PORTRAIT_MAP, troughCapacity, zoneOf } from './config'
 import {
   addFeed,
   addStock,
@@ -113,25 +113,25 @@ describe('production', () => {
     expect(shelves.farm.stock.milk).toBe(1)
   })
 
-  it('crafts a cake with exactly one batch of inputs', () => {
+  it('keeps one of each ingredient on the shelf for customers', () => {
     const { producer, shelves } = run('cake', { egg: 2, milk: 1 }, 250)
-    expect(producer.ready).toBe(1)
-    expect(shelves.farm.stock.egg).toBe(0)
-    expect(shelves.farm.stock.milk).toBe(0)
+    expect(producer.ready).toBe(0)
+    expect(shelves.farm.stock.egg).toBe(2)
+    expect(shelves.farm.stock.milk).toBe(1)
   })
 
-  it('juices any fruit and any vegetable', () => {
-    const { producer, shelves } = run('juice', { pear: 1, tomato: 1 }, 200)
+  it('juices any fruit and any vegetable while leaving one of each', () => {
+    const { producer, shelves } = run('juice', { pear: 2, tomato: 2 }, 200)
     expect(producer.ready).toBe(1)
-    expect(shelves.fruit.stock.pear).toBe(0)
-    expect(shelves.veg.stock.tomato).toBe(0)
+    expect(shelves.fruit.stock.pear).toBe(1)
+    expect(shelves.veg.stock.tomato).toBe(1)
   })
 
-  it('grills a mixed skewer from any two pool ingredients', () => {
-    const { producer, shelves } = run('skewer', { fish: 1, tomato: 1 }, 210)
+  it('grills a mixed skewer from any two pool ingredients while leaving one', () => {
+    const { producer, shelves } = run('skewer', { fish: 2, tomato: 2 }, 210)
     expect(producer.ready).toBe(1)
-    expect(shelves.farm.stock.fish).toBe(0)
-    expect(shelves.veg.stock.tomato).toBe(0)
+    expect(shelves.farm.stock.fish).toBe(1)
+    expect(shelves.veg.stock.tomato).toBe(1)
   })
 
   it('waits for a second ingredient before grilling a skewer', () => {
@@ -146,7 +146,7 @@ describe('production', () => {
       ...createProducer('skewer', 0, 1, PORTRAIT_MAP),
       hopper: { fish: 2 },
     }
-    for (let tick = 0; tick < 200; tick += 1) {
+    for (let tick = 0; tick < 140; tick += 1) {
       const result = stepProduction([producer], shelves, 50, 1)
       producer = result.producers[0] as typeof producer
       shelves = result.shelves
@@ -162,17 +162,17 @@ describe('production', () => {
     expect(shelves.farm.stock.yarn).toBe(1)
   })
 
-  it('turns two fruits into jam', () => {
-    const { producer, shelves } = run('jam', { apple: 2 }, 200)
+  it('turns two fruits into jam while leaving one', () => {
+    const { producer, shelves } = run('jam', { apple: 3 }, 200)
     expect(producer.ready).toBe(1)
-    expect(shelves.fruit.stock.apple).toBe(0)
+    expect(shelves.fruit.stock.apple).toBe(1)
   })
 
-  it('turns milk and a fruit into ice cream', () => {
-    const { producer, shelves } = run('iceCream', { milk: 1, pear: 1 }, 260)
+  it('turns milk and a fruit into ice cream while leaving one', () => {
+    const { producer, shelves } = run('iceCream', { milk: 2, pear: 2 }, 260)
     expect(producer.ready).toBe(1)
-    expect(shelves.farm.stock.milk).toBe(0)
-    expect(shelves.fruit.stock.pear).toBe(0)
+    expect(shelves.farm.stock.milk).toBe(1)
+    expect(shelves.fruit.stock.pear).toBe(1)
   })
 
   it('makes honey without a trough', () => {
@@ -186,6 +186,47 @@ describe('production', () => {
     const { producer } = run('cheese', {}, 4)
     expect(producer.ready).toBe(0)
     expect(producer.hungry).toBe(true)
+  })
+
+  it('grills a fish dish with three different crops', () => {
+    const { producer, shelves } = run('fishDish', { fish: 2, carrot: 2, pear: 2, apple: 2 }, 240)
+    expect(producer.ready).toBe(1)
+    expect(shelves.farm.stock.fish).toBe(1)
+    expect(shelves.veg.stock.carrot).toBe(1)
+    expect(shelves.fruit.stock.pear).toBe(1)
+    expect(shelves.fruit.stock.apple).toBe(1)
+  })
+
+  it('will not make a fish dish from three carrots', () => {
+    const { producer, shelves } = run('fishDish', { fish: 2, carrot: 4 }, 240)
+    expect(producer.ready).toBe(0)
+    expect(shelves.farm.stock.fish).toBe(2)
+    expect(shelves.veg.stock.carrot).toBe(4)
+  })
+
+  it('makes a salad from every crop type', () => {
+    const stock = Object.fromEntries(PLANT_ORDER.map((product) => [product, 2]))
+    const { producer, shelves } = run('salad', stock, 400)
+    expect(producer.ready).toBe(1)
+    for (const product of PLANT_ORDER) {
+      expect(shelves[zoneOf(product)].stock[product]).toBe(1)
+    }
+  })
+
+  it('lets the salad spend the last unit of each crop', () => {
+    const stock = Object.fromEntries(PLANT_ORDER.map((product) => [product, 1]))
+    const { producer, shelves } = run('salad', stock, 400)
+    expect(producer.ready).toBe(1)
+    for (const product of PLANT_ORDER) {
+      expect(shelves[zoneOf(product)].stock[product]).toBe(0)
+    }
+  })
+
+  it('spends the cheapest pool ingredient first', () => {
+    const { producer, shelves } = run('skewer', { carrot: 3, cheese: 2 }, 140)
+    expect(producer.ready).toBe(1)
+    expect(shelves.veg.stock.carrot).toBe(1)
+    expect(shelves.farm.stock.cheese).toBe(2)
   })
 
   it('keeps leftover stock when its producer is replaced', () => {

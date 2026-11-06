@@ -50,6 +50,8 @@ export const PROCESSED_ORDER: readonly ProcessedKind[] = [
   'juice',
   'jam',
   'iceCream',
+  'fishDish',
+  'salad',
 ]
 /**
  * The grill accepts any two of these per skewer, in any mix. Vegetables come
@@ -147,12 +149,12 @@ export interface AnimalConfig {
 }
 
 export const ANIMALS: Readonly<Record<AnimalProductKind, AnimalConfig>> = {
-  egg: { cost: 0, price: 12, cycleMs: 10_000, capacity: 3, feed: 'trough' },
-  milk: { cost: 350, price: 20, cycleMs: 16_000, capacity: 2, feed: 'trough' },
-  yarn: { cost: 550, price: 26, cycleMs: 20_000, capacity: 2, feed: 'trough' },
-  fish: { cost: 250, price: 18, cycleMs: 14_000, capacity: 3, feed: 'none' },
-  cheese: { cost: 700, price: 34, cycleMs: 22_000, capacity: 2, feed: 'trough' },
-  honey: { cost: 900, price: 42, cycleMs: 26_000, capacity: 2, feed: 'none' },
+  egg: { cost: 0, price: 14, cycleMs: 10_000, capacity: 4, feed: 'trough' },
+  milk: { cost: 260, price: 24, cycleMs: 16_000, capacity: 3, feed: 'trough' },
+  yarn: { cost: 550, price: 30, cycleMs: 20_000, capacity: 3, feed: 'trough' },
+  fish: { cost: 250, price: 21, cycleMs: 14_000, capacity: 4, feed: 'none' },
+  cheese: { cost: 700, price: 38, cycleMs: 22_000, capacity: 3, feed: 'trough' },
+  honey: { cost: 900, price: 48, cycleMs: 26_000, capacity: 3, feed: 'none' },
 }
 
 /** Every farm pen can host any of these, including the pond. */
@@ -189,11 +191,15 @@ export type RecipeInput =
       /** Any product of this plant category satisfies the input. */
       readonly category: 'fruit' | 'veg'
       readonly count: number
+      /** Each picked unit must be a different product from the category. */
+      readonly distinct?: boolean
     }
   | {
       /** Any mix of these products fills the input; the batch may mix kinds. */
       readonly pool: readonly ProductKind[]
       readonly count: number
+      /** Each picked unit must be a different product from the pool. */
+      readonly distinct?: boolean
     }
 
 export interface RecipeConfig {
@@ -202,14 +208,22 @@ export interface RecipeConfig {
   readonly craftMs: number
   readonly capacity: number
   readonly inputs: readonly RecipeInput[]
+  /**
+   * A shelf-fed machine pulls its inputs straight from shelf stock. The player
+   * and chef cannot pre-load a hopper, which keeps twelve-ingredient recipes
+   * from turning the chef into a full-time courier.
+   */
+  readonly handLoad?: boolean
+  /** Units of each input left on the shelf for customers (default 1). */
+  readonly reserve?: number
 }
 
 export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
   cake: {
     cost: 0,
-    price: 50,
-    craftMs: 12_000,
-    capacity: 3,
+    price: 80,
+    craftMs: 10_000,
+    capacity: 4,
     inputs: [
       { product: 'egg', count: 2 },
       { product: 'milk', count: 1 },
@@ -217,23 +231,23 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
   },
   sweater: {
     cost: 450,
-    price: 70,
-    craftMs: 16_000,
-    capacity: 3,
+    price: 105,
+    craftMs: 14_000,
+    capacity: 4,
     inputs: [{ product: 'yarn', count: 2 }],
   },
   skewer: {
     cost: 320,
-    price: 55,
-    craftMs: 10_000,
-    capacity: 3,
+    price: 85,
+    craftMs: 7_000,
+    capacity: 4,
     inputs: [{ pool: GRILL_POOL, count: 2 }],
   },
   juice: {
     cost: 320,
-    price: 45,
-    craftMs: 9_000,
-    capacity: 3,
+    price: 65,
+    craftMs: 6_000,
+    capacity: 4,
     inputs: [
       { category: 'fruit', count: 1 },
       { category: 'veg', count: 1 },
@@ -241,20 +255,42 @@ export const RECIPES: Readonly<Record<ProcessedKind, RecipeConfig>> = {
   },
   jam: {
     cost: 380,
-    price: 52,
-    craftMs: 9_000,
-    capacity: 3,
+    price: 70,
+    craftMs: 6_000,
+    capacity: 4,
     inputs: [{ category: 'fruit', count: 2 }],
   },
   iceCream: {
     cost: 520,
-    price: 68,
-    craftMs: 12_000,
-    capacity: 3,
+    price: 95,
+    craftMs: 10_000,
+    capacity: 4,
     inputs: [
       { product: 'milk', count: 1 },
       { category: 'fruit', count: 1 },
     ],
+  },
+  fishDish: {
+    cost: 500,
+    price: 110,
+    craftMs: 12_000,
+    capacity: 3,
+    handLoad: false,
+    inputs: [
+      { product: 'fish', count: 1 },
+      { pool: PLANT_ORDER, count: 3, distinct: true },
+    ],
+  },
+  salad: {
+    cost: 650,
+    price: 300,
+    craftMs: 20_000,
+    capacity: 2,
+    handLoad: false,
+    // The rainbow salad is the late-game sink for every crop type. It is
+    // allowed to spend the last unit because the player deliberately chose it.
+    reserve: 0,
+    inputs: PLANT_ORDER.map((product) => ({ product, count: 1 })),
   },
 }
 
@@ -322,7 +358,7 @@ export interface StaffConfig {
 
 export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
   cashier: {
-    costs: [320],
+    costs: [260],
     species: 'cat',
     speed: 0,
     carry: 0,
@@ -332,7 +368,7 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
     loadMs: 0,
   },
   picker: {
-    costs: [260, 680],
+    costs: [220, 560],
     species: 'rabbit',
     speed: 112,
     carry: 4,
@@ -342,7 +378,7 @@ export const STAFF: Readonly<Record<StaffKind, StaffConfig>> = {
     loadMs: 0,
   },
   chef: {
-    costs: [800, 1_800],
+    costs: [500, 1_200],
     species: 'panda',
     speed: 106,
     carry: 6,
@@ -420,13 +456,19 @@ export const FOOD_BUFF: Readonly<Record<ZoneId, readonly FoodBuff[]>> = {
 }
 
 export const REST = {
-  workMs: 60_000,
+  workMs: 120_000,
   workStaggerMs: 8_000,
-  drinkMs: 7_000,
-  returnPercent: 60,
+  drinkMs: 5_000,
+  returnPercent: 90,
+  /** A failed return roll is a short lounge, never a lost afternoon. */
+  loungeMs: 20_000,
   urgeRadius: 80,
   walkSpeed: 92,
 } as const
+
+/** How long a worker waits for shelf room before eating or trashing its load. */
+export const STAFF_FULL_WAIT_MS = 5_000
+export const STAFF_TRASH_WAIT_MS = 300
 
 export const FACILITY_DWELL_MS = 500
 export const TRASH_RADIUS = 58
@@ -514,14 +556,17 @@ export function fertilizerMultiplier(level: number): number {
 
 export interface ZoneConfig {
   readonly unlockCost: number
-  readonly includes: ProductKind | null
+  /** Producers installed for free when this zone opens. */
+  readonly includes: readonly ProductKind[]
 }
 
 export const ZONES: Readonly<Record<ZoneId, ZoneConfig>> = {
-  fruit: { unlockCost: 0, includes: null },
-  veg: { unlockCost: 0, includes: null },
-  farm: { unlockCost: 350, includes: 'egg' },
-  kitchen: { unlockCost: 800, includes: 'cake' },
+  fruit: { unlockCost: 0, includes: [] },
+  veg: { unlockCost: 0, includes: [] },
+  farm: { unlockCost: 350, includes: ['egg'] },
+  // The juicer is the crop-fed starter machine, so the kitchen can run on the
+  // player's existing fruit and vegetables before the first cow is bought.
+  kitchen: { unlockCost: 800, includes: ['cake', 'juice'] },
 }
 
 export const REGISTER_RADIUS = 50
@@ -659,6 +704,8 @@ export const INTERACT = {
   /** How close the player must be to a shelf edge to stock it, not to a point. */
   stockMargin: 70,
   feedRadius: 60,
+  /** Pickers stock the shelf up to this level before diverting crops to a trough. */
+  feedReserve: 3,
   /** How close the player must stand to pour ingredients into a station. */
   loadRadius: 80,
   harvestMs: 240,
@@ -670,9 +717,9 @@ export const INTERACT = {
 export const PRODUCT_WEIGHT: Readonly<Record<ZoneId, number>> = {
   fruit: 3,
   veg: 3,
-  farm: 2,
-  kitchen: 2,
+  farm: 3,
+  kitchen: 4,
 }
 
-export const SAVE_VERSION = 9
+export const SAVE_VERSION = 10
 export const STARTING_COINS = 100

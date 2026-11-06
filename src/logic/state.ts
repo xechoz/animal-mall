@@ -947,6 +947,7 @@ function nearestStationForCarry(
   let bestDistance = Number.POSITIVE_INFINITY
   for (const producer of producers) {
     if (producer.kind !== 'station' || !isProcessedKind(producer.product)) continue
+    if (RECIPES[producer.product].handLoad === false) continue
     if (producer.ready >= RECIPES[producer.product].capacity) continue
     const gap = distance(player.pos, producer.pos)
     if (gap > INTERACT.loadRadius || gap >= bestDistance) continue

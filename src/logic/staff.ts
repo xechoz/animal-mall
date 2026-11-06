@@ -3,15 +3,19 @@ import { distanceSq } from './collision'
 import {
   DINING,
   FACILITY_DWELL_MS,
+  INTERACT,
   isAnimalProductKind,
   isPlantKind,
   isProcessedKind,
   PRODUCT_ORDER,
   producerAccess,
+  productPrice,
   RECIPES,
   REST,
   STAFF,
+  STAFF_FULL_WAIT_MS,
   STAFF_ORDER,
+  STAFF_TRASH_WAIT_MS,
   WANDER,
   zoneOf,
 } from './config'
@@ -237,6 +241,8 @@ function createStaffMember(kind: StaffKind, index: number, map: ShopMap): StaffS
     waitMs: kind === 'cashier' ? 0 : index * 220,
     workMs: 0,
     seatIndex: null,
+    fullWaitMs: 0,
+    disposeAfterMeal: false,
   }
 }
 
@@ -252,13 +258,15 @@ function stepMember(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
     next.phase === 'toDrink' ||
     next.phase === 'toWork' ||
     next.phase === 'toMeal' ||
-    next.phase === 'toDining'
+    next.phase === 'toDining' ||
+    next.phase === 'toTrash'
   ) {
     const moved = advanceStaff(next, dtMs)
     next = moved.member
     if (!moved.arrived) return next
     if (next.phase === 'toMeal') return arriveAtMeal(next, ctx, rng)
     if (next.phase === 'toDining') return sitDownToEat(next, ctx.map)
+    if (next.phase === 'toTrash') return finishTrash(next, ctx)
     if (next.phase === 'toDrink') {
       ctx.events.push({ type: 'staffDrink', staffId: next.id })
       return {
@@ -277,7 +285,7 @@ function stepMember(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
     if (next.timerMs > 0) return next
     if (rng.int(100) < REST.returnPercent) return startToWork(next, ctx.map)
     ctx.events.push({ type: 'staffLazy', staffId: next.id, kind: next.kind })
-    return { ...next, phase: 'resting', timerMs: 0, moving: false }
+    return { ...next, phase: 'resting', timerMs: REST.loungeMs, moving: false }
   }
 
   if (next.phase === 'dining') {
@@ -286,7 +294,8 @@ function stepMember(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
   }
 
   if (next.phase === 'resting') {
-    return { ...next, moving: false }
+    if (next.timerMs > 0) return { ...next, moving: false }
+    return startToWork(next, ctx.map)
   }
 
   if (
@@ -342,7 +351,7 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
 
   if (next.phase === 'stock') {
     if (next.timerMs > 0) return next
-    return finishStock(next, ctx)
+    return finishStock(next, ctx, dtMs, rng)
   }
 
   if (next.phase === 'feed') {
@@ -357,16 +366,18 @@ function stepPicker(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rn
   }
 
   if (next.carry !== null && next.carryCount > 0) {
-    if (isPlantKind(next.carry)) {
+    const shelf = ctx.shelves[zoneOf(next.carry)]
+    // Stock the shop before diverting crops into an animal trough; otherwise a
+    // busy picker can keep the vegetable shelf empty all afternoon.
+    if (isPlantKind(next.carry) && shelf.stock[next.carry] >= INTERACT.feedReserve) {
       const trough = pickTrough(ctx.producers, next.pos)
       if (trough !== null) return startToTrough(next, trough, ctx.map, rng)
     }
-    const shelf = ctx.shelves[zoneOf(next.carry)]
-    if (!binReady(ctx.shelves, next.carry)) {
-      return { ...next, carry: null, carryCount: 0, phase: 'idle', waitMs: 300 }
+    if (!binReady(ctx.shelves, next.carry)) return startToTrash(next, ctx.map)
+    if (shelf.stock[next.carry] < shelf.capacity) {
+      return startToShelf({ ...next, fullWaitMs: 0 }, ctx.map, rng)
     }
-    if (shelf.stock[next.carry] < shelf.capacity) return startToShelf(next, ctx.map, rng)
-    return { ...next, waitMs: 500 }
+    return handleFullShelf(next, ctx, rng, dtMs)
   }
 
   const producer = pickProducer(ctx.producers, ctx.shelves, next.pos, hasTroughSpace(ctx.producers))
@@ -399,7 +410,7 @@ function stepChef(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng)
   ) {
     const moved = advanceStaff(member, dtMs)
     if (!moved.arrived) return moved.member
-    return arrivedChef(moved.member, ctx, rng)
+    return arrivedChef(moved.member, ctx, rng, dtMs)
   }
 
   if (member.phase === 'load') {
@@ -409,7 +420,7 @@ function stepChef(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng)
 
   if (member.phase === 'stock') {
     if (member.timerMs > 0) return member
-    return finishStock(member, ctx)
+    return finishStock(member, ctx, dtMs, rng)
   }
 
   if (member.waitMs > 0) return member
@@ -419,7 +430,12 @@ function stepChef(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng)
   }
 
   if (member.carry !== null && member.carryCount > 0) {
-    return startToShelf(member, ctx.map, rng)
+    const shelf = ctx.shelves[zoneOf(member.carry)]
+    if (!binReady(ctx.shelves, member.carry)) return startToTrash(member, ctx.map)
+    if (shelf.stock[member.carry] < shelf.capacity) {
+      return startToShelf({ ...member, fullWaitMs: 0 }, ctx.map, rng)
+    }
+    return handleFullShelf(member, ctx, rng, dtMs)
   }
 
   const ready = pickChefStation(member, ctx)
@@ -437,12 +453,12 @@ function stepChef(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng)
   return { ...member, phase: 'idle', waitMs: 400 }
 }
 
-function arrivedChef(member: StaffState, ctx: StaffContext, rng: Rng): StaffState {
+function arrivedChef(member: StaffState, ctx: StaffContext, rng: Rng, dtMs: number): StaffState {
   if (member.phase === 'toFetch') return arriveAtFetch(member, ctx, rng)
   if (member.phase === 'toLoad') return arriveAtLoad(member, ctx, rng)
   if (member.phase === 'toShelf') {
     if (member.carry !== null && !isProcessedKind(member.carry)) {
-      return returnChefCarry(member, ctx)
+      return returnChefCarry(member, ctx, rng, dtMs)
     }
     if (member.carry === null || member.carryCount <= 0) return chefIdle(member, 240)
     return { ...member, phase: 'stock', timerMs: STAFF.chef.stockMs, moving: false }
@@ -495,7 +511,19 @@ function arriveAtFetch(member: StaffState, ctx: StaffContext, rng: Rng): StaffSt
     return chefIdle({ ...member, fetchProduct: null, targetProducerId: null }, 240)
   }
 
-  const taken = takeStock(ctx.shelves, product, STAFF.chef.carry)
+  const recipe = RECIPES[station.product]
+  const input = recipe.inputs.find((candidate) => recipeInputProducts(candidate).includes(product))
+  if (input === undefined) {
+    return chefIdle({ ...member, fetchProduct: null, targetProducerId: null }, 300)
+  }
+  const room = inputCapacity(input) - hopperInputTotal(station, input)
+  const reserve = recipe.reserve ?? 1
+  const available = Math.max(0, ctx.shelves[zoneOf(product)].stock[product] - reserve)
+  const amount = Math.min(STAFF.chef.carry, room, available)
+  if (amount <= 0) {
+    return chefIdle({ ...member, fetchProduct: null, targetProducerId: null }, 500)
+  }
+  const taken = takeStock(ctx.shelves, product, amount)
   if (taken.taken <= 0) {
     return chefIdle({ ...member, fetchProduct: null, targetProducerId: null }, 500)
   }
@@ -582,15 +610,21 @@ function finishChefLoad(member: StaffState, ctx: StaffContext, rng: Rng): StaffS
   return chefIdle({ ...member, targetProducerId: null, carry: null, carryCount: 0 }, 300)
 }
 
-function returnChefCarry(member: StaffState, ctx: StaffContext): StaffState {
+function returnChefCarry(
+  member: StaffState,
+  ctx: StaffContext,
+  rng: Rng,
+  dtMs: number,
+): StaffState {
   const product = member.carry
   if (product === null || member.carryCount <= 0) {
     return chefIdle({ ...member, carry: null, carryCount: 0 }, 240)
   }
+  if (!binReady(ctx.shelves, product)) return startToTrash(member, ctx.map)
   const shelf = ctx.shelves[zoneOf(product)]
   const room = Math.max(0, shelf.capacity - shelf.stock[product])
   const amount = Math.min(room, member.carryCount)
-  if (amount <= 0) return { ...member, phase: 'idle', moving: false, waitMs: 500 }
+  if (amount <= 0) return handleFullShelf(member, ctx, rng, dtMs)
 
   ctx.shelves = addStock(ctx.shelves, product, amount)
   const left = member.carryCount - amount
@@ -630,6 +664,8 @@ function pickChefFetchTarget(
   for (const producer of ctx.producers) {
     if (producer.kind !== 'station') continue
     if (!isProcessedKind(producer.product)) continue
+    // Shelf-fed machines pull their own inputs; the chef only collects output.
+    if (RECIPES[producer.product].handLoad === false) continue
     if (ctx.claims.has(producer.id)) continue
     // A full output tray means this station would not consume any ingredients.
     if (producer.ready >= RECIPES[producer.product].capacity) continue
@@ -647,16 +683,20 @@ function pickChefFetchTarget(
 /** The ingredient a station hopper needs next, chosen from what the shelves hold. */
 function missingInputProduct(station: ProducerState, ctx: StaffContext): ProductKind | null {
   if (!isProcessedKind(station.product)) return null
-  for (const input of RECIPES[station.product].inputs) {
+  const recipe = RECIPES[station.product]
+  const reserve = recipe.reserve ?? 1
+  for (const input of recipe.inputs) {
     if (hopperInputTotal(station, input) >= inputCapacity(input)) continue
     let best: ProductKind | null = null
-    let bestStock = 0
+    let bestPrice = Number.POSITIVE_INFINITY
     for (const product of recipeInputProducts(input)) {
       if (!binReady(ctx.shelves, product)) continue
       const stock = ctx.shelves[zoneOf(product)].stock[product]
-      if (stock > bestStock) {
+      if (stock <= reserve) continue
+      const price = productPrice(product)
+      if (price < bestPrice) {
         best = product
-        bestStock = stock
+        bestPrice = price
       }
     }
     if (best !== null) return best
@@ -779,20 +819,16 @@ function arrivedAtTarget(member: StaffState, ctx: StaffContext, rng: Rng): Staff
   return member
 }
 
-function finishStock(member: StaffState, ctx: StaffContext): StaffState {
+function finishStock(member: StaffState, ctx: StaffContext, dtMs: number, rng: Rng): StaffState {
   const product = member.carry
   if (product === null || member.carryCount <= 0) {
     return { ...member, phase: 'idle', targetShelf: null, waitMs: 240 }
   }
 
   const shelf = ctx.shelves[zoneOf(product)]
-  if (!binReady(ctx.shelves, product)) {
-    // A chef never throws a dish away: wait for the kitchen bin to come back.
-    if (member.kind === 'chef') return { ...member, phase: 'idle', waitMs: 400 }
-    return { ...member, phase: 'idle', carry: null, carryCount: 0, waitMs: 300 }
-  }
+  if (!binReady(ctx.shelves, product)) return startToTrash(member, ctx.map)
   if (shelf.stock[product] >= shelf.capacity) {
-    return { ...member, phase: 'idle', waitMs: 500 }
+    return handleFullShelf(member, ctx, rng, dtMs)
   }
 
   ctx.shelves = addStock(ctx.shelves, product, 1)
@@ -805,6 +841,8 @@ function finishStock(member: StaffState, ctx: StaffContext): StaffState {
       phase: 'stock',
       carryCount,
       timerMs: STAFF[member.kind].stockMs,
+      fullWaitMs: 0,
+      disposeAfterMeal: false,
     }
   }
 
@@ -816,6 +854,83 @@ function finishStock(member: StaffState, ctx: StaffContext): StaffState {
     carryCount: 0,
     timerMs: 0,
     waitMs: 180,
+    fullWaitMs: 0,
+    disposeAfterMeal: false,
+  }
+}
+
+/**
+ * A full destination shelf is a soft block: wait a few seconds for a customer
+ * to make room, then eat one carried item if the worker is due for a meal, or
+ * take the whole load to the bin. Waiting forever used to freeze a chef at the
+ * kitchen shelf and stop the entire kitchen.
+ */
+function handleFullShelf(
+  member: StaffState,
+  ctx: StaffContext,
+  rng: Rng,
+  dtMs: number,
+): StaffState {
+  const fullWaitMs = member.fullWaitMs + dtMs
+  if (fullWaitMs < STAFF_FULL_WAIT_MS) {
+    return {
+      ...member,
+      phase: 'idle',
+      moving: false,
+      fullWaitMs,
+      waitMs: 0,
+    }
+  }
+
+  const seat = freeDiningSeat(ctx.map, null, ctx.claimedSeats, member.pos)
+  if (member.workMs >= restLimit(member) && seat !== null) {
+    ctx.claimedSeats.add(seat.index)
+    return {
+      ...startToDiningSeat(member, seat, ctx.map, rng),
+      disposeAfterMeal: true,
+      fullWaitMs: 0,
+    }
+  }
+  return startToTrash(member, ctx.map)
+}
+
+function startToTrash(member: StaffState, map: ShopMap): StaffState {
+  return {
+    ...member,
+    phase: 'toTrash',
+    targetProducerId: null,
+    targetShelf: null,
+    targetTroughId: null,
+    fetchProduct: null,
+    path: pathTo(member.pos, map.facilities.trashAccess, map),
+    pathIndex: 0,
+    moving: false,
+    fullWaitMs: 0,
+  }
+}
+
+function finishTrash(member: StaffState, ctx: StaffContext): StaffState {
+  const product = member.carry
+  const amount = member.carryCount
+  if (product !== null && amount > 0) {
+    ctx.events.push({ type: 'staffTrash', staffId: member.id, product, amount })
+  }
+  return {
+    ...member,
+    phase: 'idle',
+    targetProducerId: null,
+    targetShelf: null,
+    targetTroughId: null,
+    fetchProduct: null,
+    carry: null,
+    carryCount: 0,
+    timerMs: 0,
+    waitMs: STAFF_TRASH_WAIT_MS,
+    moving: false,
+    path: [],
+    pathIndex: 0,
+    fullWaitMs: 0,
+    disposeAfterMeal: false,
   }
 }
 
@@ -1029,6 +1144,12 @@ function finishDining(member: StaffState, ctx: StaffContext, rng: Rng): StaffSta
     path: [],
     pathIndex: 0,
   }
+  if (member.disposeAfterMeal) {
+    if (carry !== null && carryCount > 0) {
+      return startToTrash({ ...base, disposeAfterMeal: false }, ctx.map)
+    }
+    return startToWork({ ...base, disposeAfterMeal: false }, ctx.map)
+  }
   if (carry !== null && carryCount > 0) {
     if (member.kind === 'chef') return startToShelf(base, ctx.map, rng)
     return startToCarryDestination(base, ctx, rng)
@@ -1104,6 +1225,8 @@ function startToShelf(member: StaffState, map: ShopMap, rng: Rng): StaffState {
     targetTroughId: null,
     path: wanderPath(member.pos, map.shelfAccess[zone], 12, map, rng, WANDER.staff),
     pathIndex: 0,
+    fullWaitMs: 0,
+    disposeAfterMeal: false,
   }
 }
 
@@ -1124,6 +1247,8 @@ function startToDrink(member: StaffState, map: ShopMap): StaffState {
     path: pathTo(member.pos, spot, map),
     pathIndex: 0,
     moving: false,
+    fullWaitMs: 0,
+    disposeAfterMeal: false,
   }
 }
 
@@ -1144,6 +1269,8 @@ function startToWork(member: StaffState, map: ShopMap): StaffState {
     path: pathTo(member.pos, member.home, map),
     pathIndex: 0,
     moving: false,
+    fullWaitMs: 0,
+    disposeAfterMeal: false,
   }
 }
 
@@ -1158,6 +1285,8 @@ function startWorkPhase(member: StaffState): StaffState {
       path: [],
       pathIndex: 0,
       workMs: 0,
+      fullWaitMs: 0,
+      disposeAfterMeal: false,
     }
   }
   return {
@@ -1168,6 +1297,8 @@ function startWorkPhase(member: StaffState): StaffState {
     pathIndex: 0,
     workMs: 0,
     waitMs: 200,
+    fullWaitMs: 0,
+    disposeAfterMeal: false,
   }
 }
 
@@ -1220,6 +1351,7 @@ function pickProducer(
   feedNeeded: boolean,
 ): ProducerState | null {
   let best: ProducerState | null = null
+  let bestFill = Number.POSITIVE_INFINITY
   let bestDistance = Number.POSITIVE_INFINITY
   for (const producer of producers) {
     if (producer.kind === 'station') continue
@@ -1228,9 +1360,14 @@ function pickProducer(
     const shelf = shelves[zoneOf(producer.product)]
     const shelfFull = shelf.stock[producer.product] >= shelf.capacity
     if (shelfFull && !(feedNeeded && isPlantKind(producer.product))) continue
+    // Service the emptiest shelf first, then the nearest producer. Distance-only
+    // picking lets a picker spend the whole day on the nearby orchard while the
+    // farm and kitchen shelves sit empty.
+    const fill = shelf.stock[producer.product] / shelf.capacity
     const distanceToProducer = distanceSq(pos, producer.pos)
-    if (distanceToProducer < bestDistance) {
+    if (fill < bestFill || (fill === bestFill && distanceToProducer < bestDistance)) {
       best = producer
+      bestFill = fill
       bestDistance = distanceToProducer
     }
   }

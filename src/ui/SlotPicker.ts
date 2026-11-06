@@ -394,6 +394,8 @@ function pickerStat(options: SlotPickerOptions, product: ProductKind): string {
     })
   }
   if (product === 'fish') return i18n.t('picker.fishByHand')
+  if (product === 'fishDish') return i18n.t('picker.fishDish')
+  if (product === 'salad') return i18n.t('picker.salad')
   if (isProcessedKind(product)) {
     return RECIPES[product].inputs
       .map((input) => {

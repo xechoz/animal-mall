@@ -184,7 +184,7 @@ describe('producer slots', () => {
     const outcome = installProducerAt(state, 'cheese', 0)
     expect(outcome.result).toBe('ok')
     expect(outcome.state.producers.find((producer) => producer.slot === 0)?.product).toBe('cheese')
-    expect(outcome.state.coins).toBe(before - 700 + 175)
+    expect(outcome.state.coins).toBe(before - 700 + 130)
     expect(
       outcome.events.some(
         (event) => event.type === 'producerReplaced' && event.previous === 'milk',

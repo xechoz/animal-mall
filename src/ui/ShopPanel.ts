@@ -396,11 +396,14 @@ export class ShopPanel {
     this.tabHighlight?.clear()
     // The NEXT pill lives on the card itself; a dot on the owning tab tells the
     // player where to look before that card is on screen.
-    if (this.goal()?.type === 'upgrade' && this.tab !== 'tools') {
-      const toolsIndex = tabOrder.indexOf('tools')
+    const goal = this.goal()
+    const goalTab: Tab | null =
+      goal?.type === 'upgrade' ? 'tools' : goal?.type === 'staff' ? 'staff' : null
+    if (goalTab !== null && this.tab !== goalTab) {
+      const goalIndex = tabOrder.indexOf(goalTab)
       this.tabHighlight?.fillStyle(theme.accent, 1)
       this.tabHighlight?.fillCircle(
-        30 * ui + toolsIndex * (tabWidth + gap) + tabWidth - 9 * ui,
+        30 * ui + goalIndex * (tabWidth + gap) + tabWidth - 9 * ui,
         this.tabY - this.tabHeight / 2 + 4 * ui,
         4 * ui,
       )
@@ -521,14 +524,14 @@ export class ShopPanel {
         )
         .setOrigin(0.5),
     )
-    if (config.includes !== null) {
-      const includes = config.includes
+    if (config.includes.length > 0) {
+      const names = config.includes.map((product) => this.productName(product)).join(' · ')
       card.add(
         scene.add
           .text(
             0,
             -height / 2 + 104 * ui,
-            i18n.t('shop.includes', { name: this.productName(includes) }),
+            i18n.t('shop.includes', { name: names }),
             textStyle(theme, font.body, theme.textMuted),
           )
           .setOrigin(0.5),
@@ -1193,7 +1196,7 @@ export class ShopPanel {
     const compact = height < CARD_COMFORT_HEIGHT * ui
     const { u, fit } = this.cardUnit(height)
     g.fillRoundedRect(-width / 2, -height / 2, width, height, 16 * u)
-    g.lineStyle(2 * u, theme.borderSoft, 1)
+    g.lineStyle(2 * u, this.isGoalStaff(kind) ? theme.accent : theme.borderSoft, 1)
     g.strokeRoundedRect(-width / 2, -height / 2, width, height, 16 * u)
     card.add(g)
 
@@ -1366,6 +1369,11 @@ export class ShopPanel {
     return goal !== null && goal.type === 'upgrade' && goal.kind === kind
   }
 
+  private isGoalStaff(kind: StaffKind): boolean {
+    const goal = this.goal()
+    return goal !== null && goal.type === 'staff' && goal.kind === kind
+  }
+
   private goalAffordable(): boolean {
     const goal = this.goal()
     return goal !== null && this.state.coins >= goalCost(this.state, goal)
@@ -1494,6 +1502,8 @@ export class ShopPanel {
     if (isAnimalProductKind(product)) {
       return animalNeedsTrough(product) ? i18n.t('shop.dietAny') : i18n.t('shop.passive')
     }
+    if (product === 'fishDish') return i18n.t('shop.recipeFishDish')
+    if (product === 'salad') return i18n.t('shop.recipeSalad')
     if (isProcessedKind(product)) {
       const inputs = RECIPES[product].inputs
         .map((input) => {

@@ -30,8 +30,6 @@ const CLOCK_TRACK_DOTS = (CLOCK_MILESTONES - 1) * 3 + 1
 const CLOCK_ARC_DOT_RADIUS = 1.4
 const CLOCK_MILESTONE_RADIUS = 3.4
 const PHASE_PULSE_MS = 350
-/** The clock text changes in quarter-hour steps instead of every game minute. */
-const CLOCK_STEP_MINUTES = 15
 
 export class Hud {
   private readonly theme: Theme
@@ -170,7 +168,7 @@ export class Hud {
       this.phaseStartMs = this.lastPhase === null ? ms - PHASE_PULSE_MS : ms
       this.lastPhase = phase
     }
-    const clock = `${state.day.index}|${dayClockLabel(ms, CLOCK_STEP_MINUTES)}|${phase}`
+    const clock = `${state.day.index}|${dayClockLabel(ms)}|${phase}`
     if (clock !== this.lastClock) {
       this.lastClock = clock
       this.updateClockText(state)
@@ -219,7 +217,7 @@ export class Hud {
 
   private updateClockText(state: ShopState): void {
     this.dayText.setText(this.i18n.t('day.label', { day: state.day.index }))
-    this.clockText.setText(dayClockLabel(state.day.ms, CLOCK_STEP_MINUTES))
+    this.clockText.setText(dayClockLabel(state.day.ms))
   }
 
   /**

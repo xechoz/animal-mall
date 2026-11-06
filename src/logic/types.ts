@@ -1,7 +1,15 @@
 export type FruitKind = 'apple' | 'pear' | 'peach' | 'cherry' | 'strawberry' | 'grape'
 export type VegKind = 'carrot' | 'tomato' | 'corn' | 'pumpkin' | 'potato' | 'eggplant'
 export type AnimalProductKind = 'egg' | 'milk' | 'yarn' | 'fish' | 'cheese' | 'honey'
-export type ProcessedKind = 'cake' | 'sweater' | 'skewer' | 'juice' | 'jam' | 'iceCream'
+export type ProcessedKind =
+  | 'cake'
+  | 'sweater'
+  | 'skewer'
+  | 'juice'
+  | 'jam'
+  | 'iceCream'
+  | 'fishDish'
+  | 'salad'
 export type PlantKind = FruitKind | VegKind
 export type ProductKind = PlantKind | AnimalProductKind | ProcessedKind
 
@@ -295,6 +303,7 @@ export type StaffPhase =
   | 'toDining'
   | 'dining'
   | 'resting'
+  | 'toTrash'
   | 'toWork'
 
 export interface StaffState {
@@ -321,6 +330,10 @@ export interface StaffState {
   readonly workMs: number
   /** Dining seat reserved while walking to the table or eating. */
   readonly seatIndex: number | null
+  /** How long the worker has been blocked by a full destination shelf. */
+  readonly fullWaitMs: number
+  /** After the meal, take the rest of the load to the bin instead of retrying. */
+  readonly disposeAfterMeal: boolean
 }
 
 export type BuffTimers = Readonly<Record<DrinkKind, number>>
@@ -502,6 +515,12 @@ export type GameEvent =
       readonly buffs: readonly DrinkKind[]
     }
   | { readonly type: 'staffMeal'; readonly staffId: number; readonly product: ProductKind }
+  | {
+      readonly type: 'staffTrash'
+      readonly staffId: number
+      readonly product: ProductKind
+      readonly amount: number
+    }
   | { readonly type: 'staffDrink'; readonly staffId: number }
   | { readonly type: 'staffLazy'; readonly staffId: number; readonly kind: StaffKind }
   | { readonly type: 'staffUrged'; readonly staffId: number }

@@ -67,7 +67,7 @@ export function isStaffKind(value: unknown): value is StaffKind {
   return typeof value === 'string' && (STAFF_ORDER as readonly string[]).includes(value)
 }
 
-export function migrateSave(data: unknown, _version = 0): SaveData {
+export function migrateSave(data: unknown, version = 0): SaveData {
   if (typeof data !== 'object' || data === null) return initialSave()
   const record = data as Record<string, unknown>
   const producers = parseProducers(record)
@@ -192,6 +192,26 @@ export function migrateSave(data: unknown, _version = 0): SaveData {
     for (const key of Object.keys(deposits)) delete deposits[key]
     const cheapest = Math.min(...FRUIT_ORDER.map((kind) => PLANTS[kind].cost))
     if (coins < cheapest) coins = cheapest
+  }
+
+  // Version 10 bundles the crop-fed juicer with the kitchen starter. Old saves
+  // that already opened the kitchen keep their cake oven and gain a juicer in
+  // the first free station, so their kitchen can still run on crops.
+  if (
+    version < 10 &&
+    zones.kitchen &&
+    !producers.some((producer) => producer.product === 'juice')
+  ) {
+    const used = new Set(
+      producers
+        .filter((producer) => producerZone(producer.product) === 'kitchen')
+        .map((producer) => producer.slot),
+    )
+    for (let slot = 0; slot < STATION_SLOT_COUNT; slot += 1) {
+      if (used.has(slot)) continue
+      producers.push({ product: 'juice', slot })
+      break
+    }
   }
 
   return {

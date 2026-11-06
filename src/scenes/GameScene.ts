@@ -1485,6 +1485,21 @@ export class GameScene extends Phaser.Scene {
         case 'staffMeal':
           playDiningEatSfx(this.services, 0.35, 0.98 + (event.staffId % 4) * 0.02)
           break
+        case 'staffTrash': {
+          this.sfx('turn', 0.22)
+          this.trashView.playUse()
+          const member = this.state.staffMembers.find((candidate) => candidate.id === event.staffId)
+          if (member !== undefined) {
+            this.toast.show(
+              this.services.i18n.t('toast.staffTrash', {
+                staff: this.services.i18n.t(`staff.${member.kind}`),
+                name: this.productName(event.product),
+                count: event.amount,
+              }),
+            )
+          }
+          break
+        }
         case 'staffDrink':
           playGulpSfx(this.services, 0.97 + (event.staffId % 4) * 0.02)
           break

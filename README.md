@@ -92,11 +92,15 @@ morning.
   pond removes fishing until it is installed again.
 - Kitchen stations pull eggs, milk, yarn, fish, cheese, fruit or vegetables from
   the matching shelf and leave one of each for customers. Walking past a machine with
-  matching goods loads its hopper automatically, up to three production batches;
-  finished cakes, sweaters, skewers, juice, jam and ice cream wait on the
-  station tray and are collected on contact, ready to stock the kitchen shelf. A hired chef does
-  that loop for you: finished dishes go to the kitchen shelf, and idle stations
-  get their hoppers topped up from shelf stock.
+  matching goods loads its hopper automatically, up to four production batches;
+  finished cakes, sweaters, skewers, juice, jam, ice cream, grilled fish and salad
+  wait on the station tray and are collected on contact, ready to stock the
+  kitchen shelf. The Fish Grill and Salad Bar are shelf-fed instead: they pull
+  straight from stock and cannot be hand-loaded. A hired chef does that loop for
+  you: finished dishes go to the kitchen shelf, and idle stations get their
+  hoppers topped up from shelf stock. If the destination shelf stays full, a
+  worker eats one carried item when due for a meal and otherwise takes the load
+  to the trash bin instead of waiting forever.
 - Staff signs use the same quick-buy flow and disappear once their station is
   fully staffed. A cashier serves customers
   automatically; pickers harvest fruit, vegetables and land-animal products, but
@@ -157,11 +161,11 @@ carrot, tomato, corn, pumpkin, potato and eggplant. Vegetables unlock
 automatically after the first sale; stand anywhere inside the locked farm or
 kitchen zone for half a second to buy it, or unlock it in the shop. Farm
 animals are chicken, cow, sheep, goat, beehive and the pond; kitchen machines
-are oven, loom, BBQ grill, juicer, jam pot and churn.
+are oven, loom, BBQ grill, juicer, jam pot, churn, fish grill and salad bar.
 
 ## Save and language
 
-- Progress is stored as `mg:animal-mall:progress`, save version `9`.
+- Progress is stored as `mg:animal-mall:progress`, save version `10`.
 - Coins, pending counter coins, earned coins, served customers, the day number,
   zones, planted crops, animals, stations, tool levels, per-zone shelf levels,
   staff levels and non-refundable deposits persist. Shelf stock, station hoppers,

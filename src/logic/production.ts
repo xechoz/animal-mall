@@ -11,6 +11,7 @@ import {
   PLANTS,
   PRODUCT_ORDER,
   producerPosition,
+  productPrice,
   RECIPES,
   type RecipeConfig,
   type RecipeInput,
@@ -404,8 +405,9 @@ function availableCount(
   producer: ProducerState,
   shelves: Readonly<Record<ZoneId, ShelfState>>,
   product: ProductKind,
+  reserve = 0,
 ): number {
-  return (producer.hopper[product] ?? 0) + stockOf(shelves, product)
+  return (producer.hopper[product] ?? 0) + Math.max(0, stockOf(shelves, product) - reserve)
 }
 
 /** How many units of one input slot a station can buffer. */
@@ -426,9 +428,10 @@ export function recipeInputTotal(
   producer: ProducerState,
   shelves: Readonly<Record<ZoneId, ShelfState>>,
   input: RecipeInput,
+  reserve = 0,
 ): number {
   return recipeInputProducts(input).reduce(
-    (sum, product) => sum + availableCount(producer, shelves, product),
+    (sum, product) => sum + availableCount(producer, shelves, product, reserve),
     0,
   )
 }
@@ -439,8 +442,9 @@ function resolveRecipeInputs(
   recipe: RecipeConfig,
 ): readonly ResolvedInput[] | null {
   const resolved: ResolvedInput[] = []
+  const reserve = recipe.reserve ?? 1
   for (const input of recipe.inputs) {
-    const picks = resolveInput(producer, shelves, input)
+    const picks = resolveInput(producer, shelves, input, reserve)
     if (picks === null) return null
     resolved.push(...picks)
   }
@@ -449,26 +453,38 @@ function resolveRecipeInputs(
 
 /**
  * Fills one input slot from the hand-loaded hopper first, then shelf stock.
- * Within each source the largest pile goes first, so a surplus is spent before
- * a rare item, and ties follow the input's product order. Pools may return
- * several products for the same batch, which is how a skewer mixes foods.
+ * The cheapest available product is spent first, so a juicer does not turn a
+ * grape into juice while apples sit on the shelf. `distinct` inputs require a
+ * second, third, ... different product; shelf stock keeps `reserve` units for
+ * customers, while the hopper is always spendable.
  */
 function resolveInput(
   producer: ProducerState,
   shelves: Readonly<Record<ZoneId, ShelfState>>,
   input: RecipeInput,
+  reserve: number,
 ): readonly ResolvedInput[] | null {
   const products = recipeInputProducts(input)
   const hopper = new Map(products.map((product) => [product, producer.hopper[product] ?? 0]))
-  const shelf = new Map(products.map((product) => [product, stockOf(shelves, product)]))
+  const shelf = new Map(
+    products.map((product) => [product, Math.max(0, stockOf(shelves, product) - reserve)]),
+  )
   const picked = new Map<ProductKind, number>()
-  let remaining = takeFromPile(products, hopper, input.count, picked)
-  remaining = takeFromPile(products, shelf, remaining, picked)
+  const distinct = 'distinct' in input && input.distinct === true
+  // Hand-loaded goods are already committed, so spend the hopper first. Within
+  // each source the cheapest product goes first, so a juicer does not turn a
+  // grape into juice while apples sit on the shelf.
+  let remaining = distinct
+    ? takeDistinctFrom(products, hopper, input.count, picked)
+    : takeCheapestFrom(products, hopper, input.count, picked)
+  remaining = distinct
+    ? takeDistinctFrom(products, shelf, remaining, picked)
+    : takeCheapestFrom(products, shelf, remaining, picked)
   if (remaining > 0) return null
   return [...picked].map(([product, count]) => ({ product, count }))
 }
 
-function takeFromPile(
+function takeCheapestFrom(
   products: readonly ProductKind[],
   source: Map<ProductKind, number>,
   needed: number,
@@ -477,19 +493,52 @@ function takeFromPile(
   let remaining = needed
   while (remaining > 0) {
     let best: ProductKind | null = null
-    let bestCount = 0
+    let bestPrice = Number.POSITIVE_INFINITY
+    let bestAvailable = 0
     for (const product of products) {
-      const count = source.get(product) ?? 0
-      if (count > bestCount) {
+      const available = source.get(product) ?? 0
+      if (available <= 0) continue
+      const price = productPrice(product)
+      if (price < bestPrice || (price === bestPrice && available > bestAvailable)) {
         best = product
-        bestCount = count
+        bestPrice = price
+        bestAvailable = available
       }
     }
     if (best === null) return remaining
-    const amount = Math.min(remaining, bestCount)
+    const amount = Math.min(remaining, bestAvailable)
+    source.set(best, bestAvailable - amount)
     picked.set(best, (picked.get(best) ?? 0) + amount)
-    source.set(best, bestCount - amount)
     remaining -= amount
+  }
+  return remaining
+}
+
+/** Three different crops for a grilled fish, not three carrots. */
+function takeDistinctFrom(
+  products: readonly ProductKind[],
+  source: Map<ProductKind, number>,
+  needed: number,
+  picked: Map<ProductKind, number>,
+): number {
+  let remaining = needed
+  while (remaining > 0) {
+    let best: ProductKind | null = null
+    let bestPrice = Number.POSITIVE_INFINITY
+    for (const product of products) {
+      if (picked.has(product)) continue
+      const available = source.get(product) ?? 0
+      if (available <= 0) continue
+      const price = productPrice(product)
+      if (price < bestPrice) {
+        best = product
+        bestPrice = price
+      }
+    }
+    if (best === null) return remaining
+    source.set(best, (source.get(best) ?? 0) - 1)
+    picked.set(best, 1)
+    remaining -= 1
   }
   return remaining
 }
