@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+- Turn the day report into a ledger instead of a six-row table: the shopkeeper
+  portrait and five stars now sit in the header, revenue owns the hero block
+  with a compact served/tip line, lost customers and stockouts collapse into
+  one row of chips (or a Perfect badge), and a Next card shows the recommended
+  purchase, its progress bar and any cashier takings still on the counter. A
+  clean day reserves the card for what the player is working toward. Empty and
+  no-sale days explain the day without a giant zero. The stars use the same
+  75/85/95 buckets as the tip tiers, the card enters with a short count-up and
+  progress tween, and the only action starts the next morning.
 
 - Deepen the evening atmosphere: a seamless 10 s summer-night field recording
   (`night-crickets.mp3`, public-domain radio aporee recording of close insects,

@@ -24,6 +24,28 @@ describe('game copy', () => {
     }
   })
 
+  it('has the day report ledger copy in every language', () => {
+    const keys = [
+      'day.report.revenue',
+      'day.report.servedLine',
+      'day.report.tipLine',
+      'day.report.lostShort',
+      'day.report.missedShort',
+      'day.report.perfect',
+      'day.report.noSales',
+      'day.report.nextLabel',
+      'day.report.ready',
+      'day.report.allDone',
+      'day.report.pending',
+      'day.report.emptyBody',
+      'day.report.next',
+      'day.rating.none',
+    ]
+    for (const dictionary of Object.values(gameI18n)) {
+      for (const key of keys) expect(dictionary[key]).toBeTruthy()
+    }
+  })
+
   it('explains trough feeding in both languages', () => {
     expect(gameI18n.en['shop.dietAny']).toBeTruthy()
     expect(gameI18n.zh['shop.dietAny']).toBeTruthy()

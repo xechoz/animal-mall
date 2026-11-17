@@ -46,6 +46,7 @@ import {
 import { dayAcceptsCustomers, dayPhase, isNightPhase } from '../logic/day'
 import { eatCarried, sitAtSeat, standUp } from '../logic/dining'
 import { nearestRestingStaff, purchaseDrink } from '../logic/facilities'
+import { goalCost, nextGoal } from '../logic/goals'
 import { feedSpace } from '../logic/production'
 import {
   installProducerAt,
@@ -2310,12 +2311,18 @@ export class GameScene extends Phaser.Scene {
     this.tutorial.setVisible(false)
     this.services.platform.gameplayStop()
     this.saveGame()
+    const goal = nextGoal(this.state)
     this.dayReport = new DayReportView({
       scene: this,
       layout: this.layout,
       theme: this.services.theme,
       i18n: this.services.i18n,
       report,
+      coins: this.state.coins,
+      pendingCoins: this.state.pendingCoins,
+      goal,
+      goalCost: goalCost(this.state, goal),
+      allDone: goal === null && this.state.tutorial === 'done',
       onNext: () => this.finishDayReport(),
     })
   }
