@@ -6,6 +6,8 @@ import { MenuScene } from './scenes/MenuScene'
 
 const tutorialHand = new URL('./assets/ui/tap-hand.png', import.meta.url).href
 const music = new URL('./assets/audio/joyful-jungle.mp3', import.meta.url).href
+const nightAmbience = new URL('./assets/audio/night-crickets.mp3', import.meta.url).href
+const nightOwl = new URL('./assets/audio/night-owl.mp3', import.meta.url).href
 const eatSamples = [
   new URL('./assets/audio/eat-1.mp3', import.meta.url).href,
   new URL('./assets/audio/eat-2.mp3', import.meta.url).href,
@@ -42,7 +44,10 @@ async function boot(): Promise<void> {
     menuScene: 'Menu',
     assets: {
       images: [{ key: 'tutorial-hand', url: tutorialHand }],
-      audio: [{ key: 'music', urls: music }],
+      audio: [
+        { key: 'music', urls: music },
+        { key: 'nightAmbience', urls: nightAmbience },
+      ],
     },
     // Built-in slots can be overridden and games may register their own sound
     // names; the fishing and animal effects are sample-only keys. `diningEat`
@@ -57,6 +62,7 @@ async function boot(): Promise<void> {
       cowMoo,
       chickenCluck,
       sheepBaa,
+      nightOwl,
     },
     scenes: [MenuScene, GameScene],
   })

@@ -18,6 +18,7 @@ import { animalSfxName, playAnimalSfx } from '../audio/animalSfx'
 import { playDiningEatSfx } from '../audio/diningSfx'
 import { playDrinkSfx, playGulpSfx } from '../audio/drinkSfx'
 import { startMusic } from '../audio/music'
+import { startNightAmbience, updateNightAmbience } from '../audio/nightAmbience'
 import { gameColors } from '../colors'
 import { carriedKinds, carryTotal } from '../logic/carry'
 import { distance } from '../logic/collision'
@@ -42,7 +43,7 @@ import {
   ZONES,
   zoneOf,
 } from '../logic/config'
-import { dayPhase, isNightPhase } from '../logic/day'
+import { dayAcceptsCustomers, dayPhase, isNightPhase } from '../logic/day'
 import { eatCarried, sitAtSeat, standUp } from '../logic/dining'
 import { nearestRestingStaff, purchaseDrink } from '../logic/facilities'
 import { feedSpace } from '../logic/production'
@@ -73,6 +74,7 @@ import {
   toSave,
 } from '../logic/state'
 import type {
+  DayPhase,
   DayReport as DayReportData,
   DrinkKind,
   GameEvent,
@@ -104,7 +106,6 @@ import { FoodPicker } from '../ui/FoodPicker'
 import {
   drawCanopyBand,
   drawFern,
-  drawFirefly,
   drawMushroomCluster,
   drawRock,
   drawSunShaft,
@@ -114,6 +115,7 @@ import { coinTextureKey } from '../ui/fruitArt'
 import { Hud } from '../ui/Hud'
 import { JOYSTICK_PASS, Joystick } from '../ui/Joystick'
 import { computeGameLayout, type GameLayout } from '../ui/layout'
+import { dayLighting } from '../ui/lighting'
 import { MapOffers } from '../ui/MapOffers'
 import { NightLife } from '../ui/NightLife'
 import { PauseOverlay } from '../ui/PauseOverlay'
@@ -214,6 +216,7 @@ export class GameScene extends Phaser.Scene {
   private layout!: GameLayout
   private viewCamera!: WorldCamera
   private backdrop!: Phaser.GameObjects.Image
+  private sunShafts!: Phaser.GameObjects.Image
   private backgroundKey = ''
   /** Canvas backing pixels per design unit when the world was last baked. */
   private textResolution = 1
@@ -280,6 +283,9 @@ export class GameScene extends Phaser.Scene {
   private readonly announcedProducts = new Set<ProductKind>()
   private readonly hungryNotified = new Set<number>()
   private readonly hungryCueAt = new Map<number, number>()
+  private cueDayIndex = -1
+  private cuePhase: DayPhase = 'dawn'
+  private cueLastOrdersDone = false
 
   constructor() {
     super('Game')
@@ -290,6 +296,7 @@ export class GameScene extends Phaser.Scene {
     this.textResolution = getTextResolution()
     this.suppressAutoPauseUntil = performance.now() + 2_500
     startMusic(this)
+    startNightAmbience(this)
     createAnimalTextures(this)
     createStaffTextures(this)
     createProductTextures(this)
@@ -300,6 +307,7 @@ export class GameScene extends Phaser.Scene {
       cssShortSide: readCssShortSide(this),
     })
     this.state = createShopState(this.saveStore.read(), this.layout.map)
+    this.syncEveningCueState(this.state.day.index, this.state.day.ms)
     this.viewCamera = createWorldCamera(this.layout, this.state.player.pos)
     const seed = Number(this.services.params.get('seed'))
     this.rng = createRng(Number.isFinite(seed) && seed > 0 ? seed : randomSeed())
@@ -408,8 +416,6 @@ export class GameScene extends Phaser.Scene {
     g.fillRect(0, 0, width, canopyHeight)
     g.fillStyle(0x2f4a35, 0.22)
     g.fillRect(0, 0, width, canopyHeight * 0.5)
-    drawSunShaft(g, width * 0.12, Math.max(24, room.y - 18), 70, height * 0.55, 0.05)
-    drawSunShaft(g, width * 0.66, Math.max(18, room.y - 30), 52, height * 0.5, 0.04)
 
     const leftTree = room.x - 32
     if (leftTree > 16) drawTree(g, leftTree, room.y + room.h * 0.34, 0.9, 'oak', 'olive')
@@ -421,17 +427,26 @@ export class GameScene extends Phaser.Scene {
     drawRock(g, Math.max(22, room.x - 20), room.y + room.h - 70, 0.8)
     drawMushroomCluster(g, Math.min(width - 26, room.x + room.w + 24), room.y + room.h - 76, 0.85)
 
-    for (let index = 0; index < 6; index += 1) {
-      const x = width * (0.07 + index * 0.16)
-      const y = height * (0.14 + ((index * 19) % 30) / 100)
-      drawFirefly(g, x, y, index * 1.7)
-    }
-
     // The backdrop is screen furniture: it is drawn once and never changes, so
     // it is baked instead of being re-walked by the renderer every frame.
+    const bakeScale = screenBakeScale()
     const key = 'game-backdrop'
-    this.backdrop = bakeGraphics(this, g, key, width, height, screenBakeScale()).setDepth(-100)
+    this.backdrop = bakeGraphics(this, g, key, width, height, bakeScale).setDepth(-100)
     g.destroy()
+
+    // Sun shafts sit on their own baked layer so dusk can fade them out cleanly.
+    const shafts = this.add.graphics()
+    drawSunShaft(shafts, width * 0.12, Math.max(24, room.y - 18), 70, height * 0.55, 0.05)
+    drawSunShaft(shafts, width * 0.66, Math.max(18, room.y - 30), 52, height * 0.5, 0.04)
+    this.sunShafts = bakeGraphics(
+      this,
+      shafts,
+      'game-sun-shafts',
+      width,
+      height,
+      bakeScale,
+    ).setDepth(-99)
+    shafts.destroy()
   }
 
   private buildWorld(): void {
@@ -1011,8 +1026,13 @@ export class GameScene extends Phaser.Scene {
     )
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)
     this.world.setScale(this.viewCamera.scale)
+    const lighting = dayLighting(this.state.day.ms)
+    const shaftAlpha = Math.max(0, 1 - lighting.night * 1.15)
+    this.sunShafts.setVisible(shaftAlpha > 0.01).setAlpha(shaftAlpha)
     this.daylight.update(this.state.day, this.state.producers, this.viewCamera, time)
     this.nightLife.update(this.state.day, this.viewCamera, time)
+    updateNightAmbience(this.state.day.ms, this.dayReport !== undefined)
+    this.updateEveningCues()
     this.playerView.setDepth(this.state.player.pos.y + 1)
     this.updateOccluders(delta)
     this.syncCustomers(alpha, time)
@@ -2055,6 +2075,39 @@ export class GameScene extends Phaser.Scene {
     this.services.audio.play(name, { gain, pitch })
   }
 
+  private syncEveningCueState(dayIndex: number, ms: number): void {
+    this.cueDayIndex = dayIndex
+    this.cuePhase = dayPhase(ms)
+    this.cueLastOrdersDone = !dayAcceptsCustomers(ms)
+  }
+
+  /**
+   * Fires the two one-shot evening milestones: a soft owl hoot when dusk
+   * deepens into night at 19:30 (nocturnal customer mix begins), and a quiet
+   * bell at 20:30 when the door closes to new shoppers.
+   */
+  private updateEveningCues(): void {
+    const { index, ms } = this.state.day
+    if (index !== this.cueDayIndex) {
+      this.syncEveningCueState(index, ms)
+      return
+    }
+    const phase = dayPhase(ms)
+    if (phase !== this.cuePhase) {
+      if (this.cuePhase === 'dusk' && phase === 'night') {
+        this.sfx('nightOwl', 0.25)
+      }
+      this.cuePhase = phase
+    }
+    const accepting = dayAcceptsCustomers(ms)
+    if (accepting) {
+      this.cueLastOrdersDone = false
+    } else if (!this.cueLastOrdersDone && phase === 'night') {
+      this.cueLastOrdersDone = true
+      this.sfx('turn', 0.2, 0.6)
+    }
+  }
+
   /**
    * Repeats a quiet species call while an animal stays hungry. Cues are
    * staggered per producer and never run while the shop, pause card or an
@@ -2475,6 +2528,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldLayout(): void {
     this.backdrop.destroy()
+    this.sunShafts.destroy()
     this.drawBackdrop()
     snapWorldCamera(this.layout, this.viewCamera, this.state.player.pos)
     this.world.setPosition(this.viewCamera.x, this.viewCamera.y)

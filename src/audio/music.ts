@@ -1,9 +1,10 @@
 import { getServices } from '@mg/core'
 import type Phaser from 'phaser'
+import { MUSIC_VOLUME, musicVolumeForNight } from '../ui/lighting'
 
 const TRACK_KEY = 'music'
-/** Base level for a track normalised to about -15 LUFS, under the SFX peaks. */
-const MUSIC_VOLUME = 0.45
+
+export { MUSIC_VOLUME, musicVolumeForNight }
 
 interface MusicTrack extends Phaser.Sound.BaseSound {
   setVolume(value: number): void
@@ -12,6 +13,7 @@ interface MusicTrack extends Phaser.Sound.BaseSound {
 let track: MusicTrack | null = null
 let host: Phaser.Scene | null = null
 let unsubscribeHostMute: (() => void) | null = null
+let nightLevel = 0
 
 /**
  * Starts the shared background loop once. Every scene calls this so the host
@@ -28,11 +30,17 @@ export function startMusic(scene: Phaser.Scene): void {
     if (!scene.cache.audio.exists(TRACK_KEY)) return
     track = scene.sound.add(TRACK_KEY, {
       loop: true,
-      volume: MUSIC_VOLUME,
+      volume: musicVolumeForNight(nightLevel),
     }) as MusicTrack
     if (scene.sound.locked) scene.sound.once('unlocked', () => syncMusic())
   }
   syncMusic()
+}
+
+/** Updates the daytime music gain to make room for the night ambience. */
+export function duckMusic(night: number): void {
+  nightLevel = Math.max(0, Math.min(1, night))
+  track?.setVolume(musicVolumeForNight(nightLevel))
 }
 
 /** Applies the player's sound setting and the host mute to the loop. */

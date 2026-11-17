@@ -1,0 +1,20 @@
+Night crickets ambience
+
+Source: "The Funny Farm, Meaford, ON, Canada - Late night summer insects",
+a field recording from the radio aporee map, archived by the Internet Archive:
+https://archive.org/details/aporee_32988_37901 (file FunnyFarmlatenightinsects.mp3)
+License: Public Domain Mark 1.0
+         https://creativecommons.org/publicdomain/mark/1.0/
+Downloaded 2026-11-17.
+
+Bundled file: a 10.0 s seamless loop cut from the 145 s source recording.
+Segment 72 s..82 s was chosen by per-second band analysis as the steadiest
+insect chorus with no traffic or voice interference. The last 2 s crossfade
+into the first 2 s with an equal-power sine fade, so looping repeats without
+a seam. Loudness matched to the previous in-game asset (-15.4 LUFS integrated)
+so the nightAmbience volume curve is unchanged. 44.1 kHz stereo MP3, 56 kbps
+CBR, 70,756 bytes (SNR-verified against the 80 kbps cut: same 26 dB level).
+Peak -6.2 dB.
+
+Replaces the earlier procedurally generated 24 s CC0 loop (2026-11-17), which
+sounded too repetitive.

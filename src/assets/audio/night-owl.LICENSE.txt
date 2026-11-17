@@ -1,0 +1,14 @@
+Night owl hoot — Animal Mall original asset
+
+Generated procedurally for this project with Python's standard library
+(`wave`, `math`, `random`) on 2026-11-17, then encoded with ffmpeg.
+
+A soft two-syllable owl hoot (`night-owl.mp3`) with gentle vibrato and a
+falling pitch contour, played once when dusk deepens into night at 19:30.
+
+License: CC0 1.0 Universal (public domain dedication)
+         https://creativecommons.org/publicdomain/zero/1.0/
+No third-party recording or sample was used.
+
+Format: 44.1 kHz mono MP3, 96 kbps, 1.65 s (encoded from the 16-bit PCM
+source for the web build).

@@ -170,7 +170,9 @@ submodule. Do not copy platform source into this repo.
   moths and the bat sit around 3910. All of it stays below the tutorial arrows,
   map offers and HUD. Fence lanterns are unlit by day and light with the same
   curve; never bring back the stacked coloured ellipse glow.
-  New customers stop at `DAY.lastSpawnMs` (20:30); when the clock reaches
+  Backdrop sun shafts sit on their own baked layer (`depth -99`) so they fade out
+  as dusk deepens. New customers stop at `DAY.lastSpawnMs` (20:30), pulsing the
+  HUD clock and warming its rim until closing; when the clock reaches
   21:00 anyone still inside leaves and the report opens immediately. The
   report pauses the simulation, pays the tip and starts the next
   morning; there is no rent, quota or failure state. The clock only advances in
@@ -247,7 +249,10 @@ submodule. Do not copy platform source into this repo.
   meals use the dedicated `diningEat` key with two CC0 crunches copied from `xechoz/snake`
   (see `src/assets/audio/eat-crunches.LICENSE.txt`); harvest, feed and customer
   pickups keep the platform's synth `eat` cue. Staff drink breaks reuse the
-  vending machine's gulp sample.
+  vending machine's gulp sample. Evening atmosphere uses a Phaser loop
+  (`nightAmbience` in `src/audio/nightAmbience.ts`, driven by `dayLighting(ms).night`
+  while gently ducking the daytime music) plus a one-shot `nightOwl` call at
+  19:30 and a quiet closing bell at 20:30.
 - Mobile defaults to landscape: the menu's Start button requests fullscreen and
   a best-effort `screen.orientation.lock('landscape')`. The lock stays optional:
   iOS Safari, browsers without the Screen Orientation API and embedded portals

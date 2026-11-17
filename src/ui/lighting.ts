@@ -40,7 +40,7 @@ export interface DaySkyTint {
 }
 
 const DAY_BAND = 0xbfe3d6
-const DUSK_BAND = 0xf6c98a
+export const DUSK_BAND = 0xf6c98a
 const NIGHT_BAND = 0x6f7783
 const DAY_ICON = 0xf3cf7a
 const DUSK_ICON = 0xf0a35c
@@ -97,6 +97,33 @@ export function dayLighting(ms: number): DayLighting {
     warm: lerp(from.warm, to.warm, t),
     lights: lerp(from.lights, to.lights, t),
   }
+}
+
+/** Base level for the daytime BGM track, normalised under SFX peaks. */
+export const MUSIC_VOLUME = 0.45
+/** Peak level for the summer-night cricket and frog loop at 21:00. */
+export const NIGHT_AMBIENCE_PEAK = 0.32
+const NIGHT_DUCK_START = 0.35
+const NIGHT_DUCK_SHARE = 0.25
+
+/**
+ * Pure volume curve for the evening insect bed. Follows the same `dayLighting`
+ * curve as the grey wash and fireflies so sights and sounds never disagree, and
+ * falls silent while the end-of-day report is open.
+ */
+export function nightAmbienceVolume(ms: number, reportOpen = false): number {
+  if (reportOpen) return 0
+  const { night } = dayLighting(ms)
+  if (night <= 0.02) return 0
+  return night * NIGHT_AMBIENCE_PEAK
+}
+
+/** Smoothly ducks the daytime loop once the evening insect chorus rises. */
+export function musicVolumeForNight(night: number): number {
+  const clamped = Math.max(0, Math.min(1, night))
+  if (clamped <= NIGHT_DUCK_START) return MUSIC_VOLUME
+  const progress = (clamped - NIGHT_DUCK_START) / (1 - NIGHT_DUCK_START)
+  return MUSIC_VOLUME * (1 - progress * NIGHT_DUCK_SHARE)
 }
 
 function smoothstep(t: number): number {

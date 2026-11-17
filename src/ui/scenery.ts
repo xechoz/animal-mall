@@ -7,7 +7,6 @@ import {
   drawBarrel,
   drawBeehive,
   drawFern,
-  drawFirefly,
   drawFrog,
   drawHedgehog,
   drawLeafLitter,
@@ -62,14 +61,13 @@ function drawWildlife(g: Phaser.GameObjects.Graphics, map: ShopMap): void {
 }
 
 /**
- * Animated butterflies, a bee, a dragonfly and a handful of fireflies. One
- * graphics object is cleared and redrawn per frame; positions follow
- * deterministic sine paths, so no RNG or simulation state is involved.
+ * Animated daytime butterflies, a bee and a dragonfly. One graphics object is
+ * cleared and redrawn per frame; positions follow deterministic sine paths, so
+ * no RNG or simulation state is involved.
  */
 export class SceneryView extends Phaser.GameObjects.Container {
   private readonly art: Phaser.GameObjects.Graphics
   private readonly anchors: readonly Vec2[]
-  private readonly fireflies: readonly Vec2[]
 
   constructor(scene: Phaser.Scene, map: ShopMap) {
     super(scene, 0, 0)
@@ -80,12 +78,6 @@ export class SceneryView extends Phaser.GameObjects.Container {
       { x: map.zoneAreas.veg.x + 24, y: map.zoneAreas.veg.y + map.zoneAreas.veg.h - 26 },
       { x: map.zoneAreas.farm.x + map.zoneAreas.farm.w - 24, y: map.zoneAreas.farm.y + 48 },
       { x: map.room.w * 0.56, y: map.room.h - 42 },
-    ]
-    this.fireflies = [
-      { x: map.zoneAreas.fruit.x + 28, y: map.zoneAreas.fruit.y + 190 },
-      { x: map.zoneAreas.veg.x + map.zoneAreas.veg.w - 30, y: map.zoneAreas.veg.y + 210 },
-      { x: map.zoneAreas.farm.x + 34, y: map.zoneAreas.farm.y + map.zoneAreas.farm.h - 36 },
-      { x: map.room.w * 0.44, y: map.room.h - 66 },
     ]
     scene.add.existing(this)
   }
@@ -100,12 +92,6 @@ export class SceneryView extends Phaser.GameObjects.Container {
     this.drawButterfly(t, this.anchors[1], 1.7, 0xffd166)
     this.drawBee(t, this.anchors[2], 3.1)
     this.drawDragonfly(t, this.anchors[3], 4.4)
-    this.fireflies.forEach((anchor, index) => {
-      if (anchor === undefined) return
-      const x = anchor.x + Math.sin(t * 0.7 + index * 1.9) * 16
-      const y = anchor.y + Math.cos(t * 0.9 + index * 2.3) * 10
-      drawFirefly(this.art, x, y, t * 2.4 + index * 1.3)
-    })
   }
 
   private drawButterfly(time: number, anchor: Vec2, phase: number, color: number): void {

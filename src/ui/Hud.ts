@@ -1,13 +1,13 @@
 import { type I18n, mixColor, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
-import { dayClockLabel, dayPhase, dayProgress } from '../logic/day'
+import { dayAcceptsCustomers, dayClockLabel, dayPhase, dayProgress } from '../logic/day'
 import { goalCost, nextGoal } from '../logic/goals'
 import type { DayPhase, ShopState, Vec2 } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
 import { GameButton } from './GameButton'
 import { drawHudGlass } from './hudGlass'
 import type { GameLayout } from './layout'
-import { type DaySkyTint, daySkyTint } from './lighting'
+import { type DaySkyTint, DUSK_BAND, daySkyTint } from './lighting'
 import { RoundButton } from './RoundButton'
 
 export interface HudCallbacks {
@@ -52,6 +52,7 @@ export class Hud {
   private lastAffordable = false
   private lastClock = ''
   private lastPhase: DayPhase | null = null
+  private lastAcceptingCustomers: boolean | null = null
   private phaseStartMs = 0
 
   constructor(
@@ -145,17 +146,24 @@ export class Hud {
     this.lastAffordable = false
     this.lastClock = ''
     this.lastPhase = null
+    this.lastAcceptingCustomers = null
     this.phaseStartMs = 0
   }
 
   update(state: ShopState, time = 0): void {
     const ms = state.day.ms
     const phase = dayPhase(ms)
+    const acceptingCustomers = dayAcceptsCustomers(ms)
     if (phase !== this.lastPhase) {
       // The first frame after a relayout must not fire a transition pulse.
       this.phaseStartMs = this.lastPhase === null ? ms - PHASE_PULSE_MS : ms
       this.lastPhase = phase
+    } else if (acceptingCustomers !== this.lastAcceptingCustomers) {
+      if (this.lastAcceptingCustomers !== null && !acceptingCustomers) {
+        this.phaseStartMs = ms
+      }
     }
+    this.lastAcceptingCustomers = acceptingCustomers
     const clock = `${state.day.index}|${dayClockLabel(ms)}|${phase}`
     if (clock !== this.lastClock) {
       this.lastClock = clock
@@ -263,7 +271,9 @@ export class Hud {
       ui,
     )
 
-    const edge = mixColor(this.theme.borderSoft, tint.band, 0.3 + pulse * 0.5)
+    const lastOrders = !dayAcceptsCustomers(ms) && ms < 300_000
+    const rimBand = lastOrders ? mixColor(tint.band, DUSK_BAND, 0.55) : tint.band
+    const edge = mixColor(this.theme.borderSoft, rimBand, (lastOrders ? 0.48 : 0.3) + pulse * 0.5)
     bg.lineStyle(1.2 * ui + pulse * 0.6 * ui, edge, 0.7 + pulse * 0.2)
     bg.strokeRoundedRect(left, top, width, height, radius)
 

@@ -8,6 +8,7 @@ import {
 } from '@mg/core'
 import Phaser from 'phaser'
 import { startMusic, syncMusic } from '../audio/music'
+import { stopNightAmbience, syncNightAmbience } from '../audio/nightAmbience'
 import { gameColors } from '../colors'
 import { hasProgress, progressSave } from '../save'
 import { ANIMAL_SCALE, createAnimalTextures, playerTextureKey } from '../ui/animalArt'
@@ -69,6 +70,7 @@ export class MenuScene extends Phaser.Scene {
     this.languageModal = undefined
     this.services = getServices()
     startMusic(this)
+    stopNightAmbience()
     createAnimalTextures(this)
     createFruitTextures(this)
     this.services.platform.gameplayStop()
@@ -208,6 +210,7 @@ export class MenuScene extends Phaser.Scene {
         const enabled = !this.services.settings.value.sound
         this.services.setSound(enabled)
         syncMusic()
+        syncNightAmbience()
         this.services.audio.play('click')
         return enabled
       },
@@ -328,41 +331,6 @@ export class MenuScene extends Phaser.Scene {
     // otherwise re-walks this Graphics command buffer on every frame.
     bakeGraphics(this, g, 'menu-backdrop', width, height, screenBakeScale()).setDepth(0)
     g.destroy()
-
-    this.addMenuFireflies(width, height)
-  }
-
-  private addMenuFireflies(width: number, height: number): void {
-    for (let index = 0; index < 7; index += 1) {
-      const x = width * (0.07 + index * 0.14)
-      const y = height * (0.2 + ((index * 23) % 54) / 100)
-      const glow = this.add
-        .circle(x, y, 5, gameColors.sunbeam, 0.1)
-        .setDepth(1)
-        .setBlendMode(Phaser.BlendModes.ADD)
-      const dot = this.add
-        .circle(x, y, 1.5, 0xfff7d6, 0.85)
-        .setDepth(1)
-        .setBlendMode(Phaser.BlendModes.ADD)
-      this.tweens.add({
-        targets: dot,
-        alpha: { from: 0.25, to: 1 },
-        duration: 900 + index * 130,
-        yoyo: true,
-        repeat: -1,
-        delay: index * 170,
-        ease: 'Sine.easeInOut',
-      })
-      this.tweens.add({
-        targets: glow,
-        scale: { from: 0.75, to: 1.2 },
-        duration: 1_400 + index * 110,
-        yoyo: true,
-        repeat: -1,
-        delay: index * 120,
-        ease: 'Sine.easeInOut',
-      })
-    }
   }
 
   private drawShopfront(width: number, height: number, portrait: boolean): void {

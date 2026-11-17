@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { DAY } from '../logic/config'
-import { dayHour, dayLighting, daySkyTint } from './lighting'
+import {
+  dayHour,
+  dayLighting,
+  daySkyTint,
+  MUSIC_VOLUME,
+  musicVolumeForNight,
+  NIGHT_AMBIENCE_PEAK,
+  nightAmbienceVolume,
+} from './lighting'
 
 function hourMs(hour: number): number {
   return ((hour - DAY.openHour) / (DAY.closeHour - DAY.openHour)) * DAY.lengthMs
@@ -56,5 +64,24 @@ describe('day sky tint', () => {
     expect(brightness(daySkyTint(hourMs(12)).band)).toBeGreaterThan(
       brightness(daySkyTint(DAY.lengthMs).band),
     )
+  })
+})
+
+describe('night ambience audio curves', () => {
+  it('stays silent through the daytime and wakes up after 17:00', () => {
+    expect(nightAmbienceVolume(0)).toBe(0)
+    expect(nightAmbienceVolume(hourMs(17))).toBe(0)
+    expect(nightAmbienceVolume(hourMs(18))).toBeCloseTo(0.25 * NIGHT_AMBIENCE_PEAK)
+    expect(nightAmbienceVolume(hourMs(21))).toBeCloseTo(NIGHT_AMBIENCE_PEAK)
+  })
+
+  it('silences the cricket loop while the end-of-day report is open', () => {
+    expect(nightAmbienceVolume(hourMs(20.5), true)).toBe(0)
+  })
+
+  it('ducks the daytime music smoothly once evening deepens', () => {
+    expect(musicVolumeForNight(0)).toBe(MUSIC_VOLUME)
+    expect(musicVolumeForNight(0.35)).toBe(MUSIC_VOLUME)
+    expect(musicVolumeForNight(1)).toBeCloseTo(MUSIC_VOLUME * 0.75)
   })
 })

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Deepen the evening atmosphere: a seamless 10 s summer-night field recording
+  (`night-crickets.mp3`, public-domain radio aporee recording of close insects,
+  replacing the repetitive procedural loop) fades in along the `dayLighting`
+  curve from 17:00 to 21:00 while gently ducking the daytime music, and falls
+  silent on the day report and menu. Crossing into night at 19:30 plays a soft
+  owl hoot (`night-owl.mp3`) as nocturnal shoppers arrive; stopping new spawns
+  at 20:30 rings a quiet last-orders bell, pulses the HUD clock and warms its
+  rim until closing. Backdrop sun shafts now sit on their own baked layer and
+  fade out with dusk, and daytime firefly glow dots are removed from the menu
+  clearing, backdrop and daytime floor scenery so glowing fireflies appear only
+  at night.
+
 - Give every action a physical game-button skin: a bark frame, an inset
   parchment/leaf/berry face, a top sheen and a bottom lip that the face sinks
   into when pressed. The menu's main action, pause/settings/language/day-report
