@@ -12,9 +12,13 @@ Segment 72 s..82 s was chosen by per-second band analysis as the steadiest
 insect chorus with no traffic or voice interference. The last 2 s crossfade
 into the first 2 s with an equal-power sine fade, so looping repeats without
 a seam. Loudness matched to the previous in-game asset (-15.4 LUFS integrated)
-so the nightAmbience volume curve is unchanged. 44.1 kHz stereo MP3, 56 kbps
-CBR, 70,756 bytes (SNR-verified against the 80 kbps cut: same 26 dB level).
+so the nightAmbience volume curve is unchanged. Dual bundle (2026-11-17
+re-encode, mono mix, content unchanged): Opus 16 kbps CBR
+(night-crickets.opus, 21,251 bytes) with MP3 32 kbps mono fallback
+(night-crickets.mp3, 40,687 bytes).
 Peak -6.2 dB.
 
 Replaces the earlier procedurally generated 24 s CC0 loop (2026-11-17), which
 sounded too repetitive.
+
+Mono re-encode of the same 10.0 s loop (2026-11-17); content unchanged.

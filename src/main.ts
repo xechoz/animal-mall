@@ -5,8 +5,10 @@ import { GameScene } from './scenes/GameScene'
 import { MenuScene } from './scenes/MenuScene'
 
 const tutorialHand = new URL('./assets/ui/tap-hand.png', import.meta.url).href
-const music = new URL('./assets/audio/joyful-jungle.mp3', import.meta.url).href
-const nightAmbience = new URL('./assets/audio/night-crickets.mp3', import.meta.url).href
+const musicMp3 = new URL('./assets/audio/joyful-jungle.mp3', import.meta.url).href
+const musicOpus = new URL('./assets/audio/joyful-jungle.opus', import.meta.url).href
+const nightAmbienceMp3 = new URL('./assets/audio/night-crickets.mp3', import.meta.url).href
+const nightAmbienceOpus = new URL('./assets/audio/night-crickets.opus', import.meta.url).href
 const nightOwl = new URL('./assets/audio/night-owl.mp3', import.meta.url).href
 const eatSamples = [
   new URL('./assets/audio/eat-1.mp3', import.meta.url).href,
@@ -45,8 +47,8 @@ async function boot(): Promise<void> {
     assets: {
       images: [{ key: 'tutorial-hand', url: tutorialHand }],
       audio: [
-        { key: 'music', urls: music },
-        { key: 'nightAmbience', urls: nightAmbience },
+        { key: 'music', urls: [musicOpus, musicMp3] },
+        { key: 'nightAmbience', urls: [nightAmbienceOpus, nightAmbienceMp3] },
       ],
     },
     // Built-in slots can be overridden and games may register their own sound

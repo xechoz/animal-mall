@@ -12,3 +12,4 @@ No third-party recording or sample was used.
 
 Format: 44.1 kHz mono MP3, 96 kbps, 1.65 s (encoded from the 16-bit PCM
 source for the web build).
+Re-encoded 2026-11-17: mono 48 kbps CBR MP3 to shrink the bundle; content unchanged.

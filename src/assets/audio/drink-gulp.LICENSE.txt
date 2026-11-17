@@ -13,3 +13,4 @@ Edits: the sip was trimmed to 0.380–0.810 s and the swallow to 1.530–1.900 s
 then placed at 0.150 s and 0.790 s (a 0.29 s gap); short fades at both ends;
 mixed to mono at 44.1 kHz; peak normalised to -1.4 dBFS; encoded as 96 kbps
 mp3. Final length 1.35 s.
+Re-encoded 2026-11-17: mono 48 kbps CBR MP3 to shrink the bundle; content unchanged.

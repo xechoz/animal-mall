@@ -7,11 +7,12 @@ Original: joyful_jungle_bpm140.ogg, 140 BPM, 85.714 s (200 beats / 50 bars),
 loopable. sha256 cb51965c9f2ee728cf30d6dce3d9b43e88921ed93f8e82782d94f695a02ae21c
 Downloaded 2026-10-31.
 
-Bundled file: 40 kbps stereo MP3, 109.714 s, the A-B-C-D section of the 3:05
-arrangement cut at the bar-64 loop point. It keeps the arrangement's designed
-D→A transition and adds a 6 ms fade-in so the loop stays click-free. The CC0
-source remains the original OGG above; this is a delivery cut and transcode
-only.
+Bundled file: 24 kbps mono MP3, 82.286 s, bars 17-64 of the 3:05
+arrangement: the full A section (bars 1-16) is dropped and B + C + D play
+as recorded, keeping the arrangement's designed D→A loop transition. The
+cut lands on the bar-17 section boundary and a 6 ms fade-in removes the
+step. The CC0 source remains the original OGG above; this is a delivery cut
+and transcode only.
 
 CC0 requires no attribution; the composer is credited voluntarily.
 
@@ -44,3 +45,12 @@ omitted. Final file: 548,954 bytes.
 
 The derivative stays CC0; the arrangement, filtering, pitch shift and delivery
 cut are ours.
+
+Delivery cut 2 (2026-11-17): cut to bars 33-64 (C-D, 54.857 s), then
+superseded same day: keep bars 9-64 (96.0 s, intro trimmed), then trim the
+rest of the A section too, keeping bars 17-64 (B + C + D, 82.286 s),
+encoded to MP3 32 kbps CBR mono 32 kHz with a 6 ms fade-in at the bar-17
+cut, then re-encoded to 24 kbps mono 24 kHz (LAME floors 32 kHz output at
+32 kbps, so the sample rate had to drop). The D→A loop transition stays
+as arranged. Final MP3 file: 247,268 bytes; Opus 16 kbps CBR mono file
+(joyful-jungle.opus, same cut): 171,091 bytes (was 548,954 bytes).

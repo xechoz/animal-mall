@@ -9,3 +9,4 @@ License: Mixkit Sound Effects Free License
 Free for commercial and non-commercial projects. Not redistributed as a
 standalone sound effect; bundled only as part of Animal Mall gameplay.
 Trimmed to 0.22–2.30 s, mono 44.1 kHz, 64 kbps MP3.
+Re-encoded 2026-11-17: mono 48 kbps CBR MP3 to shrink the bundle; content unchanged.

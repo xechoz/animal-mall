@@ -11,3 +11,4 @@ xechoz/snake WAV sources. They are registered as the dedicated `diningEat` key:
 only table meals use them, while harvesting and feeding keep the platform synth
 `eat` cue. The platform audio manager picks one take at random for each bite, so
 repeated meals do not sound identical.
+Re-encoded 2026-11-17: mono 48 kbps CBR MP3 to shrink the bundle; content unchanged.
