@@ -1,6 +1,7 @@
-import { Button, type Theme } from '@mg/core'
+import { mixColor, type Theme } from '@mg/core'
 import type Phaser from 'phaser'
 import { gameColors } from '../colors'
+import { GameButton } from './GameButton'
 
 /** One close control for every dialog: 44-unit soft circle with a 20-unit X. */
 export function createCloseButton(
@@ -10,9 +11,9 @@ export function createCloseButton(
   theme: Theme,
   onClick: () => void,
   ui: number,
-): Button {
+): GameButton {
   const size = 44 * ui
-  return new Button(scene, x, y, '', theme, {
+  return new GameButton(scene, x, y, '', theme, {
     width: size,
     height: size,
     fontSize: 1,
@@ -69,15 +70,32 @@ export function drawToggle(
   ui: number,
 ): void {
   const radius = height / 2
-  g.fillStyle(on ? theme.accent : theme.surfaceAlt, 1)
+  const inset = Math.max(1.5, 2 * ui)
+  g.fillStyle(theme.shadow, 0.14)
+  g.fillRoundedRect(x - width / 2, y - height / 2 + 2 * ui, width, height, radius)
+  g.fillStyle(gameColors.barkDark, 1)
   g.fillRoundedRect(x - width / 2, y - height / 2, width, height, radius)
-  g.lineStyle(1.4 * ui, on ? theme.accentHover : theme.borderSoft, 1)
-  g.strokeRoundedRect(x - width / 2, y - height / 2, width, height, radius)
+  g.fillStyle(on ? theme.accent : theme.surfaceAlt, 1)
+  g.fillRoundedRect(
+    x - width / 2 + inset,
+    y - height / 2 + inset,
+    width - inset * 2,
+    height - inset * 2,
+    Math.max(1, radius - inset),
+  )
+  g.fillStyle(on ? gameColors.hay : theme.highlight, on ? 0.35 : 0.4)
+  g.fillEllipse(x, y - height * 0.16, width * 0.68, height * 0.28)
+
   const knobX = on ? x + width / 2 - radius : x - width / 2 + radius
+  const knobRadius = radius - inset * 2
+  g.fillStyle(theme.shadow, 0.18)
+  g.fillCircle(knobX, y + 1.5 * ui, knobRadius)
   g.fillStyle(theme.surface, 1)
-  g.fillCircle(knobX, y, radius - 3 * ui)
-  g.lineStyle(1 * ui, gameColors.ui.line, 0.8)
-  g.strokeCircle(knobX, y, radius - 3 * ui)
+  g.fillCircle(knobX, y, knobRadius)
+  g.lineStyle(Math.max(1, 1.2 * ui), gameColors.barkDark, 0.55)
+  g.strokeCircle(knobX, y, knobRadius)
+  g.fillStyle(mixColor(theme.surface, theme.highlight, 0.7), 0.7)
+  g.fillEllipse(knobX, y - knobRadius * 0.35, knobRadius * 1.2, knobRadius * 0.6)
 }
 
 /** Quiet chevron for a row that opens another dialog. */

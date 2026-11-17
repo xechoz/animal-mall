@@ -1,5 +1,6 @@
 import { drawIcon, type IconName, mixColor, type Theme } from '@mg/core'
 import Phaser from 'phaser'
+import { gameColors } from '../colors'
 import { drawHudGlass } from './hudGlass'
 
 export type RoundButtonIcon = IconName | 'gear'
@@ -44,6 +45,7 @@ export class RoundButton extends Phaser.GameObjects.Container {
   private readonly variant: 'soft' | 'glass'
   private readonly iconColor?: number
   private readonly face: Phaser.GameObjects.Graphics
+  private readonly iconGraphics: Phaser.GameObjects.Graphics
   private readonly zone: Phaser.GameObjects.Zone
   private readonly onClickHandler: () => void
   private enabled = true
@@ -62,7 +64,8 @@ export class RoundButton extends Phaser.GameObjects.Container {
     this.badgeVisible = options.badge ?? false
 
     this.face = new Phaser.GameObjects.Graphics(scene)
-    this.add(this.face)
+    this.iconGraphics = new Phaser.GameObjects.Graphics(scene)
+    this.add([this.face, this.iconGraphics])
 
     this.zone = new Phaser.GameObjects.Zone(scene, 0, 0, this.buttonSize, this.buttonSize)
     this.zone.setInteractive({ useHandCursor: true })
@@ -115,12 +118,15 @@ export class RoundButton extends Phaser.GameObjects.Container {
     const g = this.face
     g.clear()
     const iconColor = this.iconColor ?? this.theme.ink
+    const sink = this.pressed ? (this.variant === 'glass' ? 1.2 : 2) : 0
 
     // Both buttons float over the world with no bar behind them, so they carry
     // their own shadow to lift off grass and floor.
     if (this.variant === 'glass') {
       // One shared plate with the coin purse and the day clock: same cream,
-      // same hairline border and same top light.
+      // same hairline border and same top light. The extra bark ring is the
+      // only concession to the new physical buttons: enough to read as a key,
+      // still translucent enough to let the canopy through.
       drawHudGlass(g, { x: -radius, y: -radius, w: size, h: size }, this.theme, size / 64, 0.78)
       const tint = !this.enabled
         ? { color: this.theme.borderSoft, alpha: 0.4 }
@@ -133,9 +139,15 @@ export class RoundButton extends Phaser.GameObjects.Container {
         g.fillStyle(tint.color, tint.alpha)
         g.fillCircle(0, 0, radius - 1)
       }
+      g.lineStyle(1.6, gameColors.barkDark, 0.32)
+      g.strokeCircle(0, 0, radius - 1.4)
+      g.fillStyle(mixColor(this.theme.surface, this.theme.highlight, 0.7), 0.28)
+      g.fillEllipse(0, -radius * 0.34, radius * 1.0, radius * 0.38)
     } else {
       g.fillStyle(this.theme.shadow, 0.2)
       g.fillCircle(0, 5, radius)
+      g.fillStyle(gameColors.barkDark, 1)
+      g.fillCircle(0, 2, radius)
       const base = this.theme.surface
       const faceColor = !this.enabled
         ? mixColor(base, this.theme.borderSoft, 0.55)
@@ -145,16 +157,17 @@ export class RoundButton extends Phaser.GameObjects.Container {
             ? mixColor(base, this.theme.accentWarm, 0.5)
             : base
       g.fillStyle(faceColor, 1)
-      g.fillCircle(0, 0, radius)
-      g.lineStyle(3, this.theme.ink, 0.55)
-      g.strokeCircle(0, 0, radius - 1)
-      g.fillStyle(this.theme.highlight, 0.16)
-      g.fillEllipse(0, -radius * 0.34, radius * 1.15, radius * 0.58)
+      g.fillCircle(0, sink, radius - 2.2)
+      g.lineStyle(1.2, mixColor(gameColors.barkDark, gameColors.cream, 0.35), 0.45)
+      g.strokeCircle(0, sink, radius - 3.2)
+      g.fillStyle(mixColor(faceColor, this.theme.highlight, 0.65), 0.5)
+      g.fillEllipse(0, sink - radius * 0.32, radius * 1.05, radius * 0.46)
     }
 
-    // `false` keeps the plate above: drawIcon clears the target by default.
-    if (this.icon === 'gear') drawGear(g, Math.round(size * 0.42), iconColor)
-    else drawIcon(g, this.icon, Math.round(size * 0.42), iconColor, false)
+    this.iconGraphics.clear()
+    this.iconGraphics.setPosition(0, sink)
+    if (this.icon === 'gear') drawGear(this.iconGraphics, Math.round(size * 0.42), iconColor)
+    else drawIcon(this.iconGraphics, this.icon, Math.round(size * 0.42), iconColor)
 
     if (this.badgeVisible) {
       // 45° in at ~0.82r: on the rim, never spilling onto the neighbour button.

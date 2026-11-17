@@ -1,4 +1,4 @@
-import { Button, type I18n, Modal, type Theme, textStyle } from '@mg/core'
+import { type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import {
   ANIMALS,
@@ -31,8 +31,10 @@ import type {
   ZoneId,
 } from '../logic/types'
 import { ANIMAL_SCALE } from './animalArt'
+import { ConfirmDialog } from './ConfirmDialog'
 import { createCloseButton, drawLevelPips } from './dialog'
 import { drawPanelFrame } from './frames'
+import { GameButton } from './GameButton'
 import type { GameLayout } from './layout'
 import { createNextTag } from './nextTag'
 import { productTextureKey } from './productArt'
@@ -70,8 +72,7 @@ export interface ShopPanelOptions {
 type Tab = 'production' | 'tools' | 'staff'
 
 interface DynamicButton {
-  readonly button: Button
-  readonly face: Phaser.GameObjects.Graphics
+  readonly button: GameButton
   readonly cost: number
   readonly deposit: number
   readonly format: (remaining: number) => string
@@ -94,14 +95,13 @@ export class ShopPanel {
   private bodyDirty = false
   private balanceText?: Phaser.GameObjects.Text
   private readonly tabLabels = new Map<Tab, Phaser.GameObjects.Text>()
-  private readonly zoneButtons = new Map<ZoneId, Button>()
+  private readonly zoneButtons = new Map<ZoneId, GameButton>()
   private readonly tabFaces = new Map<Tab, Phaser.GameObjects.Graphics>()
   /** Desktop hover hint for the bare tab labels. */
   private hoverTab: Tab | null = null
-  private readonly zoneFaces = new Map<ZoneId, Phaser.GameObjects.Graphics>()
   private readonly dynamicButtons: DynamicButton[] = []
   private zoneChips?: Phaser.GameObjects.Container
-  private removeModal?: Modal
+  private removeModal?: ConfirmDialog
   private tabHighlight?: Phaser.GameObjects.Graphics
   private zoneHighlight?: Phaser.GameObjects.Graphics
   /** Vertical rhythm shared by the chrome and the body, rebuilt per render. */
@@ -152,52 +152,44 @@ export class ShopPanel {
 
   destroy(): void {
     this.closed = true
-    this.removeModal?.destroy(true)
+    this.removeModal?.destroy()
+    this.removeModal = undefined
     this.root.destroy(true)
   }
 
   private confirmRemove(id: number, refund: number): void {
     if (this.removeModal !== undefined) return
     const { scene, theme, i18n } = this.options
-    const modal = new Modal(scene, theme, {
+    this.removeModal = new ConfirmDialog({
+      scene,
+      layout: this.options.layout,
+      theme,
       title: i18n.t('shop.removeTitle'),
-      // Plain heading, matching every other dialog in the game.
-      titleRibbon: false,
       body: i18n.t('shop.removeBody', { refund }),
-      width: 560,
-      height: 360,
-      actionsLayout: 'column',
-      actionHeight: 70,
-      actionFontSize: 26,
+      onClose: () => {
+        this.removeModal = undefined
+      },
       actions: [
         {
           label: i18n.t('shop.cancel'),
           variant: 'soft',
-          onClick: () => {
-            this.removeModal?.destroy(true)
-            this.removeModal = undefined
-          },
         },
         {
           label: i18n.t('shop.removeConfirm'),
           variant: 'danger',
           onClick: () => {
             const next = this.options.onRemove(id)
-            this.removeModal?.destroy(true)
-            this.removeModal = undefined
             this.setState(next)
           },
         },
       ],
     })
-    modal.setDepth(7300)
-    this.removeModal = modal
   }
 
   close(): void {
     if (this.closed) return
     this.closed = true
-    this.removeModal?.destroy(true)
+    this.removeModal?.destroy()
     this.removeModal = undefined
     this.options.onClose()
     this.root.destroy(true)
@@ -211,7 +203,6 @@ export class ShopPanel {
     this.tabLabels.clear()
     this.zoneButtons.clear()
     this.tabFaces.clear()
-    this.zoneFaces.clear()
     this.hoverTab = null
     this.balanceText = undefined
 
@@ -320,24 +311,6 @@ export class ShopPanel {
     })
   }
 
-  private addSelectionFace(
-    button: Button,
-    width: number,
-    height: number,
-    ui: number,
-  ): Phaser.GameObjects.Graphics {
-    const { theme } = this.options
-    const face = this.options.scene.add.graphics()
-    const radius = height / 2
-    face.fillStyle(theme.accent, 0.16)
-    face.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
-    face.lineStyle(2 * ui, theme.accent, 0.9)
-    face.strokeRoundedRect(-width / 2, -height / 2, width, height, radius)
-    face.setVisible(false)
-    button.addAt(face, 1)
-    return face
-  }
-
   private renderZoneChips(w: number): void {
     const { scene, theme, i18n } = this.options
     const container = scene.add.container(0, 0)
@@ -349,7 +322,7 @@ export class ShopPanel {
     const gap = 6 * ui
     const chipWidth = (w - 60 * ui - gap * 3) / 4
     ZONE_ORDER.forEach((zone, index) => {
-      const button = new Button(
+      const button = new GameButton(
         scene,
         30 * ui + chipWidth / 2 + index * (chipWidth + gap),
         y,
@@ -367,7 +340,6 @@ export class ShopPanel {
       button.setName(`chip-${zone}`)
       this.zoneButtons.set(zone, button)
       container.add(button)
-      this.zoneFaces.set(zone, this.addSelectionFace(button, chipWidth, this.chipHeight, ui))
     })
   }
 
@@ -419,9 +391,6 @@ export class ShopPanel {
     }
 
     this.zoneHighlight?.clear()
-    for (const [zone, face] of this.zoneFaces) {
-      face.setVisible(this.tab === 'production' && zone === this.zone)
-    }
     if (this.tab !== 'production') return
     const chipWidth = (w - 60 * ui - gap * 3) / 4
     const goalZone = this.goalZone()
@@ -435,6 +404,7 @@ export class ShopPanel {
       )
     }
     for (const [zone, button] of this.zoneButtons) {
+      button.setSelected(zone === this.zone)
       const inactive = this.state.zones[zone] ? 0.85 : 0.62
       button.setAlpha(zone === this.zone ? 1 : inactive)
     }
@@ -539,24 +509,31 @@ export class ShopPanel {
     }
     if (zone === 'veg') {
       const locked = this.state.served === 0
-      const button = new Button(scene, 0, height / 2 - 36 * ui, i18n.t('shop.unlockFree'), theme, {
-        width: w - 120 * ui,
-        height: 48 * ui,
-        fontSize: font.body,
-        minHitSize: 64 * ui,
-        variant: locked ? 'soft' : 'primary',
-        onClick: () => {
-          const next = this.options.onUnlockZone(zone)
-          this.setState(next)
+      const button = new GameButton(
+        scene,
+        0,
+        height / 2 - 36 * ui,
+        i18n.t('shop.unlockFree'),
+        theme,
+        {
+          width: w - 120 * ui,
+          height: 48 * ui,
+          fontSize: font.body,
+          minHitSize: 64 * ui,
+          variant: locked ? 'soft' : 'primary',
+          onClick: () => {
+            const next = this.options.onUnlockZone(zone)
+            this.setState(next)
+          },
         },
-      })
+      )
       if (locked) button.setText(i18n.t('shop.afterFirstSale'))
       // Keep the disabled-looking state tappable: the tap explains the
       // first-sale requirement instead of doing nothing.
       card.add(button)
     } else {
       const cost = config.unlockCost
-      const button = new Button(
+      const button = new GameButton(
         scene,
         0,
         height / 2 - 36 * ui,
@@ -574,14 +551,7 @@ export class ShopPanel {
           },
         },
       )
-      this.track(
-        button,
-        cost,
-        0,
-        (remaining) => i18n.t('shop.unlockZone', { cost: remaining }),
-        w - 120 * ui,
-        48 * ui,
-      )
+      this.track(button, cost, 0, (remaining) => i18n.t('shop.unlockZone', { cost: remaining }))
       card.add(button)
     }
     parent.add(card)
@@ -703,7 +673,7 @@ export class ShopPanel {
     }
 
     const cost = config.cost
-    const buy = new Button(
+    const buy = new GameButton(
       scene,
       0,
       height / 2 - (compact ? 26 : 34) * u,
@@ -721,14 +691,7 @@ export class ShopPanel {
         },
       },
     )
-    this.track(
-      buy,
-      cost,
-      0,
-      (remaining) => i18n.t('shop.plant', { cost: remaining }),
-      width - 36 * u,
-      (compact ? 34 : 46) * u,
-    )
+    this.track(buy, cost, 0, (remaining) => i18n.t('shop.plant', { cost: remaining }))
     card.add(buy)
 
     const installed = this.state.producers.find((producer) => producer.product === product)
@@ -737,7 +700,7 @@ export class ShopPanel {
       // Narrow cards have no room beside the name, so the refund sits below the stats.
       const narrowRemove = width < 380
       card.add(
-        new Button(
+        new GameButton(
           scene,
           narrowRemove ? -width / 2 + 63 * ui : width / 2 - 48 * ui,
           narrowRemove ? -height / 2 + 104 * ui : -height / 2 + 34 * ui,
@@ -864,7 +827,7 @@ export class ShopPanel {
         )
       }
       card.add(
-        new Button(
+        new GameButton(
           scene,
           0,
           height / 2 - (compact ? 28 : 32) * u,
@@ -923,14 +886,21 @@ export class ShopPanel {
       )
     }
     card.add(
-      new Button(scene, 0, height / 2 - (compact ? 28 : 32) * u, i18n.t('shop.replace'), theme, {
-        width: width - 40 * u,
-        height: (compact ? 34 : 46) * u,
-        fontSize: font.body * fit,
-        minHitSize: 64 * ui,
-        variant: 'soft',
-        onClick: () => this.options.onOpenProducerPicker(zone, slot),
-      }),
+      new GameButton(
+        scene,
+        0,
+        height / 2 - (compact ? 28 : 32) * u,
+        i18n.t('shop.replace'),
+        theme,
+        {
+          width: width - 40 * u,
+          height: (compact ? 34 : 46) * u,
+          fontSize: font.body * fit,
+          minHitSize: 64 * ui,
+          variant: 'soft',
+          onClick: () => this.options.onOpenProducerPicker(zone, slot),
+        },
+      ),
     )
     return card
   }
@@ -1015,7 +985,7 @@ export class ShopPanel {
       return top + height + 8 * ui
     }
     const cost = shelfUpgradeCost(level)
-    const buy = new Button(
+    const buy = new GameButton(
       scene,
       width / 2 - buttonWidth / 2 - 12 * ui,
       0,
@@ -1034,14 +1004,7 @@ export class ShopPanel {
       },
     )
     if (cost !== null) {
-      this.track(
-        buy,
-        cost,
-        0,
-        (remaining) => i18n.t('shelf.upgrade', { cost: remaining }),
-        buttonWidth,
-        32 * ui,
-      )
+      this.track(buy, cost, 0, (remaining) => i18n.t('shelf.upgrade', { cost: remaining }))
     }
     card.add(buy)
     parent.add(card)
@@ -1130,7 +1093,7 @@ export class ShopPanel {
 
     const cost = upgradeCost(kind, level)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.upgrade', { cost })
-    const buy = new Button(scene, 0, height / 2 - 32 * u, label, theme, {
+    const buy = new GameButton(scene, 0, height / 2 - 32 * u, label, theme, {
       width: width - 36 * u,
       height: 44 * u,
       fontSize: font.body * fit,
@@ -1142,14 +1105,7 @@ export class ShopPanel {
       },
     })
     if (cost !== null) {
-      this.track(
-        buy,
-        cost,
-        0,
-        (remaining) => i18n.t('shop.upgrade', { cost: remaining }),
-        width - 36 * u,
-        44 * u,
-      )
+      this.track(buy, cost, 0, (remaining) => i18n.t('shop.upgrade', { cost: remaining }))
     }
     card.add(buy)
     return card
@@ -1258,7 +1214,7 @@ export class ShopPanel {
 
     const remaining = cost === null ? 0 : Math.max(0, cost - deposit)
     const label = cost === null ? i18n.t('shop.max') : i18n.t('shop.hire', { cost: remaining })
-    const buy = new Button(scene, 0, height / 2 - 36 * u, label, theme, {
+    const buy = new GameButton(scene, 0, height / 2 - 36 * u, label, theme, {
       width: width - 36 * u,
       height: 46 * u,
       fontSize: font.body * fit,
@@ -1270,45 +1226,22 @@ export class ShopPanel {
       },
     })
     if (cost !== null) {
-      this.track(
-        buy,
-        cost,
-        deposit,
-        (value) => i18n.t('shop.hire', { cost: value }),
-        width - 36 * u,
-        46 * u,
-      )
+      this.track(buy, cost, deposit, (value) => i18n.t('shop.hire', { cost: value }))
     }
     card.add(buy)
     return card
   }
 
   private track(
-    button: Button,
+    button: GameButton,
     cost: number,
     deposit: number,
     format: (remaining: number) => string,
-    faceWidth: number,
-    faceHeight: number,
     locked = false,
     lockedLabel?: string,
   ): void {
-    const { scene, theme } = this.options
-    const ui = this.options.layout.ui
-    // The shared Button fades its whole container when disabled, which makes
-    // the "Need X coins" label unreadable. A soft overlay keeps the label at
-    // full contrast while still reading as unavailable.
-    const face = scene.add.graphics()
-    const radius = Math.min(theme.radius, faceHeight / 2)
-    face.fillStyle(theme.surfaceAlt, 1)
-    face.fillRoundedRect(-faceWidth / 2, -faceHeight / 2, faceWidth, faceHeight, radius)
-    face.lineStyle(Math.max(1, 2 * ui), theme.borderSoft, 1)
-    face.strokeRoundedRect(-faceWidth / 2, -faceHeight / 2, faceWidth, faceHeight, radius)
-    face.setVisible(false)
-    button.addAt(face, 1)
     this.dynamicButtons.push({
       button,
-      face,
       cost,
       deposit,
       format,
@@ -1422,8 +1355,7 @@ export class ShopPanel {
         }
         if (entry.enabled) {
           entry.enabled = false
-          entry.button.setAlpha(1)
-          entry.face.setVisible(true)
+          entry.button.setMuted(true)
         }
         continue
       }
@@ -1433,8 +1365,7 @@ export class ShopPanel {
         entry.enabled = affordable
         // Keep the hit area alive even when the price is out of reach, so the
         // existing purchase callback can surface a "not enough coins" toast.
-        entry.button.setAlpha(1)
-        entry.face.setVisible(!affordable)
+        entry.button.setMuted(!affordable)
       }
       const text = affordable
         ? entry.format(remaining)

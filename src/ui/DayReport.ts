@@ -1,7 +1,8 @@
-import { Button, cssColor, type I18n, type Theme, textStyle } from '@mg/core'
+import { cssColor, type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import type { DayReport as DayReportData } from '../logic/types'
 import { drawPanelFrame } from './frames'
+import { GameButton } from './GameButton'
 import type { GameLayout } from './layout'
 import { drawToolIcon } from './toolArt'
 
@@ -100,7 +101,7 @@ export class DayReport {
       this.drawRows(card, options, cardW, cardH, unit)
     }
 
-    const next = new Button(
+    const next = new GameButton(
       scene,
       0,
       cardH / 2 - 48 * unit,

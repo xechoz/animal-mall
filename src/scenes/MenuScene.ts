@@ -1,8 +1,8 @@
 import {
-  Button,
   displayTextStyle,
   type GameServices,
   getServices,
+  mixColor,
   readViewport,
   textStyle,
 } from '@mg/core'
@@ -41,6 +41,7 @@ import {
   requestGameFullscreen,
   toggleGameFullscreen,
 } from '../ui/fullscreen'
+import { GameButton } from '../ui/GameButton'
 import { LanguageModal } from '../ui/LanguageModal'
 import { computeGameLayout } from '../ui/layout'
 import { drawAwning } from '../ui/propArt'
@@ -53,7 +54,7 @@ export class MenuScene extends Phaser.Scene {
   private settingsModal?: SettingsModal
   private languageModal?: LanguageModal
   private debugFps?: DebugFps
-  private startButton?: Button
+  private startButton?: GameButton
   private restarting = false
   private starting = false
 
@@ -127,17 +128,19 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(20)
     const startY = portrait ? height * 0.72 : height * 0.8
-    this.startButton = new Button(
+    this.startButton = new GameButton(
       this,
       width / 2,
       startY,
       hasProgress(save) ? i18n.t('menu.continue') : i18n.t('menu.start'),
       theme,
       {
-        width: Math.min(330 * ui, width - 80 * ui),
-        height: 62 * ui,
-        fontSize: 24 * ui,
+        width: Math.min(360 * ui, width - 80 * ui),
+        height: 68 * ui,
+        fontSize: 26 * ui,
         variant: 'primary',
+        icon: 'play',
+        decoration: (decorScene, size) => drawMenuLeaf(decorScene, size, ui),
         onClick: () => this.startGame(),
       },
     )
@@ -547,4 +550,68 @@ function drawMenuPot(g: Phaser.GameObjects.Graphics, x: number, y: number): void
   g.fillEllipse(x - 8, y - 8, 12, 7)
   g.fillStyle(gameColors.leafLight, 1)
   g.fillEllipse(x + 3, y - 16, 7, 4)
+}
+
+/**
+ * A small leaf sprig tucked into the right end of the menu's main action. It
+ * rides on the button's decoration layer, so it follows the press sink with
+ * the label instead of floating over a moving face.
+ */
+function drawMenuLeaf(
+  scene: Phaser.Scene,
+  size: { readonly width: number; readonly height: number },
+  ui: number,
+): Phaser.GameObjects.GameObject {
+  const g = scene.add.graphics()
+  if (size.width < 240 * ui) return g
+
+  const x = size.width / 2 - 34 * ui
+  const y = 4 * ui
+  const stem = 16 * ui
+  g.lineStyle(Math.max(1.4, 2 * ui), gameColors.barkDark, 0.9)
+  g.lineBetween(x - 5 * ui, y + stem, x + 8 * ui, y - stem)
+  drawLeaf(g, x - 1 * ui, y + 3 * ui, 18 * ui, 10 * ui, -0.72, gameColors.leafLight)
+  drawLeaf(g, x + 3 * ui, y - 3 * ui, 15 * ui, 9 * ui, 0.42, gameColors.leaf)
+  g.fillStyle(gameColors.berry, 1)
+  g.fillCircle(x + 8 * ui, y - stem + 1 * ui, 2.4 * ui)
+  return g
+}
+
+function drawLeaf(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  length: number,
+  width: number,
+  angle: number,
+  color: number,
+): void {
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  const nx = -sin * width * 0.5
+  const ny = cos * width * 0.5
+  const point = (t: number, side: number): Phaser.Math.Vector2 =>
+    new Phaser.Math.Vector2(
+      x + cos * length * t + nx * side * Math.sin(Math.PI * t),
+      y + sin * length * t + ny * side * Math.sin(Math.PI * t),
+    )
+  const points = [
+    new Phaser.Math.Vector2(x, y),
+    point(0.25, 0.8),
+    point(0.5, 1),
+    point(0.75, 0.72),
+    new Phaser.Math.Vector2(x + cos * length, y + sin * length),
+    point(0.75, -0.72),
+    point(0.5, -1),
+    point(0.25, -0.8),
+  ]
+  g.fillStyle(color, 1)
+  g.fillPoints(points, true)
+  g.lineStyle(Math.max(0.8, width * 0.1), mixColor(color, gameColors.barkDark, 0.45), 0.7)
+  g.lineBetween(
+    x + cos * length * 0.08,
+    y + sin * length * 0.08,
+    x + cos * length * 0.9,
+    y + sin * length * 0.9,
+  )
 }

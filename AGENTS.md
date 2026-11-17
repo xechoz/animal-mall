@@ -127,6 +127,11 @@ submodule. Do not copy platform source into this repo.
   only. Shop tabs are bare labels with an accent underline and the zone chips are
   the only capsule row in that panel. Pause keeps one button height and grades
   its three choices by variant: filled, outlined, quiet.
+- Action buttons use the game-local `GameButton` skin (`src/ui/GameButton.ts`,
+  geometry in `src/ui/buttonSkin.ts`): bark frame, inset face, bottom lip and a
+  press sink. Do not construct `@mg/core`'s `Button` directly. Selection rings
+  and unaffordable shop prices go through `setSelected`/`setMuted`, so the bark
+  frame stays intact and the label keeps full contrast.
 - Long action bars use capsule corners (`height / 2`). Product cards, chooser
   tiles and list rows keep the card radius; do not turn content cards into pills.
 - Shop cards take the height the grid has left. Under `CARD_COMFORT_HEIGHT` they

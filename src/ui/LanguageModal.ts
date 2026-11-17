@@ -1,15 +1,8 @@
-import {
-  Button,
-  type I18n,
-  LANG_LABELS,
-  type Lang,
-  SUPPORTED_LANGS,
-  type Theme,
-  textStyle,
-} from '@mg/core'
+import { type I18n, LANG_LABELS, type Lang, SUPPORTED_LANGS, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { createCloseButton } from './dialog'
 import { drawPanelFrame } from './frames'
+import { GameButton } from './GameButton'
 import type { GameLayout } from './layout'
 
 export interface LanguageOptions {
@@ -88,46 +81,29 @@ export class LanguageModal {
       const x = -rowWidth / 2 + column * (buttonWidth + gap) + buttonWidth / 2
       const y = startY + row * (buttonHeight + gap) + buttonHeight / 2
       const selected = lang === options.current
-      card.add(
-        new Button(scene, x, y, LANG_LABELS[lang], theme, {
-          width: buttonWidth,
-          height: buttonHeight,
-          fontSize: 16 * ui,
-          variant: 'soft',
-          decoration: selected
-            ? (faceScene, size) => {
-                const g = faceScene.add.graphics()
-                const radius = size.height / 2
-                g.fillStyle(theme.accent, 0.18)
-                g.fillRoundedRect(
-                  -size.width / 2,
-                  -size.height / 2,
-                  size.width,
-                  size.height,
-                  radius,
-                )
-                g.lineStyle(2 * ui, theme.accent, 0.95)
-                g.strokeRoundedRect(
-                  -size.width / 2,
-                  -size.height / 2,
-                  size.width,
-                  size.height,
-                  radius,
-                )
-                // A check makes the choice visible without relying on colour.
-                g.lineStyle(2.4 * ui, theme.accentHover, 1)
-                const cx = -size.width / 2 + 20 * ui
-                g.lineBetween(cx - 5 * ui, 0, cx - 1 * ui, 4 * ui)
-                g.lineBetween(cx - 1 * ui, 4 * ui, cx + 6 * ui, -5 * ui)
-                return g
-              }
-            : undefined,
-          onClick: () => {
-            this.close()
-            options.onSelect(lang)
-          },
-        }),
-      )
+      const button = new GameButton(scene, x, y, LANG_LABELS[lang], theme, {
+        width: buttonWidth,
+        height: buttonHeight,
+        fontSize: 16 * ui,
+        variant: 'soft',
+        decoration: selected
+          ? (faceScene, size) => {
+              const g = faceScene.add.graphics()
+              // A check makes the choice visible without relying on colour.
+              g.lineStyle(Math.max(1.8, 2.4 * ui), theme.accentHover, 1)
+              const cx = -size.width / 2 + 22 * ui
+              g.lineBetween(cx - 5 * ui, 0, cx - 1 * ui, 4 * ui)
+              g.lineBetween(cx - 1 * ui, 4 * ui, cx + 6 * ui, -5 * ui)
+              return g
+            }
+          : undefined,
+        onClick: () => {
+          this.close()
+          options.onSelect(lang)
+        },
+      })
+      button.setSelected(selected)
+      card.add(button)
     })
   }
 

@@ -1,8 +1,9 @@
-import { Button, type I18n, type Theme } from '@mg/core'
+import type { I18n, Theme } from '@mg/core'
 import type Phaser from 'phaser'
 import { DINING, FACILITY_DWELL_MS } from '../logic/config'
 import { nearestRestingStaff } from '../logic/facilities'
 import type { ShopState, Vec2 } from '../logic/types'
+import { GameButton } from './GameButton'
 import type { GameLayout } from './layout'
 import { GROUND_RING_SQUASH, strokeGroundArc } from './propArt'
 import { type WorldCamera, worldToScreen } from './worldCamera'
@@ -18,7 +19,7 @@ export class FacilityOverlay {
   private readonly theme: Theme
   private readonly i18n: I18n
   private readonly ring: Phaser.GameObjects.Graphics
-  private readonly button: Button
+  private readonly button: GameButton
   private buttonEnabled = false
   private labelKey = ''
 
@@ -37,7 +38,7 @@ export class FacilityOverlay {
     this.i18n = i18n
     this.ring = scene.add.graphics().setDepth(3999)
     const ui = layout.ui
-    this.button = new Button(scene, 0, 0, '', theme, {
+    this.button = new GameButton(scene, 0, 0, '', theme, {
       width: 174 * ui,
       height: 52 * ui,
       fontSize: 16 * ui,

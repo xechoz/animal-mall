@@ -1,6 +1,7 @@
-import { Button, type I18n, type Theme, textStyle } from '@mg/core'
+import { type I18n, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { drawPanelFrame } from './frames'
+import { GameButton } from './GameButton'
 import type { GameLayout } from './layout'
 
 export interface PauseOptions {
@@ -65,41 +66,19 @@ export class PauseOverlay {
       label: string,
       variant: 'primary' | 'soft' | 'ghost',
       onClick: () => void,
-      decoration?: (
-        decorScene: Phaser.Scene,
-        size: { width: number; height: number },
-      ) => Phaser.GameObjects.GameObject,
-    ): Button =>
-      new Button(scene, 0, y, label, theme, {
+    ): GameButton =>
+      new GameButton(scene, 0, y, label, theme, {
         width: buttonWidth,
         height: buttonHeight,
         fontSize: 18 * unit,
         variant,
-        ...(decoration !== undefined ? { decoration } : {}),
         onClick,
       })
     const resume = action(startY, i18n.t('pause.resume'), 'primary', options.onResume)
     const shop = action(startY + gap, i18n.t('pause.shop'), 'soft', options.onShop)
-    // Leaving the run is the quietest choice; only one action stays filled. A
-    // hairline keeps the ghost from reading as a disabled panel.
-    const menu = action(
-      startY + gap * 2,
-      i18n.t('pause.menu'),
-      'ghost',
-      options.onMenu,
-      (decorScene, size) => {
-        const g = decorScene.add.graphics()
-        g.lineStyle(1.2 * unit, theme.borderSoft, 0.9)
-        g.strokeRoundedRect(
-          -size.width / 2,
-          -size.height / 2,
-          size.width,
-          size.height,
-          size.height / 2,
-        )
-        return g
-      },
-    )
+    // Leaving the run is the quietest choice; only one action stays filled. The
+    // ghost skin keeps its own hairline so it cannot read as a disabled panel.
+    const menu = action(startY + gap * 2, i18n.t('pause.menu'), 'ghost', options.onMenu)
     card.add([resume, shop, menu])
   }
 

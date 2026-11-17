@@ -1,7 +1,8 @@
-import { Button, type I18n, LANG_LABELS, type Theme, textStyle } from '@mg/core'
+import { type I18n, LANG_LABELS, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { createCloseButton, drawChevron, drawToggle } from './dialog'
 import { drawPanelFrame } from './frames'
+import { GameButton } from './GameButton'
 import type { GameLayout } from './layout'
 
 export interface SettingsOptions {
@@ -153,7 +154,7 @@ export class SettingsModal {
     hit(languageRow, () => options.onOpenLanguage())
 
     card.add(
-      new Button(scene, 0, cardH / 2 - 42 * unit, i18n.t('settings.done'), theme, {
+      new GameButton(scene, 0, cardH / 2 - 42 * unit, i18n.t('settings.done'), theme, {
         width: rowW,
         height: 48 * unit,
         fontSize: 17 * unit,

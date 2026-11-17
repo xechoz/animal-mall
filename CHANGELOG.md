@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Give every action a physical game-button skin: a bark frame, an inset
+  parchment/leaf/berry face, a top sheen and a bottom lip that the face sinks
+  into when pressed. The menu's main action, pause/settings/language/day-report
+  dialogs, shop cards, zone chips and settings toggles all use it; the HUD
+  round buttons keep their frosted plate but gain a bark rim. The shop's remove
+  confirmation now uses the same parchment dialog as the rest of the game
+  instead of the platform modal.
+
 - Expand the farm: pig (truffle), duck (duck egg), donkey (donkey milk) and
   turkey (feather) join the farm slots, and the kitchen gains an omelette pan
   (duck egg + vegetables) and a sewing table (feathers). Every trough animal

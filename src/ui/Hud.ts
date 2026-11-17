@@ -1,9 +1,10 @@
-import { Button, type I18n, mixColor, type Theme, textStyle } from '@mg/core'
+import { type I18n, mixColor, type Theme, textStyle } from '@mg/core'
 import type Phaser from 'phaser'
 import { dayClockLabel, dayPhase, dayProgress } from '../logic/day'
 import { goalCost, nextGoal } from '../logic/goals'
 import type { DayPhase, ShopState, Vec2 } from '../logic/types'
 import { coinTextureKey } from './fruitArt'
+import { GameButton } from './GameButton'
 import { drawHudGlass } from './hudGlass'
 import type { GameLayout } from './layout'
 import { type DaySkyTint, daySkyTint } from './lighting'
@@ -43,7 +44,7 @@ export class Hud {
   private readonly clockText: Phaser.GameObjects.Text
   private readonly shopButton: RoundButton
   private readonly pauseButton: RoundButton
-  private readonly devButton?: Button
+  private readonly devButton?: GameButton
   private devEnabled = true
   private layout: GameLayout
   private coinBaseScale = 0.78
@@ -109,7 +110,7 @@ export class Hud {
     })
     this.pauseButton.setDepth(6100)
     if (callbacks.onDev !== undefined) {
-      this.devButton = new Button(scene, 0, 0, 'DEV', theme, {
+      this.devButton = new GameButton(scene, 0, 0, 'DEV', theme, {
         width: 64 * layout.ui,
         height: 36 * layout.ui,
         fontSize: 13 * layout.ui,
